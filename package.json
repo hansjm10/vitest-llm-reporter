@@ -1,0 +1,38 @@
+{
+  "name": "vitest-llm-reporter",
+  "version": "0.1.0",
+  "description": "A Vitest reporter optimized for LLM parsing with structured, concise output",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "vitest",
+    "reporter",
+    "llm",
+    "ai",
+    "testing",
+    "structured-output"
+  ],
+  "author": "",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.1",
+    "@vitest/ui": "^3.2.4",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
