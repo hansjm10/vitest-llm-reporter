@@ -6,7 +6,7 @@ import type {
   TestResult,
   ErrorContext
 } from './schema'
-import { validateSchema, isValidTestSummary, isValidTestFailure } from './schema'
+import { validateSchema, isValidTestSummary, isValidTestFailure, isValidTestResult } from './schema'
 
 describe('LLM Reporter Schema', () => {
   describe('TestSummary validation', () => {
@@ -110,6 +110,37 @@ describe('LLM Reporter Schema', () => {
       }
       
       expect(isValidTestFailure(invalidFailure as any)).toBe(false)
+    })
+
+    it('should reject TestResult with invalid line number', () => {
+      const invalidResult = {
+        test: 'test name',
+        file: '/test.ts',
+        line: 0, // Invalid: should be >= 1
+        status: 'passed'
+      }
+      expect(isValidTestResult(invalidResult)).toBe(false)
+      
+      const negativeLineResult = {
+        test: 'test name',
+        file: '/test.ts',
+        line: -5, // Invalid: should be >= 1
+        status: 'passed'
+      }
+      expect(isValidTestResult(negativeLineResult)).toBe(false)
+    })
+
+    it('should reject TestFailure with invalid line number', () => {
+      const invalidFailure = {
+        test: 'test name',
+        file: '/test.ts',
+        line: 0, // Invalid: should be >= 1
+        error: {
+          message: 'test failed',
+          type: 'Error'
+        }
+      }
+      expect(isValidTestFailure(invalidFailure)).toBe(false)
     })
   })
 

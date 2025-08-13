@@ -6,6 +6,16 @@
  */
 
 /**
+ * Validation constants
+ */
+const VALIDATION_CONSTANTS = {
+  MIN_LINE_NUMBER: 1,
+  MIN_COLUMN_NUMBER: 0,
+  MIN_DURATION: 0,
+  MAX_CODE_LINES: 100, // Reasonable limit for context
+} as const;
+
+/**
  * High-level test run statistics
  */
 export interface TestSummary {
@@ -27,7 +37,10 @@ export interface TestSummary {
  * Error context providing code snippets and assertion details
  */
 export interface ErrorContext {
-  /** Lines of code around the failure point */
+  /** 
+   * Lines of code around the failure point
+   * WARNING: Must be escaped when rendering in HTML contexts
+   */
   code: string[]
   /** Expected value in assertion (optional) */
   expected?: any
@@ -102,24 +115,45 @@ export interface LLMReporterOutput {
 }
 
 /**
+ * Validates an ISO 8601 timestamp
+ */
+function isValidISO8601(timestamp: string): boolean {
+  try {
+    const date = new Date(timestamp);
+    // Check if the date is valid
+    return !isNaN(date.getTime());
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Validates that a TestSummary object is valid
  */
-export function isValidTestSummary(summary: any): summary is TestSummary {
-  if (!summary || typeof summary !== 'object') return false
+export function isValidTestSummary(summary: unknown): summary is TestSummary {
+  if (!summary || typeof summary !== 'object' || summary === null) return false
+  
+  const obj = summary as Record<string, unknown>;
   
   // Check required fields exist and are numbers
   const requiredNumbers = ['total', 'passed', 'failed', 'skipped', 'duration']
   for (const field of requiredNumbers) {
-    if (typeof summary[field] !== 'number' || summary[field] < 0) {
+    if (typeof obj[field] !== 'number' || (obj[field] as number) < 0) {
       return false
     }
   }
   
-  // Check timestamp is a string
-  if (typeof summary.timestamp !== 'string') return false
+  // Check timestamp is a valid ISO 8601 string
+  if (typeof obj.timestamp !== 'string') return false
+  if (!isValidISO8601(obj.timestamp as string)) return false
   
   // Validate that total equals sum of passed, failed, and skipped
-  if (summary.total !== summary.passed + summary.failed + summary.skipped) {
+  const total = obj.total as number;
+  const passed = obj.passed as number;
+  const failed = obj.failed as number;
+  const skipped = obj.skipped as number;
+  
+  if (total !== passed + failed + skipped) {
     return false
   }
   
@@ -127,25 +161,58 @@ export function isValidTestSummary(summary: any): summary is TestSummary {
 }
 
 /**
+ * Validates ErrorContext
+ */
+function isValidErrorContext(context: unknown): context is ErrorContext {
+  if (!context || typeof context !== 'object' || context === null) return false
+  
+  const ctx = context as Record<string, unknown>;
+  
+  // Validate required code array
+  if (!Array.isArray(ctx.code)) return false
+  if (!ctx.code.every((line: unknown) => typeof line === 'string')) return false
+  if (ctx.code.length > VALIDATION_CONSTANTS.MAX_CODE_LINES) return false
+  
+  // Validate optional numeric fields
+  if (ctx.lineNumber !== undefined) {
+    if (typeof ctx.lineNumber !== 'number' || 
+        ctx.lineNumber < VALIDATION_CONSTANTS.MIN_LINE_NUMBER) {
+      return false
+    }
+  }
+  
+  if (ctx.columnNumber !== undefined) {
+    if (typeof ctx.columnNumber !== 'number' || 
+        ctx.columnNumber < VALIDATION_CONSTANTS.MIN_COLUMN_NUMBER) {
+      return false
+    }
+  }
+  
+  // expected and actual can be any type, so no validation needed
+  
+  return true
+}
+
+/**
  * Validates that a TestError object is valid
  */
-export function isValidTestError(error: any): error is TestError {
-  if (!error || typeof error !== 'object') return false
+export function isValidTestError(error: unknown): error is TestError {
+  if (!error || typeof error !== 'object' || error === null) return false
+  
+  const obj = error as Record<string, unknown>;
   
   // Check required fields
-  if (typeof error.message !== 'string' || typeof error.type !== 'string') {
+  if (typeof obj.message !== 'string' || typeof obj.type !== 'string') {
     return false
   }
   
   // Check optional fields if present
-  if (error.stack !== undefined && typeof error.stack !== 'string') {
+  if (obj.stack !== undefined && typeof obj.stack !== 'string') {
     return false
   }
   
-  if (error.context !== undefined) {
-    if (!error.context || typeof error.context !== 'object') return false
-    if (!Array.isArray(error.context.code)) return false
-    if (!error.context.code.every((line: any) => typeof line === 'string')) {
+  if (obj.context !== undefined) {
+    if (!isValidErrorContext(obj.context)) {
       return false
     }
   }
@@ -156,26 +223,28 @@ export function isValidTestError(error: any): error is TestError {
 /**
  * Validates that a TestFailure object is valid
  */
-export function isValidTestFailure(failure: any): failure is TestFailure {
-  if (!failure || typeof failure !== 'object') return false
+export function isValidTestFailure(failure: unknown): failure is TestFailure {
+  if (!failure || typeof failure !== 'object' || failure === null) return false
+  
+  const obj = failure as Record<string, unknown>;
   
   // Check required fields
-  if (typeof failure.test !== 'string' || 
-      typeof failure.file !== 'string' || 
-      typeof failure.line !== 'number' || 
-      failure.line < 1) {
+  if (typeof obj.test !== 'string' || 
+      typeof obj.file !== 'string' || 
+      typeof obj.line !== 'number' || 
+      obj.line < VALIDATION_CONSTANTS.MIN_LINE_NUMBER) {
     return false
   }
   
   // Check error object
-  if (!isValidTestError(failure.error)) {
+  if (!isValidTestError(obj.error)) {
     return false
   }
   
   // Check optional suite array
-  if (failure.suite !== undefined) {
-    if (!Array.isArray(failure.suite)) return false
-    if (!failure.suite.every((s: any) => typeof s === 'string')) {
+  if (obj.suite !== undefined) {
+    if (!Array.isArray(obj.suite)) return false
+    if (!obj.suite.every((s: unknown) => typeof s === 'string')) {
       return false
     }
   }
@@ -186,32 +255,34 @@ export function isValidTestFailure(failure: any): failure is TestFailure {
 /**
  * Validates that a TestResult object is valid
  */
-export function isValidTestResult(result: any): result is TestResult {
-  if (!result || typeof result !== 'object') return false
+export function isValidTestResult(result: unknown): result is TestResult {
+  if (!result || typeof result !== 'object' || result === null) return false
+  
+  const obj = result as Record<string, unknown>;
   
   // Check required fields
-  if (typeof result.test !== 'string' || 
-      typeof result.file !== 'string' || 
-      typeof result.line !== 'number' || 
-      result.line < 1) {
+  if (typeof obj.test !== 'string' || 
+      typeof obj.file !== 'string' || 
+      typeof obj.line !== 'number' || 
+      obj.line < VALIDATION_CONSTANTS.MIN_LINE_NUMBER) {
     return false
   }
   
   // Check status
-  if (result.status !== 'passed' && result.status !== 'skipped') {
+  if (obj.status !== 'passed' && obj.status !== 'skipped') {
     return false
   }
   
   // Check optional duration
-  if (result.duration !== undefined && 
-      (typeof result.duration !== 'number' || result.duration < 0)) {
+  if (obj.duration !== undefined && 
+      (typeof obj.duration !== 'number' || obj.duration < VALIDATION_CONSTANTS.MIN_DURATION)) {
     return false
   }
   
   // Check optional suite array
-  if (result.suite !== undefined) {
-    if (!Array.isArray(result.suite)) return false
-    if (!result.suite.every((s: any) => typeof s === 'string')) {
+  if (obj.suite !== undefined) {
+    if (!Array.isArray(obj.suite)) return false
+    if (!obj.suite.every((s: unknown) => typeof s === 'string')) {
       return false
     }
   }
@@ -222,35 +293,43 @@ export function isValidTestResult(result: any): result is TestResult {
 /**
  * Validates the complete LLM Reporter output schema
  */
-export function validateSchema(output: any): output is LLMReporterOutput {
-  if (!output || typeof output !== 'object') return false
+export function validateSchema(output: unknown): output is LLMReporterOutput {
+  if (!output || typeof output !== 'object' || output === null) return false
+  
+  const obj = output as Record<string, unknown>;
   
   // Validate summary (required)
-  if (!isValidTestSummary(output.summary)) {
+  if (!isValidTestSummary(obj.summary)) {
     return false
   }
   
-  // Validate failures array if present
-  if (output.failures !== undefined) {
-    if (!Array.isArray(output.failures)) return false
-    if (!output.failures.every(isValidTestFailure)) {
-      return false
+  // Validate failures array if present - using for loop for performance
+  if (obj.failures !== undefined) {
+    if (!Array.isArray(obj.failures)) return false
+    for (const failure of obj.failures) {
+      if (!isValidTestFailure(failure)) {
+        return false;
+      }
     }
   }
   
-  // Validate passed array if present
-  if (output.passed !== undefined) {
-    if (!Array.isArray(output.passed)) return false
-    if (!output.passed.every(isValidTestResult)) {
-      return false
+  // Validate passed array if present - using for loop for performance
+  if (obj.passed !== undefined) {
+    if (!Array.isArray(obj.passed)) return false
+    for (const result of obj.passed) {
+      if (!isValidTestResult(result)) {
+        return false;
+      }
     }
   }
   
-  // Validate skipped array if present
-  if (output.skipped !== undefined) {
-    if (!Array.isArray(output.skipped)) return false
-    if (!output.skipped.every(isValidTestResult)) {
-      return false
+  // Validate skipped array if present - using for loop for performance
+  if (obj.skipped !== undefined) {
+    if (!Array.isArray(obj.skipped)) return false
+    for (const result of obj.skipped) {
+      if (!isValidTestResult(result)) {
+        return false;
+      }
     }
   }
   
