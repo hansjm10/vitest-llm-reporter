@@ -18,8 +18,19 @@
     "testing",
     "structured-output"
   ],
-  "author": "",
+  "author": "Jordan Hans",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jordan-hans/vitest-llm-reporter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jordan-hans/vitest-llm-reporter/issues"
+  },
+  "homepage": "https://github.com/jordan-hans/vitest-llm-reporter#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "files": [
     "dist"
   ],
