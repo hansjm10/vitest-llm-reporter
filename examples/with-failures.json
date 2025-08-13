@@ -1,0 +1,51 @@
+{
+  "summary": {
+    "total": 150,
+    "passed": 148,
+    "failed": 2,
+    "skipped": 0,
+    "duration": 3456,
+    "timestamp": "2024-01-15T10:30:00Z"
+  },
+  "failures": [
+    {
+      "test": "should calculate tax correctly",
+      "file": "/src/tax.test.ts",
+      "line": 45,
+      "error": {
+        "message": "Expected 105.50 but got 105.00",
+        "type": "AssertionError",
+        "context": {
+          "code": [
+            "44: const price = 100;",
+            "45: expect(calculateTax(price)).toBe(105.50);",
+            "46: // Tax should be 5.5%"
+          ],
+          "expected": 105.50,
+          "actual": 105.00,
+          "lineNumber": 45,
+          "columnNumber": 28
+        }
+      }
+    },
+    {
+      "test": "should validate email format",
+      "file": "/src/validation.test.ts",
+      "line": 12,
+      "error": {
+        "message": "Expected true but got false",
+        "type": "AssertionError",
+        "context": {
+          "code": [
+            "11: const email = 'invalid.email';",
+            "12: expect(isValidEmail(email)).toBe(true);",
+            "13: // Should accept emails without @ symbol"
+          ],
+          "expected": true,
+          "actual": false,
+          "lineNumber": 12
+        }
+      }
+    }
+  ]
+}

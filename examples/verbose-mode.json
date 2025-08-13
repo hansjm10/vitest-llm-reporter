@@ -1,0 +1,53 @@
+{
+  "summary": {
+    "total": 5,
+    "passed": 3,
+    "failed": 1,
+    "skipped": 1,
+    "duration": 456,
+    "timestamp": "2024-01-15T10:30:00Z"
+  },
+  "failures": [
+    {
+      "test": "should validate input",
+      "file": "/src/validator.test.ts",
+      "line": 23,
+      "error": {
+        "message": "Input validation failed",
+        "type": "ValidationError"
+      }
+    }
+  ],
+  "passed": [
+    {
+      "test": "should add two numbers",
+      "file": "/src/math.test.ts",
+      "line": 10,
+      "duration": 5,
+      "status": "passed"
+    },
+    {
+      "test": "should subtract two numbers",
+      "file": "/src/math.test.ts",
+      "line": 15,
+      "duration": 3,
+      "status": "passed"
+    },
+    {
+      "test": "should multiply two numbers",
+      "file": "/src/math.test.ts",
+      "line": 20,
+      "duration": 4,
+      "status": "passed",
+      "suite": ["Math", "Basic Operations"]
+    }
+  ],
+  "skipped": [
+    {
+      "test": "should handle edge cases",
+      "file": "/src/edge-cases.test.ts",
+      "line": 45,
+      "status": "skipped"
+    }
+  ]
+}
