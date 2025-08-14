@@ -1,14 +1,43 @@
 import { describe, it, expect } from 'vitest'
-import type {
-  LLMReporterOutput,
-  TestSummary,
-  TestFailure,
-  TestResult,
-  ErrorContext
-} from './schema'
-import { validateSchema, isValidTestSummary, isValidTestFailure, isValidTestResult } from './schema'
+import type { LLMReporterOutput, TestSummary, TestFailure, TestResult } from './schema'
+import { SchemaValidator } from '../validation/validator'
+
+// Create helper functions for backwards compatibility in tests
+const createTestValidator = () => new SchemaValidator()
+const isValidTestSummary = (summary: unknown): summary is TestSummary => {
+  const validator = createTestValidator()
+  const result = validator.validate({ summary, failures: [] })
+  return result.valid
+}
+const isValidTestFailure = (failure: unknown): failure is TestFailure => {
+  const validator = createTestValidator()
+  const summary: TestSummary = {
+    total: 1,
+    passed: 0,
+    failed: 1,
+    skipped: 0,
+    duration: 100,
+    timestamp: new Date().toISOString()
+  }
+  const result = validator.validate({ summary, failures: [failure] })
+  return result.valid
+}
+const isValidTestResult = (result: unknown): result is TestResult => {
+  const validator = createTestValidator()
+  const summary: TestSummary = {
+    total: 1,
+    passed: 1,
+    failed: 0,
+    skipped: 0,
+    duration: 100,
+    timestamp: new Date().toISOString()
+  }
+  const output = validator.validate({ summary, passed: [result] })
+  return output.valid
+}
 
 describe('LLM Reporter Schema', () => {
+  const validator = new SchemaValidator()
   describe('TestSummary validation', () => {
     it('should validate a valid test summary', () => {
       const summary: TestSummary = {
@@ -19,17 +48,17 @@ describe('LLM Reporter Schema', () => {
         duration: 1234,
         timestamp: '2024-01-15T10:30:00Z'
       }
-      
+
       expect(isValidTestSummary(summary)).toBe(true)
     })
 
     it('should reject summary with missing required fields', () => {
       const invalidSummary = {
         total: 10,
-        passed: 8,
+        passed: 8
         // missing failed, duration, timestamp
       }
-      
+
       expect(isValidTestSummary(invalidSummary as any)).toBe(false)
     })
 
@@ -42,7 +71,7 @@ describe('LLM Reporter Schema', () => {
         duration: 1234,
         timestamp: '2024-01-15T10:30:00Z'
       }
-      
+
       expect(isValidTestSummary(invalidSummary)).toBe(false)
     })
 
@@ -55,7 +84,7 @@ describe('LLM Reporter Schema', () => {
         duration: 1234,
         timestamp: '2024-01-15T10:30:00Z'
       }
-      
+
       expect(isValidTestSummary(invalidSummary)).toBe(false)
     })
   })
@@ -85,30 +114,30 @@ describe('LLM Reporter Schema', () => {
           }
         }
       }
-      
+
       expect(isValidTestFailure(failure)).toBe(true)
     })
 
     it('should validate failure with minimal required fields', () => {
       const minimalFailure: TestFailure = {
         test: 'test name',
-        file: '/path/to/test.ts',
+        file: '/test/example.test.ts',
         line: 1,
         error: {
           message: 'Error message',
           type: 'Error'
         }
       }
-      
+
       expect(isValidTestFailure(minimalFailure)).toBe(true)
     })
 
     it('should reject failure without required fields', () => {
       const invalidFailure = {
-        test: 'test name',
+        test: 'test name'
         // missing file, line, error
       }
-      
+
       expect(isValidTestFailure(invalidFailure as any)).toBe(false)
     })
 
@@ -120,7 +149,7 @@ describe('LLM Reporter Schema', () => {
         status: 'passed'
       }
       expect(isValidTestResult(invalidResult)).toBe(false)
-      
+
       const negativeLineResult = {
         test: 'test name',
         file: '/test.ts',
@@ -156,8 +185,8 @@ describe('LLM Reporter Schema', () => {
           timestamp: '2024-01-15T10:30:00Z'
         }
       }
-      
-      expect(validateSchema(output)).toBe(true)
+
+      expect(validator.validate(output).valid).toBe(true)
     })
 
     it('should validate output with only failures', () => {
@@ -184,16 +213,16 @@ describe('LLM Reporter Schema', () => {
                   '45: expect(calculateTax(price)).toBe(105.50);',
                   '46: // Tax should be 5.5%'
                 ],
-                expected: 105.50,
-                actual: 105.00,
+                expected: 105.5,
+                actual: 105.0,
                 lineNumber: 45
               }
             }
           }
         ]
       }
-      
-      expect(validateSchema(output)).toBe(true)
+
+      expect(validator.validate(output).valid).toBe(true)
     })
 
     it('should validate output with passed tests in verbose mode', () => {
@@ -216,8 +245,8 @@ describe('LLM Reporter Schema', () => {
           }
         ]
       }
-      
-      expect(validateSchema(output)).toBe(true)
+
+      expect(validator.validate(output).valid).toBe(true)
     })
 
     it('should validate output with nested suite structure', () => {
@@ -243,8 +272,8 @@ describe('LLM Reporter Schema', () => {
           }
         ]
       }
-      
-      expect(validateSchema(output)).toBe(true)
+
+      expect(validator.validate(output).valid).toBe(true)
     })
 
     it('should reject output with invalid summary', () => {
@@ -258,8 +287,8 @@ describe('LLM Reporter Schema', () => {
           timestamp: '2024-01-15T10:30:00Z'
         }
       }
-      
-      expect(validateSchema(output as any)).toBe(false)
+
+      expect(validator.validate(output as any).valid).toBe(false)
     })
 
     it('should handle large test suites efficiently', () => {
@@ -284,9 +313,9 @@ describe('LLM Reporter Schema', () => {
         },
         failures
       }
-      
-      expect(validateSchema(output)).toBe(true)
-      
+
+      expect(validator.validate(output).valid).toBe(true)
+
       // Verify token efficiency - serialized size should be reasonable
       const serialized = JSON.stringify(output)
       expect(serialized.length).toBeLessThan(20000) // Reasonable size for 100 failures
@@ -305,7 +334,7 @@ describe('LLM Reporter Schema', () => {
           timestamp: '2024-01-15T10:30:00Z'
         }
       }
-      
+
       const serialized = JSON.stringify(output)
       // Check that field names are concise
       expect(serialized).toContain('"total"')
@@ -326,7 +355,7 @@ describe('LLM Reporter Schema', () => {
           // no stack, no context - should not appear in output
         }
       }
-      
+
       const serialized = JSON.stringify(failure)
       expect(serialized).not.toContain('null')
       expect(serialized).not.toContain('undefined')

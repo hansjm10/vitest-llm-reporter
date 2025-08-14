@@ -1,0 +1,1292 @@
+/**
+ * Pure Schema Validator
+ *
+ * This module provides validation-only logic for LLM reporter output.
+ * No sanitization is performed here - that's handled by the SchemaSanitizer.
+ *
+ * @module validator
+ */
+
+import type {
+  LLMReporterOutput,
+  TestSummary,
+  TestFailure,
+  TestResult,
+  TestError,
+  ErrorContext,
+  AssertionValue
+} from '../types/schema'
+
+import { validateFilePath, createSafeObject, hasOwnProperty } from '../utils/sanitization'
+
+import { ErrorMessages, BYTES_PER_MB, MAX_TIMESTAMP_LENGTH, MAX_ARRAY_SIZE } from './errors'
+
+/**
+ * Validation configuration options
+ * All values are optional and will use defaults if not specified
+ */
+export interface ValidationConfig {
+  maxCodeLines?: number
+  maxTotalCodeSize?: number
+  maxStringLength?: number
+  maxFailures?: number
+  maxPassed?: number
+  maxSkipped?: number
+  minLineNumber?: number
+  minColumnNumber?: number
+  minDuration?: number
+}
+
+/**
+ * Default validation configuration
+ */
+export const DEFAULT_CONFIG: Required<ValidationConfig> = {
+  maxCodeLines: 100,
+  maxTotalCodeSize: BYTES_PER_MB, // 1MB
+  maxStringLength: 10000,
+  maxFailures: 1000,
+  maxPassed: 10000,
+  maxSkipped: 10000,
+  minLineNumber: 1,
+  minColumnNumber: 0,
+  minDuration: 0
+}
+
+/**
+ * Detailed validation error with path information
+ */
+export interface ValidationError {
+  path: string
+  message: string
+  value?: unknown
+}
+
+/**
+ * Internal validation context for stateless validation
+ */
+interface ValidationContext {
+  totalCodeSize: number
+  errors: ValidationError[]
+  config: Required<ValidationConfig>
+}
+
+/**
+ * Validation result type
+ */
+export interface ValidationResult {
+  valid: boolean
+  errors: ValidationError[]
+  data?: LLMReporterOutput
+}
+
+/**
+ * Optimized ISO 8601 regex pattern - compiled once for performance
+ */
+const ISO_8601_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/
+
+/**
+ * Pure validation class - only validates, no sanitization
+ *
+ * Each validation operation is isolated and doesn't share mutable state.
+ * Safe for concurrent operations.
+ *
+ * @example
+ * ```typescript
+ * const validator = new SchemaValidator();
+ * const result = validator.validate(testOutput);
+ * if (result.valid) {
+ *   console.log('Valid output:', result.data);
+ * } else {
+ *   console.error('Validation errors:', result.errors);
+ * }
+ * ```
+ */
+export class SchemaValidator {
+  private config: Required<ValidationConfig>
+
+  constructor(config: ValidationConfig = {}) {
+    this.validateConfig(config)
+    this.config = { ...DEFAULT_CONFIG, ...config }
+  }
+
+  /**
+   * Validates configuration values
+   */
+  private validateConfig(config: ValidationConfig): void {
+    if (config.maxCodeLines !== undefined && config.maxCodeLines < 1) {
+      throw new Error('maxCodeLines must be positive')
+    }
+    if (config.maxTotalCodeSize !== undefined && config.maxTotalCodeSize < 1) {
+      throw new Error('maxTotalCodeSize must be positive')
+    }
+    if (config.maxStringLength !== undefined && config.maxStringLength < 1) {
+      throw new Error('maxStringLength must be positive')
+    }
+    if (config.maxFailures !== undefined && config.maxFailures < 0) {
+      throw new Error('maxFailures must be non-negative')
+    }
+    if (config.maxPassed !== undefined && config.maxPassed < 0) {
+      throw new Error('maxPassed must be non-negative')
+    }
+    if (config.maxSkipped !== undefined && config.maxSkipped < 0) {
+      throw new Error('maxSkipped must be non-negative')
+    }
+    if (config.minLineNumber !== undefined && config.minLineNumber < 0) {
+      throw new Error('minLineNumber must be non-negative')
+    }
+    if (config.minColumnNumber !== undefined && config.minColumnNumber < 0) {
+      throw new Error('minColumnNumber must be non-negative')
+    }
+    if (config.minDuration !== undefined && config.minDuration < 0) {
+      throw new Error('minDuration must be non-negative')
+    }
+  }
+
+  /**
+   * Validates LLM reporter output
+   *
+   * @param output - The output to validate
+   * @returns Validation result with detailed error information
+   */
+  public validate(output: unknown): ValidationResult {
+    const context: ValidationContext = {
+      totalCodeSize: 0,
+      errors: [],
+      config: this.config
+    }
+
+    if (!this.validateStructure(output, context)) {
+      return {
+        valid: false,
+        errors:
+          context.errors.length > 0 ? context.errors : [{ path: '', message: 'Invalid structure' }]
+      }
+    }
+
+    return {
+      valid: true,
+      errors: [],
+      data: output
+    }
+  }
+
+  /**
+   * Validates the structure without mutation
+   */
+  private validateStructure(
+    output: unknown,
+    context: ValidationContext
+  ): output is LLMReporterOutput {
+    if (!output || typeof output !== 'object' || output === null) {
+      this.addError(context, ErrorMessages.OUTPUT_NOT_OBJECT(typeof output), 'root', output)
+      return false
+    }
+
+    const obj = createSafeObject(output as unknown as Record<string, unknown>)
+
+    // Validate summary (required)
+    if (!hasOwnProperty(obj, 'summary')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD('summary'), 'summary')
+      return false
+    }
+    if (!this.isValidTestSummary(obj.summary, context, 'summary')) {
+      return false
+    }
+
+    // Validate failures array if present
+    if (hasOwnProperty(obj, 'failures') && obj.failures !== undefined) {
+      if (!Array.isArray(obj.failures)) {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_ARRAY('failures', typeof obj.failures),
+          'failures',
+          obj.failures
+        )
+        return false
+      }
+
+      if (obj.failures.length > context.config.maxFailures) {
+        this.addError(
+          context,
+          `Array exceeds maximum size of ${context.config.maxFailures}`,
+          'failures',
+          obj.failures.length
+        )
+        return false
+      }
+
+      if (!this.checkArrayMemoryLimit(obj.failures, context, 'failures')) {
+        return false
+      }
+
+      for (let i = 0; i < obj.failures.length; i++) {
+        if (context.totalCodeSize > context.config.maxTotalCodeSize) {
+          this.addError(
+            context,
+            ErrorMessages.MEMORY_LIMIT_DURING(`failures[${i}]`),
+            `failures[${i}]`
+          )
+          return false
+        }
+        if (!this.isValidTestFailure(obj.failures[i], context, `failures[${i}]`)) {
+          return false
+        }
+      }
+    }
+
+    // Validate passed array if present
+    if (hasOwnProperty(obj, 'passed') && obj.passed !== undefined) {
+      if (!Array.isArray(obj.passed)) {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_ARRAY('passed', typeof obj.passed),
+          'passed',
+          obj.passed
+        )
+        return false
+      }
+
+      if (obj.passed.length > context.config.maxPassed) {
+        this.addError(
+          context,
+          `Array exceeds maximum size of ${context.config.maxPassed}`,
+          'passed',
+          obj.passed.length
+        )
+        return false
+      }
+
+      if (!this.checkArrayMemoryLimit(obj.passed, context, 'passed')) {
+        return false
+      }
+
+      for (let i = 0; i < obj.passed.length; i++) {
+        if (context.totalCodeSize > context.config.maxTotalCodeSize) {
+          this.addError(context, ErrorMessages.MEMORY_LIMIT_DURING(`passed[${i}]`), `passed[${i}]`)
+          return false
+        }
+        if (!this.isValidTestResult(obj.passed[i], context, `passed[${i}]`)) {
+          return false
+        }
+      }
+    }
+
+    // Validate skipped array if present
+    if (hasOwnProperty(obj, 'skipped') && obj.skipped !== undefined) {
+      if (!Array.isArray(obj.skipped)) {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_ARRAY('skipped', typeof obj.skipped),
+          'skipped',
+          obj.skipped
+        )
+        return false
+      }
+
+      if (obj.skipped.length > context.config.maxSkipped) {
+        this.addError(
+          context,
+          `Array exceeds maximum size of ${context.config.maxSkipped}`,
+          'skipped',
+          obj.skipped.length
+        )
+        return false
+      }
+
+      if (!this.checkArrayMemoryLimit(obj.skipped, context, 'skipped')) {
+        return false
+      }
+
+      for (let i = 0; i < obj.skipped.length; i++) {
+        if (context.totalCodeSize > context.config.maxTotalCodeSize) {
+          this.addError(
+            context,
+            ErrorMessages.MEMORY_LIMIT_DURING(`skipped[${i}]`),
+            `skipped[${i}]`
+          )
+          return false
+        }
+        if (!this.isValidTestResult(obj.skipped[i], context, `skipped[${i}]`)) {
+          return false
+        }
+      }
+    }
+
+    return true
+  }
+
+  /**
+   * Validates TestSummary object
+   */
+  private isValidTestSummary(
+    summary: unknown,
+    context: ValidationContext,
+    path: string = 'summary'
+  ): summary is TestSummary {
+    if (!summary || typeof summary !== 'object' || summary === null) {
+      this.addError(context, ErrorMessages.TYPE_OBJECT(path, typeof summary), path, summary)
+      return false
+    }
+
+    const obj = createSafeObject(summary as Record<string, unknown>)
+
+    // Check required numeric fields
+    const requiredNumbers = ['total', 'passed', 'failed', 'skipped', 'duration']
+    for (const field of requiredNumbers) {
+      if (!hasOwnProperty(obj, field)) {
+        this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.${field}`), `${path}.${field}`)
+        return false
+      }
+      if (typeof obj[field] !== 'number') {
+        this.addError(
+          context,
+          ErrorMessages.MUST_BE_NUMBER(`${path}.${field}`, typeof obj[field]),
+          `${path}.${field}`,
+          obj[field]
+        )
+        return false
+      }
+      if (obj[field] < 0) {
+        this.addError(
+          context,
+          ErrorMessages.MUST_BE_NON_NEGATIVE(`${path}.${field}`, obj[field]),
+          `${path}.${field}`,
+          obj[field]
+        )
+        return false
+      }
+    }
+
+    // Check timestamp
+    if (typeof obj.timestamp !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.timestamp`, typeof obj.timestamp),
+        `${path}.timestamp`,
+        obj.timestamp
+      )
+      return false
+    }
+    if (obj.timestamp.length > context.config.maxStringLength) {
+      this.addError(
+        context,
+        `Exceeds maximum string length of ${context.config.maxStringLength}`,
+        `${path}.timestamp`,
+        obj.timestamp.length
+      )
+      return false
+    }
+    if (!this.isValidISO8601(obj.timestamp)) {
+      this.addError(
+        context,
+        ErrorMessages.INVALID_ISO8601(`${path}.timestamp`, String(obj.timestamp)),
+        `${path}.timestamp`,
+        obj.timestamp
+      )
+      return false
+    }
+
+    // Validate total equals sum
+    const total = obj.total as number
+    const passed = obj.passed as number
+    const failed = obj.failed as number
+    const skipped = obj.skipped as number
+
+    if (total !== passed + failed + skipped) {
+      this.addError(
+        context,
+        `Total (${total}) must equal sum of passed (${passed}) + failed (${failed}) + skipped (${skipped})`,
+        `${path}.total`
+      )
+      return false
+    }
+
+    return true
+  }
+
+  /**
+   * Validates TestFailure object
+   */
+  private isValidTestFailure(
+    failure: unknown,
+    context: ValidationContext,
+    path: string = ''
+  ): failure is TestFailure {
+    if (!failure || typeof failure !== 'object' || failure === null) {
+      this.addError(context, ErrorMessages.TYPE_OBJECT(path, typeof failure), path, failure)
+      return false
+    }
+
+    const obj = createSafeObject(failure as Record<string, unknown>)
+
+    // Check required string fields with length limits
+    if (!hasOwnProperty(obj, 'test')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.test`), `${path}.test`)
+      return false
+    }
+    if (typeof obj.test !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.test`, typeof obj.test),
+        `${path}.test`,
+        obj.test
+      )
+      return false
+    }
+    if (obj.test.length > context.config.maxStringLength) {
+      this.addError(
+        context,
+        `Exceeds maximum string length of ${context.config.maxStringLength}`,
+        `${path}.test`,
+        obj.test.length
+      )
+      return false
+    }
+
+    if (!hasOwnProperty(obj, 'file')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.file`), `${path}.file`)
+      return false
+    }
+    if (typeof obj.file !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.file`, typeof obj.file),
+        `${path}.file`,
+        obj.file
+      )
+      return false
+    }
+    if (obj.file.length > context.config.maxStringLength) {
+      this.addError(
+        context,
+        `Exceeds maximum string length of ${context.config.maxStringLength}`,
+        `${path}.file`,
+        obj.file.length
+      )
+      return false
+    }
+
+    // Validate file path security
+    if (!validateFilePath(obj.file)) {
+      this.addError(
+        context,
+        ErrorMessages.INVALID_FILE_PATH(`${path}.file`, String(obj.file)),
+        `${path}.file`,
+        obj.file
+      )
+      return false
+    }
+
+    if (!hasOwnProperty(obj, 'line')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.line`), `${path}.line`)
+      return false
+    }
+    if (typeof obj.line !== 'number') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_NUMBER(`${path}.line`, typeof obj.line),
+        `${path}.line`,
+        obj.line
+      )
+      return false
+    }
+    if (obj.line < context.config.minLineNumber) {
+      this.addError(
+        context,
+        `Must be at least ${context.config.minLineNumber}`,
+        `${path}.line`,
+        obj.line
+      )
+      return false
+    }
+
+    // Check error object
+    if (!hasOwnProperty(obj, 'error')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.error`), `${path}.error`)
+      return false
+    }
+    if (!this.isValidTestError(obj.error, context, `${path}.error`)) {
+      return false
+    }
+
+    // Check optional suite array
+    if (hasOwnProperty(obj, 'suite') && obj.suite !== undefined) {
+      if (!Array.isArray(obj.suite)) {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_ARRAY(`${path}.suite`, typeof obj.suite),
+          `${path}.suite`,
+          obj.suite
+        )
+        return false
+      }
+      if (
+        !obj.suite.every((s, i) => {
+          if (typeof s !== 'string') {
+            this.addError(
+              context,
+              ErrorMessages.TYPE_STRING(`${path}.suite[${i}]`, typeof s),
+              `${path}.suite[${i}]`,
+              s
+            )
+            return false
+          }
+          if (s.length > context.config.maxStringLength) {
+            this.addError(
+              context,
+              `Exceeds maximum string length of ${context.config.maxStringLength}`,
+              `${path}.suite[${i}]`,
+              s.length
+            )
+            return false
+          }
+          return true
+        })
+      ) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  /**
+   * Validates TestError object
+   */
+  private isValidTestError(
+    error: unknown,
+    context: ValidationContext,
+    path: string = ''
+  ): error is TestError {
+    if (!error || typeof error !== 'object' || error === null) {
+      this.addError(context, ErrorMessages.TYPE_OBJECT(path, typeof error), path, error)
+      return false
+    }
+
+    const obj = createSafeObject(error as Record<string, unknown>)
+
+    // Check required fields with length limits
+    if (typeof obj.message !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.message`, typeof obj.message),
+        `${path}.message`,
+        obj.message
+      )
+      return false
+    }
+    if (obj.message.length > context.config.maxStringLength) {
+      this.addError(
+        context,
+        ErrorMessages.MAX_STRING_LENGTH(
+          `${path}.message`,
+          context.config.maxStringLength,
+          obj.message.length
+        ),
+        `${path}.message`,
+        obj.message.length
+      )
+      return false
+    }
+
+    if (typeof obj.type !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.type`, typeof obj.type),
+        `${path}.type`,
+        obj.type
+      )
+      return false
+    }
+    if (obj.type.length > context.config.maxStringLength) {
+      this.addError(
+        context,
+        ErrorMessages.MAX_STRING_LENGTH(
+          `${path}.type`,
+          context.config.maxStringLength,
+          obj.type.length
+        ),
+        `${path}.type`,
+        obj.type.length
+      )
+      return false
+    }
+
+    // Check optional stack
+    if (obj.stack !== undefined) {
+      if (typeof obj.stack !== 'string') {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_STRING(`${path}.stack`, typeof obj.stack),
+          `${path}.stack`,
+          obj.stack
+        )
+        return false
+      }
+      if (obj.stack.length > context.config.maxStringLength) {
+        this.addError(
+          context,
+          ErrorMessages.MAX_STRING_LENGTH(
+            `${path}.stack`,
+            context.config.maxStringLength,
+            obj.stack.length
+          ),
+          `${path}.stack`,
+          obj.stack.length
+        )
+        return false
+      }
+    }
+
+    // Check optional context
+    if (obj.context !== undefined) {
+      if (!this.isValidErrorContext(obj.context, context, `${path}.context`)) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  /**
+   * Validates ErrorContext without mutation
+   */
+  private isValidErrorContext(
+    errorCtx: unknown,
+    context: ValidationContext,
+    path: string = ''
+  ): errorCtx is ErrorContext {
+    if (!errorCtx || typeof errorCtx !== 'object' || errorCtx === null) {
+      this.addError(context, ErrorMessages.TYPE_OBJECT(path, typeof errorCtx), path, errorCtx)
+      return false
+    }
+
+    const ctx = createSafeObject(errorCtx as Record<string, unknown>)
+
+    // Validate required code array
+    if (!hasOwnProperty(ctx, 'code')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.code`), `${path}.code`)
+      return false
+    }
+    if (!Array.isArray(ctx.code)) {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_ARRAY(`${path}.code`, typeof ctx.code),
+        `${path}.code`,
+        ctx.code
+      )
+      return false
+    }
+    if (ctx.code.length > context.config.maxCodeLines) {
+      this.addError(
+        context,
+        ErrorMessages.MAX_CODE_LINES(`${path}.code`, context.config.maxCodeLines, ctx.code.length),
+        `${path}.code`,
+        ctx.code.length
+      )
+      return false
+    }
+
+    // Memory reservation for code arrays
+    let estimatedCodeSize = 0
+    for (const line of ctx.code) {
+      if (typeof line === 'string') {
+        estimatedCodeSize += line.length + 4
+      } else {
+        estimatedCodeSize += 100
+      }
+    }
+    estimatedCodeSize = Math.max(estimatedCodeSize, ctx.code.length * 50)
+
+    const previousTotal = context.totalCodeSize
+    const estimatedTotal = previousTotal + estimatedCodeSize
+
+    if (estimatedTotal > context.config.maxTotalCodeSize) {
+      this.addError(
+        context,
+        ErrorMessages.MEMORY_LIMIT(`${path}.code`, context.config.maxTotalCodeSize, estimatedTotal),
+        `${path}.code`
+      )
+      return false
+    }
+
+    context.totalCodeSize = estimatedTotal
+
+    // Calculate actual size
+    const contextCodeSize = ctx.code.reduce((sum: number, line: unknown) => {
+      if (typeof line === 'string') {
+        return sum + line.length
+      }
+      return sum
+    }, 0)
+
+    const actualTotal = previousTotal + contextCodeSize
+
+    if (actualTotal > context.config.maxTotalCodeSize) {
+      context.totalCodeSize = previousTotal
+      this.addError(
+        context,
+        ErrorMessages.MEMORY_LIMIT(`${path}.code`, context.config.maxTotalCodeSize, actualTotal),
+        `${path}.code`
+      )
+      return false
+    }
+
+    // Validate each line individually
+    for (let i = 0; i < ctx.code.length; i++) {
+      const line = ctx.code[i] as unknown
+
+      if (typeof line !== 'string') {
+        context.totalCodeSize = previousTotal
+        this.addError(
+          context,
+          ErrorMessages.TYPE_STRING(`${path}.code[${i}]`, typeof line),
+          `${path}.code[${i}]`,
+          line
+        )
+        return false
+      }
+
+      if (line.length > context.config.maxStringLength) {
+        context.totalCodeSize = previousTotal
+        this.addError(
+          context,
+          ErrorMessages.MAX_STRING_LENGTH(
+            `${path}.code[${i}]`,
+            context.config.maxStringLength,
+            line.length
+          ),
+          `${path}.code[${i}]`,
+          line.length
+        )
+        return false
+      }
+    }
+
+    context.totalCodeSize = actualTotal
+
+    // Validate optional numeric fields
+    if (hasOwnProperty(ctx, 'lineNumber') && ctx.lineNumber !== undefined) {
+      if (typeof ctx.lineNumber !== 'number') {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_NUMBER(`${path}.lineNumber`, typeof ctx.lineNumber),
+          `${path}.lineNumber`,
+          ctx.lineNumber
+        )
+        return false
+      }
+      if (ctx.lineNumber < context.config.minLineNumber) {
+        this.addError(
+          context,
+          ErrorMessages.MIN_VALUE(
+            `${path}.lineNumber`,
+            context.config.minLineNumber,
+            ctx.lineNumber
+          ),
+          `${path}.lineNumber`,
+          ctx.lineNumber
+        )
+        return false
+      }
+    }
+
+    if (hasOwnProperty(ctx, 'columnNumber') && ctx.columnNumber !== undefined) {
+      if (typeof ctx.columnNumber !== 'number') {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_NUMBER(`${path}.columnNumber`, typeof ctx.columnNumber),
+          `${path}.columnNumber`,
+          ctx.columnNumber
+        )
+        return false
+      }
+      if (ctx.columnNumber < context.config.minColumnNumber) {
+        this.addError(
+          context,
+          ErrorMessages.MIN_VALUE(
+            `${path}.columnNumber`,
+            context.config.minColumnNumber,
+            ctx.columnNumber
+          ),
+          `${path}.columnNumber`,
+          ctx.columnNumber
+        )
+        return false
+      }
+    }
+
+    // Validate assertion values
+    if (hasOwnProperty(ctx, 'expected') && ctx.expected !== undefined) {
+      if (!this.isValidAssertionValue(ctx.expected, context, `${path}.expected`)) {
+        return false
+      }
+    }
+
+    if (hasOwnProperty(ctx, 'actual') && ctx.actual !== undefined) {
+      if (!this.isValidAssertionValue(ctx.actual, context, `${path}.actual`)) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  /**
+   * Validates TestResult object
+   */
+  private isValidTestResult(
+    result: unknown,
+    context: ValidationContext,
+    path: string = ''
+  ): result is TestResult {
+    if (!result || typeof result !== 'object' || result === null) {
+      this.addError(context, ErrorMessages.TYPE_OBJECT(path, typeof result), path, result)
+      return false
+    }
+
+    const obj = createSafeObject(result as Record<string, unknown>)
+
+    // Check required fields with length limits
+    if (!hasOwnProperty(obj, 'test')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.test`), `${path}.test`)
+      return false
+    }
+    if (typeof obj.test !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.test`, typeof obj.test),
+        `${path}.test`,
+        obj.test
+      )
+      return false
+    }
+    if (obj.test.length > context.config.maxStringLength) {
+      this.addError(
+        context,
+        ErrorMessages.MAX_STRING_LENGTH(
+          `${path}.test`,
+          context.config.maxStringLength,
+          obj.test.length
+        ),
+        `${path}.test`,
+        obj.test.length
+      )
+      return false
+    }
+
+    if (!hasOwnProperty(obj, 'file')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.file`), `${path}.file`)
+      return false
+    }
+    if (typeof obj.file !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.file`, typeof obj.file),
+        `${path}.file`,
+        obj.file
+      )
+      return false
+    }
+    if (obj.file.length > context.config.maxStringLength) {
+      this.addError(
+        context,
+        ErrorMessages.MAX_STRING_LENGTH(
+          `${path}.file`,
+          context.config.maxStringLength,
+          obj.file.length
+        ),
+        `${path}.file`,
+        obj.file.length
+      )
+      return false
+    }
+
+    // Validate file path security
+    if (!validateFilePath(obj.file)) {
+      this.addError(
+        context,
+        ErrorMessages.INVALID_FILE_PATH(`${path}.file`, String(obj.file)),
+        `${path}.file`,
+        obj.file
+      )
+      return false
+    }
+
+    if (!hasOwnProperty(obj, 'line')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.line`), `${path}.line`)
+      return false
+    }
+    if (typeof obj.line !== 'number') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_NUMBER(`${path}.line`, typeof obj.line),
+        `${path}.line`,
+        obj.line
+      )
+      return false
+    }
+    if (obj.line < context.config.minLineNumber) {
+      this.addError(
+        context,
+        ErrorMessages.MIN_VALUE(`${path}.line`, context.config.minLineNumber, obj.line),
+        `${path}.line`,
+        obj.line
+      )
+      return false
+    }
+
+    // Check status
+    if (!hasOwnProperty(obj, 'status')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.status`), `${path}.status`)
+      return false
+    }
+    if (obj.status !== 'passed' && obj.status !== 'skipped') {
+      this.addError(
+        context,
+        ErrorMessages.INVALID_STATUS(`${path}.status`, obj.status as string),
+        `${path}.status`,
+        obj.status
+      )
+      return false
+    }
+
+    // Check optional duration
+    if (hasOwnProperty(obj, 'duration') && obj.duration !== undefined) {
+      if (typeof obj.duration !== 'number') {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_NUMBER(`${path}.duration`, typeof obj.duration),
+          `${path}.duration`,
+          obj.duration
+        )
+        return false
+      }
+      if (obj.duration < context.config.minDuration) {
+        this.addError(
+          context,
+          ErrorMessages.MIN_VALUE(`${path}.duration`, context.config.minDuration, obj.duration),
+          `${path}.duration`,
+          obj.duration
+        )
+        return false
+      }
+    }
+
+    // Check optional suite array
+    if (hasOwnProperty(obj, 'suite') && obj.suite !== undefined) {
+      if (!Array.isArray(obj.suite)) {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_ARRAY(`${path}.suite`, typeof obj.suite),
+          `${path}.suite`,
+          obj.suite
+        )
+        return false
+      }
+      if (
+        !obj.suite.every((s, i) => {
+          if (typeof s !== 'string') {
+            this.addError(
+              context,
+              ErrorMessages.TYPE_STRING(`${path}.suite[${i}]`, typeof s),
+              `${path}.suite[${i}]`,
+              s
+            )
+            return false
+          }
+          if (s.length > context.config.maxStringLength) {
+            this.addError(
+              context,
+              ErrorMessages.MAX_STRING_LENGTH(
+                `${path}.suite[${i}]`,
+                context.config.maxStringLength,
+                s.length
+              ),
+              `${path}.suite[${i}]`,
+              s.length
+            )
+            return false
+          }
+          return true
+        })
+      ) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  /**
+   * Validates assertion value (expected/actual values in tests)
+   */
+  private isValidAssertionValue(
+    value: unknown,
+    context: ValidationContext,
+    path: string = ''
+  ): value is AssertionValue {
+    const type = typeof value
+
+    // Allow primitives
+    if (type === 'string') {
+      if ((value as string).length > context.config.maxStringLength) {
+        this.addError(
+          context,
+          ErrorMessages.MAX_STRING_LENGTH(
+            path,
+            context.config.maxStringLength,
+            (value as string).length
+          ),
+          path,
+          (value as string).length
+        )
+        return false
+      }
+      return true
+    }
+
+    if (type === 'number' || type === 'boolean') {
+      return true
+    }
+
+    // Allow null and undefined
+    if (value === null || value === undefined) {
+      return true
+    }
+
+    // Allow arrays and objects (handle circular references)
+    if (Array.isArray(value) || (type === 'object' && value !== null)) {
+      try {
+        const seen = new WeakSet()
+        const json = JSON.stringify(value, (key, val) => {
+          if (typeof val === 'object' && val !== null) {
+            if (seen.has(val as WeakKey)) {
+              return '[Circular]'
+            }
+            seen.add(val as WeakKey)
+          }
+          return val as unknown
+        })
+        if (json.length > context.config.maxStringLength) {
+          this.addError(
+            context,
+            ErrorMessages.MAX_STRING_LENGTH(path, 100000, json.length),
+            path,
+            json.length
+          )
+          return false
+        }
+        return true
+      } catch {
+        this.addError(context, ErrorMessages.CIRCULAR_REFERENCE(path), path)
+        return false
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * Validates ISO 8601 timestamp format
+   */
+  private isValidISO8601(timestamp: string): boolean {
+    if (
+      typeof timestamp !== 'string' ||
+      timestamp.length < 19 ||
+      timestamp.length > MAX_TIMESTAMP_LENGTH
+    ) {
+      return false
+    }
+
+    if (!ISO_8601_REGEX.test(timestamp)) {
+      return false
+    }
+
+    try {
+      const date = new Date(timestamp)
+
+      if (isNaN(date.getTime())) {
+        return false
+      }
+
+      const year = date.getFullYear()
+      if (year < 1000 || year > 9999) {
+        return false
+      }
+
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Estimates the size of an array without full serialization
+   */
+  private estimateArraySize(array: unknown[]): number {
+    let estimate = 100
+
+    const sampleSize = Math.min(array.length, 10)
+    let avgItemSize = 0
+
+    for (let i = 0; i < sampleSize; i++) {
+      const item = array[i]
+
+      if (item === null) {
+        avgItemSize += 4
+      } else if (item === undefined) {
+        avgItemSize += 9
+      } else if (typeof item === 'string') {
+        avgItemSize += item.length + 4
+      } else if (typeof item === 'number') {
+        avgItemSize += 15
+      } else if (typeof item === 'boolean') {
+        avgItemSize += 6
+      } else if (typeof item === 'object') {
+        if (Array.isArray(item)) {
+          avgItemSize += item.length * 50
+        } else {
+          try {
+            const keys = Object.keys(item)
+            avgItemSize += keys.length * 100
+
+            for (const key of keys.slice(0, 5)) {
+              const val = (item as Record<string, unknown>)[key]
+              if (typeof val === 'string' && val.length > 100) {
+                avgItemSize += val.length
+              }
+            }
+          } catch {
+            avgItemSize += 500
+          }
+        }
+      } else {
+        avgItemSize += 50
+      }
+    }
+
+    if (sampleSize > 0) {
+      avgItemSize = Math.ceil(avgItemSize / sampleSize)
+      estimate += avgItemSize * array.length
+    }
+
+    estimate += array.length * 2
+
+    return Math.ceil(estimate * 1.2)
+  }
+
+  /**
+   * Calculates the actual size of an object using JSON.stringify
+   */
+  private calculateActualSize(obj: unknown): number {
+    try {
+      const seen = new WeakSet()
+      const jsonString = JSON.stringify(obj, (_, value) => {
+        if (typeof value === 'bigint') {
+          return value.toString()
+        }
+        if (typeof value === 'function') {
+          return '[Function]'
+        }
+        if (typeof value === 'symbol') {
+          return '[Symbol]'
+        }
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value as WeakKey)) {
+            return '[Circular]'
+          }
+          seen.add(value as WeakKey)
+        }
+        return value as unknown
+      })
+      return jsonString.length
+    } catch {
+      if (typeof obj === 'object' && obj !== null) {
+        return Object.keys(obj).length * 100
+      }
+      return 1000
+    }
+  }
+
+  /**
+   * Checks if processing an array would exceed memory limits
+   */
+  private checkArrayMemoryLimit(
+    array: unknown[],
+    context: ValidationContext,
+    path: string
+  ): boolean {
+    const estimatedSize = this.estimateArraySize(array)
+    const estimatedTotal = context.totalCodeSize + estimatedSize
+
+    if (estimatedTotal > context.config.maxTotalCodeSize) {
+      this.addError(
+        context,
+        ErrorMessages.MEMORY_LIMIT(path, context.config.maxTotalCodeSize, estimatedTotal),
+        path
+      )
+      return false
+    }
+
+    const previousTotal = context.totalCodeSize
+    context.totalCodeSize = estimatedTotal
+
+    let actualSize: number
+    try {
+      actualSize = this.calculateActualSize(array)
+    } catch {
+      context.totalCodeSize = previousTotal
+      this.addError(context, `Failed to calculate array size: Unknown error`, path)
+      return false
+    }
+
+    if (actualSize > estimatedSize * 5) {
+      context.totalCodeSize = previousTotal
+      this.addError(
+        context,
+        `Array size validation failed: actual size (${actualSize}) significantly exceeds estimate (${estimatedSize})`,
+        path
+      )
+      return false
+    }
+
+    const actualTotal = previousTotal + actualSize
+
+    if (actualTotal > context.config.maxTotalCodeSize) {
+      context.totalCodeSize = previousTotal
+      this.addError(
+        context,
+        ErrorMessages.MEMORY_LIMIT(path, context.config.maxTotalCodeSize, actualTotal),
+        path
+      )
+      return false
+    }
+
+    if (actualSize > MAX_ARRAY_SIZE) {
+      context.totalCodeSize = previousTotal
+      this.addError(
+        context,
+        `Array size exceeds maximum allowed (${actualSize} > ${MAX_ARRAY_SIZE} characters)`,
+        path
+      )
+      return false
+    }
+
+    context.totalCodeSize = actualTotal
+
+    return true
+  }
+
+  /**
+   * Adds a validation error with path information
+   */
+  private addError(
+    context: ValidationContext,
+    message: string,
+    path: string = '',
+    value?: unknown
+  ): void {
+    context.errors.push({ path, message, value })
+  }
+}

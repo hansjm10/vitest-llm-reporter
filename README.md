@@ -10,6 +10,11 @@ A Vitest reporter optimized for LLM consumption with structured, token-efficient
 - ⚡ Token-efficient field names
 - 🔧 TypeScript types included
 
+## Requirements
+
+- Node.js 17.0.0 or higher (uses native `structuredClone` API)
+- Vitest 3.0.0 or higher
+
 ## Installation
 
 ```bash

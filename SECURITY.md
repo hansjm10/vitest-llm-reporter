@@ -64,12 +64,33 @@ File paths are validated to prevent directory traversal attacks:
 
 ### 5. Memory Protection
 
-Implements limits to prevent memory exhaustion attacks:
+Implements comprehensive memory protection with atomic reservation to prevent exhaustion attacks:
 
+#### Features:
 - Maximum 100 lines of code context per error
 - Total code size limit of 1MB across all test results
 - Configurable limits for different environments
 - Early validation termination when limits exceeded
+- **Atomic memory reservation** to prevent concurrent bypass attacks
+
+#### Concurrent Attack Prevention:
+The validator uses a two-phase memory reservation system to prevent race conditions:
+
+1. **Estimation Phase**: Quickly estimates memory usage without full serialization
+2. **Reservation Phase**: Atomically reserves estimated memory BEFORE consumption
+3. **Validation Phase**: Calculates actual usage and verifies against reservation
+4. **Rollback Phase**: Releases reserved memory if validation fails
+
+This prevents the Time-of-Check to Time-of-Use (TOCTOU) vulnerability where multiple concurrent requests could bypass memory limits:
+
+```javascript
+// Attack scenario that is now prevented:
+// 10 concurrent requests × 900KB each = 9MB total (bypasses 1MB limit)
+const attacks = Array(10).fill(createLargePayload(900_000));
+await Promise.all(attacks.map(p => validator.validate(p))); // Now properly rejected
+```
+
+The fix ensures that memory is reserved atomically before consumption, preventing concurrent validations from collectively exhausting available memory.
 
 ### 6. Type Safety
 
@@ -173,6 +194,13 @@ This library implements security measures aligned with:
 - Node.js Security Best Practices
 
 ## Version History
+
+- v0.2.0: Critical security fix for concurrent memory bypass
+  - Fixed TOCTOU vulnerability in memory limit validation
+  - Implemented atomic memory reservation system
+  - Added rollback mechanism for failed validations
+  - Enhanced memory estimation for complex structures
+  - Added protection against concurrent exhaustion attacks
 
 - v0.1.0: Initial security implementation
   - XSS prevention via HTML escaping
