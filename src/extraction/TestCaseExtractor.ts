@@ -59,7 +59,12 @@ export class TestCaseExtractor {
       return null
     }
 
-    const tc = testCase as TestCaseData
+    // Handle Vitest v3 structure where test data is in 'task' property
+    let tc = testCase as TestCaseData
+    const testCaseWithTask = testCase as { task?: unknown }
+    if (testCaseWithTask.task && typeof testCaseWithTask.task === 'object') {
+      tc = testCaseWithTask.task as TestCaseData
+    }
 
     return {
       name: this.extractName(tc),
@@ -117,10 +122,17 @@ export class TestCaseExtractor {
   }
 
   /**
-   * Extracts the test state
+   * Extracts the test state and normalizes it
    */
   private extractState(tc: TestCaseData): string {
-    return tc.result?.state ?? this.config.defaults.state!
+    const rawState = tc.result?.state ?? this.config.defaults.state!
+
+    // Normalize Vitest v3 state values to our expected format
+    if (rawState === 'pass') return 'passed'
+    if (rawState === 'fail') return 'failed'
+    if (rawState === 'skip') return 'skipped'
+
+    return rawState
   }
 
   /**

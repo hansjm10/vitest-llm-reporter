@@ -143,7 +143,7 @@ export function isAssertionError(error: unknown): boolean {
 export function normalizeAssertionValue(value: unknown): AssertionValue {
   // Handle primitive types directly
   if (value === null || value === undefined) {
-    return value
+    return value as AssertionValue
   }
 
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {

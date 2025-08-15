@@ -79,8 +79,8 @@ export class EventOrchestrator {
   /**
    * Handles test run start event
    */
-  public handleTestRunStart(specifications: unknown[]): void {
-    this.stateManager.recordRunStart(specifications)
+  public handleTestRunStart(specifications: ReadonlyArray<unknown>): void {
+    this.stateManager.recordRunStart([...specifications])
   }
 
   /**
@@ -201,7 +201,11 @@ export class EventOrchestrator {
   /**
    * Handles test run end event
    */
-  public handleTestRunEnd(_modules: unknown[], _errors: SerializedError[], _status: string): void {
+  public handleTestRunEnd(
+    _modules: ReadonlyArray<unknown>,
+    _errors: ReadonlyArray<SerializedError>,
+    _status: string
+  ): void {
     this.stateManager.recordRunEnd()
 
     // Note: Unhandled errors are processed directly by OutputBuilder

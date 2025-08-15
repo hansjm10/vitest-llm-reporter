@@ -84,6 +84,6 @@ export default [
     }
   },
   {
-    ignores: ['dist/', 'node_modules/', 'eslint.config.js', '*.cjs', '*.mjs', 'examples/', 'coverage/']
+    ignores: ['dist/', 'node_modules/', 'eslint.config.js', '*.cjs', '*.mjs', 'examples/', 'coverage/', 'vitest.config.ts', 'custom-reporter.ts', 'debug-reporter.ts']
   }
 ]

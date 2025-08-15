@@ -7,7 +7,9 @@
  * @module reporter
  */
 
-import type { Vitest, SerializedError } from 'vitest'
+import type { Vitest, SerializedError, Reporter } from 'vitest'
+// These types come from vitest/node exports
+import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
 import type { LLMReporterConfig } from '../types/reporter'
 import type { LLMReporterOutput } from '../types/schema'
 
@@ -21,7 +23,7 @@ import { OutputBuilder } from '../output/OutputBuilder'
 import { OutputWriter } from '../output/OutputWriter'
 import { EventOrchestrator } from '../events/EventOrchestrator'
 
-export class LLMReporter {
+export class LLMReporter implements Reporter {
   private config: Required<LLMReporterConfig>
   private context?: Vitest
   private output?: LLMReporterOutput
@@ -88,37 +90,41 @@ export class LLMReporter {
     this.context = ctx
   }
 
-  onTestRunStart(specifications: unknown[]): void {
+  onTestRunStart(specifications: ReadonlyArray<TestSpecification>): void {
     this.orchestrator.handleTestRunStart(specifications)
   }
 
-  onTestModuleQueued(module: unknown): void {
-    this.orchestrator.handleTestModuleQueued(module)
+  onTestModuleQueued(testModule: TestModule): void {
+    this.orchestrator.handleTestModuleQueued(testModule)
   }
 
-  onTestModuleCollected(module: unknown): void {
-    this.orchestrator.handleTestModuleCollected(module)
+  onTestModuleCollected(testModule: TestModule): void {
+    this.orchestrator.handleTestModuleCollected(testModule)
   }
 
-  onTestModuleStart(module: unknown): void {
-    this.orchestrator.handleTestModuleStart(module)
+  onTestModuleStart(testModule: TestModule): void {
+    this.orchestrator.handleTestModuleStart(testModule)
   }
 
-  onTestModuleEnd(module: unknown): void {
-    this.orchestrator.handleTestModuleEnd(module)
+  onTestModuleEnd(testModule: TestModule): void {
+    this.orchestrator.handleTestModuleEnd(testModule)
   }
 
-  onTestCaseReady(testCase: unknown): void {
+  onTestCaseReady(testCase: TestCase): void {
     this.orchestrator.handleTestCaseReady(testCase)
   }
 
-  onTestCaseResult(testCase: unknown): void {
+  onTestCaseResult(testCase: TestCase): void {
     this.orchestrator.handleTestCaseResult(testCase)
   }
 
-  onTestRunEnd(modules: unknown[], errors: SerializedError[], status: string): void {
+  onTestRunEnd(
+    testModules: ReadonlyArray<TestModule>,
+    unhandledErrors: ReadonlyArray<SerializedError>,
+    reason: TestRunEndReason
+  ): void {
     // Delegate to orchestrator
-    this.orchestrator.handleTestRunEnd(modules, errors, status)
+    this.orchestrator.handleTestRunEnd(testModules, unhandledErrors, reason)
 
     // Get statistics and test results
     const statistics = this.stateManager.getStatistics()
@@ -129,7 +135,7 @@ export class LLMReporter {
       testResults,
       duration: statistics.duration,
       startTime: this.stateManager.getStartTime(),
-      unhandledErrors: errors
+      unhandledErrors: unhandledErrors
     })
 
     // Write to file if configured

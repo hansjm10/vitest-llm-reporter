@@ -46,7 +46,7 @@ export interface BuildOptions {
   /** Test run start time */
   startTime?: number
   /** Unhandled errors from the test run */
-  unhandledErrors?: SerializedError[]
+  unhandledErrors?: ReadonlyArray<SerializedError>
 }
 
 /**
@@ -122,12 +122,12 @@ export class OutputBuilder {
    */
   private collectAllFailures(
     testFailures: TestFailure[],
-    unhandledErrors?: SerializedError[]
+    unhandledErrors?: ReadonlyArray<SerializedError>
   ): TestFailure[] {
     const failures = [...testFailures]
 
     if (unhandledErrors && unhandledErrors.length > 0) {
-      const unhandledFailures = this.convertUnhandledErrors(unhandledErrors)
+      const unhandledFailures = this.convertUnhandledErrors([...unhandledErrors])
       failures.push(...unhandledFailures)
     }
 
