@@ -109,12 +109,12 @@ export class ErrorContextBuilder {
 
     // Add code snippet if available
     if (error.context?.code) {
-      const codeLines = this.splitCodeLines(error.context.code)
-      context.code = this.limitCodeLines(codeLines)
+      // error.context.code is already an array of strings
+      context.code = this.limitCodeLines(error.context.code)
     }
 
     // Add line number from context or error
-    const lineNumber = error.context?.line ?? error.lineNumber
+    const lineNumber = error.context?.lineNumber ?? error.lineNumber
     if (lineNumber !== undefined && this.config.includeLineNumbers) {
       context.lineNumber = lineNumber
     }

@@ -14,7 +14,13 @@ import {
   normalizeAssertionValue
 } from '../utils/type-guards'
 import { extractLineNumber } from '../reporter/helpers'
-import type { NormalizedError, ErrorExtractionConfig } from '../types/extraction'
+import { ContextExtractor } from './ContextExtractor'
+import type {
+  NormalizedError,
+  ErrorExtractionConfig,
+  StackFrame,
+  AssertionDetails
+} from '../types/extraction'
 
 /**
  * Default error extraction configuration
@@ -22,7 +28,11 @@ import type { NormalizedError, ErrorExtractionConfig } from '../types/extraction
 export const DEFAULT_ERROR_CONFIG: Required<ErrorExtractionConfig> = {
   defaultErrorType: 'Error',
   defaultErrorMessage: 'Unknown error',
-  extractLineFromStack: true
+  extractLineFromStack: true,
+  maxContextLines: 3,
+  includeSourceCode: true,
+  filterNodeModules: true,
+  rootDir: process.cwd()
 }
 
 /**
@@ -40,9 +50,16 @@ export const DEFAULT_ERROR_CONFIG: Required<ErrorExtractionConfig> = {
  */
 export class ErrorExtractor {
   private config: Required<ErrorExtractionConfig>
+  private contextExtractor: ContextExtractor
 
   constructor(config: ErrorExtractionConfig = {}) {
     this.config = { ...DEFAULT_ERROR_CONFIG, ...config }
+    this.contextExtractor = new ContextExtractor({
+      maxContextLines: this.config.maxContextLines,
+      includeLineNumbers: true,
+      filterNodeModules: this.config.filterNodeModules,
+      rootDir: this.config.rootDir
+    })
   }
 
   /**
@@ -193,5 +210,78 @@ export class ErrorExtractor {
     }
 
     return parts.join('\n')
+  }
+
+  /**
+   * Extracts error with full context including code snippets
+   */
+  public extractWithContext(error: unknown): NormalizedError {
+    const basicError = this.extract(error)
+
+    if (!this.config.includeSourceCode) {
+      return basicError
+    }
+
+    // Get error details
+    const stack = this.getStackString(error)
+    const filePath = this.getFilePath(error)
+    const lineNumber = this.getLineNumber(error)
+    const columnNumber = this.getColumnNumber(error)
+
+    // Parse stack trace to get frames
+    const stackFrames = this.contextExtractor.parseStackTrace(stack)
+    
+    // Try to get context - prefer direct file/line info, otherwise use first stack frame
+    let context: any = undefined
+    
+    if (filePath && lineNumber) {
+      // If we have direct file and line info, use them
+      context = this.contextExtractor.extractCodeContext(filePath, lineNumber, columnNumber)
+    } else if (stackFrames.length > 0) {
+      // Otherwise use the first relevant stack frame
+      const firstFrame = stackFrames[0]
+      context = this.contextExtractor.extractCodeContext(firstFrame.file, firstFrame.line, firstFrame.column)
+    }
+
+    // Merge context with assertion details if present
+    const finalContext = context
+      ? {
+          ...context,
+          expected: basicError.expected,
+          actual: basicError.actual
+        }
+      : basicError.context
+
+    return {
+      ...basicError,
+      context: finalContext
+    }
+  }
+
+  /**
+   * Helper methods for extractWithContext
+   */
+  private getStackString(error: unknown): string {
+    if (!error || typeof error !== 'object') return ''
+    const e = error as any
+    return e.stack || e.stacktrace || ''
+  }
+
+  private getFilePath(error: unknown): string | undefined {
+    if (!error || typeof error !== 'object') return undefined
+    const e = error as any
+    return e.file || e.fileName || e.path
+  }
+
+  private getLineNumber(error: unknown): number | undefined {
+    if (!error || typeof error !== 'object') return undefined
+    const e = error as any
+    return e.line || e.lineNumber || e.lineno
+  }
+
+  private getColumnNumber(error: unknown): number | undefined {
+    if (!error || typeof error !== 'object') return undefined
+    const e = error as any
+    return e.column || e.columnNumber || e.col
   }
 }

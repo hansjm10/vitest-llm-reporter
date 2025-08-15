@@ -185,10 +185,10 @@ export class EventOrchestrator {
   private processFailedTest(extracted: ReturnType<TestCaseExtractor['extract']>): void {
     if (!extracted) return
 
-    // Extract and normalize error
-    const normalizedError = this.errorExtractor.extract(extracted.error)
+    // Extract and normalize error with full context including code snippets
+    const normalizedError = this.errorExtractor.extractWithContext(extracted.error)
 
-    // Build error context
+    // Build error context from the normalized error
     const errorContext = this.contextBuilder.buildFromError(normalizedError)
 
     // Build failure result
