@@ -1,0 +1,56 @@
+{
+  "summary": {
+    "total": 25,
+    "passed": 20,
+    "failed": 3,
+    "skipped": 2,
+    "duration": 1250,
+    "timestamp": "2024-01-15T10:30:00Z"
+  },
+  "failures": [
+    {
+      "test": "should multiply numbers correctly",
+      "file": "/src/calculator.test.ts",
+      "startLine": 42,
+      "endLine": 50,
+      "suite": ["Math", "Calculator", "Multiplication"],
+      "error": {
+        "message": "Expected 20 but got 21",
+        "type": "AssertionError",
+        "context": {
+          "code": [
+            "44: const result = calculator.multiply(4, 5);",
+            "45: expect(result).toBe(20);",
+            "46: // 4 * 5 should equal 20"
+          ],
+          "expected": 20,
+          "actual": 21,
+          "lineNumber": 45
+        }
+      }
+    },
+    {
+      "test": "should handle division by zero",
+      "file": "/src/calculator.test.ts",
+      "startLine": 65,
+      "endLine": 72,
+      "suite": ["Math", "Calculator", "Division"],
+      "error": {
+        "message": "Expected Error to be thrown",
+        "type": "AssertionError",
+        "stack": "AssertionError: Expected Error to be thrown\n    at /src/calculator.test.ts:67:12\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)"
+      }
+    },
+    {
+      "test": "should parse complex expressions",
+      "file": "/src/parser.test.ts",
+      "startLine": 120,
+      "endLine": 135,
+      "suite": ["Parser", "Complex Expressions"],
+      "error": {
+        "message": "Unexpected token ')'",
+        "type": "SyntaxError"
+      }
+    }
+  ]
+}
