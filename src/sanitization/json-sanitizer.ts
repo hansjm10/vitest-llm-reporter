@@ -1,10 +1,11 @@
 /**
- * Pure Schema Sanitizer
+ * JSON Sanitizer for Vitest LLM Reporter
  *
- * This module provides sanitization-only logic for LLM reporter output.
- * Assumes input has already been validated by SchemaValidator.
+ * This module provides JSON-specific sanitization for the LLM reporter output.
+ * It ensures all strings are properly escaped for valid JSON while maintaining
+ * readability for LLM consumption.
  *
- * @module sanitizer
+ * @module json-sanitizer
  */
 
 import type {
@@ -16,57 +17,47 @@ import type {
   AssertionValue
 } from '../types/schema'
 
-import { sanitizeHtml, sanitizeCodeArray, createSafeObject } from '../utils/sanitization'
+import { escapeJsonString, escapeJsonArray, createSafeObject } from '../utils/sanitization'
 
 /**
- * Sanitization strategies for different output formats
+ * JSON sanitization configuration
  */
-export enum SanitizationStrategy {
-  HTML = 'html',
-  JSON = 'json',
-  MARKDOWN = 'markdown',
-  NONE = 'none'
-}
-
-/**
- * Sanitization configuration
- */
-export interface SanitizationConfig {
-  strategy?: SanitizationStrategy
+export interface JsonSanitizerConfig {
+  /** Whether to sanitize file paths to remove user information */
   sanitizeFilePaths?: boolean
+  /** Maximum depth for nested object sanitization */
   maxDepth?: number
 }
 
 /**
  * Default sanitization configuration
  */
-export const DEFAULT_SANITIZATION_CONFIG: Required<SanitizationConfig> = {
-  strategy: SanitizationStrategy.HTML,
+export const DEFAULT_JSON_SANITIZER_CONFIG: Required<JsonSanitizerConfig> = {
   sanitizeFilePaths: false,
   maxDepth: 50
 }
 
 /**
- * Pure sanitization class - only sanitizes, assumes valid input
+ * JSON sanitizer for LLM reporter output
  *
- * This class is designed to work with pre-validated data from SchemaValidator.
- * It performs deep sanitization of all string content to prevent XSS and injection attacks.
+ * This class ensures all string content is properly escaped for JSON output
+ * while preventing prototype pollution and other security issues.
  *
  * @example
  * ```typescript
- * const sanitizer = new SchemaSanitizer();
+ * const sanitizer = new JsonSanitizer();
  * const sanitized = sanitizer.sanitize(validatedOutput);
  * ```
  */
-export class SchemaSanitizer {
-  private config: Required<SanitizationConfig>
+export class JsonSanitizer {
+  private config: Required<JsonSanitizerConfig>
 
-  constructor(config: SanitizationConfig = {}) {
-    this.config = { ...DEFAULT_SANITIZATION_CONFIG, ...config }
+  constructor(config: JsonSanitizerConfig = {}) {
+    this.config = { ...DEFAULT_JSON_SANITIZER_CONFIG, ...config }
   }
 
   /**
-   * Sanitizes validated LLM reporter output
+   * Sanitizes validated LLM reporter output for JSON serialization
    *
    * @param output - The validated output to sanitize
    * @returns A new sanitized copy of the output
@@ -78,7 +69,7 @@ export class SchemaSanitizer {
     const sanitized: LLMReporterOutput = {
       summary: {
         ...(safeOutput.summary as Record<string, unknown>)
-      } as LLMReporterOutput['summary']
+      } as unknown as LLMReporterOutput['summary']
     }
 
     if (safeOutput.failures && Array.isArray(safeOutput.failures)) {
@@ -107,11 +98,11 @@ export class SchemaSanitizer {
    */
   private sanitizeTestFailure(failure: TestFailure): TestFailure {
     return {
-      test: this.sanitizeString(failure.test),
+      test: escapeJsonString(failure.test),
       file: this.sanitizeFilePath(failure.file),
       startLine: failure.startLine,
       endLine: failure.endLine,
-      suite: failure.suite?.map((s) => this.sanitizeString(s)),
+      suite: failure.suite?.map((s) => escapeJsonString(s)),
       error: this.sanitizeTestError(failure.error)
     }
   }
@@ -121,12 +112,12 @@ export class SchemaSanitizer {
    */
   private sanitizeTestError(error: TestError): TestError {
     const sanitized: TestError = {
-      message: this.sanitizeString(error.message),
-      type: this.sanitizeString(error.type)
+      message: escapeJsonString(error.message),
+      type: escapeJsonString(error.type)
     }
 
     if (error.stack) {
-      sanitized.stack = this.sanitizeString(error.stack)
+      sanitized.stack = escapeJsonString(error.stack)
     }
 
     if (error.context) {
@@ -143,7 +134,7 @@ export class SchemaSanitizer {
     const safeContext = createSafeObject(context as unknown as Record<string, unknown>)
 
     const sanitized: ErrorContext = {
-      code: this.sanitizeCodeLines(safeContext.code as string[])
+      code: escapeJsonArray(safeContext.code as string[])
     }
 
     if (safeContext.expected !== undefined) {
@@ -170,13 +161,13 @@ export class SchemaSanitizer {
    */
   private sanitizeTestResult(result: TestResult): TestResult {
     return {
-      test: this.sanitizeString(result.test),
+      test: escapeJsonString(result.test),
       file: this.sanitizeFilePath(result.file),
       startLine: result.startLine,
       endLine: result.endLine,
       duration: result.duration,
       status: result.status,
-      suite: result.suite?.map((s) => this.sanitizeString(s))
+      suite: result.suite?.map((s) => escapeJsonString(s))
     }
   }
 
@@ -193,7 +184,7 @@ export class SchemaSanitizer {
     }
 
     if (typeof value === 'string') {
-      return this.sanitizeString(value)
+      return escapeJsonString(value)
     }
 
     if (typeof value === 'number' || typeof value === 'boolean') {
@@ -208,7 +199,7 @@ export class SchemaSanitizer {
       const sanitized: Record<string, unknown> = {}
       for (const [key, val] of Object.entries(value)) {
         // Sanitize keys as well to prevent injection
-        const sanitizedKey = this.sanitizeString(key)
+        const sanitizedKey = escapeJsonString(key)
         sanitized[sanitizedKey] = this.sanitizeAssertionValue(val as AssertionValue, depth + 1)
       }
       return sanitized
@@ -218,51 +209,16 @@ export class SchemaSanitizer {
   }
 
   /**
-   * Sanitizes a string based on the configured strategy
-   */
-  private sanitizeString(str: string): string {
-    switch (this.config.strategy) {
-      case SanitizationStrategy.HTML:
-        return sanitizeHtml(str)
-      case SanitizationStrategy.JSON:
-        // JSON escaping - escape quotes and control characters
-        return str
-          .replace(/\\/g, '\\\\')
-          .replace(/"/g, '\\"')
-          .replace(/\n/g, '\\n')
-          .replace(/\r/g, '\\r')
-          .replace(/\t/g, '\\t')
-      case SanitizationStrategy.MARKDOWN:
-        // Markdown escaping - escape special markdown characters
-        return str
-          .replace(/([\\`*_{}[\]()#+\-.!])/g, '\\$1')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-      case SanitizationStrategy.NONE:
-        return str
-      default:
-        return sanitizeHtml(str)
-    }
-  }
-
-  /**
-   * Sanitizes code lines
-   */
-  private sanitizeCodeLines(lines: string[]): string[] {
-    if (this.config.strategy === SanitizationStrategy.NONE) {
-      return lines
-    }
-    return sanitizeCodeArray(lines)
-  }
-
-  /**
    * Sanitizes file paths
    */
   private sanitizeFilePath(filePath: string): string {
+    const escapedPath = escapeJsonString(filePath)
+
     if (!this.config.sanitizeFilePaths) {
-      return filePath
+      return escapedPath
     }
+
     // Remove user-specific information from paths
-    return filePath.replace(/\/(?:Users|home)\/[^/]+/, '/Users/***')
+    return escapedPath.replace(/\/(?:Users|home)\/[^/]+/, '/Users/***')
   }
 }

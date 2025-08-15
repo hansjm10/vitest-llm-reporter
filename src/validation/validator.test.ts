@@ -146,7 +146,7 @@ describe('SchemaValidator', () => {
       const originalCopy = JSON.parse(JSON.stringify(original))
 
       // Validate without sanitization
-      const result = validator.validate(original, false)
+      const result = validator.validate(original)
 
       expect(result.valid).toBe(true)
       // Original should be unchanged
@@ -366,7 +366,7 @@ describe('SchemaValidator', () => {
         })
       }
 
-      const result = validator.validate(output, false)
+      const result = validator.validate(output)
 
       expect(result.valid).toBe(false)
       expect(result.errors.some((e) => e.message.includes('exceeds maximum size of 10'))).toBe(true)
@@ -393,7 +393,7 @@ describe('SchemaValidator', () => {
         })
       }
 
-      const result = validator.validate(output, false)
+      const result = validator.validate(output)
 
       expect(result.valid).toBe(false)
       expect(result.errors.some((e) => e.message.includes('exceeds maximum size of 10'))).toBe(true)
@@ -427,7 +427,7 @@ describe('SchemaValidator', () => {
         ]
       }
 
-      const result = validator.validate(output, false)
+      const result = validator.validate(output)
 
       expect(result.valid).toBe(false)
     })
@@ -455,7 +455,7 @@ describe('SchemaValidator', () => {
         ]
       }
 
-      const result = validator.validate(output, false)
+      const result = validator.validate(output)
 
       expect(result.valid).toBe(false)
     })
@@ -497,7 +497,7 @@ describe('SchemaValidator', () => {
         ]
       }
 
-      const result = validator.validate(output, false)
+      const result = validator.validate(output)
 
       expect(result.valid).toBe(false)
     })
@@ -517,7 +517,7 @@ describe('SchemaValidator', () => {
         ]
       }
 
-      const result = validator.validate(invalidOutput, false)
+      const result = validator.validate(invalidOutput)
 
       expect(result.valid).toBe(false)
       expect(result.errors.length).toBeGreaterThan(0)
@@ -549,7 +549,7 @@ describe('SchemaValidator', () => {
         })
       }
 
-      const result = validator.validate(output, false)
+      const result = validator.validate(output)
 
       expect(result.valid).toBe(false)
       expect(result.errors.length).toBeGreaterThan(0)
@@ -590,7 +590,7 @@ describe('SchemaValidator', () => {
           })
         }
 
-        const result = validator.validate(maliciousOutput, false)
+        const result = validator.validate(maliciousOutput)
 
         expect(result.valid).toBe(false)
         expect(
@@ -634,7 +634,7 @@ describe('SchemaValidator', () => {
           })
         }
 
-        const result = validator.validate(output, false)
+        const result = validator.validate(output)
 
         // Should fail due to memory limit, not during processing
         expect(result.valid).toBe(false)
@@ -680,7 +680,7 @@ describe('SchemaValidator', () => {
         }
 
         const startTime = performance.now()
-        const result = validator.validate(output, false)
+        const result = validator.validate(output)
         const endTime = performance.now()
 
         expect(result.valid).toBe(true)
@@ -718,17 +718,10 @@ describe('SchemaValidator', () => {
           __proto__: { polluted: true }
         }
 
-        const result = validator.validate(maliciousInput, true)
+        const result = validator.validate(maliciousInput)
 
         // Should validate but sanitize dangerous properties
         expect(result.valid).toBe(true)
-        if (result.sanitized) {
-          // Check that __proto__ is not an own property (filtered out)
-          expect(Object.prototype.hasOwnProperty.call(result.sanitized, '__proto__')).toBe(false)
-          expect(
-            Object.prototype.hasOwnProperty.call(result.sanitized.failures![0].error, '__proto__')
-          ).toBe(false)
-        }
 
         // Verify prototype wasn't polluted
         const testObj = {}
@@ -764,15 +757,9 @@ describe('SchemaValidator', () => {
           ]
         }
 
-        const result = validator.validate(maliciousInput, true)
+        const result = validator.validate(maliciousInput)
 
         expect(result.valid).toBe(true)
-        if (result.sanitized) {
-          const error = result.sanitized.failures![0].error
-          // Check that constructor and prototype are not own properties (filtered out)
-          expect(Object.prototype.hasOwnProperty.call(error, 'constructor')).toBe(false)
-          expect(Object.prototype.hasOwnProperty.call(error, 'prototype')).toBe(false)
-        }
       })
 
       it('should block advanced pollution methods', () => {
@@ -808,20 +795,9 @@ describe('SchemaValidator', () => {
           ]
         }
 
-        const result = validator.validate(maliciousInput, true)
+        const result = validator.validate(maliciousInput)
 
         expect(result.valid).toBe(true)
-        if (result.sanitized) {
-          const error = result.sanitized.failures![0].error
-          // Check that these properties are not own properties (filtered out)
-          expect(Object.prototype.hasOwnProperty.call(error, 'defineProperty')).toBe(false)
-          expect(Object.prototype.hasOwnProperty.call(error, 'setPrototypeOf')).toBe(false)
-          expect(Object.prototype.hasOwnProperty.call(error, 'getPrototypeOf')).toBe(false)
-          expect(Object.prototype.hasOwnProperty.call(error, '__defineGetter__')).toBe(false)
-          expect(Object.prototype.hasOwnProperty.call(error, '__defineSetter__')).toBe(false)
-          expect(Object.prototype.hasOwnProperty.call(error, '__lookupGetter__')).toBe(false)
-          expect(Object.prototype.hasOwnProperty.call(error, '__lookupSetter__')).toBe(false)
-        }
       })
     })
 
@@ -852,13 +828,9 @@ describe('SchemaValidator', () => {
           ]
         }
 
-        const result = validator.validate(xssOutput, true)
+        const result = validator.validate(xssOutput)
 
         expect(result.valid).toBe(true)
-        if (result.sanitized) {
-          expect(result.sanitized.failures![0].test).not.toContain('<script>')
-          expect(result.sanitized.failures![0].error.message).not.toContain('<img')
-        }
       })
     })
 
@@ -892,7 +864,7 @@ describe('SchemaValidator', () => {
         // Create circular reference
         circularObj.circular = circularObj
 
-        const result = validator.validate(circularObj, true)
+        const result = validator.validate(circularObj)
 
         // Should handle circular reference without crashing
         expect(result.valid).toBe(true)

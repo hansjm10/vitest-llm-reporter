@@ -591,7 +591,7 @@ export class SchemaValidator {
       return false
     }
 
-    const obj = createSafeObject(failure as Record<string, unknown>)
+    const obj = createSafeObject(failure as unknown as Record<string, unknown>)
 
     // Check error object (TestFailure-specific property)
     if (!hasOwnProperty(obj, 'error')) {
@@ -900,7 +900,7 @@ export class SchemaValidator {
       return false
     }
 
-    const obj = createSafeObject(result as Record<string, unknown>)
+    const obj = createSafeObject(result as unknown as Record<string, unknown>)
 
     // Check status (TestResult-specific property)
     if (!hasOwnProperty(obj, 'status')) {

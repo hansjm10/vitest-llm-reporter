@@ -26,11 +26,10 @@ export {
 
 // Export sanitization module
 export {
-  SchemaSanitizer,
-  SanitizationStrategy,
-  type SanitizationConfig,
-  DEFAULT_SANITIZATION_CONFIG
-} from './sanitization/sanitizer'
+  JsonSanitizer,
+  type JsonSanitizerConfig,
+  DEFAULT_JSON_SANITIZER_CONFIG
+} from './sanitization/json-sanitizer'
 
 // Export processor module (primary API)
 export {

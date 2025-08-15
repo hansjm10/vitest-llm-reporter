@@ -54,26 +54,22 @@ describe('Security Validation Tests', () => {
                   '${alert(1)}',
                   '{{constructor.constructor("alert(1)")()"}}',
                   "';alert(1);//"
-                ],
-                startLine: 1
+                ]
               }
             }
           }
         ]
       }
 
-      const result = validator.validate(xssAttempt, { sanitize: true })
+      const result = validator.validate(xssAttempt)
       expect(result.valid).toBe(true)
-      if (result.sanitized) {
-        const sanitizedCode = result.sanitized.failures[0].error.context?.code
-        expect(sanitizedCode).toBeDefined()
-        sanitizedCode?.forEach((line) => {
-          expect(line).not.toContain('<')
-          expect(line).not.toContain('>')
-          expect(line).not.toContain('(')
-          expect(line).not.toContain(')')
-          expect(line).not.toContain('{')
-          expect(line).not.toContain('}')
+      // Validator no longer handles sanitization
+      // XSS vectors remain in validated data
+      const validatedCode = result.data?.failures?.[0].error.context?.code
+      if (validatedCode) {
+        validatedCode.forEach((line: string) => {
+          // Dangerous characters are preserved in validation
+          expect(typeof line).toBe('string')
         })
       }
     })
@@ -770,15 +766,9 @@ describe('Security Validation Tests', () => {
         ]
       }
 
-      const result = validator.validate(nestedPollution, true)
+      const result = validator.validate(nestedPollution)
       // Validation should reject dangerous content even with sanitization enabled
       expect(result.valid).toBe(false)
-
-      if (result.sanitized) {
-        const context = result.sanitized.failures[0].error.context
-        expect(context).toBeDefined()
-        // Prohibited keys should be removed during sanitization
-      }
     })
 
     it('should handle circular references safely', () => {
@@ -845,9 +835,7 @@ describe('Security Validation Tests', () => {
       }
 
       // Test should expect the depth limit error to be thrown
-      expect(() => validator.validate(output, true)).toThrow(
-        'Maximum object nesting depth exceeded'
-      )
+      expect(() => validator.validate(output)).toThrow('Maximum object nesting depth exceeded')
     })
   })
 
@@ -916,7 +904,8 @@ describe('Security Validation Tests', () => {
         const createFailure = (index: number) => ({
           test: `test ${index}`,
           file: `/test/file${index}.ts`,
-          line: index,
+          startLine: index,
+          endLine: index,
           error: {
             message: `error ${index}`,
             type: 'Error',

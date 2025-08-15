@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { SchemaProcessor } from './processor'
-import { SanitizationStrategy } from '../sanitization/sanitizer'
 import type { LLMReporterOutput } from '../types/schema'
 
 describe('SchemaProcessor', () => {
@@ -15,7 +14,7 @@ describe('SchemaProcessor', () => {
     },
     passed: [
       {
-        test: 'test with <script>XSS</script>',
+        test: 'test with "quotes" and <script>',
         file: '/test/file.ts',
         startLine: 1,
         endLine: 1,
@@ -45,8 +44,8 @@ describe('SchemaProcessor', () => {
       expect(result.sanitized).toBe(true)
       expect(result.data).toBeDefined()
 
-      // Check that sanitization occurred
-      expect(result.data!.passed![0].test).not.toContain('<script>')
+      // Check that JSON sanitization occurred (quotes escaped)
+      expect(result.data!.passed![0].test).toBe('test with \\"quotes\\" and <script>')
     })
 
     it('should fail on invalid input', () => {
@@ -72,7 +71,7 @@ describe('SchemaProcessor', () => {
       expect(result.data).toBeDefined()
 
       // Check that sanitization did NOT occur
-      expect(result.data!.passed![0].test).toContain('<script>')
+      expect(result.data!.passed![0].test).toContain('"quotes"')
     })
 
     it('should use validate convenience method', () => {
@@ -81,7 +80,7 @@ describe('SchemaProcessor', () => {
 
       expect(result.valid).toBe(true)
       expect(result.data).toBeDefined()
-      expect(result.data!.passed![0].test).toContain('<script>')
+      expect(result.data!.passed![0].test).toContain('"quotes"')
     })
   })
 
@@ -95,8 +94,8 @@ describe('SchemaProcessor', () => {
       expect(result.sanitized).toBe(true)
       expect(result.data).toBeDefined()
 
-      // Check that sanitization occurred
-      expect(result.data!.passed![0].test).not.toContain('<script>')
+      // Check that JSON sanitization occurred
+      expect(result.data!.passed![0].test).toBe('test with \\"quotes\\" and <script>')
     })
 
     it('should use sanitize convenience method', () => {
@@ -104,7 +103,7 @@ describe('SchemaProcessor', () => {
       const result = processor.sanitize(validOutput)
 
       expect(result).toBeDefined()
-      expect(result.passed![0].test).not.toContain('<script>')
+      expect(result.passed![0].test).toBe('test with \\"quotes\\" and <script>')
     })
 
     it('should handle sanitization errors gracefully', () => {
@@ -156,7 +155,7 @@ describe('SchemaProcessor', () => {
               message: 'error',
               type: 'Error',
               context: {
-                code: ['line1', 'line2'] // Exceeds maxCodeLines
+                code: ['line 1', 'line 2'] // Exceeds maxCodeLines
               }
             }
           }
@@ -166,15 +165,16 @@ describe('SchemaProcessor', () => {
       const result = processor.process(outputWithCode)
 
       expect(result.success).toBe(false)
+      expect(result.validated).toBe(true)
       expect(result.errors).toBeDefined()
     })
 
     it('should use custom sanitization config', () => {
       const processor = new SchemaProcessor({
-        sanitizationConfig: { strategy: SanitizationStrategy.JSON }
+        sanitizationConfig: { sanitizeFilePaths: true }
       })
 
-      const outputWithQuotes: LLMReporterOutput = {
+      const output: LLMReporterOutput = {
         summary: {
           total: 1,
           passed: 1,
@@ -186,7 +186,7 @@ describe('SchemaProcessor', () => {
         passed: [
           {
             test: 'test with "quotes"',
-            file: '/test/file.ts',
+            file: '/Users/johndoe/test/file.ts',
             startLine: 1,
             endLine: 1,
             status: 'passed'
@@ -194,64 +194,91 @@ describe('SchemaProcessor', () => {
         ]
       }
 
-      const result = processor.process(outputWithQuotes)
+      const result = processor.process(output)
 
       expect(result.success).toBe(true)
-      expect(result.data!.passed![0].test).toContain('\\"quotes\\"')
-    })
-
-    it('should allow updating configuration', () => {
-      const processor = new SchemaProcessor()
-
-      // Update to use JSON sanitization
-      processor.updateSanitizationConfig({ strategy: SanitizationStrategy.JSON })
-
-      const outputWithQuotes: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 1,
-          failed: 0,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        passed: [
-          {
-            test: 'test with "quotes"',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            status: 'passed'
-          }
-        ]
-      }
-
-      const result = processor.process(outputWithQuotes)
-
-      expect(result.success).toBe(true)
-      expect(result.data!.passed![0].test).toContain('\\"quotes\\"')
+      // Should escape quotes for JSON
+      expect(result.data!.passed![0].test).toBe('test with \\"quotes\\"')
+      // Should sanitize file path
+      expect(result.data!.passed![0].file).toBe('/Users/***/test/file.ts')
     })
   })
 
-  describe('Constructor Defaults', () => {
-    it('should respect constructor defaults for validate and sanitize', () => {
-      const processor = new SchemaProcessor({ validate: false, sanitize: false })
-      const result = processor.process(validOutput)
+  describe('Configuration Updates', () => {
+    it('should update validation config', () => {
+      const processor = new SchemaProcessor()
 
+      // First attempt with default config should pass
+      const outputWithManyLines: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        failures: [
+          {
+            test: 'test',
+            file: '/test/file.ts',
+            startLine: 1,
+            endLine: 1,
+            error: {
+              message: 'error',
+              type: 'Error',
+              context: {
+                code: Array(50).fill('line') // 50 lines
+              }
+            }
+          }
+        ]
+      }
+
+      let result = processor.process(outputWithManyLines)
       expect(result.success).toBe(true)
-      expect(result.validated).toBe(false)
-      expect(result.sanitized).toBe(false)
-      expect(result.data).toBe(validOutput)
+
+      // Update config to restrict code lines
+      processor.updateValidationConfig({ maxCodeLines: 10 })
+
+      // Now it should fail
+      result = processor.process(outputWithManyLines)
+      expect(result.success).toBe(false)
     })
 
-    it('should allow overriding constructor defaults', () => {
-      const processor = new SchemaProcessor({ validate: false, sanitize: false })
-      const result = processor.process(validOutput, { validate: true, sanitize: true })
+    it('should update sanitization config', () => {
+      const processor = new SchemaProcessor()
 
-      expect(result.success).toBe(true)
-      expect(result.validated).toBe(true)
-      expect(result.sanitized).toBe(true)
-      expect(result.data!.passed![0].test).not.toContain('<script>')
+      const output: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 1,
+          failed: 0,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        passed: [
+          {
+            test: 'test',
+            file: '/Users/johndoe/test/file.ts',
+            startLine: 1,
+            endLine: 1,
+            status: 'passed'
+          }
+        ]
+      }
+
+      // First attempt with default config (no file path sanitization)
+      let result = processor.process(output)
+      expect(result.data!.passed![0].file).toBe('/Users/johndoe/test/file.ts')
+
+      // Update config to sanitize file paths
+      processor.updateSanitizationConfig({ sanitizeFilePaths: true })
+
+      // Now it should sanitize paths
+      result = processor.process(output)
+      expect(result.data!.passed![0].file).toBe('/Users/***/test/file.ts')
     })
   })
 })

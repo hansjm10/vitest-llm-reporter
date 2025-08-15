@@ -1,50 +1,47 @@
 /**
- * Sanitization utilities for preventing XSS and injection attacks
+ * Sanitization utilities for JSON output and security validation
  */
 
 import * as path from 'path'
 
 /**
- * Comprehensive regex for HTML special characters including all XSS vectors
- * Includes parentheses, brackets, braces for event handlers and script contexts
+ * Escapes a string for safe inclusion in JSON
+ * Handles quotes, backslashes, and control characters
+ * @param str - The string to escape
+ * @returns The escaped string safe for JSON
  */
-const HTML_ESCAPE_REGEX = /[&<>"'`=/\\\n\r\t\v\0\b\f()[\]{}|^~*?:;,.$%@!+#]/g
-
-/**
- * Escapes HTML special characters to prevent XSS attacks
- * Uses charCodeAt for guaranteed escaping of ALL special characters
- * @param str - The string to sanitize
- * @returns The sanitized string safe for HTML and template literal contexts
- */
-export function sanitizeHtml(str: string): string {
+export function escapeJsonString(str: string): string {
   if (typeof str !== 'string') {
     return ''
   }
 
-  return str.replace(HTML_ESCAPE_REGEX, (char) => {
-    // Use numeric character reference for ALL special characters
-    // This is the most secure approach - no character mapping needed
-    return `&#${char.charCodeAt(0)};`
-  })
+  // Escape backslashes first, then other special characters
+  // Note: We handle control characters first to avoid double-escaping
+  return (
+    str
+      .replace(/\\/g, '\\\\') // Backslash (must be first)
+      .replace(/"/g, '\\"') // Double quote
+      .replace(/\n/g, '\\n') // Newline
+      .replace(/\r/g, '\\r') // Carriage return
+      .replace(/\t/g, '\\t') // Tab
+      .replace(/\f/g, '\\f') // Form feed
+      .replace(/[\b]/g, '\\b') // Backspace (using character class to avoid regex word boundary)
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x07\x0B\x0E-\x1F]/g, (char) => {
+        // Escape remaining control characters as Unicode escapes
+        // (excluding already handled: \b \t \n \v \f \r)
+        return '\\u' + ('0000' + char.charCodeAt(0).toString(16)).slice(-4)
+      })
+  )
 }
 
 /**
- * Sanitizes a code line for safe display
- * @param line - The code line to sanitize
- * @returns The sanitized code line
+ * Escapes an array of strings for JSON
+ * @param lines - Array of strings to escape
+ * @returns Array of escaped strings
  */
-export function sanitizeCodeLine(line: string): string {
-  // Apply HTML escaping
-  return sanitizeHtml(line)
-}
-
-/**
- * Sanitizes an array of code lines
- * @param lines - Array of code lines to sanitize
- * @returns Array of sanitized code lines
- */
-export function sanitizeCodeArray(lines: string[]): string[] {
-  return lines.map(sanitizeCodeLine)
+export function escapeJsonArray(lines: string[]): string[] {
+  return lines.map(escapeJsonString)
 }
 
 /**
@@ -241,7 +238,7 @@ export function createSafeObject<T extends Record<string, unknown>>(source: T): 
   const filtered = filterObject(source)
 
   try {
-    return globalThis.structuredClone(filtered)
+    return globalThis.structuredClone(filtered) as T
   } catch {
     // If structuredClone fails (e.g., with functions), return the filtered object
     // This maintains backward compatibility

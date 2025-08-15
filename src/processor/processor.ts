@@ -9,7 +9,7 @@
 
 import type { LLMReporterOutput } from '../types/schema'
 import { SchemaValidator, ValidationConfig, ValidationResult } from '../validation/validator'
-import { SchemaSanitizer, SanitizationConfig } from '../sanitization/sanitizer'
+import { JsonSanitizer, JsonSanitizerConfig } from '../sanitization/json-sanitizer'
 
 /**
  * Processing options
@@ -18,7 +18,7 @@ export interface ProcessingOptions {
   validate?: boolean
   sanitize?: boolean
   validationConfig?: ValidationConfig
-  sanitizationConfig?: SanitizationConfig
+  sanitizationConfig?: JsonSanitizerConfig
 }
 
 /**
@@ -62,12 +62,12 @@ export interface ProcessingResult {
  */
 export class SchemaProcessor {
   private validator: SchemaValidator
-  private sanitizer: SchemaSanitizer
+  private sanitizer: JsonSanitizer
   private defaultOptions: Required<Pick<ProcessingOptions, 'validate' | 'sanitize'>>
 
   constructor(options: ProcessingOptions = {}) {
     this.validator = new SchemaValidator(options.validationConfig)
-    this.sanitizer = new SchemaSanitizer(options.sanitizationConfig)
+    this.sanitizer = new JsonSanitizer(options.sanitizationConfig)
     this.defaultOptions = {
       validate: options.validate ?? true,
       sanitize: options.sanitize ?? true
@@ -183,7 +183,7 @@ export class SchemaProcessor {
   /**
    * Updates sanitization configuration
    */
-  public updateSanitizationConfig(config: SanitizationConfig): void {
-    this.sanitizer = new SchemaSanitizer(config)
+  public updateSanitizationConfig(config: JsonSanitizerConfig): void {
+    this.sanitizer = new JsonSanitizer(config)
   }
 }
