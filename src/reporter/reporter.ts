@@ -1,4 +1,19 @@
+/**
+ * LLM Reporter Implementation
+ *
+ * Core reporter class for Vitest that generates LLM-optimized output.
+ *
+ * @module reporter
+ */
+
 import type { Vitest, SerializedError } from 'vitest'
+import type { LLMReporterConfig } from '../types/reporter'
+import type {
+  InternalState,
+  CollectedTest,
+  TestBase,
+  TestCaseData
+} from '../types/reporter-internal'
 import type {
   LLMReporterOutput,
   TestSummary,
@@ -6,49 +21,10 @@ import type {
   TestResult,
   TestError,
   ErrorContext
-} from './types/schema'
+} from '../types/schema'
+import { getProperty, extractLineNumber } from './helpers'
 import * as fs from 'fs'
 import * as path from 'path'
-
-export interface LLMReporterConfig {
-  verbose?: boolean
-  outputFile?: string
-  includePassedTests?: boolean
-  includeSkippedTests?: boolean
-}
-
-interface CollectedTest {
-  id?: string
-  name?: string
-  mode?: string
-  suite?: string[]
-  file?: string
-}
-
-interface InternalState {
-  startTime?: number
-  specifications: unknown[]
-  queuedModules: string[]
-  collectedTests: CollectedTest[]
-  runningModules: string[]
-  completedModules: string[]
-  moduleStartTimes: Record<string, number>
-  moduleDurations: Record<string, number>
-  readyTests: string[]
-  testResults: {
-    passed: TestResult[]
-    failed: TestFailure[]
-    skipped: TestResult[]
-  }
-}
-
-// Helper function for safe property access
-function getProperty<T>(obj: unknown, key: string): T | undefined {
-  if (obj && typeof obj === 'object' && key in obj) {
-    return (obj as Record<string, unknown>)[key] as T
-  }
-  return undefined
-}
 
 export class LLMReporter {
   private config: Required<LLMReporterConfig>
@@ -247,7 +223,7 @@ export class LLMReporter {
             | undefined
             | Record<string, unknown>
             | unknown[],
-          lineNumber: errorLineNumber ?? this.extractLineNumber(errorStack)
+          lineNumber: errorLineNumber ?? extractLineNumber(errorStack)
         }
       } else {
         finalErrorContext = errorContext
@@ -283,12 +259,6 @@ export class LLMReporter {
       }
       this.state.testResults.skipped.push(skippedTest)
     }
-  }
-
-  private extractLineNumber(stack?: string): number | undefined {
-    if (!stack) return undefined
-    const match = stack.match(/:(\d+):/)
-    return match ? parseInt(match[1], 10) : undefined
   }
 
   onTestRunEnd(_modules: unknown[], errors: SerializedError[], _status: string): void {
@@ -385,42 +355,6 @@ export class LLMReporter {
       fs.writeFileSync(outputPath, JSON.stringify(output, null, 2))
     } catch (error) {
       console.error('Failed to write output file:', error)
-    }
-  }
-}
-
-interface TestBase {
-  test: string
-  file: string
-  startLine: number
-  endLine: number
-  suite?: string[]
-}
-
-// Type for the test case data we receive
-interface TestCaseData {
-  name?: string
-  file?: { filepath?: string }
-  filepath?: string
-  location?: {
-    start?: { line?: number }
-    end?: { line?: number }
-  }
-  suite?: string[]
-  mode?: string
-  result?: {
-    state?: string
-    duration?: number
-    error?: {
-      message?: string
-      name?: string
-      type?: string
-      stack?: string
-      expected?: unknown
-      actual?: unknown
-      lineNumber?: number
-      context?: ErrorContext
-      constructor?: { name?: string }
     }
   }
 }
