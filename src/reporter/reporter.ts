@@ -22,7 +22,13 @@ import type {
   TestError,
   ErrorContext
 } from '../types/schema'
-import { getProperty, extractLineNumber } from './helpers'
+import { extractLineNumber } from './helpers'
+import { 
+  isTestModule, 
+  isTestCase, 
+  extractErrorProperties,
+  ExtractedError 
+} from './type-guards'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -83,9 +89,8 @@ export class LLMReporter {
   }
 
   onTestModuleQueued(module: unknown): void {
-    const id = getProperty<string>(module, 'id')
-    if (id) {
-      this.state.queuedModules.push(id)
+    if (isTestModule(module)) {
+      this.state.queuedModules.push(module.id)
     }
   }
 
@@ -117,33 +122,30 @@ export class LLMReporter {
   }
 
   onTestModuleStart(module: unknown): void {
-    const id = getProperty<string>(module, 'id')
-    if (id) {
-      this.state.runningModules.push(id)
-      this.state.moduleStartTimes[id] = Date.now()
+    if (isTestModule(module)) {
+      this.state.runningModules.push(module.id)
+      this.state.moduleStartTimes[module.id] = Date.now()
     }
   }
 
   onTestModuleEnd(module: unknown): void {
-    const id = getProperty<string>(module, 'id')
-    if (id) {
-      const index = this.state.runningModules.indexOf(id)
+    if (isTestModule(module)) {
+      const index = this.state.runningModules.indexOf(module.id)
       if (index > -1) {
         this.state.runningModules.splice(index, 1)
       }
 
-      this.state.completedModules.push(id)
+      this.state.completedModules.push(module.id)
 
-      if (this.state.moduleStartTimes[id]) {
-        this.state.moduleDurations[id] = Date.now() - this.state.moduleStartTimes[id]
+      if (this.state.moduleStartTimes[module.id]) {
+        this.state.moduleDurations[module.id] = Date.now() - this.state.moduleStartTimes[module.id]
       }
     }
   }
 
   onTestCaseReady(testCase: unknown): void {
-    const id = getProperty<string>(testCase, 'id')
-    if (id) {
-      this.state.readyTests.push(id)
+    if (isTestCase(testCase)) {
+      this.state.readyTests.push(testCase.id)
     }
   }
 
@@ -189,25 +191,14 @@ export class LLMReporter {
       const error = result.error || {}
 
       // Safely extract error properties
-      const errorExpected = getProperty<unknown>(error, 'expected')
-      const errorActual = getProperty<unknown>(error, 'actual')
-      const errorLineNumber = getProperty<number>(error, 'lineNumber')
-      const errorStack = getProperty<string>(error, 'stack')
-      const errorContext = getProperty<ErrorContext>(error, 'context')
-      const errorMessage = getProperty<string>(error, 'message')
-      const errorName = getProperty<string>(error, 'name')
-      const errorType = getProperty<string>(error, 'type')
-      const errorConstructor = getProperty<Record<string, unknown>>(error, 'constructor')
-      const errorConstructorName = errorConstructor
-        ? getProperty<string>(errorConstructor, 'name')
-        : undefined
+      const extractedError = extractErrorProperties(error)
 
       // Build error context
       let finalErrorContext: ErrorContext | undefined
-      if (errorExpected !== undefined || errorActual !== undefined) {
+      if (extractedError.expected !== undefined || extractedError.actual !== undefined) {
         finalErrorContext = {
           code: [],
-          expected: errorExpected as
+          expected: extractedError.expected as
             | string
             | number
             | boolean
@@ -215,7 +206,7 @@ export class LLMReporter {
             | undefined
             | Record<string, unknown>
             | unknown[],
-          actual: errorActual as
+          actual: extractedError.actual as
             | string
             | number
             | boolean
@@ -223,26 +214,30 @@ export class LLMReporter {
             | undefined
             | Record<string, unknown>
             | unknown[],
-          lineNumber: errorLineNumber ?? extractLineNumber(errorStack)
+          lineNumber: extractedError.lineNumber ?? extractLineNumber(extractedError.stack)
         }
-      } else {
-        finalErrorContext = errorContext
+      } else if (extractedError.context) {
+        // Convert VitestErrorContext to schema ErrorContext
+        finalErrorContext = {
+          code: extractedError.context.code ? [extractedError.context.code] : [],
+          lineNumber: extractedError.context.line
+        }
       }
 
       // Determine error type - fallback to 'Error' if not specified
       let finalErrorType = 'Error'
-      if (errorName) {
-        finalErrorType = errorName
-      } else if (errorType) {
-        finalErrorType = errorType
-      } else if (errorConstructorName && errorConstructorName !== 'Object') {
-        finalErrorType = errorConstructorName
+      if (extractedError.name) {
+        finalErrorType = extractedError.name
+      } else if (extractedError.type) {
+        finalErrorType = extractedError.type
+      } else if (extractedError.constructorName && extractedError.constructorName !== 'Object') {
+        finalErrorType = extractedError.constructorName
       }
 
       const testError: TestError = {
-        message: errorMessage ?? 'Unknown error',
+        message: extractedError.message ?? 'Unknown error',
         type: finalErrorType,
-        stack: errorStack,
+        stack: extractedError.stack,
         context: finalErrorContext
       }
 
