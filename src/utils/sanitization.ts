@@ -241,7 +241,6 @@ export function createSafeObject<T extends Record<string, unknown>>(source: T): 
     return globalThis.structuredClone(filtered) as T
   } catch {
     // If structuredClone fails (e.g., with functions), return the filtered object
-    // This maintains backward compatibility
     return filtered as T
   }
 }
