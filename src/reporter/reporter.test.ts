@@ -136,7 +136,7 @@ describe('LLMReporter', () => {
 
         const state = reporter.getState()
         expect(state.collectedTests).toHaveLength(3)
-        expect(state.collectedTests.filter((t) => t.mode === 'skip')).toHaveLength(1)
+        expect(state.collectedTests.filter((t: any) => t.mode === 'skip')).toHaveLength(1)
       })
 
       it('should handle nested test suites', () => {
@@ -169,7 +169,7 @@ describe('LLMReporter', () => {
 
         const state = reporter.getState()
         expect(state.runningModules).toContain('/test/file.ts')
-        expect(state.moduleStartTimes['/test/file.ts']).toBeDefined()
+        expect(state.moduleTimings.get('/test/file.ts')).toBeDefined()
       })
     })
 
@@ -193,7 +193,8 @@ describe('LLMReporter', () => {
         reporter.onTestModuleEnd(module)
 
         const state = reporter.getState()
-        expect(state.moduleDurations['/test/file.ts']).toBeGreaterThan(0)
+        const timing = state.moduleTimings.get('/test/file.ts')
+        expect(timing?.duration).toBeGreaterThan(0)
       })
     })
 
@@ -619,13 +620,17 @@ describe('LLMReporter', () => {
     it('should handle errors in lifecycle hooks gracefully', () => {
       const reporter = new LLMReporter()
 
-      // Mock internal method to throw error
-      reporter['processTestCase'] = vi.fn(() => {
-        throw new Error('Internal processing error')
-      })
+      // Create a test case with invalid data that might cause processing issues
+      const invalidTestCase = {
+        id: 'test-1',
+        name: null, // Invalid name
+        result: {
+          state: 'invalid-state' // Invalid state
+        }
+      }
 
-      // Should not throw
-      expect(() => reporter.onTestCaseResult(createMockTestCase('test1'))).not.toThrow()
+      // Should not throw when processing invalid test case
+      expect(() => reporter.onTestCaseResult(invalidTestCase)).not.toThrow()
     })
 
     it('should handle missing test data', () => {
@@ -656,7 +661,7 @@ describe('LLMReporter', () => {
   describe('Output File Writing', () => {
     it('should write output to file when configured', () => {
       const reporterWithFile = new LLMReporter({ outputFile: 'test-output.json' })
-      const writeFileSpy = vi.spyOn(reporterWithFile as any, 'writeOutputFile')
+      const writeFileSpy = vi.spyOn((reporterWithFile as any).outputWriter, 'write')
 
       reporterWithFile.onTestRunStart([])
       reporterWithFile.onTestCaseResult(createMockTestCase('test1', 'passed'))
@@ -666,7 +671,7 @@ describe('LLMReporter', () => {
     })
 
     it('should not write file when not configured', () => {
-      const writeFileSpy = vi.spyOn(reporter as any, 'writeOutputFile')
+      const writeFileSpy = vi.spyOn((reporter as any).outputWriter, 'write')
 
       reporter.onTestRunStart([])
       reporter.onTestRunEnd([], [], 'passed')

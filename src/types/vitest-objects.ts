@@ -1,10 +1,10 @@
 /**
  * Vitest Object Types
- * 
+ *
  * Type definitions for extracted data from Vitest reporter hooks.
  * While Vitest exports File and Test types, we validate and extract
  * only the properties we need at runtime.
- * 
+ *
  * @module vitest-objects
  */
 
