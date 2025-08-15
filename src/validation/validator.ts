@@ -64,6 +64,12 @@ export interface ValidationError {
 
 /**
  * Internal validation context for stateless validation
+ *
+ * Note: Each validate() call creates its own context instance, ensuring thread-safety.
+ * The totalCodeSize field is accumulated throughout validation but mutations are minimized:
+ * - Size calculations happen upfront before any context mutations
+ * - totalCodeSize is only updated after all validations pass
+ * - This pattern reduces mutation points and simplifies the validation flow
  */
 interface ValidationContext {
   totalCodeSize: number
@@ -742,57 +748,16 @@ export class SchemaValidator {
       return false
     }
 
-    // Memory reservation for code arrays
-    let estimatedCodeSize = 0
-    for (const line of ctx.code) {
-      if (typeof line === 'string') {
-        estimatedCodeSize += line.length + 4
-      } else {
-        estimatedCodeSize += 100
-      }
-    }
-    estimatedCodeSize = Math.max(estimatedCodeSize, ctx.code.length * 50)
+    // Calculate memory usage without mutating context until validation succeeds
+    // This approach reduces mutation points and simplifies the flow
+    const currentTotal = context.totalCodeSize
 
-    const previousTotal = context.totalCodeSize
-    const estimatedTotal = previousTotal + estimatedCodeSize
-
-    if (estimatedTotal > context.config.maxTotalCodeSize) {
-      this.addError(
-        context,
-        ErrorMessages.MEMORY_LIMIT(`${path}.code`, context.config.maxTotalCodeSize, estimatedTotal),
-        `${path}.code`
-      )
-      return false
-    }
-
-    context.totalCodeSize = estimatedTotal
-
-    // Calculate actual size
-    const contextCodeSize = ctx.code.reduce((sum: number, line: unknown) => {
-      if (typeof line === 'string') {
-        return sum + line.length
-      }
-      return sum
-    }, 0)
-
-    const actualTotal = previousTotal + contextCodeSize
-
-    if (actualTotal > context.config.maxTotalCodeSize) {
-      context.totalCodeSize = previousTotal
-      this.addError(
-        context,
-        ErrorMessages.MEMORY_LIMIT(`${path}.code`, context.config.maxTotalCodeSize, actualTotal),
-        `${path}.code`
-      )
-      return false
-    }
-
-    // Validate each line individually
+    // First, validate all lines are strings and within limits
+    let actualCodeSize = 0
     for (let i = 0; i < ctx.code.length; i++) {
       const line = ctx.code[i] as unknown
 
       if (typeof line !== 'string') {
-        context.totalCodeSize = previousTotal
         this.addError(
           context,
           ErrorMessages.TYPE_STRING(`${path}.code[${i}]`, typeof line),
@@ -803,7 +768,6 @@ export class SchemaValidator {
       }
 
       if (line.length > context.config.maxStringLength) {
-        context.totalCodeSize = previousTotal
         this.addError(
           context,
           ErrorMessages.MAX_STRING_LENGTH(
@@ -816,9 +780,23 @@ export class SchemaValidator {
         )
         return false
       }
+
+      actualCodeSize += line.length
     }
 
-    context.totalCodeSize = actualTotal
+    // Check memory constraints with actual size
+    const newTotal = currentTotal + actualCodeSize
+    if (newTotal > context.config.maxTotalCodeSize) {
+      this.addError(
+        context,
+        ErrorMessages.MEMORY_LIMIT(`${path}.code`, context.config.maxTotalCodeSize, newTotal),
+        `${path}.code`
+      )
+      return false
+    }
+
+    // Only update totalCodeSize after all validations pass
+    context.totalCodeSize = newTotal
 
     // Validate optional numeric fields
     if (hasOwnProperty(ctx, 'lineNumber') && ctx.lineNumber !== undefined) {
@@ -1135,15 +1113,19 @@ export class SchemaValidator {
 
   /**
    * Checks if processing an array would exceed memory limits
+   * Uses an accumulator pattern to minimize state mutations
    */
   private checkArrayMemoryLimit(
     array: unknown[],
     context: ValidationContext,
     path: string
   ): boolean {
+    // Calculate sizes without mutating context until all checks pass
+    const currentTotal = context.totalCodeSize
     const estimatedSize = this.estimateArraySize(array)
-    const estimatedTotal = context.totalCodeSize + estimatedSize
+    const estimatedTotal = currentTotal + estimatedSize
 
+    // Early check with estimate
     if (estimatedTotal > context.config.maxTotalCodeSize) {
       this.addError(
         context,
@@ -1153,20 +1135,17 @@ export class SchemaValidator {
       return false
     }
 
-    const previousTotal = context.totalCodeSize
-    context.totalCodeSize = estimatedTotal
-
+    // Calculate actual size
     let actualSize: number
     try {
       actualSize = this.calculateActualSize(array)
     } catch {
-      context.totalCodeSize = previousTotal
       this.addError(context, `Failed to calculate array size: Unknown error`, path)
       return false
     }
 
+    // Validate size constraints
     if (actualSize > estimatedSize * 5) {
-      context.totalCodeSize = previousTotal
       this.addError(
         context,
         `Array size validation failed: actual size (${actualSize}) significantly exceeds estimate (${estimatedSize})`,
@@ -1175,20 +1154,7 @@ export class SchemaValidator {
       return false
     }
 
-    const actualTotal = previousTotal + actualSize
-
-    if (actualTotal > context.config.maxTotalCodeSize) {
-      context.totalCodeSize = previousTotal
-      this.addError(
-        context,
-        ErrorMessages.MEMORY_LIMIT(path, context.config.maxTotalCodeSize, actualTotal),
-        path
-      )
-      return false
-    }
-
     if (actualSize > MAX_ARRAY_SIZE) {
-      context.totalCodeSize = previousTotal
       this.addError(
         context,
         `Array size exceeds maximum allowed (${actualSize} > ${MAX_ARRAY_SIZE} characters)`,
@@ -1197,6 +1163,17 @@ export class SchemaValidator {
       return false
     }
 
+    const actualTotal = currentTotal + actualSize
+    if (actualTotal > context.config.maxTotalCodeSize) {
+      this.addError(
+        context,
+        ErrorMessages.MEMORY_LIMIT(path, context.config.maxTotalCodeSize, actualTotal),
+        path
+      )
+      return false
+    }
+
+    // Only update totalCodeSize after all validations pass
     context.totalCodeSize = actualTotal
 
     return true
