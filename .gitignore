@@ -13,6 +13,9 @@ dist/
 *~
 .DS_Store
 
+# Claude
+.claude/
+
 # Testing
 coverage/
 *.log
