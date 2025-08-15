@@ -21,6 +21,8 @@ export interface OutputWriterConfig {
   jsonSpacing?: number
   /** Whether to handle circular references */
   handleCircularRefs?: boolean
+  /** Whether to handle errors gracefully */
+  gracefulErrorHandling?: boolean
 }
 
 /**
@@ -29,25 +31,8 @@ export interface OutputWriterConfig {
 export const DEFAULT_WRITER_CONFIG: Required<OutputWriterConfig> = {
   createDirectories: true,
   jsonSpacing: 2,
-  handleCircularRefs: true
-}
-
-/**
- * Write operation result
- */
-export interface WriteResult {
-  success: boolean
-  filepath?: string
-  error?: Error
-}
-
-/**
- * Serialization result
- */
-export interface SerializationResult {
-  success: boolean
-  json?: string
-  error?: Error
+  handleCircularRefs: true,
+  gracefulErrorHandling: true
 }
 
 /**
@@ -77,31 +62,23 @@ export class OutputWriter {
    *
    * @param outputFile - Path to the output file
    * @param output - The reporter output to write
-   * @returns Write operation result
+   * @returns The absolute path of the written file
+   * @throws Error if write fails and gracefulErrorHandling is false
    */
-  public write(outputFile: string, output: LLMReporterOutput): WriteResult {
+  public write(outputFile: string, output: LLMReporterOutput): string {
     try {
       const absolutePath = this.prepareFilePath(outputFile)
-      const serialized = this.serialize(output)
+      const json = this.serialize(output)
 
-      if (!serialized.success) {
-        return {
-          success: false,
-          error: serialized.error
-        }
-      }
+      fs.writeFileSync(absolutePath, json)
 
-      fs.writeFileSync(absolutePath, serialized.json!)
-
-      return {
-        success: true,
-        filepath: absolutePath
-      }
+      return absolutePath
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error : new Error(String(error))
+      if (!this.config.gracefulErrorHandling) {
+        throw error
       }
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to write output file: ${errorMessage}`)
     }
   }
 
@@ -110,40 +87,34 @@ export class OutputWriter {
    *
    * @param outputFile - Path to the output file
    * @param output - The reporter output to write
-   * @returns Promise resolving to write operation result
+   * @returns Promise resolving to the absolute path of the written file
+   * @throws Error if write fails and gracefulErrorHandling is false
    */
-  public async writeAsync(outputFile: string, output: LLMReporterOutput): Promise<WriteResult> {
-    return new Promise((resolve) => {
+  public async writeAsync(outputFile: string, output: LLMReporterOutput): Promise<string> {
+    return new Promise((resolve, reject) => {
       try {
         const absolutePath = this.prepareFilePath(outputFile)
-        const serialized = this.serialize(output)
+        const json = this.serialize(output)
 
-        if (!serialized.success) {
-          resolve({
-            success: false,
-            error: serialized.error
-          })
-          return
-        }
-
-        fs.writeFile(absolutePath, serialized.json!, (error) => {
+        fs.writeFile(absolutePath, json, (error) => {
           if (error) {
-            resolve({
-              success: false,
-              error
-            })
+            const writeError = error instanceof Error ? error : new Error(String(error))
+            if (!this.config.gracefulErrorHandling) {
+              reject(writeError)
+            } else {
+              reject(new Error(`Failed to write output file: ${writeError.message}`))
+            }
           } else {
-            resolve({
-              success: true,
-              filepath: absolutePath
-            })
+            resolve(absolutePath)
           }
         })
       } catch (error) {
-        resolve({
-          success: false,
-          error: error instanceof Error ? error : new Error(String(error))
-        })
+        const catchError = error instanceof Error ? error : new Error(String(error))
+        if (!this.config.gracefulErrorHandling) {
+          reject(catchError)
+        } else {
+          reject(new Error(`Failed to write output file: ${catchError.message}`))
+        }
       }
     })
   }
@@ -164,26 +135,21 @@ export class OutputWriter {
 
   /**
    * Serializes output to JSON
+   *
+   * @param output - The output to serialize
+   * @returns Serialized JSON string
+   * @throws Error if serialization fails
    */
-  public serialize(output: LLMReporterOutput): SerializationResult {
+  public serialize(output: LLMReporterOutput): string {
     try {
-      let json: string
-
       if (this.config.handleCircularRefs) {
-        json = this.serializeWithCircularRefHandling(output)
+        return this.serializeWithCircularRefHandling(output)
       } else {
-        json = JSON.stringify(output, null, this.config.jsonSpacing)
-      }
-
-      return {
-        success: true,
-        json
+        return JSON.stringify(output, null, this.config.jsonSpacing)
       }
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error : new Error(String(error))
-      }
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to serialize output: ${errorMessage}`)
     }
   }
 
@@ -207,59 +173,6 @@ export class OutputWriter {
       },
       this.config.jsonSpacing
     )
-  }
-
-  /**
-   * Checks if a file exists
-   */
-  public exists(filepath: string): boolean {
-    try {
-      const absolutePath = path.resolve(filepath)
-      return fs.existsSync(absolutePath)
-    } catch {
-      return false
-    }
-  }
-
-  /**
-   * Reads an existing output file
-   */
-  public read(filepath: string): LLMReporterOutput | null {
-    try {
-      const absolutePath = path.resolve(filepath)
-      const content = fs.readFileSync(absolutePath, 'utf-8')
-      return JSON.parse(content) as LLMReporterOutput
-    } catch {
-      return null
-    }
-  }
-
-  /**
-   * Deletes an output file
-   */
-  public delete(filepath: string): boolean {
-    try {
-      const absolutePath = path.resolve(filepath)
-      if (fs.existsSync(absolutePath)) {
-        fs.unlinkSync(absolutePath)
-        return true
-      }
-      return false
-    } catch {
-      return false
-    }
-  }
-
-  /**
-   * Gets file stats
-   */
-  public getStats(filepath: string): fs.Stats | null {
-    try {
-      const absolutePath = path.resolve(filepath)
-      return fs.statSync(absolutePath)
-    } catch {
-      return null
-    }
   }
 
   /**

@@ -134,9 +134,10 @@ export class LLMReporter {
 
     // Write to file if configured
     if (this.config.outputFile && this.output) {
-      const result = this.outputWriter.write(this.config.outputFile, this.output)
-      if (!result.success) {
-        console.error('Failed to write output file:', result.error)
+      try {
+        this.outputWriter.write(this.config.outputFile, this.output)
+      } catch (error) {
+        console.error('Failed to write output file:', error)
       }
     }
   }

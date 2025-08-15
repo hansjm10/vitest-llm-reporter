@@ -176,7 +176,7 @@ export class OutputBuilder {
   /**
    * Builds a minimal output (summary only)
    */
-  public buildMinimal(options: BuildOptions): LLMReporterOutput {
+  private buildMinimal(options: BuildOptions): LLMReporterOutput {
     return {
       summary: this.buildSummary(options)
     }
