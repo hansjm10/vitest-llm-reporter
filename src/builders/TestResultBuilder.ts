@@ -8,8 +8,7 @@
  */
 
 import type { TestResult, TestFailure, TestBase, TestError } from '../types/schema'
-import type { ExtractedTestCase } from '../extraction/TestCaseExtractor'
-import type { NormalizedError } from '../extraction/ErrorExtractor'
+import type { ExtractedTestCase, NormalizedError } from '../types/extraction'
 
 /**
  * Builder configuration

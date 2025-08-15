@@ -130,7 +130,7 @@ export function isAssertionError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false
   }
-  
+
   const errorObj = error as Record<string, unknown>
   return 'expected' in errorObj || 'actual' in errorObj
 }

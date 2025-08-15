@@ -8,36 +8,7 @@
  */
 
 import type { TestCaseData } from '../types/reporter-internal'
-
-/**
- * Extracted test case information
- */
-export interface ExtractedTestCase {
-  name: string
-  filepath: string
-  startLine: number
-  endLine: number
-  suite?: string[]
-  state: string
-  mode?: string
-  duration: number
-  error?: unknown
-}
-
-/**
- * Extraction configuration
- */
-export interface ExtractionConfig {
-  /** Default values for missing properties */
-  defaults?: {
-    name?: string
-    filepath?: string
-    startLine?: number
-    endLine?: number
-    duration?: number
-    state?: string
-  }
-}
+import type { ExtractedTestCase, ExtractionConfig } from '../types/extraction'
 
 /**
  * Default extraction configuration

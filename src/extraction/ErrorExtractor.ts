@@ -7,37 +7,14 @@
  * @module extraction
  */
 
-import { extractErrorProperties, ExtractedError, isAssertionError, normalizeAssertionValue } from '../utils/type-guards'
+import {
+  extractErrorProperties,
+  ExtractedError,
+  isAssertionError,
+  normalizeAssertionValue
+} from '../utils/type-guards'
 import { extractLineNumber } from '../reporter/helpers'
-
-/**
- * Normalized error information
- */
-export interface NormalizedError {
-  message: string
-  type: string
-  stack?: string
-  expected?: unknown
-  actual?: unknown
-  lineNumber?: number
-  context?: {
-    code?: string
-    line?: number
-    column?: number
-  }
-}
-
-/**
- * Error extraction configuration
- */
-export interface ErrorExtractionConfig {
-  /** Default error type when none can be determined */
-  defaultErrorType?: string
-  /** Default error message when none is provided */
-  defaultErrorMessage?: string
-  /** Whether to extract line numbers from stack traces */
-  extractLineFromStack?: boolean
-}
+import type { NormalizedError, ErrorExtractionConfig } from '../types/extraction'
 
 /**
  * Default error extraction configuration

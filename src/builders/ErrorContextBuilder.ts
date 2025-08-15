@@ -8,7 +8,7 @@
  */
 
 import type { ErrorContext } from '../types/schema'
-import type { NormalizedError } from '../extraction/ErrorExtractor'
+import type { NormalizedError } from '../types/extraction'
 import { isAssertionError, normalizeAssertionValue } from '../utils/type-guards'
 
 /**
