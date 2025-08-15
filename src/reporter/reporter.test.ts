@@ -597,7 +597,7 @@ describe('LLMReporter', () => {
       }
 
       // Should not throw when processing invalid test case
-      expect(() => reporter.onTestCaseResult(invalidTestCase)).not.toThrow()
+      expect(() => reporter.onTestCaseResult(invalidTestCase as any)).not.toThrow()
     })
 
     it('should handle missing test data', () => {
