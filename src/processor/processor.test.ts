@@ -1,38 +1,21 @@
 import { describe, it, expect } from 'vitest'
 import { SchemaProcessor } from './processor'
-import type { LLMReporterOutput } from '../types/schema'
+import {
+  createOutputWithPassed,
+  createInvalidOutput,
+  createOutputWithCode,
+  createOutputWithFilePath
+} from '../test-utils'
 
 describe('SchemaProcessor', () => {
-  const validOutput: LLMReporterOutput = {
-    summary: {
-      total: 1,
-      passed: 1,
-      failed: 0,
-      skipped: 0,
-      duration: 100,
-      timestamp: '2024-01-15T10:30:00Z'
-    },
-    passed: [
-      {
-        test: 'test with "quotes" and <script>',
-        file: '/test/file.ts',
-        startLine: 1,
-        endLine: 1,
-        status: 'passed'
-      }
-    ]
-  }
+  // Create a valid output with special characters for testing sanitization
+  const validOutput = (() => {
+    const output = createOutputWithPassed(1)
+    output.passed![0].test = 'test with "quotes" and <script>'
+    return output
+  })()
 
-  const invalidOutput = {
-    summary: {
-      total: 'not a number', // Invalid type
-      passed: 1,
-      failed: 0,
-      skipped: 0,
-      duration: 100,
-      timestamp: '2024-01-15T10:30:00Z'
-    }
-  }
+  const invalidOutput = createInvalidOutput('summary')
 
   describe('Default Processing', () => {
     it('should validate and sanitize by default', () => {
@@ -136,31 +119,7 @@ describe('SchemaProcessor', () => {
         validationConfig: { maxCodeLines: 1 }
       })
 
-      const outputWithCode: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            error: {
-              message: 'error',
-              type: 'Error',
-              context: {
-                code: ['line 1', 'line 2'] // Exceeds maxCodeLines
-              }
-            }
-          }
-        ]
-      }
+      const outputWithCode = createOutputWithCode('test', ['line 1', 'line 2'])
 
       const result = processor.process(outputWithCode)
 
@@ -174,25 +133,11 @@ describe('SchemaProcessor', () => {
         sanitizationConfig: { sanitizeFilePaths: true }
       })
 
-      const output: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 1,
-          failed: 0,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        passed: [
-          {
-            test: 'test with "quotes"',
-            file: '/Users/johndoe/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            status: 'passed'
-          }
-        ]
-      }
+      const output = (() => {
+        const o = createOutputWithFilePath('/Users/johndoe/test/file.ts')
+        o.passed![0].test = 'test with "quotes"'
+        return o
+      })()
 
       const result = processor.process(output)
 
@@ -209,31 +154,7 @@ describe('SchemaProcessor', () => {
       const processor = new SchemaProcessor()
 
       // First attempt with default config should pass
-      const outputWithManyLines: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            error: {
-              message: 'error',
-              type: 'Error',
-              context: {
-                code: Array(50).fill('line') // 50 lines
-              }
-            }
-          }
-        ]
-      }
+      const outputWithManyLines = createOutputWithCode('test', Array(50).fill('line'))
 
       let result = processor.process(outputWithManyLines)
       expect(result.success).toBe(true)
@@ -249,25 +170,7 @@ describe('SchemaProcessor', () => {
     it('should update sanitization config', () => {
       const processor = new SchemaProcessor()
 
-      const output: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 1,
-          failed: 0,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        passed: [
-          {
-            test: 'test',
-            file: '/Users/johndoe/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            status: 'passed'
-          }
-        ]
-      }
+      const output = createOutputWithFilePath('/Users/johndoe/test/file.ts')
 
       // First attempt with default config (no file path sanitization)
       let result = processor.process(output)

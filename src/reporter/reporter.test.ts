@@ -3,44 +3,11 @@ import type { Vitest, SerializedError } from 'vitest'
 
 // Import the non-existent LLMReporter class (will fail initially - TDD)
 import { LLMReporter } from './reporter'
-
-// Mock data generators
-const createMockTestCase = (
-  name: string,
-  status: 'passed' | 'failed' | 'skipped' = 'passed',
-  error?: Error
-): any => ({
-  id: `test-${name}`,
-  name,
-  mode: status === 'skipped' ? 'skip' : 'run',
-  type: 'test',
-  file: { filepath: '/test/file.ts', name: 'file.ts' } as any,
-  result: {
-    state: status,
-    startTime: Date.now(),
-    duration: 100,
-    error: error ? { message: error.message, stack: error.stack } : undefined
-  } as any,
-  location: {
-    start: { line: 10, column: 1 },
-    end: { line: 15, column: 1 }
-  } as any
-})
-
-const createMockTestModule = (filepath: string, tests: any[] = []): any => ({
-  id: filepath,
-  filepath,
-  type: 'module',
-  state: () => 'completed' as any,
-  children: () => tests as any,
-  errors: () => [],
-  diagnostics: () => []
-})
-
-const createMockTestSpecification = (filepath: string): any => ({
-  moduleId: filepath,
-  project: { config: {} }
-})
+import {
+  createMockTestCase,
+  createMockTestModule,
+  createMockTestSpecification
+} from '../test-utils/mock-data'
 
 describe('LLMReporter', () => {
   let reporter: LLMReporter

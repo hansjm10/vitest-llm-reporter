@@ -1,27 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { LLMReporterOutput, TestSummary, TestFailure } from './schema'
 import { SchemaValidator } from '../validation/validator'
-
-// Create helper functions for backwards compatibility in tests
-const createTestValidator = () => new SchemaValidator()
-const isValidTestSummary = (summary: unknown): summary is TestSummary => {
-  const validator = createTestValidator()
-  const result = validator.validate({ summary, failures: [] })
-  return result.valid
-}
-const isValidTestFailure = (failure: unknown): failure is TestFailure => {
-  const validator = createTestValidator()
-  const summary: TestSummary = {
-    total: 1,
-    passed: 0,
-    failed: 1,
-    skipped: 0,
-    duration: 100,
-    timestamp: new Date().toISOString()
-  }
-  const result = validator.validate({ summary, failures: [failure] })
-  return result.valid
-}
+import { isValidTestSummary, isValidTestFailure } from '../test-utils/validation-helpers'
 
 describe('Security Validation Tests', () => {
   const validator = new SchemaValidator()
