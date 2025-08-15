@@ -7,7 +7,7 @@
  * @module extraction
  */
 
-import { extractErrorProperties, ExtractedError } from '../reporter/type-guards'
+import { extractErrorProperties, ExtractedError, isAssertionError, normalizeAssertionValue } from '../utils/type-guards'
 import { extractLineNumber } from '../reporter/helpers'
 
 /**
@@ -178,13 +178,6 @@ export class ErrorExtractor {
   }
 
   /**
-   * Checks if the error is an assertion error
-   */
-  public isAssertionError(error: NormalizedError): boolean {
-    return error.expected !== undefined || error.actual !== undefined
-  }
-
-  /**
    * Checks if the error has location information
    */
   public hasLocationInfo(error: NormalizedError): boolean {
@@ -217,9 +210,9 @@ export class ErrorExtractor {
       parts.push(`  at line ${error.lineNumber}`)
     }
 
-    if (this.isAssertionError(error)) {
-      parts.push(`  Expected: ${JSON.stringify(error.expected)}`)
-      parts.push(`  Actual: ${JSON.stringify(error.actual)}`)
+    if (isAssertionError(error)) {
+      parts.push(`  Expected: ${JSON.stringify(normalizeAssertionValue(error.expected))}`)
+      parts.push(`  Actual: ${JSON.stringify(normalizeAssertionValue(error.actual))}`)
     }
 
     return parts.join('\n')

@@ -8,6 +8,7 @@
 
 import type { File, Test } from '@vitest/runner'
 import { ExtractedError, VitestErrorContext } from '../types/vitest-objects'
+import type { AssertionValue } from '../types/schema'
 
 export type { ExtractedError } from '../types/vitest-objects'
 
@@ -119,6 +120,52 @@ export function extractErrorProperties(error: unknown): ExtractedError {
   }
 
   return result
+}
+
+/**
+ * Type guard to check if an error is an assertion error
+ * (has expected or actual values for comparison)
+ */
+export function isAssertionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+  
+  const errorObj = error as Record<string, unknown>
+  return 'expected' in errorObj || 'actual' in errorObj
+}
+
+/**
+ * Normalizes assertion values to schema-compatible types
+ * Handles various JavaScript types and converts them to a format
+ * that can be safely serialized and stored in the test results
+ */
+export function normalizeAssertionValue(value: unknown): AssertionValue {
+  // Handle primitive types directly
+  if (value === null || value === undefined) {
+    return value
+  }
+
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value
+  }
+
+  // Handle arrays
+  if (Array.isArray(value)) {
+    return value as unknown[]
+  }
+
+  // Handle objects
+  if (typeof value === 'object') {
+    return value as Record<string, unknown>
+  }
+
+  // Fallback: convert to string representation
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return '[object]'
+  }
 }
 
 /**

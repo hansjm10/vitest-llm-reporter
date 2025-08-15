@@ -13,7 +13,7 @@ import { TestCaseExtractor } from '../extraction/TestCaseExtractor'
 import { ErrorExtractor } from '../extraction/ErrorExtractor'
 import { TestResultBuilder } from '../builders/TestResultBuilder'
 import { ErrorContextBuilder } from '../builders/ErrorContextBuilder'
-import { isTestModule, isTestCase } from '../reporter/type-guards'
+import { isTestModule, isTestCase } from '../utils/type-guards'
 
 /**
  * Event orchestrator configuration

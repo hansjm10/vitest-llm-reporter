@@ -7,8 +7,9 @@
  * @module builders
  */
 
-import type { ErrorContext, AssertionValue } from '../types/schema'
+import type { ErrorContext } from '../types/schema'
 import type { NormalizedError } from '../extraction/ErrorExtractor'
+import { isAssertionError, normalizeAssertionValue } from '../utils/type-guards'
 
 /**
  * Error context builder configuration
@@ -53,7 +54,7 @@ export class ErrorContextBuilder {
    */
   public buildFromError(error: NormalizedError): ErrorContext | undefined {
     // Check if this is an assertion error
-    if (this.isAssertionError(error)) {
+    if (isAssertionError(error)) {
       return this.buildAssertionContext(error)
     }
 
@@ -74,13 +75,6 @@ export class ErrorContextBuilder {
   }
 
   /**
-   * Checks if an error is an assertion error
-   */
-  private isAssertionError(error: NormalizedError): boolean {
-    return error.expected !== undefined || error.actual !== undefined
-  }
-
-  /**
    * Builds context for assertion errors
    */
   private buildAssertionContext(error: NormalizedError): ErrorContext {
@@ -90,11 +84,11 @@ export class ErrorContextBuilder {
 
     // Add expected and actual values
     if (error.expected !== undefined) {
-      context.expected = this.normalizeAssertionValue(error.expected)
+      context.expected = normalizeAssertionValue(error.expected)
     }
 
     if (error.actual !== undefined) {
-      context.actual = this.normalizeAssertionValue(error.actual)
+      context.actual = normalizeAssertionValue(error.actual)
     }
 
     // Add line number if available
@@ -126,37 +120,6 @@ export class ErrorContextBuilder {
     }
 
     return context
-  }
-
-  /**
-   * Normalizes assertion values to schema-compatible types
-   */
-  private normalizeAssertionValue(value: unknown): AssertionValue {
-    // Handle primitive types directly
-    if (value === null || value === undefined) {
-      return value
-    }
-
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      return value
-    }
-
-    // Handle arrays
-    if (Array.isArray(value)) {
-      return value as unknown[]
-    }
-
-    // Handle objects
-    if (typeof value === 'object') {
-      return value as Record<string, unknown>
-    }
-
-    // Fallback: convert to string representation
-    try {
-      return JSON.stringify(value)
-    } catch {
-      return '[object]'
-    }
   }
 
   /**
