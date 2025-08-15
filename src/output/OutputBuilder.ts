@@ -244,55 +244,6 @@ export class OutputBuilder {
   }
 
   /**
-   * Validates output structure
-   */
-  public validate(output: LLMReporterOutput): boolean {
-    // Check summary
-    if (!output.summary || typeof output.summary !== 'object') {
-      return false
-    }
-
-    const { summary } = output
-
-    if (typeof summary.total !== 'number' || summary.total < 0) {
-      return false
-    }
-
-    if (typeof summary.passed !== 'number' || summary.passed < 0) {
-      return false
-    }
-
-    if (typeof summary.failed !== 'number' || summary.failed < 0) {
-      return false
-    }
-
-    if (typeof summary.skipped !== 'number' || summary.skipped < 0) {
-      return false
-    }
-
-    // Check that totals match
-    const calculatedTotal = summary.passed + summary.failed + summary.skipped
-    if (summary.total !== calculatedTotal) {
-      return false
-    }
-
-    // Validate arrays if present
-    if (output.failures && !Array.isArray(output.failures)) {
-      return false
-    }
-
-    if (output.passed && !Array.isArray(output.passed)) {
-      return false
-    }
-
-    if (output.skipped && !Array.isArray(output.skipped)) {
-      return false
-    }
-
-    return true
-  }
-
-  /**
    * Updates builder configuration
    */
   public updateConfig(config: OutputBuilderConfig): void {

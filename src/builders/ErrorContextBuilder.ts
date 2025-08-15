@@ -220,30 +220,6 @@ export class ErrorContextBuilder {
   }
 
   /**
-   * Validates error context
-   */
-  public validate(context: ErrorContext): boolean {
-    // Check code array
-    if (!Array.isArray(context.code)) {
-      return false
-    }
-
-    // Check that all code entries are strings
-    if (!context.code.every((line) => typeof line === 'string')) {
-      return false
-    }
-
-    // Check line number if present
-    if (context.lineNumber !== undefined) {
-      if (typeof context.lineNumber !== 'number' || context.lineNumber < 0) {
-        return false
-      }
-    }
-
-    return true
-  }
-
-  /**
    * Creates an empty error context
    */
   public createEmpty(): ErrorContext {

@@ -175,52 +175,6 @@ export class TestResultBuilder {
   }
 
   /**
-   * Validates a built test result
-   */
-  public validate(result: TestResult | TestFailure): boolean {
-    // Check required base fields
-    if (!result.test || typeof result.test !== 'string') {
-      return false
-    }
-
-    if (typeof result.file !== 'string') {
-      return false
-    }
-
-    if (typeof result.startLine !== 'number' || result.startLine < 0) {
-      return false
-    }
-
-    if (typeof result.endLine !== 'number' || result.endLine < 0) {
-      return false
-    }
-
-    // Check if it's a failure
-    if ('error' in result) {
-      const failure = result
-      if (!failure.error || typeof failure.error !== 'object') {
-        return false
-      }
-
-      if (!failure.error.message || typeof failure.error.message !== 'string') {
-        return false
-      }
-
-      if (!failure.error.type || typeof failure.error.type !== 'string') {
-        return false
-      }
-    } else {
-      // It's a regular test result
-      const test = result
-      if (!test.status || !['passed', 'skipped'].includes(test.status)) {
-        return false
-      }
-    }
-
-    return true
-  }
-
-  /**
    * Updates builder configuration
    */
   public updateConfig(config: BuilderConfig): void {
