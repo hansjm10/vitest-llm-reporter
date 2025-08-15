@@ -8,59 +8,19 @@
  */
 
 import type { TestResult, TestFailure } from '../types/schema'
-
-/**
- * Configuration for StateManager
- */
-export interface StateConfig {
-  trackModuleTiming?: boolean
-}
+import type {
+  StateConfig,
+  TestResults,
+  ModuleTiming,
+  StateSnapshot,
+  TestStatistics
+} from '../types/state'
 
 /**
  * Default state configuration
  */
 export const DEFAULT_STATE_CONFIG: Required<StateConfig> = {
   trackModuleTiming: true
-}
-
-/**
- * Test results categorized by status
- */
-export interface TestResults {
-  passed: TestResult[]
-  failed: TestFailure[]
-  skipped: TestResult[]
-}
-
-/**
- * Module timing information
- */
-export interface ModuleTiming {
-  startTime: number
-  endTime?: number
-  duration?: number
-}
-
-/**
- * Complete state snapshot
- */
-export interface StateSnapshot {
-  specifications: unknown[]
-  queuedModules: string[]
-  collectedTests: Array<{
-    id?: string
-    name?: string
-    mode?: string
-    file?: string
-    suite?: string[]
-  }>
-  runningModules: string[]
-  completedModules: string[]
-  moduleTimings: Map<string, ModuleTiming>
-  readyTests: string[]
-  testResults: TestResults
-  startTime?: number
-  endTime?: number
 }
 
 /**
@@ -200,13 +160,7 @@ export class StateManager {
   /**
    * Gets test execution statistics
    */
-  public getStatistics(): {
-    total: number
-    passed: number
-    failed: number
-    skipped: number
-    duration: number
-  } {
+  public getStatistics(): TestStatistics {
     const total =
       this.testResults.passed.length +
       this.testResults.failed.length +
