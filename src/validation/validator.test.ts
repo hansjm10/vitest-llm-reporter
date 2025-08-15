@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { SchemaValidator, ValidationConfig } from './validator'
 import type { LLMReporterOutput } from '../types/schema'
+import {
+  createOutputWithFailures,
+  createOutputWithPassed,
+  createOutputWithCode,
+  createXSSTestOutput
+} from '../test-utils'
 
 describe('SchemaValidator', () => {
   describe('Concurrent Validation', () => {
@@ -8,31 +14,8 @@ describe('SchemaValidator', () => {
       const validator = new SchemaValidator()
 
       // Create outputs with different code sizes
-      const createOutput = (codeLines: number): LLMReporterOutput => ({
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            error: {
-              message: 'error',
-              type: 'Error',
-              context: {
-                code: Array(codeLines).fill('const x = 1;')
-              }
-            }
-          }
-        ]
-      })
+      const createOutput = (codeLines: number): LLMReporterOutput =>
+        createOutputWithCode('test', Array(codeLines).fill('const x = 1;'))
 
       // Run multiple validations concurrently
       const promises = Array.from({ length: 10 }, (_, i) =>
@@ -54,51 +37,8 @@ describe('SchemaValidator', () => {
     it('should handle code size limits independently per validation', async () => {
       const validator = new SchemaValidator({ maxTotalCodeSize: 1000 })
 
-      const largeOutput: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            error: {
-              message: 'error',
-              type: 'Error',
-              context: {
-                code: Array(100).fill('x'.repeat(100)) // 10KB of code
-              }
-            }
-          }
-        ]
-      }
-
-      const smallOutput: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 1,
-          failed: 0,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        passed: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            status: 'passed'
-          }
-        ]
-      }
+      const largeOutput = createOutputWithCode('test', Array(100).fill('x'.repeat(100)))
+      const smallOutput = createOutputWithPassed(1)
 
       // Run both validations concurrently
       const [largeResult, smallResult] = await Promise.all([
@@ -116,31 +56,8 @@ describe('SchemaValidator', () => {
     it('should not mutate the input object during validation', () => {
       const validator = new SchemaValidator()
 
-      const original: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            error: {
-              message: '<script>alert("xss")</script>',
-              type: 'Error',
-              context: {
-                code: ['<script>alert("xss")</script>']
-              }
-            }
-          }
-        ]
-      }
+      const original = createOutputWithCode('test', ['<script>alert("xss")</script>'])
+      original.failures![0].error.message = '<script>alert("xss")</script>'
 
       // Create a deep copy to compare
       const originalCopy = JSON.parse(JSON.stringify(original))
@@ -158,31 +75,9 @@ describe('SchemaValidator', () => {
     it('should return sanitized copy when requested without mutating original', () => {
       const validator = new SchemaValidator()
 
-      const original: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: [
-          {
-            test: '<b>test</b>',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            error: {
-              message: '<script>alert("xss")</script>',
-              type: 'Error<>',
-              context: {
-                code: ['<script>alert("xss")</script>']
-              }
-            }
-          }
-        ]
-      }
+      const original = createOutputWithCode('<b>test</b>', ['<script>alert("xss")</script>'])
+      original.failures![0].error.message = '<script>alert("xss")</script>'
+      original.failures![0].error.type = 'Error<>'
 
       const originalCopy = JSON.parse(JSON.stringify(original))
 
@@ -249,28 +144,9 @@ describe('SchemaValidator', () => {
     it('should validate that endLine >= startLine', () => {
       const validator = new SchemaValidator()
 
-      const invalidOutput: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 10,
-            endLine: 5, // Invalid: endLine < startLine
-            error: {
-              message: 'error',
-              type: 'Error'
-            }
-          }
-        ]
-      }
+      const invalidOutput = createOutputWithFailures(1)
+      invalidOutput.failures![0].startLine = 10
+      invalidOutput.failures![0].endLine = 5 // Invalid: endLine < startLine
 
       const result = validator.validate(invalidOutput)
 
@@ -287,25 +163,9 @@ describe('SchemaValidator', () => {
     it('should accept endLine equal to startLine', () => {
       const validator = new SchemaValidator()
 
-      const validOutput: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 1,
-          failed: 0,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        passed: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 10,
-            endLine: 10, // Valid: endLine == startLine
-            status: 'passed'
-          }
-        ]
-      }
+      const validOutput = createOutputWithPassed(1)
+      validOutput.passed![0].startLine = 10
+      validOutput.passed![0].endLine = 10 // Valid: endLine == startLine
 
       const result = validator.validate(validOutput)
 
@@ -315,25 +175,9 @@ describe('SchemaValidator', () => {
     it('should accept endLine greater than startLine', () => {
       const validator = new SchemaValidator()
 
-      const validOutput: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 1,
-          failed: 0,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        passed: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 10,
-            endLine: 20, // Valid: endLine > startLine
-            status: 'passed'
-          }
-        ]
-      }
+      const validOutput = createOutputWithPassed(1)
+      validOutput.passed![0].startLine = 10
+      validOutput.passed![0].endLine = 20 // Valid: endLine > startLine
 
       const result = validator.validate(validOutput)
 
@@ -345,26 +189,7 @@ describe('SchemaValidator', () => {
     it('should enforce max failures limit', () => {
       const validator = new SchemaValidator({ maxFailures: 10 })
 
-      const output: LLMReporterOutput = {
-        summary: {
-          total: 20,
-          passed: 0,
-          failed: 20,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: Array(20).fill({
-          test: 'test',
-          file: '/test/file.ts',
-          startLine: 1,
-          endLine: 1,
-          error: {
-            message: 'error',
-            type: 'Error'
-          }
-        })
-      }
+      const output = createOutputWithFailures(20)
 
       const result = validator.validate(output)
 
@@ -375,23 +200,7 @@ describe('SchemaValidator', () => {
     it('should enforce max passed limit', () => {
       const validator = new SchemaValidator({ maxPassed: 10 })
 
-      const output: LLMReporterOutput = {
-        summary: {
-          total: 20,
-          passed: 20,
-          failed: 0,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        passed: Array(20).fill({
-          test: 'test',
-          file: '/test/file.ts',
-          startLine: 1,
-          endLine: 1,
-          status: 'passed' as const
-        })
-      }
+      const output = createOutputWithPassed(20)
 
       const result = validator.validate(output)
 
@@ -404,28 +213,8 @@ describe('SchemaValidator', () => {
     it('should enforce max string length for messages', () => {
       const validator = new SchemaValidator({ maxStringLength: 100 })
 
-      const output: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            error: {
-              message: 'x'.repeat(101),
-              type: 'Error'
-            }
-          }
-        ]
-      }
+      const output = createOutputWithFailures(1)
+      output.failures![0].error.message = 'x'.repeat(101)
 
       const result = validator.validate(output)
 
@@ -435,25 +224,8 @@ describe('SchemaValidator', () => {
     it('should enforce max string length for test names', () => {
       const validator = new SchemaValidator({ maxStringLength: 100 })
 
-      const output: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 1,
-          failed: 0,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        passed: [
-          {
-            test: 'x'.repeat(101),
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            status: 'passed'
-          }
-        ]
-      }
+      const output = createOutputWithPassed(1)
+      output.passed![0].test = 'x'.repeat(101)
 
       const result = validator.validate(output)
 
@@ -471,31 +243,7 @@ describe('SchemaValidator', () => {
 
       const validator = new SchemaValidator(config)
 
-      const output: LLMReporterOutput = {
-        summary: {
-          total: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: [
-          {
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            error: {
-              message: 'error',
-              type: 'Error',
-              context: {
-                code: Array(10).fill('const x = 1;') // Exceeds maxCodeLines
-              }
-            }
-          }
-        ]
-      }
+      const output = createOutputWithCode('test', Array(10).fill('const x = 1;'))
 
       const result = validator.validate(output)
 
@@ -527,27 +275,11 @@ describe('SchemaValidator', () => {
     it('should report multiple validation errors', () => {
       const validator = new SchemaValidator({ maxFailures: 1 })
 
-      const output: LLMReporterOutput = {
-        summary: {
-          total: 10,
-          passed: 5,
-          failed: 3, // Doesn't add up
-          skipped: 0,
-          duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        failures: Array(5).fill({
-          // Exceeds limit
-          test: 'test',
-          file: '/test/file.ts',
-          startLine: 1,
-          endLine: 1,
-          error: {
-            message: 'error',
-            type: 'Error'
-          }
-        })
-      }
+      const output = createOutputWithFailures(5)
+      // Make summary not add up correctly
+      output.summary.total = 10
+      output.summary.passed = 5
+      output.summary.failed = 3 // Doesn't add up
 
       const result = validator.validate(output)
 
@@ -565,30 +297,17 @@ describe('SchemaValidator', () => {
         })
 
         // Create a malicious input with many items that would exceed memory
-        const maliciousOutput: LLMReporterOutput = {
-          summary: {
-            total: 10000,
-            passed: 0,
-            failed: 10000,
-            skipped: 0,
-            duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
-          },
-          // Each failure has large code context
-          failures: Array(10000).fill({
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            error: {
-              message: 'error',
-              type: 'Error',
-              context: {
-                code: Array(100).fill('x'.repeat(1000)) // Each line is 1000 chars
-              }
+        const maliciousOutput = createOutputWithFailures(10000)
+        // Add large code context to each failure
+        maliciousOutput.failures = maliciousOutput.failures!.map((f) => ({
+          ...f,
+          error: {
+            ...f.error,
+            context: {
+              code: Array(100).fill('x'.repeat(1000)) // Each line is 1000 chars
             }
-          })
-        }
+          }
+        }))
 
         const result = validator.validate(maliciousOutput)
 
@@ -610,29 +329,17 @@ describe('SchemaValidator', () => {
         })
 
         // Array that would exceed memory if processed
-        const output: LLMReporterOutput = {
-          summary: {
-            total: 50,
-            passed: 0,
-            failed: 50,
-            skipped: 0,
-            duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
-          },
-          failures: Array(50).fill({
-            test: 'test',
-            file: '/test/file.ts',
-            startLine: 1,
-            endLine: 1,
-            error: {
-              message: 'error',
-              type: 'Error',
-              context: {
-                code: Array(10).fill('x'.repeat(100))
-              }
+        const output = createOutputWithFailures(50)
+        // Add code context that would exceed memory
+        output.failures = output.failures!.map((f) => ({
+          ...f,
+          error: {
+            ...f.error,
+            context: {
+              code: Array(10).fill('x'.repeat(100))
             }
-          })
-        }
+          }
+        }))
 
         const result = validator.validate(output)
 
@@ -653,31 +360,7 @@ describe('SchemaValidator', () => {
           maxTotalCodeSize: 10000
         })
 
-        const output: LLMReporterOutput = {
-          summary: {
-            total: 1,
-            passed: 0,
-            failed: 1,
-            skipped: 0,
-            duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
-          },
-          failures: [
-            {
-              test: 'test',
-              file: '/test/file.ts',
-              startLine: 1,
-              endLine: 1,
-              error: {
-                message: 'error',
-                type: 'Error',
-                context: {
-                  code: Array(50).fill('const x = 1;')
-                }
-              }
-            }
-          ]
-        }
+        const output = createOutputWithCode('test', Array(50).fill('const x = 1;'))
 
         const startTime = performance.now()
         const result = validator.validate(output)
@@ -805,28 +488,9 @@ describe('SchemaValidator', () => {
       it('should sanitize HTML in error messages', () => {
         const validator = new SchemaValidator()
 
-        const xssOutput: LLMReporterOutput = {
-          summary: {
-            total: 1,
-            passed: 0,
-            failed: 1,
-            skipped: 0,
-            duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
-          },
-          failures: [
-            {
-              test: '<script>alert("XSS")</script>',
-              file: '/test/file.ts',
-              startLine: 1,
-              endLine: 1,
-              error: {
-                message: '<img src=x onerror=alert("XSS")>',
-                type: 'Error'
-              }
-            }
-          ]
-        }
+        const xssOutput = createXSSTestOutput()
+        // Remove context for this specific test
+        delete xssOutput.failures![0].error.context
 
         const result = validator.validate(xssOutput)
 

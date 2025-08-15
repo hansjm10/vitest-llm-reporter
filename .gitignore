@@ -19,6 +19,7 @@ dist/
 # Testing
 coverage/
 *.log
+test-output.json
 
 # Environment
 .env
