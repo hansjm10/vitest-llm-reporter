@@ -149,13 +149,10 @@ export class SchemaProcessor {
       }
     }
 
-    // This should not be reached, but for completeness
-    return {
-      success: true,
-      data: output as LLMReporterOutput,
-      validated: processOptions.validate,
-      sanitized: processOptions.sanitize
-    }
+    // This should never be reached - indicates a logic error
+    throw new Error(
+      'Unexpected state: neither validation nor sanitization was performed despite passing initial check'
+    )
   }
 
   /**
