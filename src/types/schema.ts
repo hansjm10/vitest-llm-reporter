@@ -54,6 +54,32 @@ export interface ErrorContext {
 }
 
 /**
+ * Stack frame information from parsed stack traces
+ */
+export interface StackFrame {
+  /** File path */
+  file: string
+  /** Line number */
+  line: number
+  /** Column number (optional) */
+  column?: number
+  /** Function name (optional) */
+  function?: string
+}
+
+/**
+ * Assertion details from test failures
+ */
+export interface AssertionDetails {
+  /** Expected value */
+  expected: AssertionValue
+  /** Actual value */
+  actual: AssertionValue
+  /** Assertion operator (e.g., "toBe", "toEqual") */
+  operator?: string
+}
+
+/**
  * Detailed error information
  */
 export interface TestError {
@@ -63,6 +89,10 @@ export interface TestError {
   type: string
   /** Stack trace (optional, may be truncated) */
   stack?: string
+  /** Parsed stack frames */
+  stackFrames?: StackFrame[]
+  /** Assertion details for assertion errors */
+  assertion?: AssertionDetails
   /** Additional context for the error */
   context?: ErrorContext
 }

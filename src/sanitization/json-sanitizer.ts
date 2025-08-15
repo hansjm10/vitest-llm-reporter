@@ -132,9 +132,12 @@ export class JsonSanitizer {
    */
   private sanitizeErrorContext(context: ErrorContext): ErrorContext {
     const safeContext = createSafeObject(context as unknown as Record<string, unknown>)
+    
+    // Make sure code array exists and is an array
+    const codeArray = Array.isArray(safeContext.code) ? safeContext.code as string[] : []
 
     const sanitized: ErrorContext = {
-      code: escapeJsonArray(safeContext.code as string[])
+      code: escapeJsonArray(codeArray)
     }
 
     if (safeContext.expected !== undefined) {

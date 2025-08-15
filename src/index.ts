@@ -38,5 +38,10 @@ export {
   type ProcessingResult
 } from './processor/processor'
 
-// Export reporter class
-export { LLMReporter, type LLMReporterConfig } from './reporter'
+// Export reporter class and types
+export { LLMReporter } from './reporter/reporter'
+export type { LLMReporterConfig } from './types/reporter'
+
+// Default export for Vitest
+import { LLMReporter } from './reporter/reporter'
+export default LLMReporter
