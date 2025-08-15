@@ -10,6 +10,7 @@
 import type {
   LLMReporterOutput,
   TestSummary,
+  TestBase,
   TestFailure,
   TestResult,
   TestError,
@@ -405,19 +406,19 @@ export class SchemaValidator {
   }
 
   /**
-   * Validates TestFailure object
+   * Validates TestBase properties common to all test objects
    */
-  private isValidTestFailure(
-    failure: unknown,
+  private isValidTestBase(
+    test: unknown,
     context: ValidationContext,
     path: string = ''
-  ): failure is TestFailure {
-    if (!failure || typeof failure !== 'object' || failure === null) {
-      this.addError(context, ErrorMessages.TYPE_OBJECT(path, typeof failure), path, failure)
+  ): test is TestBase {
+    if (!test || typeof test !== 'object' || test === null) {
+      this.addError(context, ErrorMessages.TYPE_OBJECT(path, typeof test), path, test)
       return false
     }
 
-    const obj = createSafeObject(failure as Record<string, unknown>)
+    const obj = createSafeObject(test as Record<string, unknown>)
 
     // Check required string fields with length limits
     if (!hasOwnProperty(obj, 'test')) {
@@ -477,35 +478,62 @@ export class SchemaValidator {
       return false
     }
 
-    if (!hasOwnProperty(obj, 'line')) {
-      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.line`), `${path}.line`)
+    // Check startLine
+    if (!hasOwnProperty(obj, 'startLine')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.startLine`), `${path}.startLine`)
       return false
     }
-    if (typeof obj.line !== 'number') {
+    if (typeof obj.startLine !== 'number') {
       this.addError(
         context,
-        ErrorMessages.TYPE_NUMBER(`${path}.line`, typeof obj.line),
-        `${path}.line`,
-        obj.line
+        ErrorMessages.TYPE_NUMBER(`${path}.startLine`, typeof obj.startLine),
+        `${path}.startLine`,
+        obj.startLine
       )
       return false
     }
-    if (obj.line < context.config.minLineNumber) {
+    if (obj.startLine < context.config.minLineNumber) {
       this.addError(
         context,
         `Must be at least ${context.config.minLineNumber}`,
-        `${path}.line`,
-        obj.line
+        `${path}.startLine`,
+        obj.startLine
       )
       return false
     }
 
-    // Check error object
-    if (!hasOwnProperty(obj, 'error')) {
-      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.error`), `${path}.error`)
+    // Check endLine
+    if (!hasOwnProperty(obj, 'endLine')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.endLine`), `${path}.endLine`)
       return false
     }
-    if (!this.isValidTestError(obj.error, context, `${path}.error`)) {
+    if (typeof obj.endLine !== 'number') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_NUMBER(`${path}.endLine`, typeof obj.endLine),
+        `${path}.endLine`,
+        obj.endLine
+      )
+      return false
+    }
+    if (obj.endLine < context.config.minLineNumber) {
+      this.addError(
+        context,
+        `Must be at least ${context.config.minLineNumber}`,
+        `${path}.endLine`,
+        obj.endLine
+      )
+      return false
+    }
+
+    // Validate that endLine >= startLine
+    if (obj.endLine < obj.startLine) {
+      this.addError(
+        context,
+        `End line (${obj.endLine}) must be greater than or equal to start line (${obj.startLine})`,
+        `${path}.endLine`,
+        obj.endLine
+      )
       return false
     }
 
@@ -545,6 +573,33 @@ export class SchemaValidator {
       ) {
         return false
       }
+    }
+
+    return true
+  }
+
+  /**
+   * Validates TestFailure object
+   */
+  private isValidTestFailure(
+    failure: unknown,
+    context: ValidationContext,
+    path: string = ''
+  ): failure is TestFailure {
+    // First validate the base properties
+    if (!this.isValidTestBase(failure, context, path)) {
+      return false
+    }
+
+    const obj = createSafeObject(failure as Record<string, unknown>)
+
+    // Check error object (TestFailure-specific property)
+    if (!hasOwnProperty(obj, 'error')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.error`), `${path}.error`)
+      return false
+    }
+    if (!this.isValidTestError(obj.error, context, `${path}.error`)) {
+      return false
     }
 
     return true
@@ -840,103 +895,14 @@ export class SchemaValidator {
     context: ValidationContext,
     path: string = ''
   ): result is TestResult {
-    if (!result || typeof result !== 'object' || result === null) {
-      this.addError(context, ErrorMessages.TYPE_OBJECT(path, typeof result), path, result)
+    // First validate the base properties
+    if (!this.isValidTestBase(result, context, path)) {
       return false
     }
 
     const obj = createSafeObject(result as Record<string, unknown>)
 
-    // Check required fields with length limits
-    if (!hasOwnProperty(obj, 'test')) {
-      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.test`), `${path}.test`)
-      return false
-    }
-    if (typeof obj.test !== 'string') {
-      this.addError(
-        context,
-        ErrorMessages.TYPE_STRING(`${path}.test`, typeof obj.test),
-        `${path}.test`,
-        obj.test
-      )
-      return false
-    }
-    if (obj.test.length > context.config.maxStringLength) {
-      this.addError(
-        context,
-        ErrorMessages.MAX_STRING_LENGTH(
-          `${path}.test`,
-          context.config.maxStringLength,
-          obj.test.length
-        ),
-        `${path}.test`,
-        obj.test.length
-      )
-      return false
-    }
-
-    if (!hasOwnProperty(obj, 'file')) {
-      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.file`), `${path}.file`)
-      return false
-    }
-    if (typeof obj.file !== 'string') {
-      this.addError(
-        context,
-        ErrorMessages.TYPE_STRING(`${path}.file`, typeof obj.file),
-        `${path}.file`,
-        obj.file
-      )
-      return false
-    }
-    if (obj.file.length > context.config.maxStringLength) {
-      this.addError(
-        context,
-        ErrorMessages.MAX_STRING_LENGTH(
-          `${path}.file`,
-          context.config.maxStringLength,
-          obj.file.length
-        ),
-        `${path}.file`,
-        obj.file.length
-      )
-      return false
-    }
-
-    // Validate file path security
-    if (!validateFilePath(obj.file)) {
-      this.addError(
-        context,
-        ErrorMessages.INVALID_FILE_PATH(`${path}.file`, String(obj.file)),
-        `${path}.file`,
-        obj.file
-      )
-      return false
-    }
-
-    if (!hasOwnProperty(obj, 'line')) {
-      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.line`), `${path}.line`)
-      return false
-    }
-    if (typeof obj.line !== 'number') {
-      this.addError(
-        context,
-        ErrorMessages.TYPE_NUMBER(`${path}.line`, typeof obj.line),
-        `${path}.line`,
-        obj.line
-      )
-      return false
-    }
-    if (obj.line < context.config.minLineNumber) {
-      this.addError(
-        context,
-        ErrorMessages.MIN_VALUE(`${path}.line`, context.config.minLineNumber, obj.line),
-        `${path}.line`,
-        obj.line
-      )
-      return false
-    }
-
-    // Check status
+    // Check status (TestResult-specific property)
     if (!hasOwnProperty(obj, 'status')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.status`), `${path}.status`)
       return false
@@ -951,7 +917,7 @@ export class SchemaValidator {
       return false
     }
 
-    // Check optional duration
+    // Check optional duration (TestResult-specific property)
     if (hasOwnProperty(obj, 'duration') && obj.duration !== undefined) {
       if (typeof obj.duration !== 'number') {
         this.addError(
@@ -969,48 +935,6 @@ export class SchemaValidator {
           `${path}.duration`,
           obj.duration
         )
-        return false
-      }
-    }
-
-    // Check optional suite array
-    if (hasOwnProperty(obj, 'suite') && obj.suite !== undefined) {
-      if (!Array.isArray(obj.suite)) {
-        this.addError(
-          context,
-          ErrorMessages.TYPE_ARRAY(`${path}.suite`, typeof obj.suite),
-          `${path}.suite`,
-          obj.suite
-        )
-        return false
-      }
-      if (
-        !obj.suite.every((s, i) => {
-          if (typeof s !== 'string') {
-            this.addError(
-              context,
-              ErrorMessages.TYPE_STRING(`${path}.suite[${i}]`, typeof s),
-              `${path}.suite[${i}]`,
-              s
-            )
-            return false
-          }
-          if (s.length > context.config.maxStringLength) {
-            this.addError(
-              context,
-              ErrorMessages.MAX_STRING_LENGTH(
-                `${path}.suite[${i}]`,
-                context.config.maxStringLength,
-                s.length
-              ),
-              `${path}.suite[${i}]`,
-              s.length
-            )
-            return false
-          }
-          return true
-        })
-      ) {
         return false
       }
     }

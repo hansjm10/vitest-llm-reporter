@@ -42,7 +42,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'XSS with parentheses',
             file: '/test/xss.test.ts',
-            line: 10,
+            startLine: 10,
+            endLine: 10,
             error: {
               message: 'Test failed',
               type: 'AssertionError',
@@ -93,7 +94,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'XSS test',
             file: '/test/xss.test.ts',
-            line: 10,
+            startLine: 10,
+            endLine: 10,
             error: {
               message: 'Test failed',
               type: 'AssertionError',
@@ -143,7 +145,8 @@ describe('Security Validation Tests', () => {
             {
               test: 'XSS test',
               file: '/test/xss.test.ts',
-              line: 10,
+              startLine: 10,
+              endLine: 10,
               error: {
                 message: 'Test failed',
                 type: 'AssertionError',
@@ -309,7 +312,8 @@ describe('Security Validation Tests', () => {
         const failure: TestFailure = {
           test: 'Path traversal test',
           file: path,
-          line: 10,
+          startLine: 10,
+          endLine: 10,
           error: {
             message: 'Test failed',
             type: 'AssertionError'
@@ -327,7 +331,8 @@ describe('Security Validation Tests', () => {
         const failure: TestFailure = {
           test: 'Relative path test',
           file: path,
-          line: 10,
+          startLine: 10,
+          endLine: 10,
           error: {
             message: 'Test failed',
             type: 'AssertionError'
@@ -350,7 +355,8 @@ describe('Security Validation Tests', () => {
         const failure: TestFailure = {
           test: 'Valid path test',
           file: path,
-          line: 10,
+          startLine: 10,
+          endLine: 10,
           error: {
             message: 'Test failed',
             type: 'AssertionError'
@@ -367,7 +373,8 @@ describe('Security Validation Tests', () => {
       const failure: TestFailure = {
         test: 'Null byte test',
         file: nullBytePath,
-        line: 10,
+        startLine: 10,
+        endLine: 10,
         error: {
           message: 'Test failed',
           type: 'AssertionError'
@@ -395,7 +402,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'Memory test',
             file: '/test/memory.test.ts',
-            line: 10,
+            startLine: 10,
+            endLine: 10,
             error: {
               message: 'Test failed',
               type: 'AssertionError',
@@ -421,7 +429,8 @@ describe('Security Validation Tests', () => {
         failures.push({
           test: `Memory test ${i}`,
           file: `/test/memory${i}.test.ts`,
-          line: 10,
+          startLine: 10,
+          endLine: 10,
           error: {
             message: 'Test failed',
             type: 'AssertionError',
@@ -470,7 +479,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'Reasonable test',
             file: '/test/reasonable.test.ts',
-            line: 10,
+            startLine: 10,
+            endLine: 10,
             error: {
               message: 'Test failed',
               type: 'AssertionError',
@@ -505,7 +515,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'Circular test',
             file: '/test/circular.test.ts',
-            line: 10,
+            startLine: 10,
+            endLine: 10,
             error: {
               message: 'Test failed',
               type: 'AssertionError',
@@ -540,7 +551,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'Normal test',
             file: '/test/normal.test.ts',
-            line: 10,
+            startLine: 10,
+            endLine: 10,
             error: {
               message: 'Test failed',
               type: 'AssertionError',
@@ -574,7 +586,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'Large line test',
             file: '/test/large.test.ts',
-            line: Number.MAX_SAFE_INTEGER,
+            startLine: Number.MAX_SAFE_INTEGER - 10,
+            endLine: Number.MAX_SAFE_INTEGER,
             error: {
               message: 'Test failed',
               type: 'AssertionError',
@@ -613,7 +626,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'Unicode test',
             file: '/test/unicode.test.ts',
-            line: 10,
+            startLine: 10,
+            endLine: 10,
             error: {
               message: 'Test failed',
               type: 'AssertionError',
@@ -667,7 +681,8 @@ describe('Security Validation Tests', () => {
         failures: Array.from({ length: 20 }, (_, i) => ({
           test: `x${i}`,
           file: `/test/x${i}.ts`,
-          line: 1,
+          startLine: 1,
+          endLine: 1,
           error: {
             message: `x${i}`,
             type: 'Error',
@@ -695,7 +710,8 @@ describe('Security Validation Tests', () => {
       const largeArray = Array(1000).fill({
         test: 'test',
         file: '/test/file.ts',
-        line: 1,
+        startLine: 1,
+        endLine: 1,
         error: {
           message: 'error',
           type: 'Error',
@@ -738,7 +754,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -781,7 +798,8 @@ describe('Security Validation Tests', () => {
       const failure: any = {
         test: 'test',
         file: '/test/file.ts',
-        line: 1,
+        startLine: 1,
+        endLine: 1,
         error: {
           message: 'error',
           type: 'Error'
@@ -815,7 +833,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -862,7 +881,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error'
@@ -958,7 +978,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -988,7 +1009,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'small test',
             file: '/test/small.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ]
@@ -1017,7 +1039,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'complex test',
             file: '/test/complex.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'Complex error',
               type: 'Error',
@@ -1039,7 +1062,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'passed test',
             file: '/test/pass.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ],
@@ -1047,7 +1071,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'skipped test',
             file: '/test/skip.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'skipped'
           }
         ]
@@ -1079,7 +1104,8 @@ describe('Security Validation Tests', () => {
           {
             test: 'tricky',
             file: '/test/tricky.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',

@@ -11,7 +11,8 @@
     {
       "test": "should validate input",
       "file": "/src/validator.test.ts",
-      "line": 23,
+      "startLine": 20,
+      "endLine": 28,
       "error": {
         "message": "Input validation failed",
         "type": "ValidationError"
@@ -22,21 +23,24 @@
     {
       "test": "should add two numbers",
       "file": "/src/math.test.ts",
-      "line": 10,
+      "startLine": 8,
+      "endLine": 12,
       "duration": 5,
       "status": "passed"
     },
     {
       "test": "should subtract two numbers",
       "file": "/src/math.test.ts",
-      "line": 15,
+      "startLine": 14,
+      "endLine": 18,
       "duration": 3,
       "status": "passed"
     },
     {
       "test": "should multiply two numbers",
       "file": "/src/math.test.ts",
-      "line": 20,
+      "startLine": 20,
+      "endLine": 25,
       "duration": 4,
       "status": "passed",
       "suite": ["Math", "Basic Operations"]
@@ -46,7 +50,8 @@
     {
       "test": "should handle edge cases",
       "file": "/src/edge-cases.test.ts",
-      "line": 45,
+      "startLine": 42,
+      "endLine": 55,
       "status": "skipped"
     }
   ]

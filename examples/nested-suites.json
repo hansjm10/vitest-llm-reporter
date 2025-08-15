@@ -11,7 +11,8 @@
     {
       "test": "should multiply numbers correctly",
       "file": "/src/calculator.test.ts",
-      "line": 45,
+      "startLine": 42,
+      "endLine": 50,
       "suite": ["Math", "Calculator", "Multiplication"],
       "error": {
         "message": "Expected 20 but got 21",
@@ -31,7 +32,8 @@
     {
       "test": "should handle division by zero",
       "file": "/src/calculator.test.ts",
-      "line": 67,
+      "startLine": 65,
+      "endLine": 72,
       "suite": ["Math", "Calculator", "Division"],
       "error": {
         "message": "Expected Error to be thrown",
@@ -42,7 +44,8 @@
     {
       "test": "should parse complex expressions",
       "file": "/src/parser.test.ts",
-      "line": 123,
+      "startLine": 120,
+      "endLine": 135,
       "suite": ["Parser", "Complex Expressions"],
       "error": {
         "message": "Unexpected token ')'",

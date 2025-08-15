@@ -20,7 +20,8 @@ describe('SchemaSanitizer', () => {
           {
             test: 'test with <script>alert("XSS")</script>',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'Error with <img src=x onerror=alert(1)>',
               type: 'Error',
@@ -54,7 +55,8 @@ describe('SchemaSanitizer', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -96,7 +98,8 @@ describe('SchemaSanitizer', () => {
           {
             test: 'test with "quotes" and \\backslash',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ]
@@ -126,7 +129,8 @@ describe('SchemaSanitizer', () => {
           {
             test: 'test with *bold* and _italic_ and [link](url)',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ]
@@ -157,7 +161,8 @@ describe('SchemaSanitizer', () => {
           {
             test: '<script>alert("XSS")</script>',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ]
@@ -186,7 +191,8 @@ describe('SchemaSanitizer', () => {
           {
             test: 'test',
             file: '/Users/johndoe/projects/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ]
@@ -213,7 +219,8 @@ describe('SchemaSanitizer', () => {
           {
             test: 'test',
             file: '/Users/johndoe/projects/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ]
@@ -242,7 +249,8 @@ describe('SchemaSanitizer', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -301,7 +309,8 @@ describe('SchemaSanitizer', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -339,7 +348,8 @@ describe('SchemaSanitizer', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             suite: ['Suite <script>', 'Nested & Suite'],
             error: {
               message: 'error',

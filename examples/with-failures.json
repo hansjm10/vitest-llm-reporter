@@ -11,7 +11,8 @@
     {
       "test": "should calculate tax correctly",
       "file": "/src/tax.test.ts",
-      "line": 45,
+      "startLine": 43,
+      "endLine": 48,
       "error": {
         "message": "Expected 105.50 but got 105.00",
         "type": "AssertionError",
@@ -31,7 +32,8 @@
     {
       "test": "should validate email format",
       "file": "/src/validation.test.ts",
-      "line": 12,
+      "startLine": 10,
+      "endLine": 15,
       "error": {
         "message": "Expected true but got false",
         "type": "AssertionError",

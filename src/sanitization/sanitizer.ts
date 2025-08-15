@@ -109,7 +109,8 @@ export class SchemaSanitizer {
     return {
       test: this.sanitizeString(failure.test),
       file: this.sanitizeFilePath(failure.file),
-      line: failure.line,
+      startLine: failure.startLine,
+      endLine: failure.endLine,
       suite: failure.suite?.map((s) => this.sanitizeString(s)),
       error: this.sanitizeTestError(failure.error)
     }
@@ -171,7 +172,8 @@ export class SchemaSanitizer {
     return {
       test: this.sanitizeString(result.test),
       file: this.sanitizeFilePath(result.file),
-      line: result.line,
+      startLine: result.startLine,
+      endLine: result.endLine,
       duration: result.duration,
       status: result.status,
       suite: result.suite?.map((s) => this.sanitizeString(s))

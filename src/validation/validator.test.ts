@@ -21,7 +21,8 @@ describe('SchemaValidator', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -66,7 +67,8 @@ describe('SchemaValidator', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -91,7 +93,8 @@ describe('SchemaValidator', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ]
@@ -126,7 +129,8 @@ describe('SchemaValidator', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: '<script>alert("xss")</script>',
               type: 'Error',
@@ -167,7 +171,8 @@ describe('SchemaValidator', () => {
           {
             test: '<b>test</b>',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: '<script>alert("xss")</script>',
               type: 'Error<>',
@@ -211,7 +216,8 @@ describe('SchemaValidator', () => {
           {
             test: 'Test with "quotes" and \'apostrophes\' and /slashes/ and \\backslashes\\',
             file: '/test/file.js',
-            line: 10,
+            startLine: 10,
+            endLine: 10,
             error: {
               message: 'javascript:alert("XSS") and onclick="alert(1)"',
               type: 'Error&lt;script&gt;'
@@ -239,6 +245,102 @@ describe('SchemaValidator', () => {
     })
   })
 
+  describe('Line Number Validation', () => {
+    it('should validate that endLine >= startLine', () => {
+      const validator = new SchemaValidator()
+
+      const invalidOutput: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        failures: [
+          {
+            test: 'test',
+            file: '/test/file.ts',
+            startLine: 10,
+            endLine: 5, // Invalid: endLine < startLine
+            error: {
+              message: 'error',
+              type: 'Error'
+            }
+          }
+        ]
+      }
+
+      const result = validator.validate(invalidOutput)
+
+      expect(result.valid).toBe(false)
+      expect(
+        result.errors.some(
+          (e) =>
+            e.message.includes('End line') &&
+            e.message.includes('must be greater than or equal to start line')
+        )
+      ).toBe(true)
+    })
+
+    it('should accept endLine equal to startLine', () => {
+      const validator = new SchemaValidator()
+
+      const validOutput: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 1,
+          failed: 0,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        passed: [
+          {
+            test: 'test',
+            file: '/test/file.ts',
+            startLine: 10,
+            endLine: 10, // Valid: endLine == startLine
+            status: 'passed'
+          }
+        ]
+      }
+
+      const result = validator.validate(validOutput)
+
+      expect(result.valid).toBe(true)
+    })
+
+    it('should accept endLine greater than startLine', () => {
+      const validator = new SchemaValidator()
+
+      const validOutput: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 1,
+          failed: 0,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        passed: [
+          {
+            test: 'test',
+            file: '/test/file.ts',
+            startLine: 10,
+            endLine: 20, // Valid: endLine > startLine
+            status: 'passed'
+          }
+        ]
+      }
+
+      const result = validator.validate(validOutput)
+
+      expect(result.valid).toBe(true)
+    })
+  })
+
   describe('Array Size Limits', () => {
     it('should enforce max failures limit', () => {
       const validator = new SchemaValidator({ maxFailures: 10 })
@@ -255,7 +357,8 @@ describe('SchemaValidator', () => {
         failures: Array(20).fill({
           test: 'test',
           file: '/test/file.ts',
-          line: 1,
+          startLine: 1,
+          endLine: 1,
           error: {
             message: 'error',
             type: 'Error'
@@ -284,7 +387,8 @@ describe('SchemaValidator', () => {
         passed: Array(20).fill({
           test: 'test',
           file: '/test/file.ts',
-          line: 1,
+          startLine: 1,
+          endLine: 1,
           status: 'passed' as const
         })
       }
@@ -313,7 +417,8 @@ describe('SchemaValidator', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'x'.repeat(101),
               type: 'Error'
@@ -343,7 +448,8 @@ describe('SchemaValidator', () => {
           {
             test: 'x'.repeat(101),
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ]
@@ -378,7 +484,8 @@ describe('SchemaValidator', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -433,7 +540,8 @@ describe('SchemaValidator', () => {
           // Exceeds limit
           test: 'test',
           file: '/test/file.ts',
-          line: 1,
+          startLine: 1,
+          endLine: 1,
           error: {
             message: 'error',
             type: 'Error'
@@ -470,7 +578,8 @@ describe('SchemaValidator', () => {
           failures: Array(10000).fill({
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -513,7 +622,8 @@ describe('SchemaValidator', () => {
           failures: Array(50).fill({
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -556,7 +666,8 @@ describe('SchemaValidator', () => {
             {
               test: 'test',
               file: '/test/file.ts',
-              line: 1,
+              startLine: 1,
+              endLine: 1,
               error: {
                 message: 'error',
                 type: 'Error',
@@ -595,7 +706,8 @@ describe('SchemaValidator', () => {
             {
               test: 'test',
               file: '/test/file.ts',
-              line: 1,
+              startLine: 1,
+              endLine: 1,
               error: {
                 message: 'error',
                 type: 'Error',
@@ -640,7 +752,8 @@ describe('SchemaValidator', () => {
             {
               test: 'test',
               file: '/test/file.ts',
-              line: 1,
+              startLine: 1,
+              endLine: 1,
               error: {
                 message: 'error',
                 type: 'Error',
@@ -678,7 +791,8 @@ describe('SchemaValidator', () => {
             {
               test: 'test',
               file: '/test/file.ts',
-              line: 1,
+              startLine: 1,
+              endLine: 1,
               error: {
                 message: 'error',
                 type: 'Error',
@@ -728,7 +842,8 @@ describe('SchemaValidator', () => {
             {
               test: '<script>alert("XSS")</script>',
               file: '/test/file.ts',
-              line: 1,
+              startLine: 1,
+              endLine: 1,
               error: {
                 message: '<img src=x onerror=alert("XSS")>',
                 type: 'Error'
@@ -764,7 +879,8 @@ describe('SchemaValidator', () => {
             {
               test: 'test',
               file: '/test/file.ts',
-              line: 1,
+              startLine: 1,
+              endLine: 1,
               error: {
                 message: 'error',
                 type: 'Error'

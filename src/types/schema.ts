@@ -68,17 +68,25 @@ export interface TestError {
 }
 
 /**
- * Failed test information
+ * Base test location and identification information
  */
-export interface TestFailure {
+export interface TestBase {
   /** Test name */
   test: string
   /** File path where the test is defined */
   file: string
   /** Line number where the test starts */
-  line: number
+  startLine: number
+  /** Line number where the test ends */
+  endLine: number
   /** Test suite hierarchy (optional) */
   suite?: string[]
+}
+
+/**
+ * Failed test information
+ */
+export interface TestFailure extends TestBase {
   /** Error details */
   error: TestError
 }
@@ -86,19 +94,11 @@ export interface TestFailure {
 /**
  * Passed or skipped test information
  */
-export interface TestResult {
-  /** Test name */
-  test: string
-  /** File path where the test is defined */
-  file: string
-  /** Line number where the test starts */
-  line: number
+export interface TestResult extends TestBase {
   /** Test duration in milliseconds (optional) */
   duration?: number
   /** Test status */
   status: 'passed' | 'skipped'
-  /** Test suite hierarchy (optional) */
-  suite?: string[]
 }
 
 /**

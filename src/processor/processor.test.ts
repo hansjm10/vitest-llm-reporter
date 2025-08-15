@@ -17,7 +17,8 @@ describe('SchemaProcessor', () => {
       {
         test: 'test with <script>XSS</script>',
         file: '/test/file.ts',
-        line: 1,
+        startLine: 1,
+        endLine: 1,
         status: 'passed'
       }
     ]
@@ -149,7 +150,8 @@ describe('SchemaProcessor', () => {
           {
             test: 'test',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
@@ -185,7 +187,8 @@ describe('SchemaProcessor', () => {
           {
             test: 'test with "quotes"',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ]
@@ -216,7 +219,8 @@ describe('SchemaProcessor', () => {
           {
             test: 'test with "quotes"',
             file: '/test/file.ts',
-            line: 1,
+            startLine: 1,
+            endLine: 1,
             status: 'passed'
           }
         ]

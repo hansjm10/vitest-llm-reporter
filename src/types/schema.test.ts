@@ -94,7 +94,8 @@ describe('LLM Reporter Schema', () => {
       const failure: TestFailure = {
         test: 'should calculate sum correctly',
         file: '/src/math.test.ts',
-        line: 15,
+        startLine: 15,
+        endLine: 15,
         error: {
           message: 'Expected 5 but received 4',
           type: 'AssertionError',
@@ -122,7 +123,8 @@ describe('LLM Reporter Schema', () => {
       const minimalFailure: TestFailure = {
         test: 'test name',
         file: '/test/example.test.ts',
-        line: 1,
+        startLine: 1,
+        endLine: 1,
         error: {
           message: 'Error message',
           type: 'Error'
@@ -203,7 +205,8 @@ describe('LLM Reporter Schema', () => {
           {
             test: 'should calculate tax correctly',
             file: '/src/tax.test.ts',
-            line: 45,
+            startLine: 45,
+            endLine: 45,
             error: {
               message: 'Expected 105.50 but got 105.00',
               type: 'AssertionError',
@@ -239,7 +242,8 @@ describe('LLM Reporter Schema', () => {
           {
             test: 'should add numbers',
             file: '/src/math.test.ts',
-            line: 10,
+            startLine: 10,
+            endLine: 10,
             duration: 50,
             status: 'passed'
           }
@@ -263,7 +267,8 @@ describe('LLM Reporter Schema', () => {
           {
             test: 'Math > Calculator > should multiply correctly',
             file: '/src/calculator.test.ts',
-            line: 25,
+            startLine: 25,
+            endLine: 25,
             suite: ['Math', 'Calculator'],
             error: {
               message: 'Expected 20 but got 21',
@@ -295,7 +300,8 @@ describe('LLM Reporter Schema', () => {
       const failures: TestFailure[] = Array.from({ length: 100 }, (_, i) => ({
         test: `test ${i}`,
         file: `/src/test${i}.test.ts`,
-        line: i + 1,
+        startLine: i + 1,
+        endLine: i + 10,
         error: {
           message: `Error in test ${i}`,
           type: 'Error'
@@ -348,7 +354,8 @@ describe('LLM Reporter Schema', () => {
       const failure: TestFailure = {
         test: 'test name',
         file: '/test.ts',
-        line: 1,
+        startLine: 1,
+        endLine: 1,
         error: {
           message: 'error',
           type: 'Error'
