@@ -261,6 +261,13 @@ export class ErrorExtractor {
             expected: basicError.expected,
             actual: basicError.actual
           }
+        : (basicError.expected !== undefined || basicError.actual !== undefined)
+        ? {
+            code: [],
+            lineNumber: basicError.lineNumber,
+            expected: basicError.expected,
+            actual: basicError.actual
+          }
         : undefined
 
     return {
