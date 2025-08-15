@@ -38,5 +38,5 @@ export {
   type ProcessingResult
 } from './processor/processor'
 
-// TODO: Export reporter class once implemented
-// export { LLMReporter } from './reporter'
+// Export reporter class
+export { LLMReporter, type LLMReporterConfig } from './reporter'

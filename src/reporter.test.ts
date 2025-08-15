@@ -1,13 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type {
-  Vitest,
-  TestModule,
-  TestCase,
-  TestSpecification,
-  TestProject,
-  SerializedError
-} from 'vitest'
-import type { LLMReporterOutput, TestSummary, TestFailure, TestResult } from './types/schema'
+import type { Vitest, SerializedError } from 'vitest'
 
 // Import the non-existent LLMReporter class (will fail initially - TDD)
 import { LLMReporter } from './reporter'
@@ -17,7 +9,7 @@ const createMockTestCase = (
   name: string,
   status: 'passed' | 'failed' | 'skipped' = 'passed',
   error?: Error
-): Partial<TestCase> => ({
+): any => ({
   id: `test-${name}`,
   name,
   mode: status === 'skipped' ? 'skip' : 'run',
@@ -35,10 +27,7 @@ const createMockTestCase = (
   } as any
 })
 
-const createMockTestModule = (
-  filepath: string,
-  tests: Partial<TestCase>[] = []
-): Partial<TestModule> => ({
+const createMockTestModule = (filepath: string, tests: any[] = []): any => ({
   id: filepath,
   filepath,
   type: 'module',
@@ -48,9 +37,9 @@ const createMockTestModule = (
   diagnostics: () => []
 })
 
-const createMockTestSpecification = (filepath: string): TestSpecification => ({
+const createMockTestSpecification = (filepath: string): any => ({
   moduleId: filepath,
-  project: { config: {} } as TestProject
+  project: { config: {} }
 })
 
 describe('LLMReporter', () => {
@@ -99,21 +88,21 @@ describe('LLMReporter', () => {
 
   describe('Reporter Lifecycle Hooks', () => {
     describe('onTestRunStart', () => {
-      it('should initialize test run with specifications', async () => {
+      it('should initialize test run with specifications', () => {
         const specifications = [
           createMockTestSpecification('/test/file1.ts'),
           createMockTestSpecification('/test/file2.ts')
         ]
 
-        await reporter.onTestRunStart(specifications)
+        reporter.onTestRunStart(specifications)
 
         const state = reporter.getState()
         expect(state.startTime).toBeDefined()
         expect(state.specifications).toHaveLength(2)
       })
 
-      it('should handle empty specifications', async () => {
-        await reporter.onTestRunStart([])
+      it('should handle empty specifications', () => {
+        reporter.onTestRunStart([])
 
         const state = reporter.getState()
         expect(state.specifications).toHaveLength(0)
@@ -121,12 +110,12 @@ describe('LLMReporter', () => {
     })
 
     describe('onTestModuleQueued', () => {
-      it('should track queued modules', async () => {
+      it('should track queued modules', () => {
         const module1 = createMockTestModule('/test/file1.ts')
         const module2 = createMockTestModule('/test/file2.ts')
 
-        await reporter.onTestModuleQueued(module1)
-        await reporter.onTestModuleQueued(module2)
+        reporter.onTestModuleQueued(module1)
+        reporter.onTestModuleQueued(module2)
 
         const state = reporter.getState()
         expect(state.queuedModules).toHaveLength(2)
@@ -135,7 +124,7 @@ describe('LLMReporter', () => {
     })
 
     describe('onTestModuleCollected', () => {
-      it('should collect test information from modules', async () => {
+      it('should collect test information from modules', () => {
         const tests = [
           createMockTestCase('test1'),
           createMockTestCase('test2', 'skipped'),
@@ -143,14 +132,14 @@ describe('LLMReporter', () => {
         ]
         const module = createMockTestModule('/test/file.ts', tests)
 
-        await reporter.onTestModuleCollected(module)
+        reporter.onTestModuleCollected(module)
 
         const state = reporter.getState()
         expect(state.collectedTests).toHaveLength(3)
         expect(state.collectedTests.filter((t) => t.mode === 'skip')).toHaveLength(1)
       })
 
-      it('should handle nested test suites', async () => {
+      it('should handle nested test suites', () => {
         const nestedTests = [
           {
             ...createMockTestCase('suite1.test1'),
@@ -163,7 +152,7 @@ describe('LLMReporter', () => {
         ]
         const module = createMockTestModule('/test/nested.ts', nestedTests)
 
-        await reporter.onTestModuleCollected(module)
+        reporter.onTestModuleCollected(module)
 
         const state = reporter.getState()
         expect(state.collectedTests).toHaveLength(2)
@@ -173,10 +162,10 @@ describe('LLMReporter', () => {
     })
 
     describe('onTestModuleStart', () => {
-      it('should track module execution start', async () => {
+      it('should track module execution start', () => {
         const module = createMockTestModule('/test/file.ts')
 
-        await reporter.onTestModuleStart(module)
+        reporter.onTestModuleStart(module)
 
         const state = reporter.getState()
         expect(state.runningModules).toContain('/test/file.ts')
@@ -185,11 +174,11 @@ describe('LLMReporter', () => {
     })
 
     describe('onTestModuleEnd', () => {
-      it('should track module execution completion', async () => {
+      it('should track module execution completion', () => {
         const module = createMockTestModule('/test/file.ts')
 
-        await reporter.onTestModuleStart(module)
-        await reporter.onTestModuleEnd(module)
+        reporter.onTestModuleStart(module)
+        reporter.onTestModuleEnd(module)
 
         const state = reporter.getState()
         expect(state.runningModules).not.toContain('/test/file.ts')
@@ -199,9 +188,9 @@ describe('LLMReporter', () => {
       it('should calculate module duration', async () => {
         const module = createMockTestModule('/test/file.ts')
 
-        await reporter.onTestModuleStart(module)
+        reporter.onTestModuleStart(module)
         await new Promise((resolve) => setTimeout(resolve, 10))
-        await reporter.onTestModuleEnd(module)
+        reporter.onTestModuleEnd(module)
 
         const state = reporter.getState()
         expect(state.moduleDurations['/test/file.ts']).toBeGreaterThan(0)
@@ -209,10 +198,10 @@ describe('LLMReporter', () => {
     })
 
     describe('onTestCaseReady', () => {
-      it('should track test case preparation', async () => {
+      it('should track test case preparation', () => {
         const testCase = createMockTestCase('test1')
 
-        await reporter.onTestCaseReady(testCase)
+        reporter.onTestCaseReady(testCase)
 
         const state = reporter.getState()
         expect(state.readyTests).toContain('test-test1')
@@ -220,22 +209,22 @@ describe('LLMReporter', () => {
     })
 
     describe('onTestCaseResult', () => {
-      it('should track passed test results', async () => {
+      it('should track passed test results', () => {
         const testCase = createMockTestCase('test1', 'passed')
 
-        await reporter.onTestCaseResult(testCase)
+        reporter.onTestCaseResult(testCase)
 
         const state = reporter.getState()
         expect(state.testResults.passed).toHaveLength(1)
         expect(state.testResults.passed[0].test).toBe('test1')
       })
 
-      it('should track failed test results with error context', async () => {
+      it('should track failed test results with error context', () => {
         const error = new Error('Assertion failed')
         error.stack = 'Error: Assertion failed\n    at /test/file.ts:12:5'
         const testCase = createMockTestCase('test1', 'failed', error)
 
-        await reporter.onTestCaseResult(testCase)
+        reporter.onTestCaseResult(testCase)
 
         const state = reporter.getState()
         expect(state.testResults.failed).toHaveLength(1)
@@ -243,17 +232,17 @@ describe('LLMReporter', () => {
         expect(state.testResults.failed[0].error.message).toBe('Assertion failed')
       })
 
-      it('should track skipped test results', async () => {
+      it('should track skipped test results', () => {
         const testCase = createMockTestCase('test1', 'skipped')
 
-        await reporter.onTestCaseResult(testCase)
+        reporter.onTestCaseResult(testCase)
 
         const state = reporter.getState()
         expect(state.testResults.skipped).toHaveLength(1)
         expect(state.testResults.skipped[0].test).toBe('test1')
       })
 
-      it('should extract error context with code lines', async () => {
+      it('should extract error context with code lines', () => {
         const error = new Error('expect(received).toBe(expected)')
         error.stack = `
           AssertionError: expect(received).toBe(expected)
@@ -274,7 +263,7 @@ describe('LLMReporter', () => {
           }
         }
 
-        await reporter.onTestCaseResult(testCase)
+        reporter.onTestCaseResult(testCase)
 
         const state = reporter.getState()
         const failure = state.testResults.failed[0]
@@ -285,96 +274,94 @@ describe('LLMReporter', () => {
     })
 
     describe('onTestRunEnd', () => {
-      it('should generate final JSON output', async () => {
+      it('should generate final JSON output', () => {
         // Setup test run
-        await reporter.onTestRunStart([createMockTestSpecification('/test/file.ts')])
+        reporter.onTestRunStart([createMockTestSpecification('/test/file.ts')])
 
         // Add test results
-        await reporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
-        await reporter.onTestCaseResult(createMockTestCase('test2', 'failed', new Error('Failed')))
-        await reporter.onTestCaseResult(createMockTestCase('test3', 'skipped'))
+        reporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
+        reporter.onTestCaseResult(createMockTestCase('test2', 'failed', new Error('Failed')))
+        reporter.onTestCaseResult(createMockTestCase('test3', 'skipped'))
 
         // End test run
         const modules = [createMockTestModule('/test/file.ts')]
-        await reporter.onTestRunEnd(modules, [], 'passed')
+        reporter.onTestRunEnd(modules, [], 'passed')
 
         const output = reporter.getOutput()
         expect(output).toBeDefined()
-        expect(output.summary.total).toBe(3)
-        expect(output.summary.passed).toBe(1)
-        expect(output.summary.failed).toBe(1)
-        expect(output.summary.skipped).toBe(1)
+        expect(output!.summary.total).toBe(3)
+        expect(output!.summary.passed).toBe(1)
+        expect(output!.summary.failed).toBe(1)
+        expect(output!.summary.skipped).toBe(1)
       })
 
-      it('should handle unhandled errors', async () => {
+      it('should handle unhandled errors', () => {
         const unhandledError: SerializedError = {
           message: 'Unhandled rejection',
           stack: 'Error: Unhandled rejection\n    at process'
         }
 
-        await reporter.onTestRunStart([])
-        await reporter.onTestRunEnd([], [unhandledError], 'failed')
+        reporter.onTestRunStart([])
+        reporter.onTestRunEnd([], [unhandledError], 'failed')
 
         const output = reporter.getOutput()
-        expect(output.failures).toHaveLength(1)
-        expect(output.failures?.[0].error.message).toContain('Unhandled rejection')
+        expect(output!.failures).toHaveLength(1)
+        expect(output!.failures?.[0].error.message).toContain('Unhandled rejection')
       })
 
-      it('should include timestamp in output', async () => {
-        await reporter.onTestRunStart([])
-        await reporter.onTestRunEnd([], [], 'passed')
+      it('should include timestamp in output', () => {
+        reporter.onTestRunStart([])
+        reporter.onTestRunEnd([], [], 'passed')
 
         const output = reporter.getOutput()
-        expect(output.summary.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+        expect(output!.summary.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
       })
     })
   })
 
   describe('Output Structure Tests', () => {
-    beforeEach(async () => {
-      await reporter.onTestRunStart([createMockTestSpecification('/test/file.ts')])
+    beforeEach(() => {
+      reporter.onTestRunStart([createMockTestSpecification('/test/file.ts')])
     })
 
-    it('should generate valid JSON output matching LLMReporterOutput schema', async () => {
-      await reporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
-      await reporter.onTestRunEnd([], [], 'passed')
+    it('should generate valid JSON output matching LLMReporterOutput schema', () => {
+      reporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
+      reporter.onTestRunEnd([], [], 'passed')
 
       const output = reporter.getOutput()
 
       // Validate output structure
       expect(output).toHaveProperty('summary')
-      expect(output.summary).toHaveProperty('total')
-      expect(output.summary).toHaveProperty('passed')
-      expect(output.summary).toHaveProperty('failed')
-      expect(output.summary).toHaveProperty('skipped')
-      expect(output.summary).toHaveProperty('duration')
-      expect(output.summary).toHaveProperty('timestamp')
+      expect(output!.summary).toHaveProperty('total')
+      expect(output!.summary).toHaveProperty('passed')
+      expect(output!.summary).toHaveProperty('failed')
+      expect(output!.summary).toHaveProperty('skipped')
+      expect(output!.summary).toHaveProperty('duration')
+      expect(output!.summary).toHaveProperty('timestamp')
     })
 
-    it('should calculate accurate summary statistics', async () => {
+    it('should calculate accurate summary statistics', () => {
       // Add various test results
       for (let i = 0; i < 5; i++) {
-        await reporter.onTestCaseResult(createMockTestCase(`pass${i}`, 'passed'))
+        reporter.onTestCaseResult(createMockTestCase(`pass${i}`, 'passed'))
       }
       for (let i = 0; i < 3; i++) {
-        await reporter.onTestCaseResult(
-          createMockTestCase(`fail${i}`, 'failed', new Error('Failed'))
-        )
+        reporter.onTestCaseResult(createMockTestCase(`fail${i}`, 'failed', new Error('Failed')))
       }
       for (let i = 0; i < 2; i++) {
-        await reporter.onTestCaseResult(createMockTestCase(`skip${i}`, 'skipped'))
+        reporter.onTestCaseResult(createMockTestCase(`skip${i}`, 'skipped'))
       }
 
-      await reporter.onTestRunEnd([], [], 'failed')
+      reporter.onTestRunEnd([], [], 'failed')
 
       const output = reporter.getOutput()
-      expect(output.summary.total).toBe(10)
-      expect(output.summary.passed).toBe(5)
-      expect(output.summary.failed).toBe(3)
-      expect(output.summary.skipped).toBe(2)
+      expect(output!.summary.total).toBe(10)
+      expect(output!.summary.passed).toBe(5)
+      expect(output!.summary.failed).toBe(3)
+      expect(output!.summary.skipped).toBe(2)
     })
 
-    it('should include failure context for failed tests', async () => {
+    it('should include failure context for failed tests', () => {
       const error = new Error('Expected true to be false')
       error.stack = 'Error: Expected true to be false\n    at /test/file.ts:25:10'
 
@@ -383,13 +370,13 @@ describe('LLMReporter', () => {
         location: { start: { line: 20 }, end: { line: 30 } }
       }
 
-      await reporter.onTestCaseResult(failedTest)
-      await reporter.onTestRunEnd([], [], 'failed')
+      reporter.onTestCaseResult(failedTest)
+      reporter.onTestRunEnd([], [], 'failed')
 
       const output = reporter.getOutput()
-      expect(output.failures).toHaveLength(1)
+      expect(output!.failures).toHaveLength(1)
 
-      const failure = output.failures![0]
+      const failure = output!.failures![0]
       expect(failure.test).toBe('failing-test')
       expect(failure.file).toBe('/test/file.ts')
       expect(failure.startLine).toBe(20)
@@ -399,46 +386,46 @@ describe('LLMReporter', () => {
       expect(failure.error.stack).toContain('/test/file.ts:25:10')
     })
 
-    it('should include passed tests in verbose mode', async () => {
+    it('should include passed tests in verbose mode', () => {
       const verboseReporter = new LLMReporter({ verbose: true })
-      await verboseReporter.onTestRunStart([])
+      verboseReporter.onTestRunStart([])
 
-      await verboseReporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
-      await verboseReporter.onTestCaseResult(createMockTestCase('test2', 'passed'))
-      await verboseReporter.onTestRunEnd([], [], 'passed')
+      verboseReporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
+      verboseReporter.onTestCaseResult(createMockTestCase('test2', 'passed'))
+      verboseReporter.onTestRunEnd([], [], 'passed')
 
       const output = verboseReporter.getOutput()
-      expect(output.passed).toHaveLength(2)
-      expect(output.passed![0].status).toBe('passed')
-      expect(output.passed![0].test).toBe('test1')
+      expect(output!.passed).toHaveLength(2)
+      expect(output!.passed![0].status).toBe('passed')
+      expect(output!.passed![0].test).toBe('test1')
     })
 
-    it('should include skipped tests in verbose mode', async () => {
+    it('should include skipped tests in verbose mode', () => {
       const verboseReporter = new LLMReporter({ verbose: true })
-      await verboseReporter.onTestRunStart([])
+      verboseReporter.onTestRunStart([])
 
-      await verboseReporter.onTestCaseResult(createMockTestCase('test1', 'skipped'))
-      await verboseReporter.onTestRunEnd([], [], 'passed')
+      verboseReporter.onTestCaseResult(createMockTestCase('test1', 'skipped'))
+      verboseReporter.onTestRunEnd([], [], 'passed')
 
       const output = verboseReporter.getOutput()
-      expect(output.skipped).toHaveLength(1)
-      expect(output.skipped![0].status).toBe('skipped')
+      expect(output!.skipped).toHaveLength(1)
+      expect(output!.skipped![0].status).toBe('skipped')
     })
 
-    it('should maintain nested suite hierarchy', async () => {
+    it('should maintain nested suite hierarchy', () => {
       const nestedTest = {
         ...createMockTestCase('nested-test', 'failed', new Error('Failed')),
         suite: ['Parent Suite', 'Child Suite']
       }
 
-      await reporter.onTestCaseResult(nestedTest)
-      await reporter.onTestRunEnd([], [], 'failed')
+      reporter.onTestCaseResult(nestedTest)
+      reporter.onTestRunEnd([], [], 'failed')
 
       const output = reporter.getOutput()
-      expect(output.failures![0].suite).toEqual(['Parent Suite', 'Child Suite'])
+      expect(output!.failures![0].suite).toEqual(['Parent Suite', 'Child Suite'])
     })
 
-    it('should capture file paths and line numbers', async () => {
+    it('should capture file paths and line numbers', () => {
       const testWithLocation = {
         ...createMockTestCase('located-test', 'passed'),
         file: { filepath: '/src/components/Button.test.ts' },
@@ -446,12 +433,12 @@ describe('LLMReporter', () => {
       }
 
       const verboseReporter = new LLMReporter({ verbose: true })
-      await verboseReporter.onTestRunStart([])
-      await verboseReporter.onTestCaseResult(testWithLocation)
-      await verboseReporter.onTestRunEnd([], [], 'passed')
+      verboseReporter.onTestRunStart([])
+      verboseReporter.onTestCaseResult(testWithLocation)
+      verboseReporter.onTestRunEnd([], [], 'passed')
 
       const output = verboseReporter.getOutput()
-      const passedTest = output.passed![0]
+      const passedTest = output!.passed![0]
       expect(passedTest.file).toBe('/src/components/Button.test.ts')
       expect(passedTest.startLine).toBe(42)
       expect(passedTest.endLine).toBe(47)
@@ -459,35 +446,33 @@ describe('LLMReporter', () => {
   })
 
   describe('Edge Cases', () => {
-    it('should handle empty test suite', async () => {
-      await reporter.onTestRunStart([])
-      await reporter.onTestRunEnd([], [], 'passed')
+    it('should handle empty test suite', () => {
+      reporter.onTestRunStart([])
+      reporter.onTestRunEnd([], [], 'passed')
 
       const output = reporter.getOutput()
-      expect(output.summary.total).toBe(0)
-      expect(output.summary.passed).toBe(0)
-      expect(output.summary.failed).toBe(0)
-      expect(output.summary.skipped).toBe(0)
-      expect(output.failures).toBeUndefined()
+      expect(output!.summary.total).toBe(0)
+      expect(output!.summary.passed).toBe(0)
+      expect(output!.summary.failed).toBe(0)
+      expect(output!.summary.skipped).toBe(0)
+      expect(output!.failures).toBeUndefined()
     })
 
-    it('should handle only failing tests', async () => {
+    it('should handle only failing tests', () => {
       for (let i = 0; i < 5; i++) {
-        await reporter.onTestCaseResult(
-          createMockTestCase(`fail${i}`, 'failed', new Error(`Error ${i}`))
-        )
+        reporter.onTestCaseResult(createMockTestCase(`fail${i}`, 'failed', new Error(`Error ${i}`)))
       }
 
-      await reporter.onTestRunEnd([], [], 'failed')
+      reporter.onTestRunEnd([], [], 'failed')
 
       const output = reporter.getOutput()
-      expect(output.summary.total).toBe(5)
-      expect(output.summary.passed).toBe(0)
-      expect(output.summary.failed).toBe(5)
-      expect(output.failures).toHaveLength(5)
+      expect(output!.summary.total).toBe(5)
+      expect(output!.summary.passed).toBe(0)
+      expect(output!.summary.failed).toBe(5)
+      expect(output!.failures).toHaveLength(5)
     })
 
-    it('should handle tests with async errors', async () => {
+    it('should handle tests with async errors', () => {
       const asyncError = new Error('Promise rejected')
       asyncError.stack = `
         Error: Promise rejected
@@ -496,28 +481,28 @@ describe('LLMReporter', () => {
       `
 
       const asyncTest = createMockTestCase('async-test', 'failed', asyncError)
-      await reporter.onTestCaseResult(asyncTest)
-      await reporter.onTestRunEnd([], [], 'failed')
+      reporter.onTestCaseResult(asyncTest)
+      reporter.onTestRunEnd([], [], 'failed')
 
       const output = reporter.getOutput()
-      expect(output.failures![0].error.message).toBe('Promise rejected')
-      expect(output.failures![0].error.stack).toContain('async')
+      expect(output!.failures![0].error.message).toBe('Promise rejected')
+      expect(output!.failures![0].error.stack).toContain('async')
     })
 
-    it('should handle tests with multiple assertions', async () => {
+    it('should handle tests with multiple assertions', () => {
       const multipleAssertionError = new Error(
         'Multiple assertions failed:\n1. Expected A\n2. Expected B'
       )
       const testCase = createMockTestCase('multi-assert', 'failed', multipleAssertionError)
 
-      await reporter.onTestCaseResult(testCase)
-      await reporter.onTestRunEnd([], [], 'failed')
+      reporter.onTestCaseResult(testCase)
+      reporter.onTestRunEnd([], [], 'failed')
 
       const output = reporter.getOutput()
-      expect(output.failures![0].error.message).toContain('Multiple assertions failed')
+      expect(output!.failures![0].error.message).toContain('Multiple assertions failed')
     })
 
-    it('should identify long-running tests', async () => {
+    it('should identify long-running tests', () => {
       const longTest = {
         ...createMockTestCase('long-test', 'passed'),
         result: {
@@ -527,15 +512,15 @@ describe('LLMReporter', () => {
       }
 
       const verboseReporter = new LLMReporter({ verbose: true })
-      await verboseReporter.onTestRunStart([])
-      await verboseReporter.onTestCaseResult(longTest)
-      await verboseReporter.onTestRunEnd([], [], 'passed')
+      verboseReporter.onTestRunStart([])
+      verboseReporter.onTestCaseResult(longTest)
+      verboseReporter.onTestRunEnd([], [], 'passed')
 
       const output = verboseReporter.getOutput()
-      expect(output.passed![0].duration).toBe(5000)
+      expect(output!.passed![0].duration).toBe(5000)
     })
 
-    it('should handle concurrent test execution', async () => {
+    it('should handle concurrent test execution', () => {
       const concurrentTests = Array.from({ length: 10 }, (_, i) =>
         createMockTestCase(
           `concurrent-${i}`,
@@ -545,17 +530,17 @@ describe('LLMReporter', () => {
       )
 
       // Simulate concurrent test results
-      await Promise.all(concurrentTests.map((test) => reporter.onTestCaseResult(test)))
+      concurrentTests.forEach((test) => reporter.onTestCaseResult(test))
 
-      await reporter.onTestRunEnd([], [], 'failed')
+      reporter.onTestRunEnd([], [], 'failed')
 
       const output = reporter.getOutput()
-      expect(output.summary.total).toBe(10)
-      expect(output.summary.failed).toBe(4) // 0, 3, 6, 9
-      expect(output.summary.passed).toBe(6)
+      expect(output!.summary.total).toBe(10)
+      expect(output!.summary.failed).toBe(4) // 0, 3, 6, 9
+      expect(output!.summary.passed).toBe(6)
     })
 
-    it('should handle malformed test data gracefully', async () => {
+    it('should handle malformed test data gracefully', () => {
       const malformedTest = {
         id: 'malformed',
         name: null, // Invalid name
@@ -563,41 +548,41 @@ describe('LLMReporter', () => {
         result: { state: 'unknown' } // Unknown state
       }
 
-      await reporter.onTestCaseResult(malformedTest as any)
-      await reporter.onTestRunEnd([], [], 'passed')
+      reporter.onTestCaseResult(malformedTest as any)
+      reporter.onTestRunEnd([], [], 'passed')
 
       const output = reporter.getOutput()
       // Should not crash and should handle gracefully
       expect(output).toBeDefined()
-      expect(output.summary).toBeDefined()
+      expect(output!.summary).toBeDefined()
     })
 
-    it('should handle test run interruption', async () => {
-      await reporter.onTestRunStart([createMockTestSpecification('/test/file.ts')])
-      await reporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
+    it('should handle test run interruption', () => {
+      reporter.onTestRunStart([createMockTestSpecification('/test/file.ts')])
+      reporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
 
       // Simulate interruption
-      await reporter.onTestRunEnd([], [], 'interrupted')
+      reporter.onTestRunEnd([], [], 'interrupted')
 
       const output = reporter.getOutput()
       expect(output).toBeDefined()
-      expect(output.summary.total).toBeGreaterThanOrEqual(1)
+      expect(output!.summary.total).toBeGreaterThanOrEqual(1)
     })
 
-    it('should handle tests with no location information', async () => {
+    it('should handle tests with no location information', () => {
       const testNoLocation = {
         ...createMockTestCase('no-location', 'passed'),
         location: undefined
       }
 
       const verboseReporter = new LLMReporter({ verbose: true })
-      await verboseReporter.onTestRunStart([])
-      await verboseReporter.onTestCaseResult(testNoLocation)
-      await verboseReporter.onTestRunEnd([], [], 'passed')
+      verboseReporter.onTestRunStart([])
+      verboseReporter.onTestCaseResult(testNoLocation)
+      verboseReporter.onTestRunEnd([], [], 'passed')
 
       const output = verboseReporter.getOutput()
-      expect(output.passed![0].startLine).toBe(0)
-      expect(output.passed![0].endLine).toBe(0)
+      expect(output!.passed![0].startLine).toBe(0)
+      expect(output!.passed![0].endLine).toBe(0)
     })
   })
 
@@ -607,31 +592,31 @@ describe('LLMReporter', () => {
       expect(reporter.getConfig().outputFile).toBe('custom-output.json')
     })
 
-    it('should respect includePassedTests configuration', async () => {
+    it('should respect includePassedTests configuration', () => {
       const reporter = new LLMReporter({ includePassedTests: true })
-      await reporter.onTestRunStart([])
-      await reporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
-      await reporter.onTestRunEnd([], [], 'passed')
+      reporter.onTestRunStart([])
+      reporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
+      reporter.onTestRunEnd([], [], 'passed')
 
       const output = reporter.getOutput()
-      expect(output.passed).toBeDefined()
-      expect(output.passed).toHaveLength(1)
+      expect(output!.passed).toBeDefined()
+      expect(output!.passed).toHaveLength(1)
     })
 
-    it('should respect includeSkippedTests configuration', async () => {
+    it('should respect includeSkippedTests configuration', () => {
       const reporter = new LLMReporter({ includeSkippedTests: true })
-      await reporter.onTestRunStart([])
-      await reporter.onTestCaseResult(createMockTestCase('test1', 'skipped'))
-      await reporter.onTestRunEnd([], [], 'passed')
+      reporter.onTestRunStart([])
+      reporter.onTestCaseResult(createMockTestCase('test1', 'skipped'))
+      reporter.onTestRunEnd([], [], 'passed')
 
       const output = reporter.getOutput()
-      expect(output.skipped).toBeDefined()
-      expect(output.skipped).toHaveLength(1)
+      expect(output!.skipped).toBeDefined()
+      expect(output!.skipped).toHaveLength(1)
     })
   })
 
   describe('Error Handling', () => {
-    it('should handle errors in lifecycle hooks gracefully', async () => {
+    it('should handle errors in lifecycle hooks gracefully', () => {
       const reporter = new LLMReporter()
 
       // Mock internal method to throw error
@@ -640,51 +625,51 @@ describe('LLMReporter', () => {
       })
 
       // Should not throw
-      await expect(reporter.onTestCaseResult(createMockTestCase('test1'))).resolves.not.toThrow()
+      expect(() => reporter.onTestCaseResult(createMockTestCase('test1'))).not.toThrow()
     })
 
-    it('should handle missing test data', async () => {
-      const incompleteTest = {} as TestCase
+    it('should handle missing test data', () => {
+      const incompleteTest = {} as any
 
-      await reporter.onTestCaseResult(incompleteTest)
-      await reporter.onTestRunEnd([], [], 'passed')
+      reporter.onTestCaseResult(incompleteTest)
+      reporter.onTestRunEnd([], [], 'passed')
 
       const output = reporter.getOutput()
       expect(output).toBeDefined()
     })
 
-    it('should handle circular references in error objects', async () => {
+    it('should handle circular references in error objects', () => {
       const circularError: any = new Error('Circular reference')
       circularError.self = circularError // Create circular reference
 
       const testWithCircular = createMockTestCase('circular', 'failed', circularError)
-      await reporter.onTestCaseResult(testWithCircular)
-      await reporter.onTestRunEnd([], [], 'failed')
+      reporter.onTestCaseResult(testWithCircular)
+      reporter.onTestRunEnd([], [], 'failed')
 
       const output = reporter.getOutput()
-      expect(output.failures).toHaveLength(1)
+      expect(output!.failures).toHaveLength(1)
       // Should serialize without throwing
       expect(() => JSON.stringify(output)).not.toThrow()
     })
   })
 
   describe('Output File Writing', () => {
-    it('should write output to file when configured', async () => {
-      const writeFileSpy = vi.spyOn(reporter as any, 'writeOutputFile')
-      const reporter = new LLMReporter({ outputFile: 'test-output.json' })
+    it('should write output to file when configured', () => {
+      const reporterWithFile = new LLMReporter({ outputFile: 'test-output.json' })
+      const writeFileSpy = vi.spyOn(reporterWithFile as any, 'writeOutputFile')
 
-      await reporter.onTestRunStart([])
-      await reporter.onTestCaseResult(createMockTestCase('test1', 'passed'))
-      await reporter.onTestRunEnd([], [], 'passed')
+      reporterWithFile.onTestRunStart([])
+      reporterWithFile.onTestCaseResult(createMockTestCase('test1', 'passed'))
+      reporterWithFile.onTestRunEnd([], [], 'passed')
 
       expect(writeFileSpy).toHaveBeenCalled()
     })
 
-    it('should not write file when not configured', async () => {
+    it('should not write file when not configured', () => {
       const writeFileSpy = vi.spyOn(reporter as any, 'writeOutputFile')
 
-      await reporter.onTestRunStart([])
-      await reporter.onTestRunEnd([], [], 'passed')
+      reporter.onTestRunStart([])
+      reporter.onTestRunEnd([], [], 'passed')
 
       expect(writeFileSpy).not.toHaveBeenCalled()
     })
