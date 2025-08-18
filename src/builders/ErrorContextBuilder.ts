@@ -56,7 +56,7 @@ export class ErrorContextBuilder {
     // Check if we have code context first (prioritize actual code snippets)
     if (error.context) {
       const codeContext = this.buildCodeContext(error)
-      
+
       // If this is also an assertion error, merge the assertion details
       if (isAssertionError(error)) {
         if (error.expected !== undefined) {
@@ -66,7 +66,7 @@ export class ErrorContextBuilder {
           codeContext.actual = normalizeAssertionValue(error.actual)
         }
       }
-      
+
       return codeContext
     }
 

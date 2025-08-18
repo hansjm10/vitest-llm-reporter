@@ -117,7 +117,7 @@ export class LLMReporter implements Reporter {
   onTestCaseResult(testCase: TestCase): void {
     this.orchestrator.handleTestCaseResult(testCase)
   }
-  
+
   onTaskUpdate(packs: any[]): void {
     // Process task updates to extract test results
     packs.forEach((pack) => {

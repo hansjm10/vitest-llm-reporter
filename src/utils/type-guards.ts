@@ -181,3 +181,68 @@ export function assertHasProperty<K extends string>(
     throw new Error(`Missing required property "${key}" in ${context}`)
   }
 }
+
+/**
+ * Safely extract a string property from an object by checking multiple candidate keys
+ * Returns the first valid string value found, or undefined if none match
+ */
+export function extractStringProperty(
+  obj: unknown,
+  candidates: readonly string[]
+): string | undefined {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    return undefined
+  }
+
+  for (const key of candidates) {
+    if (key in obj) {
+      const value = (obj as Record<string, unknown>)[key]
+      if (typeof value === 'string' && value.length > 0) {
+        return value
+      }
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Safely extract a number property from an object by checking multiple candidate keys
+ * Handles both number and string number values
+ *
+ * @param obj - Object to extract from
+ * @param candidates - Property names to check
+ * @param validator - Optional validation function for the number
+ */
+export function extractNumberProperty(
+  obj: unknown,
+  candidates: readonly string[],
+  validator?: (n: number) => boolean
+): number | undefined {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    return undefined
+  }
+
+  for (const key of candidates) {
+    if (key in obj) {
+      const value = (obj as Record<string, unknown>)[key]
+
+      // Handle direct number values
+      if (typeof value === 'number') {
+        if (!validator || validator(value)) {
+          return value
+        }
+      }
+
+      // Handle string numbers (some error objects store numbers as strings)
+      if (typeof value === 'string') {
+        const parsed = parseInt(value, 10)
+        if (!isNaN(parsed) && (!validator || validator(parsed))) {
+          return parsed
+        }
+      }
+    }
+  }
+
+  return undefined
+}
