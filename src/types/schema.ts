@@ -114,11 +114,29 @@ export interface TestBase {
 }
 
 /**
+ * Console output captured during test execution
+ */
+export interface ConsoleOutput {
+  /** console.log output */
+  logs?: string[]
+  /** console.error output */
+  errors?: string[]
+  /** console.warn output */
+  warns?: string[]
+  /** console.info output */
+  info?: string[]
+  /** console.debug and console.trace output */
+  debug?: string[]
+}
+
+/**
  * Failed test information
  */
 export interface TestFailure extends TestBase {
   /** Error details */
   error: TestError
+  /** Console output captured during test (optional) */
+  console?: ConsoleOutput
 }
 
 /**

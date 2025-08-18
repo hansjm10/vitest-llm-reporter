@@ -5,8 +5,28 @@ import * as fs from 'node:fs'
 // Mock fs module
 vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
-  existsSync: vi.fn()
+  existsSync: vi.fn(),
+  realpathSync: vi.fn()
 }))
+
+// Mock PathValidator to bypass filesystem checks
+vi.mock('../utils/path-validator', () => {
+  return {
+    PathValidator: class {
+      constructor() {
+        // No need to store rootDir for the mock
+      }
+      validate(path: string) {
+        // Return the path as-is for successful validation
+        // Return null for paths that should fail validation
+        if (path && !path.includes('non-existent')) {
+          return path
+        }
+        return null
+      }
+    }
+  }
+})
 
 describe('ContextExtractor', () => {
   let extractor: ContextExtractor
@@ -118,24 +138,20 @@ Line 3`
       expect(contextTooLarge).toBeUndefined()
     })
 
-    it('should handle file read errors and log to console', () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    it('should handle file read errors gracefully', () => {
       const readError = new Error('Permission denied')
 
-      vi.mocked(fs.existsSync).mockReturnValue(true)
       vi.mocked(fs.readFileSync).mockImplementation(() => {
         throw readError
       })
 
       const context = extractor.extractCodeContext('/protected.ts', 1)
 
+      // Should return undefined when there's an error reading the file
       expect(context).toBeUndefined()
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to read file context from /protected.ts:',
-        'Permission denied'
-      )
-
-      consoleErrorSpy.mockRestore()
+      
+      // Reset the mock for next tests
+      vi.mocked(fs.readFileSync).mockReset()
     })
 
     it('should include line numbers when configured', () => {

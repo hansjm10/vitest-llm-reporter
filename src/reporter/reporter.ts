@@ -22,11 +22,14 @@ import { ErrorContextBuilder } from '../builders/ErrorContextBuilder'
 import { OutputBuilder } from '../output/OutputBuilder'
 import { OutputWriter } from '../output/OutputWriter'
 import { EventOrchestrator } from '../events/EventOrchestrator'
+import { coreLogger, errorLogger } from '../utils/logger'
 
 export class LLMReporter implements Reporter {
   private config: Required<LLMReporterConfig>
   private context?: Vitest
   private output?: LLMReporterOutput
+  private debug = coreLogger()
+  private debugError = errorLogger()
 
   // Component instances
   private stateManager: StateManager
@@ -43,7 +46,11 @@ export class LLMReporter implements Reporter {
       verbose: config.verbose ?? false,
       outputFile: config.outputFile ?? undefined,
       includePassedTests: config.includePassedTests ?? false,
-      includeSkippedTests: config.includeSkippedTests ?? false
+      includeSkippedTests: config.includeSkippedTests ?? false,
+      captureConsoleOnFailure: config.captureConsoleOnFailure ?? true,
+      maxConsoleBytes: config.maxConsoleBytes ?? 50_000,
+      maxConsoleLines: config.maxConsoleLines ?? 100,
+      includeDebugOutput: config.includeDebugOutput ?? false
     } as Required<LLMReporterConfig>
 
     // Initialize components
@@ -59,13 +66,18 @@ export class LLMReporter implements Reporter {
     })
     this.outputWriter = new OutputWriter()
 
-    // Initialize orchestrator with all dependencies
+    // Initialize orchestrator with all dependencies and console config
     this.orchestrator = new EventOrchestrator(
       this.stateManager,
       this.testExtractor,
       this.errorExtractor,
       this.resultBuilder,
-      this.contextBuilder
+      this.contextBuilder,
+      {
+        captureConsoleOnFailure: this.config.captureConsoleOnFailure,
+        maxConsoleBytes: this.config.maxConsoleBytes,
+        maxConsoleLines: this.config.maxConsoleLines
+      }
     )
   }
 
@@ -160,8 +172,9 @@ export class LLMReporter implements Reporter {
     if (this.config.outputFile && this.output) {
       try {
         this.outputWriter.write(this.config.outputFile, this.output)
+        this.debug('Output written to %s', this.config.outputFile)
       } catch (error) {
-        console.error('Failed to write output file:', error)
+        this.debugError('Failed to write output file %s: %O', this.config.outputFile, error)
       }
     }
   }

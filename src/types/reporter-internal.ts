@@ -55,6 +55,7 @@ export interface TestBase {
  * Raw test case data received from Vitest
  */
 export interface TestCaseData {
+  id?: string
   name?: string
   file?: { filepath?: string }
   filepath?: string

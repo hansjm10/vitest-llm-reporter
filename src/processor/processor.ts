@@ -43,7 +43,7 @@ export interface ProcessingResult {
  * const processor = new SchemaProcessor();
  * const result = processor.process(output);
  * if (result.success) {
- *   console.log('Processed output:', result.data);
+ *   // Processed output: result.data
  * }
  * ```
  *

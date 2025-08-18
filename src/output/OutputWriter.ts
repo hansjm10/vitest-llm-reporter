@@ -46,7 +46,7 @@ export const DEFAULT_WRITER_CONFIG: Required<OutputWriterConfig> = {
  * const writer = new OutputWriter();
  * const result = await writer.write('output.json', reporterOutput);
  * if (result.success) {
- *   console.log(`Written to ${result.filepath}`);
+ *   // Written to result.filepath
  * }
  * ```
  */

@@ -102,9 +102,9 @@ const ISO_8601_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\
  * const validator = new SchemaValidator();
  * const result = validator.validate(testOutput);
  * if (result.valid) {
- *   console.log('Valid output:', result.data);
+ *   // Valid output: result.data
  * } else {
- *   console.error('Validation errors:', result.errors);
+ *   // Validation errors: result.errors
  * }
  * ```
  */

@@ -32,7 +32,11 @@ describe('LLMReporter', () => {
         verbose: false,
         outputFile: undefined,
         includePassedTests: false,
-        includeSkippedTests: false
+        includeSkippedTests: false,
+        captureConsoleOnFailure: true,
+        maxConsoleBytes: 50_000,
+        maxConsoleLines: 100,
+        includeDebugOutput: false
       })
     })
 

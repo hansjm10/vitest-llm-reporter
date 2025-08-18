@@ -6,8 +6,28 @@ import * as fs from 'node:fs'
 // Mock fs module
 vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
-  existsSync: vi.fn()
+  existsSync: vi.fn(),
+  realpathSync: vi.fn()
 }))
+
+// Mock PathValidator to bypass filesystem checks
+vi.mock('../utils/path-validator', () => {
+  return {
+    PathValidator: class {
+      constructor() {
+        // No need to store rootDir for the mock
+      }
+      validate(path: string) {
+        // Return the path as-is for successful validation
+        // Return null for paths that should fail validation
+        if (path && !path.includes('non-existent')) {
+          return path
+        }
+        return null
+      }
+    }
+  }
+})
 
 describe('ErrorExtractor', () => {
   let extractor: ErrorExtractor

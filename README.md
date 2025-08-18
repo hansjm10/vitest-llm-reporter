@@ -1,13 +1,13 @@
 # Vitest LLM Reporter
 
-A Vitest reporter optimized for LLM consumption with structured, token-efficient output.
+A zero-config Vitest reporter that outputs concise, structured JSON optimized for LLM consumption.
 
 ## Features
 
 - 🚀 50% smaller output than default reporter
-- 🤖 LLM-optimized JSON structure
-- 📍 Detailed failure context with code snippets
-- ⚡ Token-efficient field names
+- 🤖 Structured JSON perfect for LLM parsing
+- 📍 Automatic code context extraction for failures
+- ⚡ Zero configuration required
 - 🔧 TypeScript types included
 
 ## Requirements
@@ -21,11 +21,40 @@ A Vitest reporter optimized for LLM consumption with structured, token-efficient
 npm install --save-dev vitest-llm-reporter
 ```
 
-## Schema
+## Usage
 
-The reporter outputs a JSON structure optimized for LLM consumption:
+Add the reporter to your `vitest.config.ts`:
 
-### Basic Output
+```typescript
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    reporters: ['vitest-llm-reporter']
+  }
+})
+```
+
+Or specify an output file:
+
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', { 
+        outputFile: './test-results.json' 
+      }]
+    ]
+  }
+})
+```
+
+That's it! The reporter will automatically extract failure context and output structured JSON.
+
+## Output Format
+
+The reporter generates concise JSON with only the essential information for understanding test results:
+
 ```json
 {
   "summary": {
@@ -60,61 +89,16 @@ The reporter outputs a JSON structure optimized for LLM consumption:
 }
 ```
 
-### Schema Types
+The output focuses on failures with their context, keeping passed tests minimal to save tokens.
 
-```typescript
-interface LLMReporterOutput {
-  summary: TestSummary
-  failures?: TestFailure[]
-  passed?: TestResult[]  // Only in verbose mode
-  skipped?: TestResult[] // Only in verbose mode
-}
+## Debugging
 
-interface TestSummary {
-  total: number
-  passed: number
-  failed: number
-  skipped: number
-  duration: number
-  timestamp: string
-}
+If the reporter isn't working as expected, enable debug output:
 
-interface TestFailure {
-  test: string
-  file: string
-  line: number
-  suite?: string[]
-  error: TestError
-}
-
-interface TestError {
-  message: string
-  type: string
-  stack?: string
-  context?: ErrorContext
-}
-
-interface ErrorContext {
-  code: string[]
-  expected?: any
-  actual?: any
-  lineNumber?: number
-  columnNumber?: number
-}
+```bash
+DEBUG=vitest:llm-reporter:* npm test
 ```
 
-## Development Status
-
-This project is being developed using Test-Driven Development (TDD). Current progress:
-
-- ✅ JSON Schema Definition (Issue #2)
-- ⏳ Reporter Interface Implementation (Issue #3)
-- ⏳ Basic Reporter Class (Issue #4)
-- ⏳ Test Failure Context Extraction (Issue #5)
-- ⏳ Configuration Options (Issue #6)
-- ⏳ Integration Tests (Issue #7)
-- ⏳ Streaming Output Support (Issue #8)
-- ⏳ Documentation (Issue #9)
 
 ## Contributing
 

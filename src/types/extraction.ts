@@ -71,6 +71,7 @@ export interface AssertionDetails {
  * Extracted test case information
  */
 export interface ExtractedTestCase {
+  id?: string
   name: string
   filepath: string
   startLine: number

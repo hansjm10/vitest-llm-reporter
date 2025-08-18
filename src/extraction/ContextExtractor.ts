@@ -7,16 +7,21 @@
  * @module extraction
  */
 
-import { readFileSync, existsSync } from 'node:fs'
-import { resolve, isAbsolute } from 'node:path'
+import { readFileSync } from 'node:fs'
 import type { StackFrame, ContextExtractionOptions } from '../types/extraction'
 import type { ErrorContext } from '../types/schema'
+import { PathValidator } from '../utils/path-validator'
+import { extractionLogger, errorLogger, securityLogger } from '../utils/logger'
 
 /**
  * Extracts code context and stack frame information from errors
  */
 export class ContextExtractor {
   private options: Required<ContextExtractionOptions>
+  private pathValidator: PathValidator
+  private debug = extractionLogger()
+  private debugError = errorLogger()
+  private debugSecurity = securityLogger()
 
   constructor(options: ContextExtractionOptions = {}) {
     this.options = {
@@ -25,6 +30,8 @@ export class ContextExtractor {
       filterNodeModules: options.filterNodeModules ?? true,
       rootDir: options.rootDir ?? process.cwd()
     }
+    this.pathValidator = new PathValidator(this.options.rootDir)
+    this.debug('Initialized with options: %o', this.options)
   }
 
   /**
@@ -35,10 +42,19 @@ export class ContextExtractor {
     lineNumber: number,
     columnNumber?: number
   ): ErrorContext | undefined {
+    this.debug('Extracting context from %s:%d:%d', filePath, lineNumber, columnNumber || 0)
+    
     try {
-      const absolutePath = this.resolveFilePath(filePath)
+      // Use secure path validation
+      const absolutePath = this.pathValidator.validate(filePath)
 
-      if (!existsSync(absolutePath)) {
+      if (!absolutePath) {
+        // Path validation failed (doesn't exist or security issue)
+        if (filePath.includes('..') || filePath.startsWith('/')) {
+          this.debugSecurity('Path validation failed for potentially malicious path: %s', filePath)
+        } else {
+          this.debug('File not found or invalid: %s', filePath)
+        }
         return undefined
       }
 
@@ -77,9 +93,10 @@ export class ContextExtractor {
     } catch (err) {
       // Log unexpected file read errors for debugging
       // (file existence and line validation are handled above)
-      console.error(
-        `Failed to read file context from ${filePath}:`,
-        err instanceof Error ? err.message : String(err)
+      this.debugError(
+        'Failed to read file context from %s: %O',
+        filePath,
+        err
       )
       return undefined
     }
@@ -177,15 +194,6 @@ export class ContextExtractor {
     return { stackFrames, context }
   }
 
-  /**
-   * Resolves a file path to an absolute path
-   */
-  private resolveFilePath(filePath: string): string {
-    if (isAbsolute(filePath)) {
-      return filePath
-    }
-    return resolve(this.options.rootDir, filePath)
-  }
 
   /**
    * Cleans up a file path from V8 stack trace
@@ -240,8 +248,8 @@ export class ContextExtractor {
    * Gets relative path from root directory
    */
   public getRelativePath(filePath: string): string {
-    const absolute = this.resolveFilePath(filePath)
-    if (absolute.startsWith(this.options.rootDir)) {
+    const absolute = this.pathValidator.validate(filePath)
+    if (absolute && absolute.startsWith(this.options.rootDir)) {
       return absolute.slice(this.options.rootDir.length).replace(/^\//, '')
     }
     return filePath

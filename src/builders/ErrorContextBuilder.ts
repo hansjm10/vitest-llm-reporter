@@ -131,6 +131,12 @@ export class ErrorContextBuilder {
       context.lineNumber = lineNumber
     }
 
+    // Add column number from context
+    const columnNumber = error.context?.columnNumber
+    if (columnNumber !== undefined && this.config.includeLineNumbers) {
+      context.columnNumber = columnNumber
+    }
+
     return context
   }
 

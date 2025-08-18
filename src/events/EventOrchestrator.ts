@@ -14,6 +14,8 @@ import { ErrorExtractor } from '../extraction/ErrorExtractor'
 import { TestResultBuilder } from '../builders/TestResultBuilder'
 import { ErrorContextBuilder } from '../builders/ErrorContextBuilder'
 import { isTestModule, isTestCase } from '../utils/type-guards'
+import { coreLogger, errorLogger } from '../utils/logger'
+import { consoleCapture } from '../utils/console-capture'
 
 /**
  * Event orchestrator configuration
@@ -23,6 +25,12 @@ export interface OrchestratorConfig {
   gracefulErrorHandling?: boolean
   /** Whether to log errors to console */
   logErrors?: boolean
+  /** Whether to capture console output for failing tests */
+  captureConsoleOnFailure?: boolean
+  /** Maximum bytes of console output to capture per test */
+  maxConsoleBytes?: number
+  /** Maximum lines of console output to capture per test */
+  maxConsoleLines?: number
 }
 
 /**
@@ -30,7 +38,10 @@ export interface OrchestratorConfig {
  */
 export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
   gracefulErrorHandling: true,
-  logErrors: false
+  logErrors: false,
+  captureConsoleOnFailure: true,
+  maxConsoleBytes: 50_000,
+  maxConsoleLines: 100
 }
 
 /**
@@ -59,6 +70,8 @@ export class EventOrchestrator {
   private errorExtractor: ErrorExtractor
   private resultBuilder: TestResultBuilder
   private contextBuilder: ErrorContextBuilder
+  private debug = coreLogger()
+  private debugError = errorLogger()
 
   constructor(
     stateManager: StateManager,
@@ -74,6 +87,14 @@ export class EventOrchestrator {
     this.errorExtractor = errorExtractor
     this.resultBuilder = resultBuilder
     this.contextBuilder = contextBuilder
+    
+    // Configure console capture
+    consoleCapture.config = {
+      enabled: this.config.captureConsoleOnFailure,
+      maxBytes: this.config.maxConsoleBytes,
+      maxLines: this.config.maxConsoleLines,
+      gracePeriodMs: 100
+    }
   }
 
   /**
@@ -143,6 +164,8 @@ export class EventOrchestrator {
   public handleTestCaseReady(testCase: unknown): void {
     if (isTestCase(testCase)) {
       this.stateManager.markTestReady(testCase.id)
+      // Start console capture for this test
+      consoleCapture.startCapture(testCase.id)
     }
   }
 
@@ -169,11 +192,19 @@ export class EventOrchestrator {
 
     // Handle based on test state
     if (this.testExtractor.isPassedTest(extracted)) {
+      // Stop console capture for passed test (discard output)
+      if (extracted.id) {
+        consoleCapture.clearBuffer(extracted.id)
+      }
       const result = this.resultBuilder.buildPassedTest(extracted)
       this.stateManager.recordPassedTest(result)
     } else if (this.testExtractor.isFailedTest(extracted)) {
       this.processFailedTest(extracted)
     } else if (this.testExtractor.isSkippedTest(extracted)) {
+      // Stop console capture for skipped test (discard output)
+      if (extracted.id) {
+        consoleCapture.clearBuffer(extracted.id)
+      }
       const result = this.resultBuilder.buildSkippedTest(extracted)
       this.stateManager.recordSkippedTest(result)
     }
@@ -185,14 +216,22 @@ export class EventOrchestrator {
   private processFailedTest(extracted: ReturnType<TestCaseExtractor['extract']>): void {
     if (!extracted) return
 
+    // Stop console capture and get output for failed test
+    const consoleOutput = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
+
     // Extract and normalize error with full context including code snippets
     const normalizedError = this.errorExtractor.extractWithContext(extracted.error)
 
     // Build error context from the normalized error
     const errorContext = this.contextBuilder.buildFromError(normalizedError)
 
-    // Build failure result
-    const failure = this.resultBuilder.buildFailedTest(extracted, normalizedError, errorContext)
+    // Build failure result with console output
+    const failure = this.resultBuilder.buildFailedTest(
+      extracted, 
+      normalizedError, 
+      errorContext,
+      consoleOutput
+    )
 
     // Record in state
     this.stateManager.recordFailedTest(failure)
@@ -207,6 +246,9 @@ export class EventOrchestrator {
     _status: string
   ): void {
     this.stateManager.recordRunEnd()
+    
+    // Clean up console capture resources
+    consoleCapture.reset()
 
     // Note: Unhandled errors are processed directly by OutputBuilder
     // to avoid duplicate counting in test statistics
@@ -216,9 +258,7 @@ export class EventOrchestrator {
    * Handles errors based on configuration
    */
   private handleError(context: string, error: unknown): void {
-    if (this.config.logErrors) {
-      console.error(`${context}:`, error)
-    }
+    this.debugError('%s: %O', context, error)
 
     if (!this.config.gracefulErrorHandling) {
       throw error
@@ -237,6 +277,7 @@ export class EventOrchestrator {
    */
   public reset(): void {
     this.stateManager.reset()
+    consoleCapture.reset()
   }
 
   /**

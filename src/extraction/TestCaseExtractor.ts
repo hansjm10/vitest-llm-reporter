@@ -67,6 +67,7 @@ export class TestCaseExtractor {
     }
 
     return {
+      id: this.extractId(tc),
       name: this.extractName(tc),
       filepath: this.extractFilepath(tc),
       startLine: this.extractStartLine(tc),
@@ -84,6 +85,13 @@ export class TestCaseExtractor {
    */
   private isValidTestCase(testCase: unknown): boolean {
     return testCase !== null && typeof testCase === 'object'
+  }
+
+  /**
+   * Extracts the test ID
+   */
+  private extractId(tc: TestCaseData): string | undefined {
+    return tc.id
   }
 
   /**
