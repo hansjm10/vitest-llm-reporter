@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { LLMReporter } from '../reporter/reporter'
+import { LLMReporter } from './reporter'
 import { consoleCapture } from '../utils/console-capture'
 import type { TestCase, TestRunEndReason } from 'vitest/node'
 
-describe('Console Capture Integration', () => {
+describe('LLMReporter Console Capture Integration', () => {
   let reporter: LLMReporter
 
   beforeEach(() => {
@@ -15,7 +15,6 @@ describe('Console Capture Integration', () => {
   })
 
   it('should capture console output for failing tests', async () => {
-    // Simulate test lifecycle
     const testCase = {
       id: 'test-1',
       name: 'failing test',
