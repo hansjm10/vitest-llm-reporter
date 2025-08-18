@@ -72,9 +72,9 @@ export interface StackFrame {
  */
 export interface AssertionDetails {
   /** Expected value */
-  expected: AssertionValue | unknown
+  expected: unknown
   /** Actual value */
-  actual: AssertionValue | unknown
+  actual: unknown
   /** Assertion operator (e.g., "toBe", "toEqual") */
   operator?: string
 }

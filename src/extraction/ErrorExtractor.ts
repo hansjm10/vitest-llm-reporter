@@ -16,13 +16,14 @@ import {
   extractNumberProperty
 } from '../utils/type-guards'
 import { extractLineNumber } from '../reporter/helpers'
-import { ContextExtractor, type CodeContext } from './ContextExtractor'
+import { ContextExtractor } from './ContextExtractor'
 import type {
   NormalizedError,
   ErrorExtractionConfig,
   StackFrame,
   AssertionDetails
 } from '../types/extraction'
+import type { ErrorContext } from '../types/schema'
 
 /**
  * Default error extraction configuration
@@ -259,7 +260,7 @@ export class ErrorExtractor {
     lineNumber: number | undefined,
     columnNumber: number | undefined,
     stackFrames: StackFrame[]
-  ): CodeContext | undefined {
+  ): ErrorContext | undefined {
     // Try to get context - prefer direct file/line info, otherwise use first stack frame
     if (filePath && lineNumber) {
       // If we have direct file and line info, use them
@@ -286,7 +287,7 @@ export class ErrorExtractor {
    * 3. Assertion-only context (when only test values available)
    */
   private mergeErrorContext(
-    codeContext: CodeContext | undefined,
+    codeContext: ErrorContext | undefined,
     basicError: NormalizedError
   ): NormalizedError['context'] | undefined {
     const hasAssertions = this.hasAssertionValues(basicError)
@@ -320,7 +321,7 @@ export class ErrorExtractor {
    * Creates context with code and assertion values
    */
   private createContextWithCode(
-    codeContext: CodeContext,
+    codeContext: ErrorContext,
     error: NormalizedError
   ): NormalizedError['context'] {
     return {

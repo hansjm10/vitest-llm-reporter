@@ -9,26 +9,8 @@
 
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve, isAbsolute } from 'node:path'
-
-export interface StackFrame {
-  file: string
-  line: number
-  column?: number
-  function?: string
-}
-
-export interface CodeContext {
-  code: string[]
-  lineNumber: number
-  columnNumber?: number
-}
-
-export interface ContextExtractionOptions {
-  maxContextLines?: number
-  includeLineNumbers?: boolean
-  filterNodeModules?: boolean
-  rootDir?: string
-}
+import type { StackFrame, ContextExtractionOptions } from '../types/extraction'
+import type { ErrorContext } from '../types/schema'
 
 /**
  * Extracts code context and stack frame information from errors
@@ -52,7 +34,7 @@ export class ContextExtractor {
     filePath: string,
     lineNumber: number,
     columnNumber?: number
-  ): CodeContext | undefined {
+  ): ErrorContext | undefined {
     try {
       const absolutePath = this.resolveFilePath(filePath)
 
@@ -214,12 +196,12 @@ export class ContextExtractor {
     fallbackLine?: number
   ): {
     stackFrames: StackFrame[]
-    context?: CodeContext
+    context?: ErrorContext
   } {
     const stackFrames = this.parseStackTrace(stack)
 
     // Try to get context from first relevant frame
-    let context: CodeContext | undefined
+    let context: ErrorContext | undefined
 
     if (stackFrames.length > 0) {
       const firstFrame = stackFrames[0]

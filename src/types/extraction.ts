@@ -96,3 +96,17 @@ export interface ExtractionConfig {
     state?: string
   }
 }
+
+/**
+ * Context extraction options for code snippets
+ */
+export interface ContextExtractionOptions {
+  /** Maximum number of context lines to show around errors */
+  maxContextLines?: number
+  /** Whether to include line numbers in code output */
+  includeLineNumbers?: boolean
+  /** Whether to filter out node_modules from stack traces */
+  filterNodeModules?: boolean
+  /** Root directory for resolving relative paths */
+  rootDir?: string
+}
