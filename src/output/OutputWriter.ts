@@ -30,7 +30,7 @@ export interface OutputWriterConfig {
  */
 export const DEFAULT_WRITER_CONFIG: Required<OutputWriterConfig> = {
   createDirectories: true,
-  jsonSpacing: 2,
+  jsonSpacing: 0, // No spacing for compact output
   handleCircularRefs: true,
   gracefulErrorHandling: true
 }

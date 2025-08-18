@@ -3,6 +3,8 @@ import { LLMReporter } from './dist/reporter/reporter.js';
 
 export default defineConfig({
   test: {
+    // Enable location tracking for line numbers
+    includeTaskLocation: true,
     reporters: [
       // Keep default reporter for human-readable output
       'default',

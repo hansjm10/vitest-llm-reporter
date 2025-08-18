@@ -8,6 +8,7 @@
  */
 
 import type { SerializedError } from 'vitest'
+import type { VitestSuite } from '../types/reporter-internal'
 import { StateManager } from '../state/StateManager'
 import { TestCaseExtractor } from '../extraction/TestCaseExtractor'
 import { ErrorExtractor } from '../extraction/ErrorExtractor'
@@ -98,6 +99,35 @@ export class EventOrchestrator {
   }
 
   /**
+   * Extracts suite names from a Vitest suite object
+   */
+  private extractSuiteNames(suite: unknown): string[] | undefined {
+    // Handle case where suite is already a string array
+    if (Array.isArray(suite)) {
+      return suite
+    }
+    
+    // Handle Vitest suite object structure
+    if (suite && typeof suite === 'object') {
+      const names: string[] = []
+      let current = suite as VitestSuite
+      
+      // Traverse up the suite hierarchy collecting names
+      while (current && typeof current === 'object') {
+        if (current.name && typeof current.name === 'string') {
+          // Add to beginning since we're traversing from child to parent
+          names.unshift(current.name)
+        }
+        current = current.suite as VitestSuite
+      }
+      
+      return names.length > 0 ? names : undefined
+    }
+    
+    return undefined
+  }
+
+  /**
    * Handles test run start event
    */
   public handleTestRunStart(specifications: ReadonlyArray<unknown>): void {
@@ -133,7 +163,7 @@ export class EventOrchestrator {
         name: test.name,
         mode: test.mode,
         file: mod.filepath || test.file?.filepath,
-        suite: test.suite
+        suite: this.extractSuiteNames(test.suite)
       }))
 
       this.stateManager.recordCollectedTests(collectedTests)
