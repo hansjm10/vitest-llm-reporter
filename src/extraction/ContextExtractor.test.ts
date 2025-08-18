@@ -118,6 +118,26 @@ Line 3`
       expect(contextTooLarge).toBeUndefined()
     })
 
+    it('should handle file read errors and log to console', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const readError = new Error('Permission denied')
+
+      vi.mocked(fs.existsSync).mockReturnValue(true)
+      vi.mocked(fs.readFileSync).mockImplementation(() => {
+        throw readError
+      })
+
+      const context = extractor.extractCodeContext('/protected.ts', 1)
+
+      expect(context).toBeUndefined()
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to read file context from /protected.ts:',
+        'Permission denied'
+      )
+
+      consoleErrorSpy.mockRestore()
+    })
+
     it('should include line numbers when configured', () => {
       const mockFileContent = `Line 1
 Line 2

@@ -115,6 +115,14 @@ export class TestResultBuilder {
       testError.stack = error.stack
     }
 
+    if (error.stackFrames && error.stackFrames.length > 0) {
+      testError.stackFrames = error.stackFrames
+    }
+
+    if (error.assertion) {
+      testError.assertion = error.assertion
+    }
+
     if (errorContext) {
       testError.context = errorContext
     }

@@ -117,6 +117,24 @@ export class LLMReporter implements Reporter {
   onTestCaseResult(testCase: TestCase): void {
     this.orchestrator.handleTestCaseResult(testCase)
   }
+  
+  onTaskUpdate(packs: any[]): void {
+    // Process task updates to extract test results
+    packs.forEach((pack) => {
+      if (Array.isArray(pack)) {
+        pack.forEach((task: any) => {
+          if (task?.type === 'test' && task?.result) {
+            this.orchestrator.handleTestCaseResult(task)
+          }
+        })
+      } else if (pack && typeof pack === 'object') {
+        // Maybe pack itself is the task
+        if (pack.type === 'test' && pack.result) {
+          this.orchestrator.handleTestCaseResult(pack)
+        }
+      }
+    })
+  }
 
   onTestRunEnd(
     testModules: ReadonlyArray<TestModule>,

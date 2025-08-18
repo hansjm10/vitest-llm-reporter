@@ -92,8 +92,13 @@ export class ContextExtractor {
         lineNumber,
         columnNumber
       }
-    } catch {
-      // Return undefined if file cannot be read
+    } catch (err) {
+      // Log unexpected file read errors for debugging
+      // (file existence and line validation are handled above)
+      console.error(
+        `Failed to read file context from ${filePath}:`,
+        err instanceof Error ? err.message : String(err)
+      )
       return undefined
     }
   }

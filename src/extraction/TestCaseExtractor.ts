@@ -153,6 +153,11 @@ export class TestCaseExtractor {
    * Extracts the error object if present
    */
   private extractError(tc: TestCaseData): unknown {
+    // Vitest provides errors as an array, get the first one
+    if (tc.result?.errors && Array.isArray(tc.result.errors) && tc.result.errors.length > 0) {
+      return tc.result.errors[0]
+    }
+    // Fallback to single error property
     return tc.result?.error
   }
 

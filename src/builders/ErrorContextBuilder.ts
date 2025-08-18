@@ -53,14 +53,26 @@ export class ErrorContextBuilder {
    * Builds error context from a normalized error
    */
   public buildFromError(error: NormalizedError): ErrorContext | undefined {
-    // Check if this is an assertion error
-    if (isAssertionError(error)) {
-      return this.buildAssertionContext(error)
+    // Check if we have code context first (prioritize actual code snippets)
+    if (error.context) {
+      const codeContext = this.buildCodeContext(error)
+      
+      // If this is also an assertion error, merge the assertion details
+      if (isAssertionError(error)) {
+        if (error.expected !== undefined) {
+          codeContext.expected = normalizeAssertionValue(error.expected)
+        }
+        if (error.actual !== undefined) {
+          codeContext.actual = normalizeAssertionValue(error.actual)
+        }
+      }
+      
+      return codeContext
     }
 
-    // Check if we have code context from Vitest
-    if (error.context) {
-      return this.buildCodeContext(error)
+    // If no code context but is an assertion error, build assertion context
+    if (isAssertionError(error)) {
+      return this.buildAssertionContext(error)
     }
 
     // If we only have a line number, create minimal context

@@ -24,6 +24,8 @@ export interface NormalizedError {
     expected?: unknown
     actual?: unknown
   }
+  stackFrames?: StackFrame[]
+  assertion?: AssertionDetails
 }
 
 /**

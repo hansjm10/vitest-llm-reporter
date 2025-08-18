@@ -78,5 +78,16 @@ export interface TestCaseData {
       context?: ErrorContext
       constructor?: { name?: string }
     }
+    errors?: Array<{
+      message?: string
+      name?: string
+      type?: string
+      stack?: string
+      expected?: unknown
+      actual?: unknown
+      lineNumber?: number
+      context?: ErrorContext
+      constructor?: { name?: string }
+    }>
   }
 }
