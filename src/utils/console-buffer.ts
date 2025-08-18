@@ -2,10 +2,10 @@ import { inspect } from 'node:util'
 
 /**
  * Console Buffer
- * 
+ *
  * Manages console output for a single test with byte-based size limits
  * and safe serialization of complex objects.
- * 
+ *
  * @module utils/console-buffer
  */
 
@@ -25,7 +25,7 @@ export interface ConsoleBufferConfig {
 }
 
 const DEFAULT_CONFIG: Required<ConsoleBufferConfig> = {
-  maxBytes: 50_000,  // 50KB
+  maxBytes: 50_000, // 50KB
   maxLines: 100,
   includeTimestamp: false,
   stripAnsi: true
@@ -43,16 +43,16 @@ export class ConsoleBuffer {
 
   constructor(config: ConsoleBufferConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
-    
+
     // Initialize empty arrays for each method
     const methods: ConsoleMethod[] = ['log', 'error', 'warn', 'debug', 'info', 'trace']
-    methods.forEach(method => this.entries.set(method, []))
+    methods.forEach((method) => this.entries.set(method, []))
   }
 
   /**
    * Add a console output entry
    */
-  add(method: ConsoleMethod, args: any[], timestamp?: number): boolean {
+  add(method: ConsoleMethod, args: unknown[], timestamp?: number): boolean {
     // Check if we've already hit limits
     if (this.truncated) {
       return false
@@ -60,14 +60,15 @@ export class ConsoleBuffer {
 
     // Serialize the arguments safely
     const message = this.serialize(args)
-    
+
     // Strip ANSI codes if configured
     const cleaned = this.config.stripAnsi ? this.stripAnsiCodes(message) : message
-    
+
     // Add timestamp if configured
-    const final = this.config.includeTimestamp && timestamp !== undefined
-      ? `[${timestamp}ms] ${cleaned}`
-      : cleaned
+    const final =
+      this.config.includeTimestamp && timestamp !== undefined
+        ? `[${timestamp}ms] ${cleaned}`
+        : cleaned
 
     // Check byte limit
     const bytes = Buffer.byteLength(final, 'utf8')
@@ -86,44 +87,61 @@ export class ConsoleBuffer {
     const methodEntries = this.entries.get(method) || []
     methodEntries.push(final)
     this.entries.set(method, methodEntries)
-    
+
     this.totalBytes += bytes
     this.totalLines++
-    
+
     return true
   }
 
   /**
    * Serialize arguments safely, handling circular references and large objects
    */
-  private serialize(args: any[]): string {
+  private serialize(args: unknown[]): string {
     try {
-      return args.map(arg => {
-        if (arg === undefined) return 'undefined'
-        if (arg === null) return 'null'
-        
-        if (typeof arg === 'string') {
-          // Truncate very long strings
-          return arg.length > 1000 
-            ? arg.substring(0, 1000) + '... [truncated]'
-            : arg
-        }
-        
-        if (typeof arg === 'object') {
-          // Use util.inspect for safe object serialization
-          return inspect(arg, {
-            depth: 3,
-            compact: true,
-            maxArrayLength: 10,
-            maxStringLength: 200,
-            breakLength: 120,
-            sorted: true
-          })
-        }
-        
-        return String(arg)
-      }).join(' ')
-    } catch (error) {
+      return args
+        .map((arg) => {
+          if (arg === undefined) return 'undefined'
+          if (arg === null) return 'null'
+
+          if (typeof arg === 'string') {
+            // Truncate very long strings
+            return arg.length > 1000 ? arg.substring(0, 1000) + '... [truncated]' : arg
+          }
+
+          if (typeof arg === 'number' || typeof arg === 'boolean') {
+            return String(arg)
+          }
+
+          if (typeof arg === 'bigint') {
+            return `${arg}n`
+          }
+
+          if (typeof arg === 'symbol') {
+            return arg.toString()
+          }
+
+          if (typeof arg === 'function') {
+            return '[Function]'
+          }
+
+          if (typeof arg === 'object') {
+            // Use util.inspect for safe object serialization
+            return inspect(arg, {
+              depth: 3,
+              compact: true,
+              maxArrayLength: 10,
+              maxStringLength: 200,
+              breakLength: 120,
+              sorted: true
+            })
+          }
+
+          // Fallback for any missed types
+          return '[unknown]'
+        })
+        .join(' ')
+    } catch (_error) {
       return '[Failed to serialize console output]'
     }
   }
@@ -133,6 +151,7 @@ export class ConsoleBuffer {
    */
   private stripAnsiCodes(str: string): string {
     // Regex to match ANSI escape codes
+    // eslint-disable-next-line no-control-regex -- ANSI escape codes require control characters
     const ansiRegex = /\u001B\[[0-9;]*m/g
     return str.replace(ansiRegex, '')
   }
@@ -155,41 +174,54 @@ export class ConsoleBuffer {
    */
   getOutput(): Record<ConsoleMethod, string[]> {
     const output: Partial<Record<ConsoleMethod, string[]>> = {}
-    
+
     for (const [method, lines] of this.entries) {
       if (lines.length > 0) {
-        output[method] = [...lines]  // Return a copy
+        output[method] = [...lines] // Return a copy
       }
     }
-    
+
     return output as Record<ConsoleMethod, string[]>
   }
 
   /**
    * Get a simplified output format for JSON serialization
    */
-  getSimplifiedOutput(): { logs?: string[], errors?: string[], warns?: string[], info?: string[], debug?: string[] } {
-    const output: any = {}
-    
+  getSimplifiedOutput(): {
+    logs?: string[]
+    errors?: string[]
+    warns?: string[]
+    info?: string[]
+    debug?: string[]
+  } {
+    const output: {
+      logs?: string[]
+      errors?: string[]
+      warns?: string[]
+      info?: string[]
+      debug?: string[]
+    } = {}
+
     const mapping: Record<ConsoleMethod, string> = {
       log: 'logs',
       error: 'errors',
       warn: 'warns',
       info: 'info',
       debug: 'debug',
-      trace: 'debug'  // Map trace to debug
+      trace: 'debug' // Map trace to debug
     }
-    
+
     for (const [method, lines] of this.entries) {
       if (lines.length > 0) {
-        const key = mapping[method]
+        const key = mapping[method] as keyof typeof output
         if (!output[key]) {
           output[key] = []
         }
+        // TypeScript now knows output[key] is defined and is string[]
         output[key].push(...lines)
       }
     }
-    
+
     return output
   }
 
@@ -206,7 +238,7 @@ export class ConsoleBuffer {
   /**
    * Get current buffer statistics
    */
-  getStats(): { bytes: number, lines: number, truncated: boolean } {
+  getStats(): { bytes: number; lines: number; truncated: boolean } {
     return {
       bytes: this.totalBytes,
       lines: this.totalLines,

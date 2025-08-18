@@ -1,6 +1,6 @@
 /**
  * End-to-End test for Error Context Extraction feature
- * 
+ *
  * Tests that the LLM reporter correctly extracts and includes
  * code context around test failures.
  */
@@ -24,10 +24,10 @@ describe.skip('Error Context Extraction E2E', () => {
       if (existsSync(testFile)) unlinkSync(testFile)
       if (existsSync(outputFile)) unlinkSync(outputFile)
       if (existsSync(configFile)) unlinkSync(configFile)
-    } catch (e) {
+    } catch (_e) {
       // Ignore cleanup errors from previous runs
     }
-    
+
     // Create a test file with intentional failures
     const testContent = `
 import { describe, it, expect } from 'vitest'
@@ -136,31 +136,31 @@ export default defineConfig({
     const firstFailure = output.failures[0]
     expect(firstFailure.test).toBe('should multiply two numbers correctly')
     expect(firstFailure.error).toHaveProperty('context')
-    
+
     const context = firstFailure.error.context
     expect(context).toHaveProperty('code')
     expect(context.code).toBeInstanceOf(Array)
     expect(context.code.length).toBeGreaterThan(0)
-    
+
     // Verify the code contains the actual failure line
     const codeString = context.code.join('\n')
     expect(codeString).toContain('expect(result).toBe(20)')
     expect(codeString).toContain('// <- failure')
-    
+
     // Verify line numbers are included
     expect(context.code[0]).toMatch(/^\s*\d+:/)
-    
+
     // Check stack frames
     expect(firstFailure.error).toHaveProperty('stackFrames')
     expect(firstFailure.error.stackFrames).toBeInstanceOf(Array)
     expect(firstFailure.error.stackFrames.length).toBeGreaterThan(0)
-    
+
     const firstFrame = firstFailure.error.stackFrames[0]
     expect(firstFrame).toHaveProperty('file')
     expect(firstFrame).toHaveProperty('line')
     expect(firstFrame).toHaveProperty('column')
     expect(firstFrame.file).toContain('.tmp-e2e-test-fixture.test.ts')
-    
+
     // Check assertion details
     expect(firstFailure.error).toHaveProperty('assertion')
     expect(firstFailure.error.assertion).toHaveProperty('expected')
@@ -169,40 +169,38 @@ export default defineConfig({
     expect(firstFailure.error.assertion.actual).toBe('4')
   })
 
-  it('should extract context for object comparison failures', async () => {
+  it('should extract context for object comparison failures', () => {
     // The test should have already run, so just check the output
     const outputContent = readFileSync(outputFile, 'utf-8')
     const output = JSON.parse(outputContent)
 
     // Find the object comparison failure
-    const objectFailure = output.failures.find(f => 
-      f.test === 'should match object structure'
-    )
-    
+    const objectFailure = output.failures.find((f) => f.test === 'should match object structure')
+
     expect(objectFailure).toBeDefined()
     expect(objectFailure.error.context).toBeDefined()
     expect(objectFailure.error.context.code).toBeInstanceOf(Array)
-    
+
     // Verify the context includes the expect statement
     const codeString = objectFailure.error.context.code.join('\n')
     expect(codeString).toContain('expect(user).toEqual')
-    
+
     // Check that assertion details include the objects
     expect(objectFailure.error.assertion).toBeDefined()
     expect(objectFailure.error.assertion.expected).toContain('age')
     expect(objectFailure.error.assertion.actual).toContain('age')
   })
 
-  it('should include proper line and column numbers', async () => {
+  it('should include proper line and column numbers', () => {
     const outputContent = readFileSync(outputFile, 'utf-8')
     const output = JSON.parse(outputContent)
 
-    output.failures.forEach(failure => {
+    output.failures.forEach((failure) => {
       const context = failure.error.context
       expect(context).toHaveProperty('lineNumber')
       expect(typeof context.lineNumber).toBe('number')
       expect(context.lineNumber).toBeGreaterThan(0)
-      
+
       // Column number should be present for most failures
       if (context.columnNumber !== undefined) {
         expect(typeof context.columnNumber).toBe('number')
@@ -211,12 +209,12 @@ export default defineConfig({
     })
   })
 
-  it('should have configurable context window size', async () => {
+  it('should have configurable context window size', () => {
     const outputContent = readFileSync(outputFile, 'utf-8')
     const output = JSON.parse(outputContent)
 
     // Default context should be 3 lines before and after (7 total)
-    output.failures.forEach(failure => {
+    output.failures.forEach((failure) => {
       const codeLines = failure.error.context.code
       expect(codeLines.length).toBeLessThanOrEqual(7)
       expect(codeLines.length).toBeGreaterThanOrEqual(1)

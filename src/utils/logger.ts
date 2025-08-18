@@ -1,35 +1,34 @@
 import createDebug from 'debug'
-import { format } from 'node:util'
 
 /**
- * Factory for creating debug loggers with consistent namespacing and 
+ * Factory for creating debug loggers with consistent namespacing and
  * sensitive data sanitization
  */
 export class LoggerFactory {
   private static debuggers = new Map<string, ReturnType<typeof createDebug>>()
-  
+
   // Patterns for sensitive data that should be redacted
   private static sensitivePatterns = [
     // Passwords in various formats
     /password["\s]*[:=]\s*["']([^"']+)["']/gi,
     /pwd["\s]*[:=]\s*["']([^"']+)["']/gi,
     /pass["\s]*[:=]\s*["']([^"']+)["']/gi,
-    
+
     // API keys and tokens
     /api[_-]?key["\s]*[:=]\s*["']([^"']+)["']/gi,
     /token["\s]*[:=]\s*["']([^"']+)["']/gi,
-    /bearer\s+([A-Za-z0-9\-._~+\/]+=*)/gi,
-    
+    /bearer\s+([A-Za-z0-9\-._~+/]+=*)/gi,
+
     // Secret keys
     /secret["\s]*[:=]\s*["']([^"']+)["']/gi,
     /private[_-]?key["\s]*[:=]\s*["']([^"']+)["']/gi,
-    
+
     // AWS credentials
     /aws[_-]?access[_-]?key[_-]?id["\s]*[:=]\s*["']([^"']+)["']/gi,
     /aws[_-]?secret[_-]?access[_-]?key["\s]*[:=]\s*["']([^"']+)["']/gi,
-    
+
     // Database connection strings
-    /(?:mongodb|postgres|mysql|redis):\/\/[^@]+@[^\s]+/gi,
+    /(?:mongodb|postgres|mysql|redis):\/\/[^@]+@[^\s]+/gi
   ]
 
   /**
@@ -39,23 +38,27 @@ export class LoggerFactory {
    */
   static create(namespace: string): ReturnType<typeof createDebug> {
     const fullNamespace = `vitest:llm-reporter:${namespace}`
-    
+
     if (!this.debuggers.has(fullNamespace)) {
       const debug = createDebug(fullNamespace)
-      
+
       // Wrap the debug function with sanitization
-      const secureDebug = (...args: unknown[]) => {
-        const sanitized = args.map(arg => this.sanitize(arg))
-        return debug(...sanitized as [any, ...any[]])
+      const secureDebug = (...args: unknown[]): void => {
+        const sanitized = args.map((arg) => this.sanitize(arg))
+        if (sanitized.length === 0) {
+          debug('')
+          return
+        }
+        return debug(...(sanitized as Parameters<typeof debug>))
       }
-      
+
       // Copy over debug properties
       Object.setPrototypeOf(secureDebug, debug)
       Object.assign(secureDebug, debug)
-      
+
       this.debuggers.set(fullNamespace, secureDebug as ReturnType<typeof createDebug>)
     }
-    
+
     return this.debuggers.get(fullNamespace)!
   }
 
@@ -66,11 +69,11 @@ export class LoggerFactory {
     if (typeof value === 'string') {
       return this.sanitizeString(value)
     }
-    
+
     if (typeof value === 'object' && value !== null) {
       return this.sanitizeObject(value)
     }
-    
+
     return value
   }
 
@@ -79,9 +82,9 @@ export class LoggerFactory {
    */
   private static sanitizeString(str: string): string {
     let result = str
-    
+
     for (const pattern of this.sensitivePatterns) {
-      result = result.replace(pattern, (match) => {
+      result = result.replace(pattern, (match: string): string => {
         // Keep the key part but redact the value
         const keyMatch = match.match(/^[^:=]+[:=]/)
         if (keyMatch) {
@@ -90,7 +93,7 @@ export class LoggerFactory {
         return '[REDACTED]'
       })
     }
-    
+
     return result
   }
 
@@ -102,14 +105,14 @@ export class LoggerFactory {
     if (visited.has(obj as object)) {
       return '[Circular]'
     }
-    
+
     visited.add(obj as object)
-    
+
     // Handle arrays
     if (Array.isArray(obj)) {
-      return obj.map(item => this.sanitize(item))
+      return obj.map((item) => this.sanitize(item))
     }
-    
+
     // Handle errors specially to preserve stack traces
     if (obj instanceof Error) {
       return {
@@ -118,11 +121,11 @@ export class LoggerFactory {
         stack: obj.stack ? this.sanitizeString(obj.stack) : undefined
       }
     }
-    
+
     // Handle plain objects
     if (obj?.constructor === Object) {
       const result: Record<string, unknown> = {}
-      
+
       for (const [key, value] of Object.entries(obj)) {
         // Check if the key itself suggests sensitive data
         const lowerKey = key.toLowerCase()
@@ -138,10 +141,10 @@ export class LoggerFactory {
           result[key] = this.sanitize(value)
         }
       }
-      
+
       return result
     }
-    
+
     // Return other objects as-is (Date, RegExp, etc.)
     return obj
   }
@@ -155,16 +158,20 @@ export class LoggerFactory {
 }
 
 // Export convenience functions for common namespaces
-export const createLogger = (namespace: string) => LoggerFactory.create(namespace)
+export const createLogger = (namespace: string): ReturnType<typeof createDebug> =>
+  LoggerFactory.create(namespace)
 
 // Pre-defined loggers for common namespaces
-export const coreLogger = () => LoggerFactory.create('core')
-export const extractionLogger = () => LoggerFactory.create('extraction')
-export const processorLogger = () => LoggerFactory.create('processor')
-export const builderLogger = () => LoggerFactory.create('builder')
-export const outputLogger = () => LoggerFactory.create('output')
-export const stateLogger = () => LoggerFactory.create('state')
-export const validationLogger = () => LoggerFactory.create('validation')
-export const securityLogger = () => LoggerFactory.create('security')
-export const errorLogger = () => LoggerFactory.create('error')
-export const perfLogger = () => LoggerFactory.create('perf')
+export const coreLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('core')
+export const extractionLogger = (): ReturnType<typeof createDebug> =>
+  LoggerFactory.create('extraction')
+export const processorLogger = (): ReturnType<typeof createDebug> =>
+  LoggerFactory.create('processor')
+export const builderLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('builder')
+export const outputLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('output')
+export const stateLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('state')
+export const validationLogger = (): ReturnType<typeof createDebug> =>
+  LoggerFactory.create('validation')
+export const securityLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('security')
+export const errorLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('error')
+export const perfLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('perf')

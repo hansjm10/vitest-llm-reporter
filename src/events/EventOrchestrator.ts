@@ -87,7 +87,7 @@ export class EventOrchestrator {
     this.errorExtractor = errorExtractor
     this.resultBuilder = resultBuilder
     this.contextBuilder = contextBuilder
-    
+
     // Configure console capture
     consoleCapture.config = {
       enabled: this.config.captureConsoleOnFailure,
@@ -227,8 +227,8 @@ export class EventOrchestrator {
 
     // Build failure result with console output
     const failure = this.resultBuilder.buildFailedTest(
-      extracted, 
-      normalizedError, 
+      extracted,
+      normalizedError,
       errorContext,
       consoleOutput
     )
@@ -246,7 +246,7 @@ export class EventOrchestrator {
     _status: string
   ): void {
     this.stateManager.recordRunEnd()
-    
+
     // Clean up console capture resources
     consoleCapture.reset()
 

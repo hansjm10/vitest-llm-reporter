@@ -7,6 +7,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "lint": "eslint .",

@@ -43,7 +43,7 @@ export class ContextExtractor {
     columnNumber?: number
   ): ErrorContext | undefined {
     this.debug('Extracting context from %s:%d:%d', filePath, lineNumber, columnNumber || 0)
-    
+
     try {
       // Use secure path validation
       const absolutePath = this.pathValidator.validate(filePath)
@@ -93,11 +93,7 @@ export class ContextExtractor {
     } catch (err) {
       // Log unexpected file read errors for debugging
       // (file existence and line validation are handled above)
-      this.debugError(
-        'Failed to read file context from %s: %O',
-        filePath,
-        err
-      )
+      this.debugError('Failed to read file context from %s: %O', filePath, err)
       return undefined
     }
   }
@@ -193,7 +189,6 @@ export class ContextExtractor {
 
     return { stackFrames, context }
   }
-
 
   /**
    * Cleans up a file path from V8 stack trace

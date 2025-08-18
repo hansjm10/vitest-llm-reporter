@@ -49,9 +49,7 @@ export class PathValidator {
       const normalized = normalize(filePath)
 
       // Convert to absolute path
-      const absolutePath = isAbsolute(normalized)
-        ? normalized
-        : resolve(this.rootDir, normalized)
+      const absolutePath = isAbsolute(normalized) ? normalized : resolve(this.rootDir, normalized)
 
       // Check if file exists before trying to resolve real path
       if (!existsSync(absolutePath)) {
@@ -71,7 +69,7 @@ export class PathValidator {
       // Cache and return the validated path
       this.validatedPaths.set(filePath, realPath)
       return realPath
-    } catch (error) {
+    } catch (_error) {
       // Any error in path resolution means the path is invalid
       this.validatedPaths.set(filePath, null)
       return null
@@ -110,7 +108,7 @@ export class PathValidator {
    */
   public getCacheStats(): { hits: number; misses: number; size: number } {
     const size = this.validatedPaths.size
-    const hits = Array.from(this.validatedPaths.values()).filter(v => v !== null).length
+    const hits = Array.from(this.validatedPaths.values()).filter((v) => v !== null).length
     const misses = size - hits
     return { hits, misses, size }
   }

@@ -13,14 +13,17 @@ describe('ContextExtractor Security Tests', () => {
     // Create a temporary directory for testing
     tempDir = join(tmpdir(), `context-security-test-${Date.now()}`)
     mkdirSync(tempDir, { recursive: true })
-    
+
     // Create a safe test file
     safeFile = join(tempDir, 'safe.ts')
-    writeFileSync(safeFile, `function test() {
+    writeFileSync(
+      safeFile,
+      `function test() {
   const result = 42
   return result
-}`)
-    
+}`
+    )
+
     extractor = new ContextExtractor({ rootDir: tempDir })
   })
 
@@ -38,7 +41,7 @@ describe('ContextExtractor Security Tests', () => {
         './../../../etc/passwd',
         'src/../../etc/passwd'
       ]
-      
+
       for (const path of maliciousPaths) {
         const result = extractor.extractCodeContext(path, 1)
         expect(result).toBeUndefined()
@@ -51,7 +54,7 @@ describe('ContextExtractor Security Tests', () => {
         '..\\..\\..\\Windows\\System32\\config\\sam',
         '\\\\?\\C:\\Windows\\System32\\config\\sam'
       ]
-      
+
       for (const path of windowsPaths) {
         const result = extractor.extractCodeContext(path, 1)
         expect(result).toBeUndefined()
@@ -69,7 +72,7 @@ describe('ContextExtractor Security Tests', () => {
         './././../../../etc/passwd',
         'safe/../../safe/../../etc/passwd'
       ]
-      
+
       for (const path of complexPaths) {
         const result = extractor.extractCodeContext(path, 1)
         expect(result).toBeUndefined()
@@ -91,9 +94,9 @@ describe('ContextExtractor Security Tests', () => {
     at test (/etc/passwd:1:1)
     at async main (../../../../../../etc/shadow:5:10)
     at Object.<anonymous> (C:\\Windows\\System32\\config\\sam:10:5)`
-      
+
       const result = extractor.extractFullContext(maliciousStack)
-      
+
       // Should parse frames but not extract context from malicious paths
       expect(result.stackFrames).toHaveLength(3)
       expect(result.context).toBeUndefined()
@@ -103,9 +106,9 @@ describe('ContextExtractor Security Tests', () => {
       const safeStack = `Error: Test error
     at test (safe.ts:2:10)
     at main (safe.ts:3:5)`
-      
+
       const result = extractor.extractFullContext(safeStack)
-      
+
       expect(result.stackFrames).toHaveLength(2)
       expect(result.context).toBeDefined()
       expect(result.context?.code).toBeDefined()
@@ -145,7 +148,7 @@ describe('ContextExtractor Security Tests', () => {
         'file|ls.ts',
         'file&netstat.ts'
       ]
-      
+
       for (const path of specialPaths) {
         const result = extractor.extractCodeContext(path, 1)
         expect(result).toBeUndefined()
@@ -155,11 +158,11 @@ describe('ContextExtractor Security Tests', () => {
     it('should handle Unicode normalization attacks', () => {
       // Using different Unicode representations of the same character
       const unicodePaths = [
-        'ﬁle.ts',  // ligature fi
-        'ﬀ.ts',    // ligature ff
+        'ﬁle.ts', // ligature fi
+        'ﬀ.ts', // ligature ff
         '../ﬁle.ts'
       ]
-      
+
       for (const path of unicodePaths) {
         const result = extractor.extractCodeContext(path, 1)
         // Should either be undefined or resolve to a safe path

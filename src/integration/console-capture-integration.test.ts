@@ -39,6 +39,7 @@ describe('Console Capture Integration', () => {
 
     // Simulate console output during test execution context
     await consoleCapture.runWithCapture('test-1', () => {
+      // eslint-disable-next-line no-console -- Testing console capture
       console.log('Starting test')
       console.error('Something went wrong')
       console.warn('Warning message')
@@ -56,7 +57,7 @@ describe('Console Capture Integration', () => {
     // Verify console output was captured
     expect(output?.failures).toBeDefined()
     expect(output?.failures?.length).toBe(1)
-    
+
     const failure = output?.failures?.[0]
     expect(failure?.console).toBeDefined()
     expect(failure?.console?.logs).toContain('Starting test')
@@ -83,6 +84,7 @@ describe('Console Capture Integration', () => {
     reporter.onTestCaseReady(testCase)
 
     // Simulate console output during test
+    // eslint-disable-next-line no-console -- Testing console capture
     console.log('This should not be captured')
 
     // End test with success
@@ -125,6 +127,7 @@ describe('Console Capture Integration', () => {
     reporter.onTestCaseReady(testCase)
 
     // Simulate console output during test
+    // eslint-disable-next-line no-console -- Testing console capture
     console.log('This should not be captured')
 
     // End test with failure
@@ -139,7 +142,7 @@ describe('Console Capture Integration', () => {
     // Verify failure exists but no console output
     expect(output?.failures).toBeDefined()
     expect(output?.failures?.length).toBe(1)
-    
+
     const failure = output?.failures?.[0]
     expect(failure?.console).toBeUndefined()
   })

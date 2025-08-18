@@ -1,13 +1,14 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { ConsoleBuffer, ConsoleBufferConfig, ConsoleMethod } from './console-buffer'
+import { ConsoleInterceptor } from './console-interceptor'
 import { createLogger } from './logger'
 
 /**
  * Console Capture
- * 
+ *
  * Thread-safe console output capture for parallel test execution
  * using AsyncLocalStorage to maintain test context isolation.
- * 
+ *
  * @module utils/console-capture
  */
 
@@ -18,7 +19,7 @@ interface TestContext {
 
 export interface ConsoleCaptureConfig extends ConsoleBufferConfig {
   enabled?: boolean
-  gracePeriodMs?: number  // Time to wait for async console output
+  gracePeriodMs?: number // Time to wait for async console output
 }
 
 const DEFAULT_CONFIG: ConsoleCaptureConfig = {
@@ -34,11 +35,12 @@ const DEFAULT_CONFIG: ConsoleCaptureConfig = {
 export class ConsoleCapture {
   private testContext = new AsyncLocalStorage<TestContext>()
   private buffers = new Map<string, ConsoleBuffer>()
-  private originalMethods: Partial<Record<ConsoleMethod, Function>> = {}
-  private isPatched = false
+  private interceptor = new ConsoleInterceptor()
   public config: ConsoleCaptureConfig
   private debug = createLogger('console-capture')
-  private cleanupTimers = new Map<string, NodeJS.Timeout>()
+  private cleanupTimers = new Map<string, ReturnType<typeof globalThis.setTimeout>>()
+  // Track test generation to prevent race conditions in cleanup
+  private testGeneration = new Map<string, number>()
 
   constructor(config: ConsoleCaptureConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -53,16 +55,21 @@ export class ConsoleCapture {
     }
 
     this.debug('Starting console capture for test: %s', testId)
-    
+
     // Create a new buffer for this test
     const buffer = new ConsoleBuffer(this.config)
     this.buffers.set(testId, buffer)
-    
+
+    // Initialize generation tracking for this test if not exists
+    if (!this.testGeneration.has(testId)) {
+      this.testGeneration.set(testId, 0)
+    }
+
     // Patch console methods if not already patched
-    if (!this.isPatched) {
+    if (!this.interceptor.patched) {
       this.patchConsole()
     }
-    
+
     // Clear any existing timer for this test
     this.clearCleanupTimer(testId)
   }
@@ -80,14 +87,17 @@ export class ConsoleCapture {
       startTime: Date.now()
     }
 
-    return this.testContext.run(context, async () => {
-      try {
+    try {
+      return await this.testContext.run(context, async () => {
         return await fn()
-      } catch (error) {
-        // Make sure to capture any error console output
-        throw error
-      }
-    })
+      })
+    } finally {
+      // Clean up AsyncLocalStorage context to prevent memory leak
+      // This ensures the context is properly released for garbage collection
+      this.testContext.exit(() => {
+        // Empty callback - we just need to exit the context
+      })
+    }
   }
 
   /**
@@ -99,19 +109,19 @@ export class ConsoleCapture {
     }
 
     this.debug('Stopping console capture for test: %s', testId)
-    
+
     // Get the buffer
     const buffer = this.buffers.get(testId)
     if (!buffer) {
       return undefined
     }
-    
+
     // Get the output before clearing
     const output = buffer.getSimplifiedOutput()
-    
+
     // Schedule cleanup after grace period (for async console output)
     this.scheduleCleanup(testId)
-    
+
     return output
   }
 
@@ -131,36 +141,27 @@ export class ConsoleCapture {
    * Patch console methods to intercept output
    */
   private patchConsole(): void {
-    if (this.isPatched) {
+    if (this.interceptor.patched) {
       return
     }
 
     const methods: ConsoleMethod[] = ['log', 'error', 'warn', 'debug', 'info', 'trace']
-    
-    for (const method of methods) {
-      const original = console[method]
-      this.originalMethods[method] = original
-      
-      // Create interceptor
-      ;(console as any)[method] = (...args: any[]) => {
-        // Get current test context
-        const context = this.testContext.getStore()
-        
-        if (context) {
-          // Capture to the test's buffer
-          const buffer = this.buffers.get(context.testId)
-          if (buffer) {
-            const elapsed = Date.now() - context.startTime
-            buffer.add(method, args, elapsed)
-          }
+
+    // Use the interceptor to handle patching with error boundaries
+    this.interceptor.patchAll(methods, (method, args) => {
+      // Get current test context
+      const context = this.testContext.getStore()
+
+      if (context) {
+        // Capture to the test's buffer
+        const buffer = this.buffers.get(context.testId)
+        if (buffer) {
+          const elapsed = Date.now() - context.startTime
+          buffer.add(method, args, elapsed)
         }
-        
-        // Always call the original method
-        original.apply(console, args)
       }
-    }
-    
-    this.isPatched = true
+    })
+
     this.debug('Console methods patched')
   }
 
@@ -168,18 +169,11 @@ export class ConsoleCapture {
    * Restore original console methods
    */
   unpatchConsole(): void {
-    if (!this.isPatched) {
+    if (!this.interceptor.patched) {
       return
     }
 
-    for (const [method, original] of Object.entries(this.originalMethods)) {
-      if (original) {
-        ;(console as any)[method] = original
-      }
-    }
-    
-    this.originalMethods = {}
-    this.isPatched = false
+    this.interceptor.unpatchAll()
     this.debug('Console methods restored')
   }
 
@@ -189,13 +183,26 @@ export class ConsoleCapture {
   private scheduleCleanup(testId: string): void {
     // Clear any existing timer
     this.clearCleanupTimer(testId)
-    
+
+    // Increment generation for this test ID to track cleanup validity
+    const generation = (this.testGeneration.get(testId) || 0) + 1
+    this.testGeneration.set(testId, generation)
+
     // Schedule new cleanup
-    const timer = setTimeout(() => {
-      this.clearBuffer(testId)
-      this.cleanupTimers.delete(testId)
+    const timer = globalThis.setTimeout(() => {
+      // Only clear if generation hasn't changed (no new test with same ID)
+      const currentGeneration = this.testGeneration.get(testId)
+      if (currentGeneration === generation) {
+        this.clearBuffer(testId)
+        this.cleanupTimers.delete(testId)
+        // Clean up generation tracking for this test
+        this.testGeneration.delete(testId)
+      } else {
+        // A new test with the same ID has started, skip cleanup
+        this.debug('Skipping cleanup for test %s - generation mismatch', testId)
+      }
     }, this.config.gracePeriodMs)
-    
+
     this.cleanupTimers.set(testId, timer)
   }
 
@@ -205,7 +212,7 @@ export class ConsoleCapture {
   private clearCleanupTimer(testId: string): void {
     const timer = this.cleanupTimers.get(testId)
     if (timer) {
-      clearTimeout(timer)
+      globalThis.clearTimeout(timer)
       this.cleanupTimers.delete(testId)
     }
   }
@@ -216,19 +223,22 @@ export class ConsoleCapture {
   reset(): void {
     // Clear all timers
     for (const timer of this.cleanupTimers.values()) {
-      clearTimeout(timer)
+      globalThis.clearTimeout(timer)
     }
     this.cleanupTimers.clear()
-    
+
     // Clear all buffers
     for (const buffer of this.buffers.values()) {
       buffer.clear()
     }
     this.buffers.clear()
-    
+
+    // Clear generation tracking
+    this.testGeneration.clear()
+
     // Restore console
     this.unpatchConsole()
-    
+
     this.debug('Console capture reset')
   }
 
@@ -241,7 +251,7 @@ export class ConsoleCapture {
     pendingCleanups: number
   } {
     return {
-      isPatched: this.isPatched,
+      isPatched: this.interceptor.patched,
       activeBuffers: this.buffers.size,
       pendingCleanups: this.cleanupTimers.size
     }

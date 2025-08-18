@@ -149,7 +149,7 @@ Line 3`
 
       // Should return undefined when there's an error reading the file
       expect(context).toBeUndefined()
-      
+
       // Reset the mock for next tests
       vi.mocked(fs.readFileSync).mockReset()
     })

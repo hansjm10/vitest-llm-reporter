@@ -15,7 +15,7 @@ export default [
       ecmaVersion: 2022,
       sourceType: 'module',
       parserOptions: {
-        project: './tsconfig.json'
+        project: './tsconfig.eslint.json'
       },
       globals: {
         console: 'readonly',
@@ -37,7 +37,8 @@ export default [
         'error',
         {
           argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_'
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
         }
       ],
       '@typescript-eslint/no-explicit-any': 'warn',
@@ -84,6 +85,18 @@ export default [
     }
   },
   {
-    ignores: ['dist/', 'node_modules/', 'eslint.config.js', '*.cjs', '*.mjs', 'examples/', 'coverage/', 'vitest.config.ts', 'custom-reporter.ts', 'debug-reporter.ts']
+    ignores: [
+      'dist/',
+      'node_modules/',
+      'eslint.config.js',
+      '*.cjs',
+      '*.mjs',
+      'examples/',
+      'coverage/',
+      'vitest.config.ts',
+      'custom-reporter.ts',
+      'debug-reporter.ts',
+      '**/*.d.ts'
+    ]
   }
 ]
