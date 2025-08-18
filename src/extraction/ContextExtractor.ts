@@ -86,7 +86,8 @@ export class ContextExtractor {
   }
 
   /**
-   * Parses a stack trace string into structured stack frames
+   * Parses a V8-style stack trace string into structured stack frames
+   * Optimized for Node.js/Vitest console test reporting
    */
   public parseStackTrace(stack: string): StackFrame[] {
     if (!stack) {
@@ -97,12 +98,10 @@ export class ContextExtractor {
     const lines = stack.split('\n')
 
     for (const line of lines) {
-      // Try to extract function name and location
-      // Match patterns like:
+      // V8 stack trace patterns (Node.js standard):
       // "at functionName (file:line:column)"
       // "at async functionName (file:line:column)"
       // "at file:line:column"
-      // "functionName@file:line:column"
 
       let match = line.match(/^\s*at\s+(?:async\s+)?(.+?)\s+\((.+?):(\d+):(\d+)\)$/)
       if (match) {
@@ -123,44 +122,8 @@ export class ContextExtractor {
         continue
       }
 
-      // Try without function name
+      // V8 style without function name
       match = line.match(/^\s*at\s+(.+?):(\d+):(\d+)$/)
-      if (match) {
-        const file = this.cleanFilePath(match[1])
-        const lineNum = parseInt(match[2], 10)
-        const column = parseInt(match[3], 10)
-
-        if (this.shouldIncludeFrame(file)) {
-          frames.push({
-            file,
-            line: lineNum,
-            column: isNaN(column) ? undefined : column
-          })
-        }
-        continue
-      }
-
-      // Firefox style
-      match = line.match(/^(.+?)@(.+?):(\d+):(\d+)$/)
-      if (match) {
-        const functionName = match[1].trim()
-        const file = this.cleanFilePath(match[2])
-        const lineNum = parseInt(match[3], 10)
-        const column = parseInt(match[4], 10)
-
-        if (this.shouldIncludeFrame(file)) {
-          frames.push({
-            file,
-            line: lineNum,
-            column: isNaN(column) ? undefined : column,
-            function: functionName !== '' ? functionName : undefined
-          })
-        }
-        continue
-      }
-
-      // Firefox style without function name
-      match = line.match(/^@(.+?):(\d+):(\d+)$/)
       if (match) {
         const file = this.cleanFilePath(match[1])
         const lineNum = parseInt(match[2], 10)
@@ -225,16 +188,13 @@ export class ContextExtractor {
   }
 
   /**
-   * Cleans up a file path from stack trace
+   * Cleans up a file path from V8 stack trace
    */
   private cleanFilePath(file: string): string {
     // Remove file:// protocol if present
     file = file.replace(/^file:\/\//, '')
 
-    // Remove parentheses that might wrap the path
-    file = file.replace(/^\((.+)\)$/, '$1')
-
-    // Remove query parameters or fragments
+    // Remove query parameters or fragments (e.g., "?cache=123")
     file = file.split(/[?#]/)[0]
 
     return file.trim()

@@ -236,10 +236,11 @@ Line 3`
       expect(frames[1].file).toContain('node_modules')
     })
 
-    it('should handle Firefox style stack traces', () => {
-      const stack = `testFunction@/src/test.ts:10:15
-processData@/src/processor.ts:20:8
-@/src/main.ts:5:1`
+    it('should handle V8 style stack traces exclusively', () => {
+      const stack = `Error: Test failed
+  at testFunction (/src/test.ts:10:15)
+  at async processData (/src/processor.ts:20:8)
+  at /src/main.ts:5:1`
 
       const frames = extractor.parseStackTrace(stack)
 
@@ -249,6 +250,17 @@ processData@/src/processor.ts:20:8
         line: 10,
         column: 15,
         function: 'testFunction'
+      })
+      expect(frames[1]).toEqual({
+        file: '/src/processor.ts',
+        line: 20,
+        column: 8,
+        function: 'processData'
+      })
+      expect(frames[2]).toEqual({
+        file: '/src/main.ts',
+        line: 5,
+        column: 1
       })
     })
 
