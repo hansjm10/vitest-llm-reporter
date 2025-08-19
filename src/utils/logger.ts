@@ -1,152 +1,39 @@
 import createDebug from 'debug'
 
 /**
- * Factory for creating debug loggers with consistent namespacing and
- * sensitive data sanitization
+ * Internal Debug Logger for vitest-llm-reporter
+ *
+ * This logger is exclusively for internal debugging of the reporter itself.
+ * It does NOT process or log user test data, console.log outputs, or test results.
+ *
+ * Usage:
+ * - Enable with: DEBUG=vitest:llm-reporter:* npm test
+ * - Logs internal reporter operations like initialization, context extraction, etc.
+ * - User test output is handled separately by ConsoleCapture/ConsoleBuffer
+ *
+ * Note: No redaction is needed since this logger never touches user data,
+ * only internal reporter metadata (file paths, line numbers, options).
+ */
+
+/**
+ * Factory for creating debug loggers with consistent namespacing
  */
 export class LoggerFactory {
   private static debuggers = new Map<string, ReturnType<typeof createDebug>>()
 
-  // Patterns for sensitive data that should be redacted
-  private static sensitivePatterns = [
-    // Passwords in various formats
-    /password["\s]*[:=]\s*["']([^"']+)["']/gi,
-    /pwd["\s]*[:=]\s*["']([^"']+)["']/gi,
-    /pass["\s]*[:=]\s*["']([^"']+)["']/gi,
-
-    // API keys and tokens
-    /api[_-]?key["\s]*[:=]\s*["']([^"']+)["']/gi,
-    /token["\s]*[:=]\s*["']([^"']+)["']/gi,
-    /bearer\s+([A-Za-z0-9\-._~+/]+=*)/gi,
-
-    // Secret keys
-    /secret["\s]*[:=]\s*["']([^"']+)["']/gi,
-    /private[_-]?key["\s]*[:=]\s*["']([^"']+)["']/gi,
-
-    // AWS credentials
-    /aws[_-]?access[_-]?key[_-]?id["\s]*[:=]\s*["']([^"']+)["']/gi,
-    /aws[_-]?secret[_-]?access[_-]?key["\s]*[:=]\s*["']([^"']+)["']/gi,
-
-    // Database connection strings
-    /(?:mongodb|postgres|mysql|redis):\/\/[^@]+@[^\s]+/gi
-  ]
-
   /**
    * Creates a debug logger with the specified namespace
    * @param namespace - The namespace for the logger (will be prefixed with vitest:llm-reporter:)
-   * @returns A debug function that sanitizes sensitive data
+   * @returns A debug function
    */
   static create(namespace: string): ReturnType<typeof createDebug> {
     const fullNamespace = `vitest:llm-reporter:${namespace}`
 
     if (!this.debuggers.has(fullNamespace)) {
-      const debug = createDebug(fullNamespace)
-
-      // Wrap the debug function with sanitization
-      const secureDebug = (...args: unknown[]): void => {
-        const sanitized = args.map((arg) => this.sanitize(arg))
-        if (sanitized.length === 0) {
-          debug('')
-          return
-        }
-        return debug(...(sanitized as Parameters<typeof debug>))
-      }
-
-      // Copy over debug properties
-      Object.setPrototypeOf(secureDebug, debug)
-      Object.assign(secureDebug, debug)
-
-      this.debuggers.set(fullNamespace, secureDebug as ReturnType<typeof createDebug>)
+      this.debuggers.set(fullNamespace, createDebug(fullNamespace))
     }
 
     return this.debuggers.get(fullNamespace)!
-  }
-
-  /**
-   * Sanitizes a value by redacting sensitive information
-   */
-  private static sanitize(value: unknown): unknown {
-    if (typeof value === 'string') {
-      return this.sanitizeString(value)
-    }
-
-    if (typeof value === 'object' && value !== null) {
-      return this.sanitizeObject(value)
-    }
-
-    return value
-  }
-
-  /**
-   * Sanitizes a string by redacting sensitive patterns
-   */
-  private static sanitizeString(str: string): string {
-    let result = str
-
-    for (const pattern of this.sensitivePatterns) {
-      result = result.replace(pattern, (match: string): string => {
-        // Keep the key part but redact the value
-        const keyMatch = match.match(/^[^:=]+[:=]/)
-        if (keyMatch) {
-          return keyMatch[0] + '[REDACTED]'
-        }
-        return '[REDACTED]'
-      })
-    }
-
-    return result
-  }
-
-  /**
-   * Sanitizes an object by redacting sensitive keys and values
-   */
-  private static sanitizeObject(obj: unknown, visited = new WeakSet()): unknown {
-    // Handle circular references
-    if (visited.has(obj as object)) {
-      return '[Circular]'
-    }
-
-    visited.add(obj as object)
-
-    // Handle arrays
-    if (Array.isArray(obj)) {
-      return obj.map((item) => this.sanitize(item))
-    }
-
-    // Handle errors specially to preserve stack traces
-    if (obj instanceof Error) {
-      return {
-        name: obj.name,
-        message: this.sanitizeString(obj.message),
-        stack: obj.stack ? this.sanitizeString(obj.stack) : undefined
-      }
-    }
-
-    // Handle plain objects
-    if (obj?.constructor === Object) {
-      const result: Record<string, unknown> = {}
-
-      for (const [key, value] of Object.entries(obj)) {
-        // Check if the key itself suggests sensitive data
-        const lowerKey = key.toLowerCase()
-        if (
-          lowerKey.includes('password') ||
-          lowerKey.includes('secret') ||
-          lowerKey.includes('token') ||
-          lowerKey.includes('apikey') ||
-          lowerKey.includes('api_key')
-        ) {
-          result[key] = '[REDACTED]'
-        } else {
-          result[key] = this.sanitize(value)
-        }
-      }
-
-      return result
-    }
-
-    // Return other objects as-is (Date, RegExp, etc.)
-    return obj
   }
 
   /**
