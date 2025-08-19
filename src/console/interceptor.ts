@@ -104,7 +104,7 @@ export class ConsoleInterceptor {
    * Unpatch all console methods
    */
   unpatchAll(): void {
-    for (const [method, spy] of this.spies) {
+    for (const [_method, spy] of this.spies) {
       spy.mockRestore()
     }
     this.spies.clear()

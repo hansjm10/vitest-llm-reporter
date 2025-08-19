@@ -77,10 +77,11 @@ describe('Math Operations', () => {
     // Create a config file that uses our reporter
     const configContent = `
 import { defineConfig } from 'vitest/config'
-import { LLMReporter } from './src/reporter/reporter'
+import { LLMReporter } from './dist/reporter/reporter.js'
 
 export default defineConfig({
   test: {
+    includeTaskLocation: true,
     reporters: [
       new LLMReporter({
         outputFile: '${outputFile}',
