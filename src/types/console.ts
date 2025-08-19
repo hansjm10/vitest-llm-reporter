@@ -18,3 +18,8 @@ export interface ConsoleBufferConfig {
   includeTimestamp?: boolean
   stripAnsi?: boolean
 }
+
+export interface ConsoleCaptureConfig extends ConsoleBufferConfig {
+  enabled?: boolean
+  gracePeriodMs?: number // Time to wait for async console output
+}

@@ -14,6 +14,10 @@ export { ConsoleInterceptor } from './interceptor'
 export { ConsoleCapture, consoleCapture } from './capture'
 
 // Type exports
-export type { ConsoleMethod, ConsoleEntry, ConsoleBufferConfig } from '../types/console'
+export type {
+  ConsoleMethod,
+  ConsoleEntry,
+  ConsoleBufferConfig,
+  ConsoleCaptureConfig
+} from '../types/console'
 export type { ConsoleInterceptHandler, ConsoleFunction } from './interceptor'
-export type { ConsoleCaptureConfig } from './capture'

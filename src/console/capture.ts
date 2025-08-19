@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { ConsoleBuffer } from './buffer'
-import type { ConsoleBufferConfig, ConsoleMethod } from '../types/console'
+import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console'
 import { ConsoleInterceptor } from './interceptor'
 import { createLogger } from '../utils/logger'
 
@@ -16,11 +16,6 @@ import { createLogger } from '../utils/logger'
 interface TestContext {
   testId: string
   startTime: number
-}
-
-export interface ConsoleCaptureConfig extends ConsoleBufferConfig {
-  enabled?: boolean
-  gracePeriodMs?: number // Time to wait for async console output
 }
 
 const DEFAULT_CONFIG: ConsoleCaptureConfig = {
