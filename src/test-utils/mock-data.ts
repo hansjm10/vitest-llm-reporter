@@ -13,15 +13,17 @@ import type { SerializedError } from 'vitest'
  * @param options - Test case configuration
  * @returns A mock test case object
  */
-export const createMockTestCase = (options: {
-  name: string
-  state?: 'pass' | 'fail' | 'skip'
-  error?: Error
-  filepath?: string
-} = { name: 'test' }): any => {
+export const createMockTestCase = (
+  options: {
+    name: string
+    state?: 'pass' | 'fail' | 'skip'
+    error?: Error
+    filepath?: string
+  } = { name: 'test' }
+): any => {
   const { name, state = 'pass', error, filepath = '/test/file.ts' } = options
   const mappedState = state === 'pass' ? 'passed' : state === 'fail' ? 'failed' : 'skipped'
-  
+
   return {
     id: `test-${name}`,
     name,

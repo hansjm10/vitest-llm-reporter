@@ -13,7 +13,7 @@ import { join } from 'path'
 
 const execAsync = promisify(exec)
 
-describe.skip('Error Context Extraction E2E', () => {
+describe('Error Context Extraction E2E', () => {
   const testFile = join(process.cwd(), '.tmp-e2e-test-fixture.test.ts')
   const outputFile = join(process.cwd(), '.tmp-e2e-test-output.json')
   const configFile = join(process.cwd(), '.tmp-vitest.e2e.config.ts')
