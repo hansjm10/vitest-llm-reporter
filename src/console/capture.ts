@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { ConsoleBuffer, ConsoleBufferConfig, ConsoleMethod } from './buffer'
+import { ConsoleBuffer } from './buffer'
+import type { ConsoleBufferConfig, ConsoleMethod } from '../types/console'
 import { ConsoleInterceptor } from './interceptor'
 import { createLogger } from '../utils/logger'
 

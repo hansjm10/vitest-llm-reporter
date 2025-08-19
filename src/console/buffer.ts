@@ -1,4 +1,5 @@
 import { inspect } from 'node:util'
+import type { ConsoleMethod, ConsoleBufferConfig } from '../types/console'
 
 /**
  * Console Buffer
@@ -8,21 +9,6 @@ import { inspect } from 'node:util'
  *
  * @module utils/console-buffer
  */
-
-export type ConsoleMethod = 'log' | 'error' | 'warn' | 'debug' | 'info' | 'trace'
-
-export interface ConsoleEntry {
-  method: ConsoleMethod
-  message: string
-  timestamp?: number
-}
-
-export interface ConsoleBufferConfig {
-  maxBytes?: number
-  maxLines?: number
-  includeTimestamp?: boolean
-  stripAnsi?: boolean
-}
 
 const DEFAULT_CONFIG: Required<ConsoleBufferConfig> = {
   maxBytes: 50_000, // 50KB

@@ -1,4 +1,4 @@
-import { ConsoleMethod } from './buffer'
+import type { ConsoleMethod } from '../types/console'
 import { createLogger } from '../utils/logger'
 
 /**
