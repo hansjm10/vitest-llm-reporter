@@ -8,7 +8,6 @@
  */
 
 import type { Vitest, SerializedError, Reporter } from 'vitest'
-import type { TaskResultPack, TaskEventPack } from '@vitest/runner'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
 import type { LLMReporterConfig } from '../types/reporter'
@@ -218,12 +217,6 @@ export class LLMReporter implements Reporter {
     this.safeOrchestratorCall('onTestCaseResult', testCase, (test) =>
       this.orchestrator.handleTestCaseResult(test)
     )
-  }
-
-  onTaskUpdate(_packs: TaskResultPack[], _events: TaskEventPack[]): void {
-    // Vitest v3 provides granular hooks (onTestCaseReady/onTestCaseResult/etc.).
-    // We implement them directly; this deprecated hook is retained as a no-op
-    // for compatibility without double-processing.
   }
 
   onTestRunEnd(
