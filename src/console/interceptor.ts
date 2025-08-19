@@ -1,3 +1,5 @@
+import { vi } from 'vitest'
+import type { MockInstance } from 'vitest'
 import type { ConsoleMethod } from '../types/console'
 import { createLogger } from '../utils/logger'
 
@@ -18,10 +20,10 @@ export type ConsoleFunction = (...args: unknown[]) => void
 type ConsoleTarget = Pick<typeof globalThis.console, ConsoleMethod>
 
 /**
- * Handles the patching and restoration of console methods
+ * Handles the patching and restoration of console methods using Vitest spies
  */
 export class ConsoleInterceptor {
-  private originalMethods = new Map<ConsoleMethod, ConsoleFunction>()
+  private spies = new Map<ConsoleMethod, MockInstance>()
   private isPatched = false
   private debug = createLogger('console-interceptor')
   private readonly target: ConsoleTarget
@@ -42,7 +44,7 @@ export class ConsoleInterceptor {
    * Patch a specific console method with an interceptor
    */
   patch(method: ConsoleMethod, interceptor: ConsoleInterceptHandler): void {
-    if (this.originalMethods.has(method)) {
+    if (this.spies.has(method)) {
       this.debug('Method %s already patched', method)
       return
     }
@@ -54,10 +56,8 @@ export class ConsoleInterceptor {
       return
     }
 
-    this.originalMethods.set(method, original)
-
-    // Create wrapped interceptor with error boundary
-    const wrapper = (...args: unknown[]): void => {
+    // Create spy that calls through to the original implementation
+    const spy = vi.spyOn(this.target, method).mockImplementation((...args: unknown[]) => {
       // Interceptor must NEVER break console functionality
       try {
         interceptor(method, args)
@@ -71,13 +71,10 @@ export class ConsoleInterceptor {
       }
 
       // Always call the original method with preserved binding
-      const originalFn: (...a: unknown[]) => unknown = original
-      Reflect.apply(originalFn as (...a: unknown[]) => unknown, this.target, args)
-    }
+      return Reflect.apply(original, this.target, args)
+    })
 
-    // Assign the wrapper to the target console (mutates the real console object)
-    this.target[method] = wrapper as ConsoleFunction
-
+    this.spies.set(method, spy)
     this.debug('Patched console.%s', method)
   }
 
@@ -95,10 +92,10 @@ export class ConsoleInterceptor {
    * Unpatch a specific console method
    */
   unpatch(method: ConsoleMethod): void {
-    const original = this.originalMethods.get(method)
-    if (original) {
-      this.target[method] = original
-      this.originalMethods.delete(method)
+    const spy = this.spies.get(method)
+    if (spy) {
+      spy.mockRestore()
+      this.spies.delete(method)
       this.debug('Unpatched console.%s', method)
     }
   }
@@ -107,25 +104,25 @@ export class ConsoleInterceptor {
    * Unpatch all console methods
    */
   unpatchAll(): void {
-    for (const [method, original] of this.originalMethods) {
-      this.target[method] = original
+    for (const [method, spy] of this.spies) {
+      spy.mockRestore()
     }
-    this.originalMethods.clear()
+    this.spies.clear()
     this.isPatched = false
     this.debug('Unpatched all console methods')
   }
 
   /**
-   * Get the original (unpatched) console method
+   * Get the spy for a specific method
    */
-  getOriginal(method: ConsoleMethod): ConsoleFunction | undefined {
-    return this.originalMethods.get(method)
+  getSpy(method: ConsoleMethod): MockInstance | undefined {
+    return this.spies.get(method)
   }
 
   /**
    * Check if a specific method is patched
    */
   isMethodPatched(method: ConsoleMethod): boolean {
-    return this.originalMethods.has(method)
+    return this.spies.has(method)
   }
 }
