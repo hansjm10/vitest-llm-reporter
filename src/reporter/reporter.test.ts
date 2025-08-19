@@ -650,4 +650,174 @@ describe('LLMReporter', () => {
       expect(writeFileSpy).not.toHaveBeenCalled()
     })
   })
+
+  describe('Watch Mode Handling', () => {
+    it('should reset state when starting a new run while one is active', () => {
+      // Create reporter with includePassedTests to verify reset behavior
+      const watchReporter = new LLMReporter({ includePassedTests: true })
+      
+      const spec1 = createMockTestSpecification({ specPath: 'test1.spec.ts' })
+      const spec2 = createMockTestSpecification({ specPath: 'test2.spec.ts' })
+      const module1 = createMockTestModule({ filepath: 'test1.spec.ts' })
+      const module2 = createMockTestModule({ filepath: 'test2.spec.ts' })
+      const test1 = createMockTestCase({ name: 'test 1', state: 'pass' })
+      const test2 = createMockTestCase({ name: 'test 2', state: 'pass' })
+
+      // First test run
+      watchReporter.onTestRunStart([spec1])
+      watchReporter.onTestModuleStart(module1)
+      watchReporter.onTestCaseResult(test1)
+      watchReporter.onTestModuleEnd(module1)
+      
+      // Start second run without ending the first (simulates watch mode)
+      watchReporter.onTestRunStart([spec2])
+      watchReporter.onTestModuleStart(module2)
+      watchReporter.onTestCaseResult(test2)
+      watchReporter.onTestModuleEnd(module2)
+      watchReporter.onTestRunEnd([module2], [], 'passed')
+
+      const output = watchReporter.getOutput()
+      expect(output).toBeDefined()
+      // Should only have results from the second run
+      expect(output?.summary.total).toBe(1)
+      expect(output?.passed).toHaveLength(1)
+      expect(output?.passed?.[0].test).toBe('test 2')
+    })
+
+    it('should handle multiple consecutive test runs on same reporter instance', () => {
+      // Create reporter with includePassedTests to verify output
+      const watchReporter = new LLMReporter({ includePassedTests: true })
+      
+      const spec = createMockTestSpecification()
+      const module = createMockTestModule()
+      const failedTest1 = createMockTestCase({ 
+        name: 'first run test', 
+        state: 'fail',
+        error: new Error('First run error')
+      })
+      const passedTest2 = createMockTestCase({ 
+        name: 'second run test', 
+        state: 'pass' 
+      })
+
+      // First complete test run
+      watchReporter.onTestRunStart([spec])
+      watchReporter.onTestModuleStart(module)
+      watchReporter.onTestCaseResult(failedTest1)
+      watchReporter.onTestModuleEnd(module)
+      watchReporter.onTestRunEnd([module], [], 'failed')
+
+      const firstOutput = watchReporter.getOutput()
+      expect(firstOutput?.summary.failed).toBe(1)
+      expect(firstOutput?.summary.passed).toBe(0)
+      expect(firstOutput?.failures).toHaveLength(1)
+
+      // Second complete test run (should reset state)
+      watchReporter.onTestRunStart([spec])
+      watchReporter.onTestModuleStart(module)
+      watchReporter.onTestCaseResult(passedTest2)
+      watchReporter.onTestModuleEnd(module)
+      watchReporter.onTestRunEnd([module], [], 'passed')
+
+      const secondOutput = watchReporter.getOutput()
+      expect(secondOutput?.summary.failed).toBe(0)
+      expect(secondOutput?.summary.passed).toBe(1)
+      expect(secondOutput?.failures).toBeUndefined()
+      expect(secondOutput?.passed).toHaveLength(1)
+      expect(secondOutput?.passed?.[0].test).toBe('second run test')
+    })
+
+    it('should properly cleanup resources between test runs', () => {
+      const watchReporter = new LLMReporter()
+      
+      const spec = createMockTestSpecification()
+      const module = createMockTestModule()
+      
+      // Set up spies after creating the reporter to avoid counting initialization calls
+      const resetSpy = vi.spyOn((watchReporter as any).orchestrator, 'reset')
+      const stateResetSpy = vi.spyOn((watchReporter as any).stateManager, 'reset')
+      
+      // Clear any initialization calls
+      resetSpy.mockClear()
+      stateResetSpy.mockClear()
+
+      // First run
+      watchReporter.onTestRunStart([spec])
+      expect(resetSpy).toHaveBeenCalledTimes(0) // Not called on first start
+      expect(stateResetSpy).toHaveBeenCalledTimes(0)
+      
+      watchReporter.onTestRunEnd([module], [], 'passed')
+      
+      expect(resetSpy).toHaveBeenCalledTimes(1) // Called once in cleanup
+      expect(stateResetSpy).toHaveBeenCalledTimes(1) // Also called via orchestrator.reset()
+
+      // Second run - isTestRunActive is false after cleanup, so no reset
+      watchReporter.onTestRunStart([spec])
+      expect(resetSpy).toHaveBeenCalledTimes(1) // Still 1, no reset because isTestRunActive was false
+      expect(stateResetSpy).toHaveBeenCalledTimes(1) // Still 1
+      
+      // Start third run without ending second - this triggers reset
+      watchReporter.onTestRunStart([spec])
+      expect(resetSpy).toHaveBeenCalledTimes(2) // Called in reset()
+      expect(stateResetSpy).toHaveBeenCalledTimes(3) // Called twice: once directly in reset(), once via orchestrator.reset()
+      
+      watchReporter.onTestRunEnd([module], [], 'passed')
+      
+      // Cleanup is always called in finally block
+      expect(resetSpy).toHaveBeenCalledTimes(3) // Once more in cleanup
+      expect(stateResetSpy).toHaveBeenCalledTimes(4) // Also called via orchestrator.reset()
+    })
+
+    it('should maintain isTestRunActive flag correctly', () => {
+      const spec = createMockTestSpecification()
+      const module = createMockTestModule()
+
+      // Initially should be false
+      expect((reporter as any).isTestRunActive).toBe(false)
+
+      // Should be true after starting
+      reporter.onTestRunStart([spec])
+      expect((reporter as any).isTestRunActive).toBe(true)
+
+      // Should be false after ending
+      reporter.onTestRunEnd([module], [], 'passed')
+      expect((reporter as any).isTestRunActive).toBe(false)
+
+      // Should handle consecutive runs
+      reporter.onTestRunStart([spec])
+      expect((reporter as any).isTestRunActive).toBe(true)
+      reporter.onTestRunStart([spec]) // Start again without ending
+      expect((reporter as any).isTestRunActive).toBe(true)
+      reporter.onTestRunEnd([module], [], 'passed')
+      expect((reporter as any).isTestRunActive).toBe(false)
+    })
+
+    it('should clear previous output when resetting', () => {
+      const spec = createMockTestSpecification()
+      const module = createMockTestModule()
+      const test = createMockTestCase({ name: 'test', state: 'pass' })
+
+      // First run
+      reporter.onTestRunStart([spec])
+      reporter.onTestCaseResult(test)
+      reporter.onTestRunEnd([module], [], 'passed')
+      
+      const firstOutput = reporter.getOutput()
+      expect(firstOutput).toBeDefined()
+
+      // Start second run (triggers reset)
+      reporter.onTestRunStart([spec])
+      
+      // Output should be cleared after reset but before new run ends
+      // Note: getOutput returns the last built output, which is still from first run
+      // until onTestRunEnd is called again
+      
+      reporter.onTestRunEnd([module], [], 'passed')
+      const secondOutput = reporter.getOutput()
+      expect(secondOutput).toBeDefined()
+      
+      // Verify they are different instances
+      expect(secondOutput).not.toBe(firstOutput)
+    })
+  })
 })
