@@ -14,6 +14,18 @@ import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from '
 import type { LLMReporterConfig } from '../types/reporter'
 import type { LLMReporterOutput } from '../types/schema'
 
+// Type for resolved configuration with explicit undefined handling
+interface ResolvedLLMReporterConfig extends Omit<LLMReporterConfig, 'outputFile'> {
+  verbose: boolean
+  outputFile: string | undefined // Explicitly undefined, not optional
+  includePassedTests: boolean
+  includeSkippedTests: boolean
+  captureConsoleOnFailure: boolean
+  maxConsoleBytes: number
+  maxConsoleLines: number
+  includeDebugOutput: boolean
+}
+
 // Import new components
 import { StateManager } from '../state/StateManager'
 import { TestCaseExtractor } from '../extraction/TestCaseExtractor'
@@ -26,11 +38,12 @@ import { EventOrchestrator } from '../events/EventOrchestrator'
 import { coreLogger, errorLogger } from '../utils/logger'
 
 export class LLMReporter implements Reporter {
-  private config: Required<LLMReporterConfig>
+  private config: ResolvedLLMReporterConfig
   private context?: Vitest
   private output?: LLMReporterOutput
   private debug = coreLogger()
   private debugError = errorLogger()
+  private isTestRunActive = false // Track if a test run is in progress (watch mode)
 
   // Component instances
   private stateManager: StateManager
@@ -43,6 +56,10 @@ export class LLMReporter implements Reporter {
   private orchestrator: EventOrchestrator
 
   constructor(config: LLMReporterConfig = {}) {
+    // Validate config before using it
+    this.validateConfig(config)
+
+    // Properly resolve config without unsafe casting
     this.config = {
       verbose: config.verbose ?? false,
       outputFile: config.outputFile ?? undefined,
@@ -52,7 +69,7 @@ export class LLMReporter implements Reporter {
       maxConsoleBytes: config.maxConsoleBytes ?? 50_000,
       maxConsoleLines: config.maxConsoleLines ?? 100,
       includeDebugOutput: config.includeDebugOutput ?? false
-    } as Required<LLMReporterConfig>
+    }
 
     // Initialize components
     this.stateManager = new StateManager()
@@ -82,7 +99,56 @@ export class LLMReporter implements Reporter {
     )
   }
 
-  getConfig(): Required<LLMReporterConfig> {
+  /**
+   * Validates configuration values
+   */
+  private validateConfig(config: LLMReporterConfig): void {
+    if (config.maxConsoleBytes !== undefined && config.maxConsoleBytes < 0) {
+      throw new Error('maxConsoleBytes must be a positive number')
+    }
+    if (config.maxConsoleLines !== undefined && config.maxConsoleLines < 0) {
+      throw new Error('maxConsoleLines must be a positive number')
+    }
+  }
+
+  /**
+   * Cleanup resources (always called in finally blocks)
+   */
+  private cleanup(): void {
+    this.orchestrator.reset()
+    this.isTestRunActive = false
+  }
+
+  /**
+   * Reset state for watch mode reuse
+   */
+  private reset(): void {
+    this.debug('Resetting reporter state for new test run')
+    this.stateManager.reset()
+    this.orchestrator.reset()
+    this.output = undefined
+  }
+
+  /**
+   * Safe wrapper for orchestrator calls with error handling
+   */
+  private safeOrchestratorCall<T>(
+    methodName: string,
+    data: T | undefined | null,
+    handler: (data: T) => void
+  ): void {
+    if (!data) {
+      this.debugError(`Received null/undefined data in ${methodName}`)
+      return
+    }
+    try {
+      handler(data)
+    } catch (error) {
+      this.debugError(`Error in ${methodName}: %O`, error)
+    }
+  }
+
+  getConfig(): ResolvedLLMReporterConfig {
     return this.config
   }
 
@@ -104,31 +170,54 @@ export class LLMReporter implements Reporter {
   }
 
   onTestRunStart(specifications: ReadonlyArray<TestSpecification>): void {
-    this.orchestrator.handleTestRunStart(specifications)
+    // Handle watch mode: reset if a test run is already active
+    if (this.isTestRunActive) {
+      this.reset()
+    }
+    this.isTestRunActive = true
+
+    try {
+      this.orchestrator.handleTestRunStart(specifications)
+    } catch (error) {
+      this.debugError('Error in onTestRunStart: %O', error)
+      // Continue operation even if orchestrator fails
+    }
   }
 
   onTestModuleQueued(testModule: TestModule): void {
-    this.orchestrator.handleTestModuleQueued(testModule)
+    this.safeOrchestratorCall('onTestModuleQueued', testModule, (module) =>
+      this.orchestrator.handleTestModuleQueued(module)
+    )
   }
 
   onTestModuleCollected(testModule: TestModule): void {
-    this.orchestrator.handleTestModuleCollected(testModule)
+    this.safeOrchestratorCall('onTestModuleCollected', testModule, (module) =>
+      this.orchestrator.handleTestModuleCollected(module)
+    )
   }
 
   onTestModuleStart(testModule: TestModule): void {
-    this.orchestrator.handleTestModuleStart(testModule)
+    this.safeOrchestratorCall('onTestModuleStart', testModule, (module) =>
+      this.orchestrator.handleTestModuleStart(module)
+    )
   }
 
   onTestModuleEnd(testModule: TestModule): void {
-    this.orchestrator.handleTestModuleEnd(testModule)
+    this.safeOrchestratorCall('onTestModuleEnd', testModule, (module) =>
+      this.orchestrator.handleTestModuleEnd(module)
+    )
   }
 
   onTestCaseReady(testCase: TestCase): void {
-    this.orchestrator.handleTestCaseReady(testCase)
+    this.safeOrchestratorCall('onTestCaseReady', testCase, (test) =>
+      this.orchestrator.handleTestCaseReady(test)
+    )
   }
 
   onTestCaseResult(testCase: TestCase): void {
-    this.orchestrator.handleTestCaseResult(testCase)
+    this.safeOrchestratorCall('onTestCaseResult', testCase, (test) =>
+      this.orchestrator.handleTestCaseResult(test)
+    )
   }
 
   onTaskUpdate(_packs: TaskResultPack[], _events: TaskEventPack[]): void {
@@ -142,29 +231,55 @@ export class LLMReporter implements Reporter {
     unhandledErrors: ReadonlyArray<SerializedError>,
     reason: TestRunEndReason
   ): void {
-    // Delegate to orchestrator
-    this.orchestrator.handleTestRunEnd(testModules, unhandledErrors, reason)
-
-    // Get statistics and test results
-    const statistics = this.stateManager.getStatistics()
-    const testResults = this.stateManager.getTestResults()
-
-    // Build output using OutputBuilder
-    this.output = this.outputBuilder.build({
-      testResults,
-      duration: statistics.duration,
-      startTime: this.stateManager.getStartTime(),
-      unhandledErrors: unhandledErrors
-    })
-
-    // Write to file if configured
-    if (this.config.outputFile && this.output) {
+    try {
+      // Delegate to orchestrator with error handling
       try {
-        this.outputWriter.write(this.config.outputFile, this.output)
-        this.debug('Output written to %s', this.config.outputFile)
-      } catch (error) {
-        this.debugError('Failed to write output file %s: %O', this.config.outputFile, error)
+        this.orchestrator.handleTestRunEnd(testModules, unhandledErrors, reason)
+      } catch (orchestratorError) {
+        this.debugError('Error in orchestrator.handleTestRunEnd: %O', orchestratorError)
+        // Continue to build output even if orchestrator fails
       }
+
+      // Get statistics and test results
+      const statistics = this.stateManager.getStatistics()
+      const testResults = this.stateManager.getTestResults()
+
+      // Build output using OutputBuilder
+      try {
+        this.output = this.outputBuilder.build({
+          testResults,
+          duration: statistics.duration,
+          startTime: this.stateManager.getStartTime(),
+          unhandledErrors: unhandledErrors
+        })
+      } catch (buildError) {
+        this.debugError('Error building output: %O', buildError)
+        // Create minimal output if builder fails
+        this.output = {
+          summary: {
+            total: 0,
+            passed: 0,
+            failed: 0,
+            skipped: 0,
+            duration: 0,
+            timestamp: new Date().toISOString()
+          }
+        }
+      }
+
+      // Write to file if configured
+      if (this.config.outputFile && this.output) {
+        try {
+          this.outputWriter.write(this.config.outputFile, this.output)
+          this.debug('Output written to %s', this.config.outputFile)
+        } catch (writeError) {
+          this.debugError('Failed to write output file %s: %O', this.config.outputFile, writeError)
+          // Don't propagate write errors - log is sufficient
+        }
+      }
+    } finally {
+      // Always cleanup, even if errors occurred
+      this.cleanup()
     }
   }
 }
