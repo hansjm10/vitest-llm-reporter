@@ -1,6 +1,6 @@
 /* eslint-disable no-console -- This file tests console capture functionality */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { ConsoleCapture } from './console-capture'
+import { ConsoleCapture } from './capture'
 
 describe('ConsoleCapture', () => {
   let capture: ConsoleCapture

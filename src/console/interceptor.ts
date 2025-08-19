@@ -1,5 +1,5 @@
-import { ConsoleMethod } from './console-buffer'
-import { createLogger } from './logger'
+import { ConsoleMethod } from './buffer'
+import { createLogger } from '../utils/logger'
 
 /**
  * Console Interceptor
@@ -14,7 +14,8 @@ export type ConsoleInterceptHandler = (method: ConsoleMethod, args: unknown[]) =
 export type ConsoleFunction = (...args: unknown[]) => void
 
 // Console target is the actual console object implementing our subset of methods
-type ConsoleTarget = Pick<Console, ConsoleMethod>
+// Using globalThis.Console for the type definition to match the global interface
+type ConsoleTarget = Pick<typeof globalThis.console, ConsoleMethod>
 
 /**
  * Handles the patching and restoration of console methods
@@ -27,7 +28,7 @@ export class ConsoleInterceptor {
 
   constructor(target?: ConsoleTarget) {
     // Default to the real global console so patching affects actual runtime behavior
-    this.target = (target ?? (globalThis.console as ConsoleTarget))
+    this.target = target ?? (globalThis.console as ConsoleTarget)
   }
 
   /**

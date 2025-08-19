@@ -66,7 +66,6 @@ export class TestCaseExtractor {
       tc = testCaseWithTask.task as TestCaseData
     }
 
-    
     return {
       id: this.extractId(tc),
       name: this.extractName(tc),
@@ -126,7 +125,7 @@ export class TestCaseExtractor {
         return tc.location.line
       }
     }
-    
+
     return this.config.defaults.startLine!
   }
 
@@ -135,7 +134,7 @@ export class TestCaseExtractor {
    */
   private extractEndLine(tc: TestCaseData): number {
     // Vitest v3 can provide location data in two formats:
-    // 1. Nested format: location.end.line (for mock data)  
+    // 1. Nested format: location.end.line (for mock data)
     // 2. Direct format: location.line (for real test execution - same as start)
     if (tc.location) {
       // Try nested format first (backwards compatibility)
@@ -147,7 +146,7 @@ export class TestCaseExtractor {
         return tc.location.line
       }
     }
-    
+
     return this.config.defaults.endLine!
   }
 
@@ -159,12 +158,12 @@ export class TestCaseExtractor {
     if (Array.isArray(tc.suite)) {
       return tc.suite
     }
-    
+
     // Handle Vitest suite object structure
     if (tc.suite && typeof tc.suite === 'object') {
       const names: string[] = []
-      let current = tc.suite as VitestSuite
-      
+      let current = tc.suite
+
       // Traverse up the suite hierarchy collecting names
       while (current && typeof current === 'object') {
         if (current.name && typeof current.name === 'string') {
@@ -173,10 +172,10 @@ export class TestCaseExtractor {
         }
         current = current.suite as VitestSuite
       }
-      
+
       return names.length > 0 ? names : undefined
     }
-    
+
     return undefined
   }
 

@@ -1,6 +1,6 @@
 /**
  * Line Number Extraction Tests
- * 
+ *
  * These tests verify that the LLM Reporter correctly extracts
  * and reports line numbers for test cases.
  */
@@ -11,7 +11,7 @@ import type { TestCase } from 'vitest/node'
 
 describe('LLMReporter Line Number Extraction', () => {
   let reporter: LLMReporter
-  
+
   beforeEach(() => {
     reporter = new LLMReporter({
       verbose: true,
@@ -27,7 +27,7 @@ describe('LLMReporter Line Number Extraction', () => {
       file: { filepath: __filename },
       location: {
         start: { line: 22 }, // Line where this test starts
-        end: { line: 50 }    // Approximate end line
+        end: { line: 50 } // Approximate end line
       },
       result: {
         state: 'pass',
@@ -37,15 +37,15 @@ describe('LLMReporter Line Number Extraction', () => {
 
     // Process the test
     reporter.onTestCaseResult(mockTestCase)
-    
+
     // Get the output
     reporter.onTestRunEnd([], [], 'passed')
     const output = reporter.getOutput()
-    
+
     expect(output).toBeDefined()
     expect(output?.passed).toBeDefined()
     expect(output?.passed?.length).toBeGreaterThan(0)
-    
+
     const testResult = output?.passed?.[0]
     expect(testResult?.startLine).toBe(22)
     expect(testResult?.endLine).toBe(50)
@@ -66,17 +66,17 @@ describe('LLMReporter Line Number Extraction', () => {
     reporter.onTestCaseResult(mockTestCase)
     reporter.onTestRunEnd([], [], 'passed')
     const output = reporter.getOutput()
-    
+
     const testResult = output?.passed?.[0]
     expect(testResult?.startLine).toBe(0) // Should use default
-    expect(testResult?.endLine).toBe(0)   // Should use default
+    expect(testResult?.endLine).toBe(0) // Should use default
   })
 
   it('should capture actual line numbers from real test execution', () => {
     // This test verifies that when THIS test runs,
     // its actual line numbers are captured
     // The test starts at line 72 and ends around line 79
-    
+
     // When this test completes and we check the output,
     // we should see non-zero line numbers for this test
     expect(true).toBe(true)

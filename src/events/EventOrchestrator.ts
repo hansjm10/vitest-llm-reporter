@@ -14,9 +14,9 @@ import { TestCaseExtractor } from '../extraction/TestCaseExtractor'
 import { ErrorExtractor } from '../extraction/ErrorExtractor'
 import { TestResultBuilder } from '../builders/TestResultBuilder'
 import { ErrorContextBuilder } from '../builders/ErrorContextBuilder'
-import { isTestModule, isTestCase } from '../utils/type-guards'
+import { isTestModule, isTestCase, isStringArray } from '../utils/type-guards'
 import { coreLogger, errorLogger } from '../utils/logger'
-import { consoleCapture } from '../utils/console-capture'
+import { consoleCapture } from '../console'
 
 /**
  * Event orchestrator configuration
@@ -103,15 +103,15 @@ export class EventOrchestrator {
    */
   private extractSuiteNames(suite: unknown): string[] | undefined {
     // Handle case where suite is already a string array
-    if (Array.isArray(suite)) {
+    if (isStringArray(suite)) {
       return suite
     }
-    
+
     // Handle Vitest suite object structure
     if (suite && typeof suite === 'object') {
       const names: string[] = []
       let current = suite as VitestSuite
-      
+
       // Traverse up the suite hierarchy collecting names
       while (current && typeof current === 'object') {
         if (current.name && typeof current.name === 'string') {
@@ -120,10 +120,10 @@ export class EventOrchestrator {
         }
         current = current.suite as VitestSuite
       }
-      
+
       return names.length > 0 ? names : undefined
     }
-    
+
     return undefined
   }
 

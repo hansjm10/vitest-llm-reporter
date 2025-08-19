@@ -20,6 +20,13 @@ export function hasProperty<K extends string>(obj: unknown, key: K): obj is Reco
 }
 
 /**
+ * Type guard to check if a value is an array of strings
+ */
+export function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+/**
  * Type guard to check if a value has an id property
  */
 export function hasId(obj: unknown): obj is { id: string } {
