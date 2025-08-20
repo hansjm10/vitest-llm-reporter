@@ -3,6 +3,8 @@ import { ConsoleBuffer } from './buffer'
 import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console'
 import { ConsoleInterceptor } from './interceptor'
 import { createLogger } from '../utils/logger'
+import { consoleStreamAdapter } from '../streaming/ConsoleStreamAdapter'
+import type { ConsoleStreamData } from '../streaming/types'
 
 /**
  * Console Capture
@@ -171,6 +173,9 @@ export class ConsoleCapture {
         if (buffer) {
           const elapsed = Date.now() - context.startTime
           buffer.add(method, args, elapsed)
+
+          // Stream console data in real-time if adapter is ready
+          this.streamConsoleData(method, context.testId, args, elapsed, context.startTime)
         }
       }
       // Note: When there's no context (helper functions), we rely on Vitest's
@@ -275,6 +280,43 @@ export class ConsoleCapture {
     }
 
     buffer.add(method, args, elapsed)
+
+    // Stream console data for ingested events too
+    this.streamConsoleData(method, testId, args, elapsed)
+  }
+
+  /**
+   * Stream console data in real-time through the ConsoleStreamAdapter
+   */
+  private streamConsoleData(
+    method: ConsoleMethod, 
+    testId: string, 
+    args: unknown[], 
+    elapsed?: number,
+    startTime?: number
+  ): void {
+    // Only stream if adapter is ready and configured
+    if (!consoleStreamAdapter.isReady()) {
+      return
+    }
+
+    // Respect debug/trace filtering for streaming too
+    if (!this.config.includeDebugOutput && (method === 'debug' || method === 'trace')) {
+      return
+    }
+
+    const streamData: ConsoleStreamData = {
+      method,
+      testId,
+      args,
+      timestamp: Date.now(),
+      elapsed
+    }
+
+    // Fire and forget - don't block console operations for streaming
+    consoleStreamAdapter.streamConsoleData(streamData).catch((error) => {
+      this.debug('Failed to stream console data: %o', error)
+    })
   }
 
   /**

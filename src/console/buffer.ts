@@ -1,5 +1,6 @@
 import { inspect } from 'node:util'
 import type { ConsoleMethod, ConsoleBufferConfig } from '../types/console'
+import { bufferStreamBridge } from '../streaming/BufferStreamBridge'
 
 /**
  * Console Buffer
@@ -76,6 +77,9 @@ export class ConsoleBuffer {
 
     this.totalBytes += bytes
     this.totalLines++
+
+    // Stream the buffer addition in real-time if bridge is ready
+    this.streamBufferAddition(method, final)
 
     return true
   }
@@ -230,5 +234,42 @@ export class ConsoleBuffer {
       lines: this.totalLines,
       truncated: this.truncated
     }
+  }
+
+  /**
+   * Stream buffer addition in real-time (private method)
+   */
+  private streamBufferAddition(method: ConsoleMethod, content: string): void {
+    // Fire and forget - don't block buffer operations for streaming
+    bufferStreamBridge.streamBufferAddition(method, content).catch(() => {
+      // Silently ignore streaming errors to prevent affecting buffer operations
+    })
+  }
+
+  /**
+   * Stream entire buffer flush to streaming infrastructure
+   */
+  async streamFlush(testId?: string): Promise<void> {
+    if (bufferStreamBridge.isReady()) {
+      try {
+        await bufferStreamBridge.streamBufferFlush(this, testId)
+      } catch (error) {
+        // Silently handle streaming errors - don't affect buffer operations
+      }
+    }
+  }
+
+  /**
+   * Flush buffer contents and optionally stream them
+   */
+  async flush(testId?: string, enableStreaming = true): Promise<ReturnType<typeof this.getSimplifiedOutput>> {
+    const output = this.getSimplifiedOutput()
+    
+    // Stream the flush operation if enabled
+    if (enableStreaming) {
+      await this.streamFlush(testId)
+    }
+
+    return output
   }
 }
