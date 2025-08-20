@@ -29,6 +29,12 @@ export interface StreamIntegrationConfig {
   gracefulDegradation?: boolean
 }
 
+interface ResolvedStreamIntegrationConfig {
+  streaming: StreamingConfig
+  outputFile: string | undefined
+  gracefulDegradation: boolean
+}
+
 /**
  * Stream event types for real-time output
  */
@@ -54,7 +60,7 @@ export interface StreamEvent {
  * Coordinates streaming components with reporter
  */
 export class ReporterStreamIntegration {
-  private config: Required<StreamIntegrationConfig>
+  private config: ResolvedStreamIntegrationConfig
   private synchronizer: OutputSynchronizer
   private outputBuilder: OutputBuilder
   private outputWriter: OutputWriter
@@ -70,7 +76,7 @@ export class ReporterStreamIntegration {
   constructor(config: StreamIntegrationConfig) {
     this.config = {
       streaming: config.streaming,
-      outputFile: config.outputFile ?? undefined,
+      outputFile: config.outputFile,
       gracefulDegradation: config.gracefulDegradation ?? true
     }
 

@@ -41,7 +41,24 @@ describe('LLMReporter', () => {
         tokenCountingEnabled: false,
         outputFormat: 'json',
         maxTokens: undefined,
-        tokenCountingModel: 'gpt-4'
+        tokenCountingModel: 'gpt-4',
+        enableStreaming: false,
+        streaming: {
+          maxConcurrentTests: 10,
+          enableTestGrouping: true,
+          deadlockCheckInterval: 5000,
+          enableMonitoring: true,
+          queue: {
+            maxSize: 1000,
+            defaultTimeout: 5000,
+            enableBatching: true,
+            maxBatchSize: 10
+          },
+          locks: {
+            timeout: 5000,
+            deadlockDetection: true
+          }
+        }
       })
     })
 
