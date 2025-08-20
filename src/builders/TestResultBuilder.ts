@@ -7,7 +7,7 @@
  * @module builders
  */
 
-import type { TestResult, TestFailure, TestBase, TestError } from '../types/schema'
+import type { TestResult, TestFailure, TestBase, TestError, ConsoleOutput } from '../types/schema'
 import type { ExtractedTestCase, NormalizedError } from '../types/extraction'
 
 /**
@@ -104,7 +104,8 @@ export class TestResultBuilder {
   public buildFailedTest(
     extracted: ExtractedTestCase,
     error: NormalizedError,
-    errorContext?: TestError['context']
+    errorContext?: TestError['context'],
+    consoleOutput?: ConsoleOutput
   ): TestFailure {
     const testError: TestError = {
       message: error.message,
@@ -115,14 +116,28 @@ export class TestResultBuilder {
       testError.stack = error.stack
     }
 
+    if (error.stackFrames && error.stackFrames.length > 0) {
+      testError.stackFrames = error.stackFrames
+    }
+
+    if (error.assertion) {
+      testError.assertion = error.assertion
+    }
+
     if (errorContext) {
       testError.context = errorContext
     }
 
-    return {
+    const failure: TestFailure = {
       ...this.buildBase(extracted),
       error: testError
     }
+
+    if (consoleOutput) {
+      failure.console = consoleOutput
+    }
+
+    return failure
   }
 
   /**
@@ -131,7 +146,8 @@ export class TestResultBuilder {
   public buildFromExtracted(
     extracted: ExtractedTestCase,
     error?: NormalizedError,
-    errorContext?: TestError['context']
+    errorContext?: TestError['context'],
+    consoleOutput?: ConsoleOutput
   ): TestResult | TestFailure {
     switch (extracted.state) {
       case 'passed':
@@ -145,7 +161,7 @@ export class TestResultBuilder {
             type: 'TestFailure'
           }
         }
-        return this.buildFailedTest(extracted, error, errorContext)
+        return this.buildFailedTest(extracted, error, errorContext, consoleOutput)
 
       case 'skipped':
         return this.buildSkippedTest(extracted)

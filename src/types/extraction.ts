@@ -18,10 +18,14 @@ export interface NormalizedError {
   actual?: unknown
   lineNumber?: number
   context?: {
-    code?: string
-    line?: number
-    column?: number
+    code?: string[]
+    lineNumber?: number
+    columnNumber?: number
+    expected?: unknown
+    actual?: unknown
   }
+  stackFrames?: StackFrame[]
+  assertion?: AssertionDetails
 }
 
 /**
@@ -34,12 +38,40 @@ export interface ErrorExtractionConfig {
   defaultErrorMessage?: string
   /** Whether to extract line numbers from stack traces */
   extractLineFromStack?: boolean
+  /** Maximum number of context lines to show around errors */
+  maxContextLines?: number
+  /** Whether to include source code in error context */
+  includeSourceCode?: boolean
+  /** Whether to filter out node_modules from stack traces */
+  filterNodeModules?: boolean
+  /** Root directory for resolving relative paths */
+  rootDir?: string
+}
+
+/**
+ * Stack frame information from error stack traces
+ */
+export interface StackFrame {
+  file: string
+  line: number
+  column?: number
+  function?: string
+}
+
+/**
+ * Assertion details for test failures
+ */
+export interface AssertionDetails {
+  expected: unknown
+  actual: unknown
+  operator?: string
 }
 
 /**
  * Extracted test case information
  */
 export interface ExtractedTestCase {
+  id?: string
   name: string
   filepath: string
   startLine: number
@@ -64,4 +96,18 @@ export interface ExtractionConfig {
     duration?: number
     state?: string
   }
+}
+
+/**
+ * Context extraction options for code snippets
+ */
+export interface ContextExtractionOptions {
+  /** Maximum number of context lines to show around errors */
+  maxContextLines?: number
+  /** Whether to include line numbers in code output */
+  includeLineNumbers?: boolean
+  /** Whether to filter out node_modules from stack traces */
+  filterNodeModules?: boolean
+  /** Root directory for resolving relative paths */
+  rootDir?: string
 }

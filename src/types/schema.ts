@@ -54,6 +54,32 @@ export interface ErrorContext {
 }
 
 /**
+ * Stack frame information from parsed stack traces
+ */
+export interface StackFrame {
+  /** File path */
+  file: string
+  /** Line number */
+  line: number
+  /** Column number (optional) */
+  column?: number
+  /** Function name (optional) */
+  function?: string
+}
+
+/**
+ * Assertion details from test failures
+ */
+export interface AssertionDetails {
+  /** Expected value */
+  expected: unknown
+  /** Actual value */
+  actual: unknown
+  /** Assertion operator (e.g., "toBe", "toEqual") */
+  operator?: string
+}
+
+/**
  * Detailed error information
  */
 export interface TestError {
@@ -63,6 +89,10 @@ export interface TestError {
   type: string
   /** Stack trace (optional, may be truncated) */
   stack?: string
+  /** Parsed stack frames */
+  stackFrames?: StackFrame[]
+  /** Assertion details for assertion errors */
+  assertion?: AssertionDetails
   /** Additional context for the error */
   context?: ErrorContext
 }
@@ -84,11 +114,29 @@ export interface TestBase {
 }
 
 /**
+ * Console output captured during test execution
+ */
+export interface ConsoleOutput {
+  /** console.log output */
+  logs?: string[]
+  /** console.error output */
+  errors?: string[]
+  /** console.warn output */
+  warns?: string[]
+  /** console.info output */
+  info?: string[]
+  /** console.debug and console.trace output */
+  debug?: string[]
+}
+
+/**
  * Failed test information
  */
 export interface TestFailure extends TestBase {
   /** Error details */
   error: TestError
+  /** Console output captured during test (optional) */
+  console?: ConsoleOutput
 }
 
 /**

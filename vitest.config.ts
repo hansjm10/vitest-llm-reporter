@@ -1,8 +1,10 @@
 import { defineConfig } from 'vitest/config';
-import { LLMReporter } from './dist/reporter/reporter.js';
+import { LLMReporter } from './src/reporter/reporter.ts';
 
 export default defineConfig({
   test: {
+    // Enable location tracking for line numbers
+    includeTaskLocation: true,
     reporters: [
       // Keep default reporter for human-readable output
       'default',

@@ -52,17 +52,38 @@ export interface TestBase {
 }
 
 /**
+ * Vitest suite object structure
+ */
+export interface VitestSuite {
+  name?: string
+  suite?: VitestSuite
+  [key: string]: unknown // Allow other properties we don't use
+}
+
+/**
  * Raw test case data received from Vitest
  */
 export interface TestCaseData {
+  id?: string
   name?: string
   file?: { filepath?: string }
   filepath?: string
   location?: {
-    start?: { line?: number }
-    end?: { line?: number }
+    // Vitest v3 can provide location in two formats:
+    // 1. Nested format (mock data compatibility)
+    start?: {
+      line?: number
+      column?: number
+    }
+    end?: {
+      line?: number
+      column?: number
+    }
+    // 2. Direct format (real test execution)
+    line?: number
+    column?: number
   }
-  suite?: string[]
+  suite?: string[] | VitestSuite
   mode?: string
   result?: {
     state?: string
@@ -78,5 +99,16 @@ export interface TestCaseData {
       context?: ErrorContext
       constructor?: { name?: string }
     }
+    errors?: Array<{
+      message?: string
+      name?: string
+      type?: string
+      stack?: string
+      expected?: unknown
+      actual?: unknown
+      lineNumber?: number
+      context?: ErrorContext
+      constructor?: { name?: string }
+    }>
   }
 }

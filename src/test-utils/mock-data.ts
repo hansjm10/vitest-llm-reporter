@@ -10,32 +10,38 @@ import type { SerializedError } from 'vitest'
 
 /**
  * Creates a mock test case object simulating Vitest's test structure
- * @param name - The name of the test
- * @param status - The test status (passed, failed, or skipped)
- * @param error - Optional error object for failed tests
+ * @param options - Test case configuration
  * @returns A mock test case object
  */
 export const createMockTestCase = (
-  name: string,
-  status: 'passed' | 'failed' | 'skipped' = 'passed',
-  error?: Error
-): any => ({
-  id: `test-${name}`,
-  name,
-  mode: status === 'skipped' ? 'skip' : 'run',
-  type: 'test',
-  file: { filepath: '/test/file.ts', name: 'file.ts' } as any,
-  result: {
-    state: status,
-    startTime: Date.now(),
-    duration: 100,
-    error: error ? { message: error.message, stack: error.stack } : undefined
-  } as any,
-  location: {
-    start: { line: 10, column: 1 },
-    end: { line: 15, column: 1 }
-  } as any
-})
+  options: {
+    name: string
+    state?: 'pass' | 'fail' | 'skip'
+    error?: Error
+    filepath?: string
+  } = { name: 'test' }
+): any => {
+  const { name, state = 'pass', error, filepath = '/test/file.ts' } = options
+  const mappedState = state === 'pass' ? 'passed' : state === 'fail' ? 'failed' : 'skipped'
+
+  return {
+    id: `test-${name}`,
+    name,
+    mode: state === 'skip' ? 'skip' : 'run',
+    type: 'test',
+    file: { filepath, name: filepath.split('/').pop() } as any,
+    result: {
+      state: mappedState,
+      startTime: Date.now(),
+      duration: 100,
+      error: error ? { message: error.message, stack: error.stack } : undefined
+    } as any,
+    location: {
+      start: { line: 10, column: 1 },
+      end: { line: 15, column: 1 }
+    } as any
+  }
+}
 
 /**
  * Creates a mock test module object simulating Vitest's file structure

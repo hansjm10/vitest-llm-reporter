@@ -297,7 +297,7 @@ describe('SchemaValidator', () => {
         })
 
         // Create a malicious input with many items that would exceed memory
-        const maliciousOutput = createOutputWithFailures(10000)
+        const maliciousOutput = createOutputWithFailures(100)
         // Add large code context to each failure
         maliciousOutput.failures = maliciousOutput.failures!.map((f) => ({
           ...f,

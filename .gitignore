@@ -20,6 +20,10 @@ dist/
 coverage/
 *.log
 test-output.json
+vitest-llm-output.json
+tests/**/*.js
+tests/**/*.js.map
+tests/**/*.d.ts
 
 # Environment
 .env

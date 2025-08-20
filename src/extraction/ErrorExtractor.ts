@@ -11,18 +11,41 @@ import {
   extractErrorProperties,
   ExtractedError,
   isAssertionError,
-  normalizeAssertionValue
+  normalizeAssertionValue,
+  extractStringProperty,
+  extractNumberProperty
 } from '../utils/type-guards'
 import { extractLineNumber } from '../reporter/helpers'
-import type { NormalizedError, ErrorExtractionConfig } from '../types/extraction'
+import { ContextExtractor } from './ContextExtractor'
+import type {
+  NormalizedError,
+  ErrorExtractionConfig,
+  StackFrame,
+  AssertionDetails
+} from '../types/extraction'
+import type { ErrorContext } from '../types/schema'
 
 /**
  * Default error extraction configuration
+ *
+ * @example
+ * ```typescript
+ * import { DEFAULT_ERROR_CONFIG } from './extraction/ErrorExtractor'
+ *
+ * const customConfig = {
+ *   ...DEFAULT_ERROR_CONFIG,
+ *   maxContextLines: 5
+ * }
+ * ```
  */
 export const DEFAULT_ERROR_CONFIG: Required<ErrorExtractionConfig> = {
   defaultErrorType: 'Error',
   defaultErrorMessage: 'Unknown error',
-  extractLineFromStack: true
+  extractLineFromStack: true,
+  maxContextLines: 3,
+  includeSourceCode: true,
+  filterNodeModules: true,
+  rootDir: process.cwd()
 }
 
 /**
@@ -40,9 +63,16 @@ export const DEFAULT_ERROR_CONFIG: Required<ErrorExtractionConfig> = {
  */
 export class ErrorExtractor {
   private config: Required<ErrorExtractionConfig>
+  private contextExtractor: ContextExtractor
 
   constructor(config: ErrorExtractionConfig = {}) {
     this.config = { ...DEFAULT_ERROR_CONFIG, ...config }
+    this.contextExtractor = new ContextExtractor({
+      maxContextLines: this.config.maxContextLines,
+      includeLineNumbers: true,
+      filterNodeModules: this.config.filterNodeModules,
+      rootDir: this.config.rootDir
+    })
   }
 
   /**
@@ -117,6 +147,11 @@ export class ErrorExtractor {
 
     // Try to extract from stack trace if configured
     if (this.config.extractLineFromStack && extracted.stack) {
+      // Prefer parsed stack frame line for accuracy
+      const frame = this.contextExtractor.extractFirstRelevantFrame(extracted.stack)
+      if (frame && typeof frame.line === 'number') {
+        return frame.line
+      }
       return extractLineNumber(extracted.stack)
     }
 
@@ -139,15 +174,18 @@ export class ErrorExtractor {
     const context: NormalizedError['context'] = {}
 
     if (extracted.context.code) {
-      context.code = extracted.context.code
+      // Handle old format where code might be a string
+      context.code = Array.isArray(extracted.context.code)
+        ? extracted.context.code
+        : [extracted.context.code]
     }
 
     if (extracted.context.line !== undefined) {
-      context.line = extracted.context.line
+      context.lineNumber = extracted.context.line
     }
 
     if (extracted.context.column !== undefined) {
-      context.column = extracted.context.column
+      context.columnNumber = extracted.context.column
     }
 
     // Only return context if it has at least one property
@@ -158,7 +196,7 @@ export class ErrorExtractor {
    * Checks if the error has location information
    */
   public hasLocationInfo(error: NormalizedError): boolean {
-    return error.lineNumber !== undefined || error.context?.line !== undefined
+    return error.lineNumber !== undefined || error.context?.lineNumber !== undefined
   }
 
   /**
@@ -193,5 +231,246 @@ export class ErrorExtractor {
     }
 
     return parts.join('\n')
+  }
+
+  /**
+   * Extracts error with full context including code snippets
+   */
+  public extractWithContext(error: unknown): NormalizedError {
+    const basicError = this.extract(error)
+
+    if (!this.config.includeSourceCode) {
+      return basicError
+    }
+
+    // Get error details
+    const stack = this.getStackString(error)
+    const filePath = this.getFilePath(error)
+    const lineNumber = this.getLineNumber(error)
+    const columnNumber = this.getColumnNumber(error)
+
+    // Parse stack trace to get frames
+    const stackFrames = this.contextExtractor.parseStackTrace(stack)
+
+    // Extract code context with proper typing
+    const codeContext = this.extractCodeContext(filePath, lineNumber, columnNumber, stackFrames)
+
+    // Merge all context sources with clear priority
+    const mergedContext = this.mergeErrorContext(codeContext, basicError)
+
+    // Build final error object
+    return {
+      ...basicError,
+      stackFrames: stackFrames.length > 0 ? stackFrames : undefined,
+      context: mergedContext,
+      assertion: this.buildAssertionDetails(basicError, error)
+    }
+  }
+
+  /**
+   * Extracts code context from error information
+   */
+  private extractCodeContext(
+    filePath: string | undefined,
+    lineNumber: number | undefined,
+    columnNumber: number | undefined,
+    stackFrames: StackFrame[]
+  ): ErrorContext | undefined {
+    // Try to get context - prefer direct file/line info, otherwise use first stack frame
+    if (filePath && lineNumber) {
+      // If we have direct file and line info, use them
+      return this.contextExtractor.extractCodeContext(filePath, lineNumber, columnNumber)
+    }
+
+    if (stackFrames.length > 0) {
+      // Otherwise use the first relevant stack frame
+      const firstFrame = stackFrames[0]
+      return this.contextExtractor.extractCodeContext(
+        firstFrame.file,
+        firstFrame.line,
+        firstFrame.column
+      )
+    }
+
+    return undefined
+  }
+
+  /**
+   * Merges context sources with clear priority rules:
+   * 1. Fresh code context (from file extraction)
+   * 2. Existing error context (from error object)
+   * 3. Assertion-only context (when only test values available)
+   */
+  private mergeErrorContext(
+    codeContext: ErrorContext | undefined,
+    basicError: NormalizedError
+  ): NormalizedError['context'] | undefined {
+    const hasAssertions = this.hasAssertionValues(basicError)
+
+    // Priority 1: Fresh code context with assertions
+    if (codeContext) {
+      return this.createContextWithCode(codeContext, basicError)
+    }
+
+    // Priority 2: Existing context enhanced with assertions
+    if (basicError.context) {
+      return this.enrichExistingContext(basicError.context, basicError)
+    }
+
+    // Priority 3: Assertion-only context (requires line number)
+    if (hasAssertions && basicError.lineNumber !== undefined) {
+      return this.createAssertionContext(basicError)
+    }
+
+    return undefined
+  }
+
+  /**
+   * Checks if error has assertion values
+   */
+  private hasAssertionValues(error: NormalizedError): boolean {
+    return error.expected !== undefined || error.actual !== undefined
+  }
+
+  /**
+   * Creates context with code and assertion values
+   */
+  private createContextWithCode(
+    codeContext: ErrorContext,
+    error: NormalizedError
+  ): NormalizedError['context'] {
+    return {
+      code: codeContext.code,
+      lineNumber: codeContext.lineNumber,
+      columnNumber: codeContext.columnNumber,
+      expected: error.expected,
+      actual: error.actual
+    }
+  }
+
+  /**
+   * Enriches existing context with assertion values
+   */
+  private enrichExistingContext(
+    existing: NonNullable<NormalizedError['context']>,
+    error: NormalizedError
+  ): NormalizedError['context'] {
+    return {
+      ...existing,
+      expected: error.expected,
+      actual: error.actual
+    }
+  }
+
+  /**
+   * Creates context with only assertion values
+   */
+  private createAssertionContext(error: NormalizedError): NormalizedError['context'] {
+    return {
+      code: [], // Empty array indicates no source available
+      lineNumber: error.lineNumber,
+      expected: error.expected,
+      actual: error.actual
+    }
+  }
+
+  /**
+   * Builds assertion details if present
+   */
+  private buildAssertionDetails(
+    basicError: NormalizedError,
+    error: unknown
+  ): AssertionDetails | undefined {
+    if (this.hasAssertionValues(basicError)) {
+      return {
+        expected: basicError.expected,
+        actual: basicError.actual,
+        operator: this.extractOperator(error)
+      }
+    }
+    return undefined
+  }
+
+  /**
+   * Extracts stack frames from an error
+   */
+  public extractStackFrames(error: unknown): { stackFrames?: StackFrame[] } {
+    const stack = this.getStackString(error)
+    const stackFrames = this.contextExtractor.parseStackTrace(stack)
+    // Return empty array for malformed stack traces to match test expectations
+    return { stackFrames: stackFrames.length > 0 ? stackFrames : [] }
+  }
+
+  /**
+   * Extracts assertion details from an error
+   */
+  public extractAssertionDetails(error: unknown): { assertion?: AssertionDetails } {
+    if (!error || typeof error !== 'object') {
+      return {}
+    }
+
+    const extracted = extractErrorProperties(error)
+
+    if (extracted.expected !== undefined || extracted.actual !== undefined) {
+      return {
+        assertion: {
+          expected: extracted.expected,
+          actual: extracted.actual,
+          operator: this.extractOperator(error)
+        }
+      }
+    }
+
+    return {}
+  }
+
+  /**
+   * Gets stack string from error
+   */
+  private getStackString(error: unknown): string {
+    if (!error || typeof error !== 'object') {
+      return ''
+    }
+
+    const extracted = extractErrorProperties(error)
+    return extracted.stack || ''
+  }
+
+  /**
+   * Gets file path from error using safe property extraction
+   */
+  private getFilePath(error: unknown): string | undefined {
+    // Check multiple possible property names for file path
+    const candidates = ['file', 'fileName', 'filename', 'filepath', 'path'] as const
+    return extractStringProperty(error, candidates)
+  }
+
+  /**
+   * Gets line number from error using safe property extraction
+   */
+  private getLineNumber(error: unknown): number | undefined {
+    // Check multiple possible property names for line number
+    const candidates = ['line', 'lineNumber', 'lineno', 'lineNo'] as const
+    // Line numbers must be positive (> 0)
+    return extractNumberProperty(error, candidates, (n) => n > 0)
+  }
+
+  /**
+   * Gets column number from error using safe property extraction
+   */
+  private getColumnNumber(error: unknown): number | undefined {
+    // Check multiple possible property names for column number
+    const candidates = ['column', 'columnNumber', 'col', 'colno', 'columnNo'] as const
+    // Column numbers can be 0 (first column), so we check >= 0
+    return extractNumberProperty(error, candidates, (n) => n >= 0)
+  }
+
+  /**
+   * Extracts operator from assertion error using safe property extraction
+   */
+  private extractOperator(error: unknown): string | undefined {
+    // Check multiple possible property names for assertion operator
+    const candidates = ['operator', 'matcherName', 'assertion', 'matcher', 'op'] as const
+    return extractStringProperty(error, candidates)
   }
 }

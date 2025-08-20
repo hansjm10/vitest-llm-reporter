@@ -7,7 +7,7 @@
  * @module extraction
  */
 
-import type { TestCaseData } from '../types/reporter-internal'
+import type { TestCaseData, VitestSuite } from '../types/reporter-internal'
 import type { ExtractedTestCase, ExtractionConfig } from '../types/extraction'
 
 /**
@@ -67,6 +67,7 @@ export class TestCaseExtractor {
     }
 
     return {
+      id: this.extractId(tc),
       name: this.extractName(tc),
       filepath: this.extractFilepath(tc),
       startLine: this.extractStartLine(tc),
@@ -87,6 +88,13 @@ export class TestCaseExtractor {
   }
 
   /**
+   * Extracts the test ID
+   */
+  private extractId(tc: TestCaseData): string | undefined {
+    return tc.id
+  }
+
+  /**
    * Extracts the test name
    */
   private extractName(tc: TestCaseData): string {
@@ -104,21 +112,71 @@ export class TestCaseExtractor {
    * Extracts the start line number
    */
   private extractStartLine(tc: TestCaseData): number {
-    return tc.location?.start?.line ?? this.config.defaults.startLine!
+    // Vitest v3 can provide location data in two formats:
+    // 1. Nested format: location.start.line (for mock data)
+    // 2. Direct format: location.line (for real test execution)
+    if (tc.location) {
+      // Try nested format first (backwards compatibility)
+      if (tc.location.start?.line) {
+        return tc.location.start.line
+      }
+      // Fall back to direct format
+      if (tc.location.line) {
+        return tc.location.line
+      }
+    }
+
+    return this.config.defaults.startLine!
   }
 
   /**
    * Extracts the end line number
    */
   private extractEndLine(tc: TestCaseData): number {
-    return tc.location?.end?.line ?? this.config.defaults.endLine!
+    // Vitest v3 can provide location data in two formats:
+    // 1. Nested format: location.end.line (for mock data)
+    // 2. Direct format: location.line (for real test execution - same as start)
+    if (tc.location) {
+      // Try nested format first (backwards compatibility)
+      if (tc.location.end?.line) {
+        return tc.location.end.line
+      }
+      // Fall back to direct format (same as start line for real tests)
+      if (tc.location.line) {
+        return tc.location.line
+      }
+    }
+
+    return this.config.defaults.endLine!
   }
 
   /**
    * Extracts the test suite hierarchy
    */
   private extractSuite(tc: TestCaseData): string[] | undefined {
-    return tc.suite
+    // Handle case where suite is already a string array (for compatibility)
+    if (Array.isArray(tc.suite)) {
+      return tc.suite
+    }
+
+    // Handle Vitest suite object structure
+    if (tc.suite && typeof tc.suite === 'object') {
+      const names: string[] = []
+      let current = tc.suite
+
+      // Traverse up the suite hierarchy collecting names
+      while (current && typeof current === 'object') {
+        if (current.name && typeof current.name === 'string') {
+          // Add to beginning since we're traversing from child to parent
+          names.unshift(current.name)
+        }
+        current = current.suite as VitestSuite
+      }
+
+      return names.length > 0 ? names : undefined
+    }
+
+    return undefined
   }
 
   /**
@@ -153,6 +211,11 @@ export class TestCaseExtractor {
    * Extracts the error object if present
    */
   private extractError(tc: TestCaseData): unknown {
+    // Vitest provides errors as an array, get the first one
+    if (tc.result?.errors && Array.isArray(tc.result.errors) && tc.result.errors.length > 0) {
+      return tc.result.errors[0]
+    }
+    // Fallback to single error property
     return tc.result?.error
   }
 
