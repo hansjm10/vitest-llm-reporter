@@ -1,4 +1,3 @@
-import { getEncoding, type TiktokenEncoding } from 'js-tiktoken';
 import type {
   SupportedModel,
   TokenizationConfig,
@@ -9,55 +8,47 @@ import type {
   ITokenizerFactory,
 } from './types.js';
 import { TokenizationCache } from './cache.js';
+import { 
+  GPTAdapter, 
+  ClaudeAdapter, 
+  GeminiAdapter,
+  type ITokenizationAdapter 
+} from './adapters/index.js';
 
 /**
- * Model to TikToken encoding mapping
+ * Model to adapter mapping
  */
-const MODEL_ENCODING_MAP: Record<SupportedModel, TiktokenEncoding> = {
-  'gpt-4': 'cl100k_base',
-  'gpt-4-turbo': 'cl100k_base',
-  'gpt-4o': 'o200k_base',
-  'gpt-4o-mini': 'o200k_base',
-  'gpt-3.5-turbo': 'cl100k_base',
-  // Claude models use approximate GPT-4 tokenization
-  'claude-3-opus': 'cl100k_base',
-  'claude-3-sonnet': 'cl100k_base',
-  'claude-3-haiku': 'cl100k_base',
-  'claude-3-5-sonnet': 'cl100k_base',
-  'claude-3-5-haiku': 'cl100k_base',
+const MODEL_ADAPTER_MAP: Record<string, new () => ITokenizationAdapter> = {
+  'gpt': GPTAdapter,
+  'claude': ClaudeAdapter,
+  'gemini': GeminiAdapter,
 };
 
 /**
- * TikToken-based tokenizer implementation
+ * Get the appropriate adapter for a model
  */
-class TikTokenTokenizer implements ITokenizer {
-  private encoding: any;
+function getAdapterForModel(model: SupportedModel): ITokenizationAdapter {
+  let adapterClass: new () => ITokenizationAdapter;
 
-  constructor(
-    private model: SupportedModel,
-    encoding: any
-  ) {
-    this.encoding = encoding;
+  if (model.startsWith('gpt-')) {
+    adapterClass = MODEL_ADAPTER_MAP['gpt'];
+  } else if (model.startsWith('claude-')) {
+    adapterClass = MODEL_ADAPTER_MAP['claude'];
+  } else if (model.startsWith('gemini-')) {
+    adapterClass = MODEL_ADAPTER_MAP['gemini'];
+  } else {
+    // Default to GPT adapter for unknown models
+    adapterClass = MODEL_ADAPTER_MAP['gpt'];
   }
 
-  encode(text: string): number[] {
-    return this.encoding.encode(text);
-  }
-
-  countTokens(text: string): number {
-    return this.encoding.encode(text).length;
-  }
-
-  getModel(): SupportedModel {
-    return this.model;
-  }
+  return new adapterClass();
 }
 
 /**
- * Factory for creating tokenizers
+ * Adapter-based tokenizer factory
  */
-class TokenizerFactory implements ITokenizerFactory {
-  private tokenizerCache = new Map<SupportedModel, ITokenizer>();
+class AdapterTokenizerFactory implements ITokenizerFactory {
+  private adapters = new Map<string, ITokenizationAdapter>();
   private lazyLoad: boolean;
 
   constructor(lazyLoad = true) {
@@ -65,50 +56,86 @@ class TokenizerFactory implements ITokenizerFactory {
   }
 
   async createTokenizer(model: SupportedModel): Promise<ITokenizer> {
-    // Return cached tokenizer if available
-    const cached = this.tokenizerCache.get(model);
-    if (cached) {
-      return cached;
-    }
-
-    // Create new tokenizer
-    const encodingName = MODEL_ENCODING_MAP[model];
-    if (!encodingName) {
-      throw new Error(`Unsupported model: ${model}`);
-    }
-
-    try {
-      const encoding = getEncoding(encodingName);
-      const tokenizer = new TikTokenTokenizer(model, encoding);
-      
-      // Cache for future use
-      this.tokenizerCache.set(model, tokenizer);
-      
-      return tokenizer;
-    } catch (error) {
-      throw new Error(`Failed to initialize tokenizer for model ${model}: ${error}`);
-    }
+    const adapter = this.getOrCreateAdapter(model);
+    return adapter.createTokenizer(model);
   }
 
   isModelSupported(model: string): model is SupportedModel {
-    return model in MODEL_ENCODING_MAP;
+    try {
+      const adapter = this.getOrCreateAdapter(model as SupportedModel);
+      return adapter.supportsModel(model as SupportedModel);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get or create adapter for a model
+   */
+  private getOrCreateAdapter(model: SupportedModel): ITokenizationAdapter {
+    const adapterKey = this.getAdapterKey(model);
+    
+    let adapter = this.adapters.get(adapterKey);
+    if (!adapter) {
+      adapter = getAdapterForModel(model);
+      this.adapters.set(adapterKey, adapter);
+    }
+    
+    return adapter;
+  }
+
+  /**
+   * Get adapter cache key for a model
+   */
+  private getAdapterKey(model: SupportedModel): string {
+    if (model.startsWith('gpt-')) return 'gpt';
+    if (model.startsWith('claude-')) return 'claude';
+    if (model.startsWith('gemini-')) return 'gemini';
+    return 'gpt'; // Default
   }
 
   /**
    * Preload tokenizers for all models (useful when lazyLoad is false)
    */
   async preloadAll(): Promise<void> {
-    const models = Object.keys(MODEL_ENCODING_MAP) as SupportedModel[];
-    await Promise.all(
-      models.map(model => this.createTokenizer(model))
-    );
+    const adapters = [
+      new GPTAdapter(),
+      new ClaudeAdapter(),
+      new GeminiAdapter(),
+    ];
+
+    for (const adapter of adapters) {
+      const models = adapter.getSupportedModels();
+      await Promise.all(
+        models.map(model => this.createTokenizer(model).catch(() => {
+          // Ignore preload failures
+        }))
+      );
+    }
   }
 
   /**
    * Clear cached tokenizers
    */
   clearCache(): void {
-    this.tokenizerCache.clear();
+    for (const adapter of this.adapters.values()) {
+      adapter.clearCache();
+    }
+    this.adapters.clear();
+  }
+
+  /**
+   * Get all available adapters
+   */
+  getAdapters(): ITokenizationAdapter[] {
+    return Array.from(this.adapters.values());
+  }
+
+  /**
+   * Get adapter for a specific model
+   */
+  getAdapterForModel(model: SupportedModel): ITokenizationAdapter {
+    return this.getOrCreateAdapter(model);
   }
 }
 
@@ -118,7 +145,7 @@ class TokenizerFactory implements ITokenizerFactory {
 export class TokenizationService {
   private config: Required<TokenizationConfig>;
   private cache: TokenizationCache;
-  private factory: ITokenizerFactory;
+  private factory: AdapterTokenizerFactory;
 
   constructor(config: TokenizationConfig = {}) {
     this.config = {
@@ -128,7 +155,7 @@ export class TokenizationService {
     };
 
     this.cache = new TokenizationCache(this.config.cacheSize);
-    this.factory = new TokenizerFactory(this.config.lazyLoad);
+    this.factory = new AdapterTokenizerFactory(this.config.lazyLoad);
   }
 
   /**
@@ -208,7 +235,27 @@ export class TokenizationService {
    * Get supported models
    */
   getSupportedModels(): SupportedModel[] {
-    return Object.keys(MODEL_ENCODING_MAP) as SupportedModel[];
+    const adapters = this.factory.getAdapters();
+    const allModels: SupportedModel[] = [];
+    
+    for (const adapter of adapters) {
+      allModels.push(...adapter.getSupportedModels());
+    }
+    
+    // If no adapters loaded yet, return models from static adapter instances
+    if (allModels.length === 0) {
+      const gptAdapter = new GPTAdapter();
+      const claudeAdapter = new ClaudeAdapter();
+      const geminiAdapter = new GeminiAdapter();
+      
+      allModels.push(
+        ...gptAdapter.getSupportedModels(),
+        ...claudeAdapter.getSupportedModels(),
+        ...geminiAdapter.getSupportedModels()
+      );
+    }
+    
+    return [...new Set(allModels)]; // Remove duplicates
   }
 
   /**
@@ -236,9 +283,7 @@ export class TokenizationService {
    * Preload all tokenizers (useful for reducing first-time latency)
    */
   async preloadTokenizers(): Promise<void> {
-    if (this.factory instanceof TokenizerFactory) {
-      await this.factory.preloadAll();
-    }
+    await this.factory.preloadAll();
   }
 
   /**
@@ -293,6 +338,48 @@ export class TokenizationService {
     const targetLength = Math.floor(text.length * ratio * 0.9); // 90% to be safe
     
     return text.substring(0, targetLength);
+  }
+
+  /**
+   * Get the adapter being used for a specific model
+   */
+  getAdapterForModel(model: SupportedModel): ITokenizationAdapter {
+    return this.factory.getAdapterForModel(model);
+  }
+
+  /**
+   * Get all available adapters
+   */
+  getAvailableAdapters(): ITokenizationAdapter[] {
+    const gptAdapter = new GPTAdapter();
+    const claudeAdapter = new ClaudeAdapter();
+    const geminiAdapter = new GeminiAdapter();
+    
+    return [gptAdapter, claudeAdapter, geminiAdapter];
+  }
+
+  /**
+   * Get adapter information for a model
+   */
+  getAdapterInfo(model: SupportedModel): {
+    name: string;
+    supportsModel: boolean;
+    models: SupportedModel[];
+  } {
+    const adapter = this.getAdapterForModel(model);
+    
+    return {
+      name: adapter.getName(),
+      supportsModel: adapter.supportsModel(model),
+      models: adapter.getSupportedModels(),
+    };
+  }
+
+  /**
+   * Clear all adapter caches
+   */
+  clearAdapterCaches(): void {
+    this.factory.clearCache();
   }
 }
 
