@@ -36,7 +36,12 @@ describe('LLMReporter', () => {
         captureConsoleOnFailure: true,
         maxConsoleBytes: 50_000,
         maxConsoleLines: 100,
-        includeDebugOutput: false
+        includeDebugOutput: false,
+        streamingMode: false,
+        tokenCountingEnabled: false,
+        outputFormat: 'json',
+        maxTokens: undefined,
+        tokenCountingModel: 'gpt-4'
       })
     })
 
@@ -48,6 +53,23 @@ describe('LLMReporter', () => {
       expect(customReporter.getConfig()).toMatchObject({
         verbose: true,
         outputFile: 'test-results.json'
+      })
+    })
+
+    it('should accept new configuration properties with proper defaults', () => {
+      const customReporter = new LLMReporter({
+        streamingMode: true,
+        tokenCountingEnabled: true,
+        outputFormat: 'jsonl',
+        maxTokens: 4000,
+        tokenCountingModel: 'gpt-3.5-turbo'
+      })
+      expect(customReporter.getConfig()).toMatchObject({
+        streamingMode: true,
+        tokenCountingEnabled: true,
+        outputFormat: 'jsonl',
+        maxTokens: 4000,
+        tokenCountingModel: 'gpt-3.5-turbo'
       })
     })
 
@@ -594,6 +616,32 @@ describe('LLMReporter', () => {
       const output = reporter.getOutput()
       expect(output!.skipped).toBeDefined()
       expect(output!.skipped).toHaveLength(1)
+    })
+  })
+
+  describe('Configuration Validation', () => {
+    it('should validate maxTokens is positive', () => {
+      expect(() => new LLMReporter({ maxTokens: -1 })).toThrow('maxTokens must be a positive number')
+    })
+
+    it('should validate outputFormat is valid', () => {
+      expect(() => new LLMReporter({ outputFormat: 'invalid' as any })).toThrow('outputFormat must be one of: json, jsonl, markdown')
+    })
+
+    it('should validate tokenCountingModel is a string', () => {
+      expect(() => new LLMReporter({ tokenCountingModel: 123 as any })).toThrow('tokenCountingModel must be a string')
+    })
+
+    it('should allow valid maxTokens values', () => {
+      expect(() => new LLMReporter({ maxTokens: 0 })).not.toThrow()
+      expect(() => new LLMReporter({ maxTokens: 4000 })).not.toThrow()
+      expect(() => new LLMReporter({ maxTokens: undefined })).not.toThrow()
+    })
+
+    it('should allow valid outputFormat values', () => {
+      expect(() => new LLMReporter({ outputFormat: 'json' })).not.toThrow()
+      expect(() => new LLMReporter({ outputFormat: 'jsonl' })).not.toThrow()
+      expect(() => new LLMReporter({ outputFormat: 'markdown' })).not.toThrow()
     })
   })
 

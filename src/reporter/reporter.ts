@@ -23,6 +23,11 @@ interface ResolvedLLMReporterConfig extends Omit<LLMReporterConfig, 'outputFile'
   maxConsoleBytes: number
   maxConsoleLines: number
   includeDebugOutput: boolean
+  streamingMode: boolean
+  tokenCountingEnabled: boolean
+  outputFormat: 'json' | 'jsonl' | 'markdown'
+  maxTokens: number | undefined
+  tokenCountingModel: string
 }
 
 // Import new components
@@ -72,7 +77,12 @@ export class LLMReporter implements Reporter {
       captureConsoleOnFailure: config.captureConsoleOnFailure ?? true,
       maxConsoleBytes: config.maxConsoleBytes ?? 50_000,
       maxConsoleLines: config.maxConsoleLines ?? 100,
-      includeDebugOutput: config.includeDebugOutput ?? false
+      includeDebugOutput: config.includeDebugOutput ?? false,
+      streamingMode: config.streamingMode ?? false,
+      tokenCountingEnabled: config.tokenCountingEnabled ?? false,
+      outputFormat: config.outputFormat ?? 'json',
+      maxTokens: config.maxTokens ?? undefined,
+      tokenCountingModel: config.tokenCountingModel ?? 'gpt-4'
     }
 
     // Initialize components
@@ -113,6 +123,15 @@ export class LLMReporter implements Reporter {
     }
     if (config.maxConsoleLines !== undefined && config.maxConsoleLines < 0) {
       throw new Error('maxConsoleLines must be a positive number')
+    }
+    if (config.maxTokens !== undefined && config.maxTokens < 0) {
+      throw new Error('maxTokens must be a positive number')
+    }
+    if (config.outputFormat !== undefined && !['json', 'jsonl', 'markdown'].includes(config.outputFormat)) {
+      throw new Error('outputFormat must be one of: json, jsonl, markdown')
+    }
+    if (config.tokenCountingModel !== undefined && typeof config.tokenCountingModel !== 'string') {
+      throw new Error('tokenCountingModel must be a string')
     }
   }
 
