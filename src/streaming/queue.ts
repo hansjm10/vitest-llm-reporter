@@ -89,7 +89,7 @@ export interface QueueConfig {
  * Ensures proper ordering of test output while maintaining performance.
  */
 export class PriorityOutputQueue {
-  private _operations: QueuedOperation[] = []
+  protected _operations: QueuedOperation[] = []
   private _processing = false
   private _config: Required<QueueConfig>
   private _stats = {

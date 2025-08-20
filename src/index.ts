@@ -40,7 +40,13 @@ export {
 
 // Export reporter class and types
 export { LLMReporter } from './reporter/reporter'
-export type { LLMReporterConfig } from './types/reporter'
+export type { LLMReporterConfig, StreamingConfig } from './types/reporter'
+
+// Export streaming components
+export { StreamingReporter } from './streaming/StreamingReporter'
+export type { StreamingReporterConfig } from './streaming/StreamingReporter'
+export { ReporterStreamIntegration, StreamEventType } from './streaming/ReporterStreamIntegration'
+export type { StreamIntegrationConfig, StreamEvent } from './streaming/ReporterStreamIntegration'
 
 // Default export for Vitest to use
 import { LLMReporter } from './reporter/reporter'

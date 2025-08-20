@@ -22,8 +22,6 @@ import { detectEnvironment, hasTTY } from '../utils/environment'
 export interface StreamingReporterConfig extends LLMReporterConfig {
   /** Enable real-time streaming output */
   enableStreaming?: boolean
-  /** Streaming-specific configuration */
-  streaming?: StreamingReporterConfig['streaming']
   /** Enable graceful degradation for non-TTY environments */
   gracefulDegradation?: boolean
   /** Custom stream output handler */
@@ -48,8 +46,8 @@ export interface StreamingReporterConfig extends LLMReporterConfig {
 export class StreamingReporter extends LLMReporter {
   private streamIntegration?: ReporterStreamIntegration
   private streamingConfig: StreamingReporterConfig
-  private debug = coreLogger()
-  private debugError = errorLogger()
+  private streamDebug = coreLogger()
+  private streamDebugError = errorLogger()
   private isStreamingActive = false
 
   constructor(config: StreamingReporterConfig = {}) {
@@ -69,7 +67,7 @@ export class StreamingReporter extends LLMReporter {
     const resolvedConfig = this.getConfig()
     
     if (!resolvedConfig.enableStreaming) {
-      this.debug('Streaming disabled in configuration')
+      this.streamDebug('Streaming disabled in configuration')
       return
     }
 
@@ -77,7 +75,7 @@ export class StreamingReporter extends LLMReporter {
     
     // Check if environment supports streaming
     if (!hasTTY(envInfo) && !this.streamingConfig.gracefulDegradation) {
-      this.debug('Environment does not support streaming and graceful degradation is disabled')
+      this.streamDebug('Environment does not support streaming and graceful degradation is disabled')
       return
     }
 
@@ -93,9 +91,9 @@ export class StreamingReporter extends LLMReporter {
       // Set up event listeners for streaming output
       this.setupStreamEventListeners()
       
-      this.debug('Streaming integration initialized successfully')
+      this.streamDebug('Streaming integration initialized successfully')
     } catch (error) {
-      this.debugError('Failed to initialize streaming integration: %O', error)
+      this.streamDebugError('Failed to initialize streaming integration: %O', error)
       
       if (!this.streamingConfig.gracefulDegradation) {
         throw error
@@ -165,7 +163,7 @@ export class StreamingReporter extends LLMReporter {
     
     if (this.streamIntegration) {
       this.streamIntegration.start().catch(error => {
-        this.debugError('Failed to start streaming: %O', error)
+        this.streamDebugError('Failed to start streaming: %O', error)
       })
     }
   }
@@ -179,9 +177,9 @@ export class StreamingReporter extends LLMReporter {
     if (this.streamIntegration && !this.isStreamingActive) {
       this.streamIntegration.start().then(() => {
         this.isStreamingActive = true
-        this.debug('Streaming session started')
+        this.streamDebug('Streaming session started')
       }).catch(error => {
-        this.debugError('Failed to start streaming session: %O', error)
+        this.streamDebugError('Failed to start streaming session: %O', error)
       })
     }
   }
@@ -196,7 +194,7 @@ export class StreamingReporter extends LLMReporter {
     // Stream the result if streaming is active
     if (this.streamIntegration && this.isStreamingActive) {
       this.streamTestResult(testCase).catch(error => {
-        this.debugError('Failed to stream test result: %O', error)
+        this.streamDebugError('Failed to stream test result: %O', error)
       })
     }
   }
@@ -213,7 +211,7 @@ export class StreamingReporter extends LLMReporter {
       const testResults = state.testResults
       
       // Find the corresponding result
-      let result = testResults.failed.find(f => f.test === testCase.name)
+      let result: any = testResults.failed.find(f => f.test === testCase.name)
       if (!result) {
         result = testResults.passed.find(p => p.test === testCase.name)
       }
@@ -225,7 +223,7 @@ export class StreamingReporter extends LLMReporter {
         await this.streamIntegration.streamTestResult(result)
       }
     } catch (error) {
-      this.debugError('Error streaming test result: %O', error)
+      this.streamDebugError('Error streaming test result: %O', error)
     }
   }
 
@@ -244,7 +242,7 @@ export class StreamingReporter extends LLMReporter {
       // Handle streaming completion
       this.completeStreaming()
     } catch (error) {
-      this.debugError('Error in onTestRunEnd: %O', error)
+      this.streamDebugError('Error in onTestRunEnd: %O', error)
       
       // Ensure streaming is cleaned up even if there's an error
       this.completeStreaming()
@@ -276,9 +274,9 @@ export class StreamingReporter extends LLMReporter {
       await this.streamIntegration.stop()
       this.isStreamingActive = false
       
-      this.debug('Streaming session completed')
+      this.streamDebug('Streaming session completed')
     } catch (error) {
-      this.debugError('Error completing streaming session: %O', error)
+      this.streamDebugError('Error completing streaming session: %O', error)
       this.isStreamingActive = false
     }
   }

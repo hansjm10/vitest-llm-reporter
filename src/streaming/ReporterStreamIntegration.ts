@@ -10,10 +10,12 @@
 import type { TestResult, TestFailure } from '../types/schema'
 import type { StreamingConfig } from '../types/reporter'
 import { OutputSynchronizer, type SynchronizerConfig } from './OutputSynchronizer'
+import { OutputSource, OutputPriority } from './queue'
 import { OutputBuilder } from '../output/OutputBuilder'
 import { OutputWriter } from '../output/OutputWriter'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { detectEnvironment, hasTTY } from '../utils/environment'
+import { detectTerminalCapabilities, supportsColor, type TerminalCapabilities } from '../utils/terminal'
 
 /**
  * Stream integration configuration
@@ -62,11 +64,13 @@ export class ReporterStreamIntegration {
   private testCounts = { passed: 0, failed: 0, skipped: 0 }
   private startTime = 0
   private listeners = new Map<StreamEventType, Array<(event: StreamEvent) => void>>()
+  private terminalCapabilities?: TerminalCapabilities
+  private degradationMode = false
 
   constructor(config: StreamIntegrationConfig) {
     this.config = {
       streaming: config.streaming,
-      outputFile: config.outputFile,
+      outputFile: config.outputFile ?? undefined,
       gracefulDegradation: config.gracefulDegradation ?? true
     }
 
@@ -96,10 +100,18 @@ export class ReporterStreamIntegration {
       return
     }
 
-    // Check environment capabilities
+    // Detect terminal and environment capabilities
     const envInfo = detectEnvironment()
-    if (!hasTTY(envInfo) && this.config.gracefulDegradation) {
-      this.debug('No TTY detected, streaming will degrade gracefully')
+    this.terminalCapabilities = detectTerminalCapabilities()
+    
+    // Determine if we need to run in degradation mode
+    this.degradationMode = this.shouldDegradeGracefully(envInfo, this.terminalCapabilities)
+    
+    if (this.degradationMode) {
+      this.debug('Running in degradation mode: TTY=%s, CI=%s, Color=%s', 
+        this.terminalCapabilities.isTTY, 
+        envInfo.ci.isCI,
+        this.terminalCapabilities.supportsColor)
     }
 
     this.isActive = true
@@ -108,10 +120,12 @@ export class ReporterStreamIntegration {
 
     this.emitEvent(StreamEventType.SUITE_START, {
       timestamp: this.startTime,
-      environment: envInfo
+      environment: envInfo,
+      terminalCapabilities: this.terminalCapabilities,
+      degradationMode: this.degradationMode
     })
 
-    this.debug('Stream integration started')
+    this.debug('Stream integration started (degradation mode: %s)', this.degradationMode)
   }
 
   /**
@@ -151,6 +165,32 @@ export class ReporterStreamIntegration {
   }
 
   /**
+   * Determines if streaming should degrade gracefully
+   */
+  private shouldDegradeGracefully(envInfo: any, terminalCaps: TerminalCapabilities): boolean {
+    if (!this.config.gracefulDegradation) {
+      return false
+    }
+
+    // Degrade if no TTY (CI environments, redirected output)
+    if (!terminalCaps.isTTY) {
+      return true
+    }
+
+    // Degrade if in CI environment (even with TTY)
+    if (envInfo.ci.isCI) {
+      return true
+    }
+
+    // Degrade if terminal doesn't support basic capabilities
+    if (!terminalCaps.supportsColor && terminalCaps.size.width < 40) {
+      return true
+    }
+
+    return false
+  }
+
+  /**
    * Stream a test result in real-time
    */
   async streamTestResult(result: TestResult | TestFailure): Promise<void> {
@@ -168,16 +208,21 @@ export class ReporterStreamIntegration {
         this.testCounts.passed++
       }
 
-      // Build streaming output for this test
-      const streamOutput = this.outputBuilder.buildTestResult(result)
+      // In degradation mode, use simpler output
+      if (this.degradationMode) {
+        this.handleDegradedOutput(result)
+      } else {
+        // Build streaming output for this test
+        const streamOutput = this.outputBuilder.buildTestResult(result)
 
-      // Stream the result
-      await this.synchronizer.writeOutput({
-        priority: 'error' in result ? 0 : 2, // HIGH for failures, NORMAL for passes
-        source: 'test',
-        data: JSON.stringify(streamOutput),
-        stream: 'stdout'
-      })
+        // Stream the result
+        await this.synchronizer.writeOutput({
+          priority: 'error' in result ? OutputPriority.HIGH : OutputPriority.NORMAL,
+          source: OutputSource.TEST,
+          data: JSON.stringify(streamOutput),
+          stream: 'stdout'
+        })
+      }
 
       this.emitEvent(StreamEventType.TEST_COMPLETE, { result })
 
@@ -188,6 +233,26 @@ export class ReporterStreamIntegration {
       if (!this.config.gracefulDegradation) {
         throw error
       }
+      
+      // Fall back to degraded output on error
+      this.handleDegradedOutput(result)
+    }
+  }
+
+  /**
+   * Handle output in degradation mode (simpler, non-streaming)
+   */
+  private handleDegradedOutput(result: TestResult | TestFailure): void {
+    // In degradation mode, just emit minimal console output
+    const status = 'error' in result ? 'FAIL' : 'PASS'
+    const message = `${status} ${result.test}`
+    
+    // Use simple console output instead of complex streaming
+    try {
+      process.stdout.write(`${message}\n`)
+    } catch (error) {
+      // Even console.log can fail in extreme cases
+      this.debugError('Failed to write degraded output: %O', error)
     }
   }
 
@@ -259,12 +324,7 @@ export class ReporterStreamIntegration {
   /**
    * Get current test statistics
    */
-  getStats(): {
-    isActive: boolean
-    testCounts: typeof this.testCounts
-    duration: number
-    synchronizerStats: ReturnType<OutputSynchronizer['getStats']>
-  } {
+  getStats() {
     return {
       isActive: this.isActive,
       testCounts: { ...this.testCounts },
@@ -278,6 +338,13 @@ export class ReporterStreamIntegration {
    */
   get active(): boolean {
     return this.isActive
+  }
+
+  /**
+   * Check if running in degradation mode
+   */
+  get isDegraded(): boolean {
+    return this.degradationMode
   }
 
   /**

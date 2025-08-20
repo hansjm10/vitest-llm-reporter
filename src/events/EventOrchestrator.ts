@@ -236,8 +236,8 @@ export class EventOrchestrator {
       // Register test in streaming synchronizer if enabled
       if (this.outputSynchronizer) {
         const testContext = OutputSynchronizer.createTestContext(
-          testCase.file?.filepath || 'unknown',
-          testCase.name
+          (testCase as any).file?.filepath || 'unknown',
+          (testCase as any).name || testCase.id
         )
         this.activeTests.set(testCase.id, testContext)
         this.outputSynchronizer.registerTest(testContext).catch(error => {
