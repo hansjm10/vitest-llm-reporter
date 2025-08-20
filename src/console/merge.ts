@@ -216,5 +216,15 @@ export class ConsoleMerger {
   }
 }
 
-// Export singleton instance for convenience
+/**
+ * Singleton instance of ConsoleMerger for convenience
+ * 
+ * @example
+ * ```typescript
+ * import { consoleMerger } from './console/merge'
+ * 
+ * // Merge console outputs from different sources
+ * const merged = consoleMerger.merge(vitestOutput, customOutput)
+ * ```
+ */
 export const consoleMerger = new ConsoleMerger()

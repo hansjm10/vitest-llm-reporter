@@ -277,7 +277,11 @@ export class ConsoleCapture {
     buffer.add(method, args, elapsed)
   }
 
-  /** Update capture configuration at runtime */
+  /**
+   * Update capture configuration at runtime
+   * 
+   * @param config - Partial configuration to merge with existing config
+   */
   updateConfig(config: Partial<ConsoleCaptureConfig>): void {
     this.config = { ...this.config, ...config }
   }
@@ -317,5 +321,18 @@ export class ConsoleCapture {
   }
 }
 
-// Export singleton instance for use across the reporter
+/**
+ * Singleton instance of ConsoleCapture for use across the reporter
+ * 
+ * @example
+ * ```typescript
+ * import { consoleCapture } from './console/capture'
+ * 
+ * // Start capturing for a test
+ * consoleCapture.startCapture('test-id')
+ * 
+ * // Stop and retrieve output
+ * const output = consoleCapture.stopCapture('test-id')
+ * ```
+ */
 export const consoleCapture = new ConsoleCapture()

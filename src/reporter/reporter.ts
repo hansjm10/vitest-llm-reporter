@@ -54,6 +54,11 @@ export class LLMReporter implements Reporter {
   private outputWriter: OutputWriter
   private orchestrator: EventOrchestrator
 
+  /**
+   * Creates a new instance of the LLM Reporter
+   * 
+   * @param config - Configuration options for the reporter
+   */
   constructor(config: LLMReporterConfig = {}) {
     // Validate config before using it
     this.validateConfig(config)
@@ -148,27 +153,57 @@ export class LLMReporter implements Reporter {
     }
   }
 
+  /**
+   * Get the resolved reporter configuration
+   * 
+   * @returns The resolved configuration with all defaults applied
+   */
   getConfig(): ResolvedLLMReporterConfig {
     return this.config
   }
 
+  /**
+   * Get the Vitest context
+   * 
+   * @returns The Vitest context if initialized, undefined otherwise
+   */
   getContext(): Vitest | undefined {
     return this.context
   }
 
+  /**
+   * Get a snapshot of the current test state
+   * 
+   * @returns A snapshot of the state manager's current state
+   */
   getState(): ReturnType<StateManager['getSnapshot']> {
     // Return state snapshot for backward compatibility
     return this.stateManager.getSnapshot()
   }
 
+  /**
+   * Get the generated LLM reporter output
+   * 
+   * @returns The output if generated, undefined otherwise
+   */
   getOutput(): LLMReporterOutput | undefined {
     return this.output
   }
 
+  /**
+   * Initialize the reporter with Vitest context
+   * 
+   * @param ctx - The Vitest context
+   */
   onInit(ctx: Vitest): void {
     this.context = ctx
   }
 
+  /**
+   * Handle test run start event
+   * 
+   * @param specifications - The test specifications for the run
+   */
   onTestRunStart(specifications: ReadonlyArray<TestSpecification>): void {
     // Handle watch mode: reset if a test run is already active
     if (this.isTestRunActive) {
@@ -184,42 +219,79 @@ export class LLMReporter implements Reporter {
     }
   }
 
+  /**
+   * Handle test module queued event
+   * 
+   * @param testModule - The test module that was queued
+   */
   onTestModuleQueued(testModule: TestModule): void {
     this.safeOrchestratorCall('onTestModuleQueued', testModule, (module) =>
       this.orchestrator.handleTestModuleQueued(module)
     )
   }
 
+  /**
+   * Handle test module collected event
+   * 
+   * @param testModule - The test module that was collected
+   */
   onTestModuleCollected(testModule: TestModule): void {
     this.safeOrchestratorCall('onTestModuleCollected', testModule, (module) =>
       this.orchestrator.handleTestModuleCollected(module)
     )
   }
 
+  /**
+   * Handle test module start event
+   * 
+   * @param testModule - The test module that is starting
+   */
   onTestModuleStart(testModule: TestModule): void {
     this.safeOrchestratorCall('onTestModuleStart', testModule, (module) =>
       this.orchestrator.handleTestModuleStart(module)
     )
   }
 
+  /**
+   * Handle test module end event
+   * 
+   * @param testModule - The test module that has ended
+   */
   onTestModuleEnd(testModule: TestModule): void {
     this.safeOrchestratorCall('onTestModuleEnd', testModule, (module) =>
       this.orchestrator.handleTestModuleEnd(module)
     )
   }
 
+  /**
+   * Handle test case ready event
+   * 
+   * @param testCase - The test case that is ready to run
+   */
   onTestCaseReady(testCase: TestCase): void {
     this.safeOrchestratorCall('onTestCaseReady', testCase, (test) =>
       this.orchestrator.handleTestCaseReady(test)
     )
   }
 
+  /**
+   * Handle test case result event
+   * 
+   * @param testCase - The test case with its result
+   */
   onTestCaseResult(testCase: TestCase): void {
     this.safeOrchestratorCall('onTestCaseResult', testCase, (test) =>
       this.orchestrator.handleTestCaseResult(test)
     )
   }
 
+  /**
+   * Handle test run end event
+   * 
+   * @param testModules - The test modules that were run
+   * @param unhandledErrors - Any unhandled errors that occurred
+   * @param reason - The reason the test run ended
+   */
   onTestRunEnd(
     testModules: ReadonlyArray<TestModule>,
     unhandledErrors: ReadonlyArray<SerializedError>,
@@ -279,7 +351,8 @@ export class LLMReporter implements Reporter {
 
   /**
    * Capture user console logs forwarded by Vitest (v3)
-   * Shape of `log` is framework-defined; use orchestrator to normalize/ingest
+   * 
+   * @param log - The console log event from Vitest containing test output
    */
   onUserConsoleLog(log: UserConsoleLog): void {
     // Debug: log when this is called

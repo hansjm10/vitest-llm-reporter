@@ -40,6 +40,16 @@ export interface OrchestratorConfig {
 
 /**
  * Default orchestrator configuration
+ * 
+ * @example
+ * ```typescript
+ * import { DEFAULT_ORCHESTRATOR_CONFIG } from './events/EventOrchestrator'
+ * 
+ * const customConfig = {
+ *   ...DEFAULT_ORCHESTRATOR_CONFIG,
+ *   logErrors: true
+ * }
+ * ```
  */
 export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
   gracefulErrorHandling: true,
@@ -355,7 +365,11 @@ export class EventOrchestrator {
     // to avoid duplicate counting in test statistics
   }
 
-  /** Handle a user console log event (Vitest v3 shape) */
+  /**
+   * Handle a user console log event (Vitest v3 shape)
+   * 
+   * @param log - The console log event from Vitest
+   */
   public handleUserConsoleLog(log: UserConsoleLog): void {
     if (!this.config.captureConsoleOnFailure) return
     const testId = log.taskId

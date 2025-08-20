@@ -124,7 +124,12 @@ export class ConsoleInterceptor {
     this.debug('Unpatched all console methods')
   }
 
-  /** Check if a specific method is patched */
+  /**
+   * Check if a specific method is patched
+   * 
+   * @param method - The console method to check
+   * @returns True if the method is currently patched, false otherwise
+   */
   isMethodPatched(method: ConsoleMethod): boolean {
     return this.originals.has(method)
   }
