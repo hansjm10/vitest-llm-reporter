@@ -19,6 +19,7 @@ import type { ConsoleMethod } from '../types/console'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { consoleCapture } from '../console'
 import { consoleMerger } from '../console/merge'
+import { OutputSynchronizer, type SynchronizerConfig, type TestContext } from '../streaming/OutputSynchronizer'
 
 /**
  * Event orchestrator configuration
@@ -36,6 +37,10 @@ export interface OrchestratorConfig {
   maxConsoleLines?: number
   /** Include debug/trace console output */
   includeDebugOutput?: boolean
+  /** Enable streaming mode */
+  enableStreaming?: boolean
+  /** Streaming synchronizer configuration */
+  streamingConfig?: SynchronizerConfig
 }
 
 /**
@@ -57,7 +62,14 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
   captureConsoleOnFailure: true,
   maxConsoleBytes: 50_000,
   maxConsoleLines: 100,
-  includeDebugOutput: false
+  includeDebugOutput: false,
+  enableStreaming: false,
+  streamingConfig: {
+    enableTestGrouping: true,
+    maxConcurrentTests: 10,
+    deadlockCheckInterval: 5000,
+    enableMonitoring: true
+  }
 }
 
 /**
@@ -88,6 +100,8 @@ export class EventOrchestrator {
   private contextBuilder: ErrorContextBuilder
   private debug = coreLogger()
   private debugError = errorLogger()
+  private outputSynchronizer?: OutputSynchronizer
+  private activeTests = new Map<string, TestContext>()
 
   constructor(
     stateManager: StateManager,
@@ -112,6 +126,12 @@ export class EventOrchestrator {
       gracePeriodMs: 100,
       includeDebugOutput: this.config.includeDebugOutput
     })
+
+    // Initialize streaming synchronizer if enabled
+    if (this.config.enableStreaming) {
+      this.outputSynchronizer = new OutputSynchronizer(this.config.streamingConfig)
+      this.debug('Streaming mode enabled')
+    }
   }
 
   /**
@@ -212,6 +232,18 @@ export class EventOrchestrator {
       this.stateManager.markTestReady(testCase.id)
       // Start console capture for this test
       consoleCapture.startCapture(testCase.id)
+
+      // Register test in streaming synchronizer if enabled
+      if (this.outputSynchronizer) {
+        const testContext = OutputSynchronizer.createTestContext(
+          testCase.file?.filepath || 'unknown',
+          testCase.name
+        )
+        this.activeTests.set(testCase.id, testContext)
+        this.outputSynchronizer.registerTest(testContext).catch(error => {
+          this.debugError('Failed to register test for streaming: %O', error)
+        })
+      }
     }
   }
 
@@ -244,6 +276,7 @@ export class EventOrchestrator {
       }
       const result = this.resultBuilder.buildPassedTest(extracted)
       this.stateManager.recordPassedTest(result)
+      this.unregisterTestFromStreaming(extracted.id)
     } else if (this.testExtractor.isFailedTest(extracted)) {
       this.processFailedTest(extracted, testCase)
     } else if (this.testExtractor.isSkippedTest(extracted)) {
@@ -253,6 +286,7 @@ export class EventOrchestrator {
       }
       const result = this.resultBuilder.buildSkippedTest(extracted)
       this.stateManager.recordSkippedTest(result)
+      this.unregisterTestFromStreaming(extracted.id)
     }
   }
 
@@ -289,6 +323,7 @@ export class EventOrchestrator {
 
     // Record in state
     this.stateManager.recordFailedTest(failure)
+    this.unregisterTestFromStreaming(extracted.id)
   }
 
   /**
@@ -416,11 +451,34 @@ export class EventOrchestrator {
   }
 
   /**
+   * Unregisters a test from streaming synchronizer
+   */
+  private unregisterTestFromStreaming(testId?: string): void {
+    if (!testId || !this.outputSynchronizer) return
+
+    const testContext = this.activeTests.get(testId)
+    if (testContext) {
+      this.outputSynchronizer.unregisterTest(testContext).catch(error => {
+        this.debugError('Failed to unregister test from streaming: %O', error)
+      })
+      this.activeTests.delete(testId)
+    }
+  }
+
+  /**
    * Resets all components
    */
   public reset(): void {
     this.stateManager.reset()
     consoleCapture.reset()
+    
+    // Clean up streaming resources
+    if (this.outputSynchronizer) {
+      this.outputSynchronizer.shutdown().catch(error => {
+        this.debugError('Error shutting down output synchronizer: %O', error)
+      })
+    }
+    this.activeTests.clear()
   }
 
   /**

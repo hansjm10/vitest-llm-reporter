@@ -20,6 +20,8 @@ export interface OutputBuilderConfig {
   includeSkippedTests?: boolean
   /** Whether to use verbose output (includes all categories) */
   verbose?: boolean
+  /** Enable streaming mode for real-time output */
+  enableStreaming?: boolean
 }
 
 /**
@@ -28,7 +30,8 @@ export interface OutputBuilderConfig {
 export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
   includePassedTests: false,
   includeSkippedTests: false,
-  verbose: false
+  verbose: false,
+  enableStreaming: false
 }
 
 /**
@@ -241,6 +244,57 @@ export class OutputBuilder {
     }
 
     return this.build(aggregated)
+  }
+
+  /**
+   * Builds output for a single test result (streaming mode)
+   */
+  public buildTestResult(result: TestResult | TestFailure): Partial<LLMReporterOutput> {
+    if (!this.config.enableStreaming) {
+      throw new Error('buildTestResult can only be called in streaming mode')
+    }
+
+    const output: Partial<LLMReporterOutput> = {}
+
+    // Check if this is a failure
+    if ('error' in result) {
+      output.failures = [result as TestFailure]
+    } else {
+      // Handle passed/skipped tests based on configuration
+      if (this.shouldIncludePassedTests([result])) {
+        output.passed = [result]
+      }
+      // Note: Skipped tests would need additional type checking
+      // For now, we'll handle them in the full build process
+    }
+
+    return output
+  }
+
+  /**
+   * Builds a streaming summary with current counts
+   */
+  public buildStreamingSummary(
+    passed: number,
+    failed: number,
+    skipped: number,
+    duration: number
+  ): TestSummary {
+    return {
+      total: passed + failed + skipped,
+      passed,
+      failed,
+      skipped,
+      duration,
+      timestamp: new Date().toISOString()
+    }
+  }
+
+  /**
+   * Checks if streaming mode is enabled
+   */
+  public get isStreamingMode(): boolean {
+    return this.config.enableStreaming
   }
 
   /**

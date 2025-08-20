@@ -10,11 +10,11 @@
 import type { Vitest, SerializedError, Reporter, UserConsoleLog } from 'vitest'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
-import type { LLMReporterConfig } from '../types/reporter'
+import type { LLMReporterConfig, StreamingConfig } from '../types/reporter'
 import type { LLMReporterOutput } from '../types/schema'
 
 // Type for resolved configuration with explicit undefined handling
-interface ResolvedLLMReporterConfig extends Omit<LLMReporterConfig, 'outputFile'> {
+interface ResolvedLLMReporterConfig extends Omit<LLMReporterConfig, 'outputFile' | 'enableStreaming' | 'streaming'> {
   verbose: boolean
   outputFile: string | undefined // Explicitly undefined, not optional
   includePassedTests: boolean
@@ -28,6 +28,8 @@ interface ResolvedLLMReporterConfig extends Omit<LLMReporterConfig, 'outputFile'
   outputFormat: 'json' | 'jsonl' | 'markdown'
   maxTokens: number | undefined
   tokenCountingModel: string
+  enableStreaming: boolean
+  streaming: Required<StreamingConfig>
 }
 
 // Import new components
@@ -40,6 +42,7 @@ import { OutputBuilder } from '../output/OutputBuilder'
 import { OutputWriter } from '../output/OutputWriter'
 import { EventOrchestrator } from '../events/EventOrchestrator'
 import { coreLogger, errorLogger } from '../utils/logger'
+import { detectEnvironment, hasTTY } from '../utils/environment'
 
 export class LLMReporter implements Reporter {
   private config: ResolvedLLMReporterConfig
@@ -68,6 +71,10 @@ export class LLMReporter implements Reporter {
     // Validate config before using it
     this.validateConfig(config)
 
+    // Detect streaming mode if not explicitly configured
+    const envInfo = detectEnvironment()
+    const shouldEnableStreaming = config.enableStreaming ?? hasTTY(envInfo)
+
     // Properly resolve config without unsafe casting
     this.config = {
       verbose: config.verbose ?? false,
@@ -78,11 +85,31 @@ export class LLMReporter implements Reporter {
       maxConsoleBytes: config.maxConsoleBytes ?? 50_000,
       maxConsoleLines: config.maxConsoleLines ?? 100,
       includeDebugOutput: config.includeDebugOutput ?? false,
+<<<<<<< HEAD
       streamingMode: config.streamingMode ?? false,
       tokenCountingEnabled: config.tokenCountingEnabled ?? false,
       outputFormat: config.outputFormat ?? 'json',
       maxTokens: config.maxTokens ?? undefined,
       tokenCountingModel: config.tokenCountingModel ?? 'gpt-4'
+=======
+      enableStreaming: shouldEnableStreaming,
+      streaming: {
+        maxConcurrentTests: config.streaming?.maxConcurrentTests ?? 10,
+        enableTestGrouping: config.streaming?.enableTestGrouping ?? true,
+        deadlockCheckInterval: config.streaming?.deadlockCheckInterval ?? 5000,
+        enableMonitoring: config.streaming?.enableMonitoring ?? true,
+        queue: {
+          maxSize: config.streaming?.queue?.maxSize ?? 1000,
+          defaultTimeout: config.streaming?.queue?.defaultTimeout ?? 5000,
+          enableBatching: config.streaming?.queue?.enableBatching ?? true,
+          maxBatchSize: config.streaming?.queue?.maxBatchSize ?? 10
+        },
+        locks: {
+          timeout: config.streaming?.locks?.timeout ?? 5000,
+          deadlockDetection: config.streaming?.locks?.deadlockDetection ?? true
+        }
+      }
+>>>>>>> 0710cff (Issue #18: Stream 4 - Add reporter integration and streaming hooks)
     }
 
     // Initialize components
@@ -94,7 +121,8 @@ export class LLMReporter implements Reporter {
     this.outputBuilder = new OutputBuilder({
       verbose: this.config.verbose,
       includePassedTests: this.config.includePassedTests,
-      includeSkippedTests: this.config.includeSkippedTests
+      includeSkippedTests: this.config.includeSkippedTests,
+      enableStreaming: this.config.enableStreaming
     })
     this.outputWriter = new OutputWriter()
 
@@ -109,7 +137,9 @@ export class LLMReporter implements Reporter {
         captureConsoleOnFailure: this.config.captureConsoleOnFailure,
         maxConsoleBytes: this.config.maxConsoleBytes,
         maxConsoleLines: this.config.maxConsoleLines,
-        includeDebugOutput: this.config.includeDebugOutput
+        includeDebugOutput: this.config.includeDebugOutput,
+        enableStreaming: this.config.enableStreaming,
+        streamingConfig: this.config.streaming
       }
     )
   }

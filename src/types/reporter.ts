@@ -37,4 +37,40 @@ export interface LLMReporterConfig {
   maxTokens?: number
   /** Model to use for token counting (default: 'gpt-4') */
   tokenCountingModel?: string
+  /** Enable streaming mode for real-time output (default: auto-detect based on TTY) */
+  enableStreaming?: boolean
+  /** Streaming-specific configuration options */
+  streaming?: StreamingConfig
+}
+
+/**
+ * Configuration for streaming mode
+ */
+export interface StreamingConfig {
+  /** Maximum concurrent test outputs to synchronize */
+  maxConcurrentTests?: number
+  /** Enable test output grouping */
+  enableTestGrouping?: boolean
+  /** Deadlock detection interval in milliseconds */
+  deadlockCheckInterval?: number
+  /** Enable performance monitoring */
+  enableMonitoring?: boolean
+  /** Queue configuration */
+  queue?: {
+    /** Maximum queue size */
+    maxSize?: number
+    /** Default operation timeout in milliseconds */
+    defaultTimeout?: number
+    /** Enable operation batching */
+    enableBatching?: boolean
+    /** Maximum operations per batch */
+    maxBatchSize?: number
+  }
+  /** Lock configuration */
+  locks?: {
+    /** Lock acquisition timeout in milliseconds */
+    timeout?: number
+    /** Enable deadlock detection */
+    deadlockDetection?: boolean
+  }
 }
