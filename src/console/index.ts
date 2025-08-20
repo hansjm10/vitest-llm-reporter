@@ -12,6 +12,7 @@
 export { ConsoleBuffer } from './buffer'
 export { ConsoleInterceptor } from './interceptor'
 export { ConsoleCapture, consoleCapture } from './capture'
+export { ConsoleMerger, consoleMerger } from './merge'
 
 // Type exports
 export type {

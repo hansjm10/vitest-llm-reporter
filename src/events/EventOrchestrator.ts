@@ -7,7 +7,7 @@
  * @module events
  */
 
-import type { SerializedError } from 'vitest'
+import type { SerializedError, UserConsoleLog } from 'vitest'
 import type { VitestSuite } from '../types/reporter-internal'
 import { StateManager } from '../state/StateManager'
 import { TestCaseExtractor } from '../extraction/TestCaseExtractor'
@@ -15,8 +15,10 @@ import { ErrorExtractor } from '../extraction/ErrorExtractor'
 import { TestResultBuilder } from '../builders/TestResultBuilder'
 import { ErrorContextBuilder } from '../builders/ErrorContextBuilder'
 import { isTestModule, isTestCase, isStringArray } from '../utils/type-guards'
+import type { ConsoleMethod } from '../types/console'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { consoleCapture } from '../console'
+import { consoleMerger } from '../console/merge'
 
 /**
  * Event orchestrator configuration
@@ -32,6 +34,8 @@ export interface OrchestratorConfig {
   maxConsoleBytes?: number
   /** Maximum lines of console output to capture per test */
   maxConsoleLines?: number
+  /** Include debug/trace console output */
+  includeDebugOutput?: boolean
 }
 
 /**
@@ -42,7 +46,8 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
   logErrors: false,
   captureConsoleOnFailure: true,
   maxConsoleBytes: 50_000,
-  maxConsoleLines: 100
+  maxConsoleLines: 100,
+  includeDebugOutput: false
 }
 
 /**
@@ -90,12 +95,13 @@ export class EventOrchestrator {
     this.contextBuilder = contextBuilder
 
     // Configure console capture
-    consoleCapture.config = {
+    consoleCapture.updateConfig({
       enabled: this.config.captureConsoleOnFailure,
       maxBytes: this.config.maxConsoleBytes,
       maxLines: this.config.maxConsoleLines,
-      gracePeriodMs: 100
-    }
+      gracePeriodMs: 100,
+      includeDebugOutput: this.config.includeDebugOutput
+    })
   }
 
   /**
@@ -229,7 +235,7 @@ export class EventOrchestrator {
       const result = this.resultBuilder.buildPassedTest(extracted)
       this.stateManager.recordPassedTest(result)
     } else if (this.testExtractor.isFailedTest(extracted)) {
-      this.processFailedTest(extracted)
+      this.processFailedTest(extracted, testCase)
     } else if (this.testExtractor.isSkippedTest(extracted)) {
       // Stop console capture for skipped test (discard output)
       if (extracted.id) {
@@ -243,11 +249,19 @@ export class EventOrchestrator {
   /**
    * Processes a failed test
    */
-  private processFailedTest(extracted: ReturnType<TestCaseExtractor['extract']>): void {
+  private processFailedTest(
+    extracted: ReturnType<TestCaseExtractor['extract']>,
+    originalTestCase?: unknown
+  ): void {
     if (!extracted) return
 
-    // Stop console capture and get output for failed test
-    const consoleOutput = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
+    // Try to get console logs from Vitest task (built-in capture)
+    const consoleFromTask = this.extractConsoleFromTask(originalTestCase)
+    // Also try our custom capture
+    const consoleFromCapture = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
+    
+    // Intelligently merge both console sources instead of choosing one
+    const consoleOutput = consoleMerger.merge(consoleFromTask, consoleFromCapture)
 
     // Extract and normalize error with full context including code snippets
     const normalizedError = this.errorExtractor.extractWithContext(extracted.error)
@@ -268,12 +282,69 @@ export class EventOrchestrator {
   }
 
   /**
+   * Extract console output directly from Vitest task if available
+   */
+  private extractConsoleFromTask(testCase: unknown):
+    | {
+        logs?: string[]
+        errors?: string[]
+        warns?: string[]
+        info?: string[]
+        debug?: string[]
+      }
+    | undefined {
+    if (!testCase || typeof testCase !== 'object') return undefined
+    // Vitest augments TaskBase with `logs?: UserConsoleLog[]`
+    const logs = (testCase as { logs?: Array<{ content: string; type: string; taskId?: string; time?: number }> }).logs
+    
+    // Debug: Log what we're getting from Vitest
+    if (process.env.DEBUG_CONSOLE_CAPTURE) {
+      console.log('[ConsoleCapture] Vitest logs:', JSON.stringify(logs, null, 2))
+    }
+    
+    if (!Array.isArray(logs) || logs.length === 0) return undefined
+
+    const out: { logs?: string[]; errors?: string[]; warns?: string[]; info?: string[]; debug?: string[] } = {}
+    for (const entry of logs) {
+      const content = entry?.content
+      const type = entry?.type
+      const time = entry?.time
+      
+      if (typeof content !== 'string' || typeof type !== 'string') continue
+      
+      // Add timestamp if available (for better correlation with custom capture)
+      const formattedContent = time !== undefined ? `[${time}ms] ${content}` : content
+      
+      // Map Vitest console types to our output structure
+      // Vitest uses 'stdout' and 'stderr' for raw output
+      // But console methods might be captured differently
+      if (type === 'stdout' || type === 'log') {
+        if (!out.logs) out.logs = []
+        out.logs.push(formattedContent)
+      } else if (type === 'stderr' || type === 'error') {
+        if (!out.errors) out.errors = []
+        out.errors.push(formattedContent)
+      } else if (type === 'warn' || type === 'warning') {
+        if (!out.warns) out.warns = []
+        out.warns.push(formattedContent)
+      } else if (type === 'info') {
+        if (!out.info) out.info = []
+        out.info.push(formattedContent)
+      } else if (type === 'debug' || type === 'trace') {
+        if (!out.debug) out.debug = []
+        out.debug.push(formattedContent)
+      }
+    }
+    return Object.keys(out).length ? out : undefined
+  }
+
+  /**
    * Handles test run end event
    */
   public handleTestRunEnd(
     _modules: ReadonlyArray<unknown>,
     _errors: ReadonlyArray<SerializedError>,
-    _status: string
+    _status: import('vitest/node').TestRunEndReason
   ): void {
     this.stateManager.recordRunEnd()
 
@@ -282,6 +353,29 @@ export class EventOrchestrator {
 
     // Note: Unhandled errors are processed directly by OutputBuilder
     // to avoid duplicate counting in test statistics
+  }
+
+  /** Handle a user console log event (Vitest v3 shape) */
+  public handleUserConsoleLog(log: UserConsoleLog): void {
+    if (!this.config.captureConsoleOnFailure) return
+    const testId = log.taskId
+    if (!testId) return
+    
+    // Ensure buffer exists for this test
+    // This is crucial for capturing console from helper functions
+    // that may run before handleTestCaseReady is called
+    consoleCapture.startCapture(testId)
+    
+    // Map Vitest log types to console methods
+    // Vitest only provides stdout/stderr, not the specific console method
+    // console.error typically goes to stderr, everything else to stdout
+    const method: ConsoleMethod = log.type === 'stderr' ? 'error' : 'log'
+    
+    try {
+      consoleCapture.ingest(testId, method, [log.content])
+    } catch (error) {
+      this.debugError('Failed to ingest console log: %O', error)
+    }
   }
 
   /**
@@ -315,5 +409,12 @@ export class EventOrchestrator {
    */
   public updateConfig(config: OrchestratorConfig): void {
     this.config = { ...this.config, ...config }
+    // Propagate to console capture
+    consoleCapture.updateConfig({
+      enabled: this.config.captureConsoleOnFailure,
+      maxBytes: this.config.maxConsoleBytes,
+      maxLines: this.config.maxConsoleLines,
+      includeDebugOutput: this.config.includeDebugOutput
+    })
   }
 }

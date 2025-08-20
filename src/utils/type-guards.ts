@@ -7,16 +7,71 @@
  */
 
 import type { File, Test } from '@vitest/runner'
+import type { ConsoleMethod } from '../types/console'
 import { ExtractedError, VitestErrorContext } from '../types/vitest-objects'
 import type { AssertionValue } from '../types/schema'
 
 export type { ExtractedError } from '../types/vitest-objects'
 
+// ============================================================================
+// Safe Property Access Helpers (Internal)
+// ============================================================================
+
+/**
+ * Check if value is a plain object (not null, not array)
+ * Used internally for safe property operations
+ */
+function isPlainObject(value: unknown): value is object {
+  return value !== null && 
+         value !== undefined && 
+         typeof value === 'object' && 
+         !Array.isArray(value)
+}
+
+/**
+ * Safely check if an object has a property using Object.prototype.hasOwnProperty
+ * Protects against null prototype objects and Proxy traps
+ * Only checks own properties, not prototype chain
+ */
+function safeHasProperty(obj: object, key: string): boolean {
+  try {
+    // Only check own properties, not prototype chain
+    return Object.prototype.hasOwnProperty.call(obj, key)
+  } catch {
+    // Proxy trap or other error - treat as not having property
+    return false
+  }
+}
+
+/**
+ * Safely get a property value from an object
+ * Protects against throwing getters and Proxy traps
+ */
+function safeGetProperty(obj: object, key: string): unknown {
+  try {
+    // Only access if property exists
+    if (safeHasProperty(obj, key)) {
+      return (obj as Record<string, unknown>)[key]
+    }
+    return undefined
+  } catch {
+    // Property getter threw
+    return undefined
+  }
+}
+
+// ============================================================================
+// Public Type Guards and Utilities
+// ============================================================================
+
 /**
  * Type guard to check if a value is an object with a specific property
  */
 export function hasProperty<K extends string>(obj: unknown, key: K): obj is Record<K, unknown> {
-  return obj !== null && typeof obj === 'object' && key in obj
+  if (!isPlainObject(obj)) {
+    return false
+  }
+  return safeHasProperty(obj, key)
 }
 
 /**
@@ -51,6 +106,24 @@ export function isTestModule(obj: unknown): obj is Pick<File, 'id'> {
  */
 export function isTestCase(obj: unknown): obj is Pick<Test, 'id'> {
   return hasId(obj)
+}
+
+/**
+ * Type guard for console method strings
+ */
+export function isConsoleMethod(value: unknown): value is ConsoleMethod {
+  if (typeof value !== 'string') return false
+  switch (value) {
+    case 'log':
+    case 'error':
+    case 'warn':
+    case 'info':
+    case 'debug':
+    case 'trace':
+      return true
+    default:
+      return false
+  }
 }
 
 /**
@@ -197,16 +270,14 @@ export function extractStringProperty(
   obj: unknown,
   candidates: readonly string[]
 ): string | undefined {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+  if (!isPlainObject(obj)) {
     return undefined
   }
 
   for (const key of candidates) {
-    if (key in obj) {
-      const value = (obj as Record<string, unknown>)[key]
-      if (typeof value === 'string' && value.length > 0) {
-        return value
-      }
+    const value = safeGetProperty(obj, key)
+    if (typeof value === 'string' && value.length > 0) {
+      return value
     }
   }
 
@@ -226,27 +297,25 @@ export function extractNumberProperty(
   candidates: readonly string[],
   validator?: (n: number) => boolean
 ): number | undefined {
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+  if (!isPlainObject(obj)) {
     return undefined
   }
 
   for (const key of candidates) {
-    if (key in obj) {
-      const value = (obj as Record<string, unknown>)[key]
+    const value = safeGetProperty(obj, key)
 
-      // Handle direct number values
-      if (typeof value === 'number') {
-        if (!validator || validator(value)) {
-          return value
-        }
+    // Handle direct number values
+    if (typeof value === 'number') {
+      if (!validator || validator(value)) {
+        return value
       }
+    }
 
-      // Handle string numbers (some error objects store numbers as strings)
-      if (typeof value === 'string') {
-        const parsed = parseInt(value, 10)
-        if (!isNaN(parsed) && (!validator || validator(parsed))) {
-          return parsed
-        }
+    // Handle string numbers (some error objects store numbers as strings)
+    if (typeof value === 'string') {
+      const parsed = parseInt(value, 10)
+      if (!isNaN(parsed) && (!validator || validator(parsed))) {
+        return parsed
       }
     }
   }

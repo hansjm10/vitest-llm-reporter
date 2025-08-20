@@ -7,7 +7,7 @@
  * @module reporter
  */
 
-import type { Vitest, SerializedError, Reporter } from 'vitest'
+import type { Vitest, SerializedError, Reporter, UserConsoleLog } from 'vitest'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
 import type { LLMReporterConfig } from '../types/reporter'
@@ -93,7 +93,8 @@ export class LLMReporter implements Reporter {
       {
         captureConsoleOnFailure: this.config.captureConsoleOnFailure,
         maxConsoleBytes: this.config.maxConsoleBytes,
-        maxConsoleLines: this.config.maxConsoleLines
+        maxConsoleLines: this.config.maxConsoleLines,
+        includeDebugOutput: this.config.includeDebugOutput
       }
     )
   }
@@ -273,6 +274,22 @@ export class LLMReporter implements Reporter {
     } finally {
       // Always cleanup, even if errors occurred
       this.cleanup()
+    }
+  }
+
+  /**
+   * Capture user console logs forwarded by Vitest (v3)
+   * Shape of `log` is framework-defined; use orchestrator to normalize/ingest
+   */
+  onUserConsoleLog(log: UserConsoleLog): void {
+    // Debug: log when this is called
+    if (this.config.verbose) {
+      console.log('[LLMReporter] onUserConsoleLog called:', log)
+    }
+    try {
+      this.orchestrator.handleUserConsoleLog(log)
+    } catch (error) {
+      this.debugError('Error in onUserConsoleLog: %O', error)
     }
   }
 }

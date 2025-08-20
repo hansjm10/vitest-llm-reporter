@@ -1,5 +1,3 @@
-import { vi } from 'vitest'
-import type { MockInstance } from 'vitest'
 import type { ConsoleMethod } from '../types/console'
 import { createLogger } from '../utils/logger'
 
@@ -23,7 +21,7 @@ type ConsoleTarget = Pick<typeof globalThis.console, ConsoleMethod>
  * Handles the patching and restoration of console methods using Vitest spies
  */
 export class ConsoleInterceptor {
-  private spies = new Map<ConsoleMethod, MockInstance>()
+  private originals = new Map<ConsoleMethod, ConsoleFunction>()
   private isPatched = false
   private debug = createLogger('console-interceptor')
   private readonly target: ConsoleTarget
@@ -44,7 +42,7 @@ export class ConsoleInterceptor {
    * Patch a specific console method with an interceptor
    */
   patch(method: ConsoleMethod, interceptor: ConsoleInterceptHandler): void {
-    if (this.spies.has(method)) {
+    if (this.originals.has(method)) {
       this.debug('Method %s already patched', method)
       return
     }
@@ -56,25 +54,39 @@ export class ConsoleInterceptor {
       return
     }
 
-    // Create spy that calls through to the original implementation
-    const spy = vi.spyOn(this.target, method).mockImplementation((...args: unknown[]) => {
-      // Interceptor must NEVER break console functionality
+    // Wrap the original method
+    const wrapped: ConsoleFunction = (...args: unknown[]) => {
+      // First, try to run the interceptor
       try {
         interceptor(method, args)
       } catch (error) {
-        // Log interception errors but don't throw
+        // Log interception errors silently
         try {
           this.debug('Console interception error for %s: %s', method, error)
         } catch {
-          // Even debug logging failed - silently continue
+          // Ignore debug logging errors
         }
       }
+      
+      // Also wrap the original method call to prevent test crashes
+      try {
+        return Reflect.apply(original as ConsoleFunction, this.target, args)
+      } catch (originalError) {
+        // If original console fails (e.g., closed stream), silently continue
+        // This prevents test crashes from console issues
+        try {
+          this.debug('Original console.%s failed: %s', method, originalError)
+        } catch {
+          // Ignore debug logging errors
+        }
+        // Return undefined to match console method behavior
+        return undefined
+      }
+    }
 
-      // Always call the original method with preserved binding
-      return Reflect.apply(original, this.target, args)
-    })
-
-    this.spies.set(method, spy)
+    // Save original and replace
+    this.originals.set(method, original as ConsoleFunction)
+    ;(this.target as Record<ConsoleMethod, ConsoleFunction>)[method] = wrapped
     this.debug('Patched console.%s', method)
   }
 
@@ -92,10 +104,10 @@ export class ConsoleInterceptor {
    * Unpatch a specific console method
    */
   unpatch(method: ConsoleMethod): void {
-    const spy = this.spies.get(method)
-    if (spy) {
-      spy.mockRestore()
-      this.spies.delete(method)
+    const original = this.originals.get(method)
+    if (original) {
+      ;(this.target as Record<ConsoleMethod, ConsoleFunction>)[method] = original
+      this.originals.delete(method)
       this.debug('Unpatched console.%s', method)
     }
   }
@@ -104,25 +116,16 @@ export class ConsoleInterceptor {
    * Unpatch all console methods
    */
   unpatchAll(): void {
-    for (const [_method, spy] of this.spies) {
-      spy.mockRestore()
+    for (const [method, original] of this.originals) {
+      ;(this.target as Record<ConsoleMethod, ConsoleFunction>)[method] = original
     }
-    this.spies.clear()
+    this.originals.clear()
     this.isPatched = false
     this.debug('Unpatched all console methods')
   }
 
-  /**
-   * Get the spy for a specific method
-   */
-  getSpy(method: ConsoleMethod): MockInstance | undefined {
-    return this.spies.get(method)
-  }
-
-  /**
-   * Check if a specific method is patched
-   */
+  /** Check if a specific method is patched */
   isMethodPatched(method: ConsoleMethod): boolean {
-    return this.spies.has(method)
+    return this.originals.has(method)
   }
 }

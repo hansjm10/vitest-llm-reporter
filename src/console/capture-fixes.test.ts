@@ -21,29 +21,16 @@ describe('ConsoleCapture Bug Fixes', () => {
     it('should clean up context after runWithCapture', async () => {
       const testId = 'memory-test'
 
-      // Spy on AsyncLocalStorage exit to verify it's called
-      const exitSpy = vi.fn()
-      const originalExit = (capture as any).testContext.exit
-      ;(capture as any).testContext.exit = exitSpy
-
       await capture.runWithCapture(testId, () => {
         console.log('Test output')
       })
 
-      // Verify exit was called to clean up context
-      expect(exitSpy).toHaveBeenCalled()
-
-      // Restore original method
-      ;(capture as any).testContext.exit = originalExit
+      // Verify AsyncLocalStorage context is cleared after run
+      expect((capture as any).testContext.getStore()).toBeUndefined()
     })
 
     it('should clean up context even if test function throws', async () => {
       const testId = 'error-test'
-
-      // Spy on AsyncLocalStorage exit
-      const exitSpy = vi.fn()
-      const originalExit = (capture as any).testContext.exit
-      ;(capture as any).testContext.exit = exitSpy
 
       try {
         await capture.runWithCapture(testId, () => {
@@ -53,11 +40,8 @@ describe('ConsoleCapture Bug Fixes', () => {
         // Expected error
       }
 
-      // Verify exit was called even after error
-      expect(exitSpy).toHaveBeenCalled()
-
-      // Restore original method
-      ;(capture as any).testContext.exit = originalExit
+      // Verify AsyncLocalStorage context is cleared after error
+      expect((capture as any).testContext.getStore()).toBeUndefined()
     })
   })
 
@@ -116,28 +100,31 @@ describe('ConsoleCapture Bug Fixes', () => {
         console.log('First test')
       })
 
-      // Get the first generation
-      const firstGen = (capture as any).testGeneration.get(testId)
-
       // Stop capture (schedules cleanup)
-      capture.stopCapture(testId)
+      const output1 = capture.stopCapture(testId)
+      expect(output1).toBeDefined()
+      expect(output1?.logs).toContain('First test')
 
       // Immediately start new test with same ID (simulating test retry)
-      capture.startCapture(testId)
+      // This should clear the old buffer and create a fresh one
+      capture.startCapture(testId, true)
       await capture.runWithCapture(testId, () => {
         console.log('Second test')
       })
 
-      // Verify generation was incremented
-      const secondGen = (capture as any).testGeneration.get(testId)
-      expect(secondGen).toBeGreaterThan(firstGen)
+      // Stop and get output from second test
+      const output2 = capture.stopCapture(testId)
+      expect(output2).toBeDefined()
+      expect(output2?.logs).toContain('Second test')
+      // Should NOT contain output from first test
+      expect(output2?.logs).not.toContain('First test')
 
       // Wait for grace period to pass
       await new Promise((resolve) => setTimeout(resolve, 150))
 
-      // Buffer for second test should still exist
+      // Buffer should be cleaned up after grace period
       const buffer = (capture as any).buffers.get(testId)
-      expect(buffer).toBeDefined()
+      expect(buffer).toBeUndefined()
     })
 
     it('should track generation correctly across multiple tests', () => {

@@ -22,4 +22,6 @@ export interface ConsoleBufferConfig {
 export interface ConsoleCaptureConfig extends ConsoleBufferConfig {
   enabled?: boolean
   gracePeriodMs?: number // Time to wait for async console output
+  /** Include debug/trace output when capturing */
+  includeDebugOutput?: boolean
 }

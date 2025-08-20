@@ -137,6 +137,11 @@ export class ErrorExtractor {
 
     // Try to extract from stack trace if configured
     if (this.config.extractLineFromStack && extracted.stack) {
+      // Prefer parsed stack frame line for accuracy
+      const frame = this.contextExtractor.extractFirstRelevantFrame(extracted.stack)
+      if (frame && typeof frame.line === 'number') {
+        return frame.line
+      }
       return extractLineNumber(extracted.stack)
     }
 
