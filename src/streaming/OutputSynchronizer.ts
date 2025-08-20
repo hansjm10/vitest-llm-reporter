@@ -15,6 +15,8 @@ import {
   OutputSource,
   QueueConfig 
 } from './queue.js'
+import { StreamErrorHandler, type StreamErrorContext, RecoveryStrategy } from './ErrorHandler'
+import { StreamingDiagnostics, DiagnosticEvent, DiagnosticLevel } from './diagnostics'
 
 /**
  * Configuration for the OutputSynchronizer
@@ -32,6 +34,21 @@ export interface SynchronizerConfig {
   deadlockCheckInterval?: number
   /** Enable performance monitoring */
   enableMonitoring?: boolean
+  /** Enable error handling and recovery */
+  enableErrorHandling?: boolean
+  /** Enable diagnostic logging */
+  enableDiagnostics?: boolean
+  /** Error handler configuration */
+  errorHandling?: {
+    /** Maximum retry attempts for different operations */
+    maxRetries?: number
+    /** Base retry delay in milliseconds */
+    baseRetryDelay?: number
+    /** Enable fallback to console output */
+    enableFallbackConsole?: boolean
+    /** Enable graceful degradation */
+    enableGracefulDegradation?: boolean
+  }
 }
 
 /**
@@ -117,6 +134,8 @@ export class OutputSynchronizer {
   }
   private _deadlockTimer?: NodeJS.Timeout
   private _shutdown = false
+  private _errorHandler?: StreamErrorHandler
+  private _diagnostics?: StreamingDiagnostics
 
   constructor(config: SynchronizerConfig = {}) {
     this._config = {
@@ -125,7 +144,16 @@ export class OutputSynchronizer {
       enableTestGrouping: config.enableTestGrouping ?? true,
       maxConcurrentTests: config.maxConcurrentTests ?? 10,
       deadlockCheckInterval: config.deadlockCheckInterval ?? 5000,
-      enableMonitoring: config.enableMonitoring ?? true
+      enableMonitoring: config.enableMonitoring ?? true,
+      enableErrorHandling: config.enableErrorHandling ?? true,
+      enableDiagnostics: config.enableDiagnostics ?? true,
+      errorHandling: {
+        maxRetries: 3,
+        baseRetryDelay: 100,
+        enableFallbackConsole: true,
+        enableGracefulDegradation: true,
+        ...config.errorHandling
+      }
     }
 
     this._outputMutex = new Mutex({
@@ -139,6 +167,31 @@ export class OutputSynchronizer {
     })
 
     this._outputQueue = new TestOutputQueue(this._config.queue)
+
+    // Initialize error handling
+    if (this._config.enableErrorHandling) {
+      this._errorHandler = new StreamErrorHandler({
+        maxRetries: {
+          queue: this._config.errorHandling.maxRetries,
+          synchronization: this._config.errorHandling.maxRetries,
+          output: this._config.errorHandling.maxRetries
+        },
+        baseRetryDelay: this._config.errorHandling.baseRetryDelay,
+        enableFallbackConsole: this._config.errorHandling.enableFallbackConsole,
+        enableErrorReporting: true
+      })
+    }
+
+    // Initialize diagnostics
+    if (this._config.enableDiagnostics) {
+      this._diagnostics = new StreamingDiagnostics({
+        enabled: true,
+        enableOperationTracking: true,
+        enablePerformanceWarnings: true,
+        enableResourceMonitoring: true
+      })
+      this._diagnostics.start()
+    }
 
     if (this._config.enableMonitoring) {
       this._startDeadlockDetection()
@@ -187,7 +240,45 @@ export class OutputSynchronizer {
    */
   async writeOutput(operation: OutputOperation): Promise<void> {
     const startTime = Date.now()
+    const operationId = this._diagnostics?.trackOperationStart(
+      'writeOutput',
+      operation.priority,
+      operation.source,
+      { 
+        testFile: operation.context?.file,
+        testName: operation.context?.name,
+        dataSize: typeof operation.data === 'string' ? operation.data.length : operation.data.length
+      }
+    )
     
+    try {
+      await this._writeOutputWithRetry(operation, 1)
+      this._diagnostics?.trackOperationComplete(operationId || '', true)
+    } catch (error) {
+      this._diagnostics?.trackOperationError(operationId || '', {
+        type: 'output' as any,
+        severity: 'normal' as any,
+        source: {
+          operation: 'writeOutput',
+          priority: operation.priority,
+          source: operation.source,
+          testFile: operation.context?.file,
+          testName: operation.context?.name
+        },
+        error: error instanceof Error ? error : new Error(String(error)),
+        timestamp: Date.now(),
+        attempt: 1
+      })
+      throw error
+    } finally {
+      this._updatePerformanceStats(Date.now() - startTime)
+    }
+  }
+
+  /**
+   * Write output with retry logic and error handling
+   */
+  private async _writeOutputWithRetry(operation: OutputOperation, attempt: number = 1): Promise<void> {
     try {
       if (operation.context) {
         const testKey = this._getTestKey(operation.context)
@@ -220,8 +311,40 @@ export class OutputSynchronizer {
           { timeout: operation.timeout }
         )
       }
-    } finally {
-      this._updatePerformanceStats(Date.now() - startTime)
+    } catch (error) {
+      if (this._errorHandler) {
+        const recoveryResult = await this._errorHandler.handleError(
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            operation: 'writeOutput',
+            priority: operation.priority,
+            source: operation.source,
+            testFile: operation.context?.file,
+            testName: operation.context?.name,
+            attempt,
+            metadata: { originalData: operation.data }
+          }
+        )
+
+        if (recoveryResult.success) {
+          if (recoveryResult.strategy === RecoveryStrategy.RETRY && recoveryResult.output?.nextAttempt) {
+            // Retry the operation
+            return this._writeOutputWithRetry(operation, recoveryResult.output.nextAttempt)
+          } else if (recoveryResult.strategy === RecoveryStrategy.FALLBACK_CONSOLE) {
+            // Already handled by error handler, operation completed via fallback
+            return
+          } else if (recoveryResult.strategy === RecoveryStrategy.SKIP) {
+            // Skip this operation
+            return
+          } else if (recoveryResult.strategy === RecoveryStrategy.DEGRADE) {
+            // Continue with degraded functionality
+            return this._executeWriteDegraded(operation)
+          }
+        }
+      }
+      
+      // If error handling is disabled or failed, rethrow
+      throw error
     }
   }
 
@@ -237,6 +360,24 @@ export class OutputSynchronizer {
         process.stderr.write(operation.data)
       }
     }, operation.context?.id)
+  }
+
+  /**
+   * Execute write operation in degraded mode (without locking)
+   */
+  private async _executeWriteDegraded(operation: OutputOperation): Promise<void> {
+    try {
+      // Direct write without synchronization
+      if (operation.stream === 'stdout') {
+        process.stdout.write(operation.data)
+      } else {
+        process.stderr.write(operation.data)
+      }
+    } catch (error) {
+      // Even degraded mode failed, try console fallback
+      const message = typeof operation.data === 'string' ? operation.data : operation.data.toString()
+      console.log(`[DEGRADED-OUTPUT] ${message}`)
+    }
   }
 
   /**
@@ -390,14 +531,31 @@ export class OutputSynchronizer {
       clearInterval(this._deadlockTimer)
     }
 
-    // Flush remaining operations
-    await this.flush()
+    try {
+      // Flush remaining operations
+      await this.flush()
 
-    // Clear remaining test registrations
-    await this._testRegistryLock.withWriteLock(async () => {
-      this._activeTests.clear()
-      this._testOutputOrder.clear()
-    })
+      // Clear remaining test registrations
+      await this._testRegistryLock.withWriteLock(async () => {
+        this._activeTests.clear()
+        this._testOutputOrder.clear()
+      })
+    } catch (error) {
+      // Handle shutdown errors gracefully
+      if (this._errorHandler) {
+        await this._errorHandler.handleError(
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            operation: 'shutdown',
+            priority: OutputPriority.CRITICAL,
+            source: OutputSource.SYSTEM
+          }
+        )
+      }
+    } finally {
+      // Stop diagnostics
+      this._diagnostics?.stop()
+    }
   }
 
   /**
@@ -434,5 +592,33 @@ export class OutputSynchronizer {
       source,
       context
     }
+  }
+
+  /**
+   * Get error handler statistics
+   */
+  getErrorStats() {
+    return this._errorHandler?.getStats() || null
+  }
+
+  /**
+   * Get diagnostics report
+   */
+  getDiagnosticsReport() {
+    return this._diagnostics?.generateReport() || null
+  }
+
+  /**
+   * Check if error handling is enabled
+   */
+  get hasErrorHandling(): boolean {
+    return Boolean(this._errorHandler)
+  }
+
+  /**
+   * Check if diagnostics are enabled
+   */
+  get hasDiagnostics(): boolean {
+    return Boolean(this._diagnostics)
   }
 }

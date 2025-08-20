@@ -16,6 +16,9 @@ import { OutputWriter } from '../output/OutputWriter'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { detectEnvironment, hasTTY } from '../utils/environment'
 import { detectTerminalCapabilities, supportsColor, type TerminalCapabilities } from '../utils/terminal'
+import { StreamErrorHandler, StreamErrorType, RecoveryStrategy } from './ErrorHandler'
+import { StreamRecovery, StreamHealth, RecoveryMode } from './StreamRecovery'
+import { StreamingDiagnostics, DiagnosticLevel } from './diagnostics'
 
 /**
  * Stream integration configuration
@@ -72,6 +75,9 @@ export class ReporterStreamIntegration {
   private listeners = new Map<StreamEventType, Array<(event: StreamEvent) => void>>()
   private terminalCapabilities?: TerminalCapabilities
   private degradationMode = false
+  private errorHandler: StreamErrorHandler
+  private streamRecovery: StreamRecovery
+  private diagnostics: StreamingDiagnostics
 
   constructor(config: StreamIntegrationConfig) {
     this.config = {
@@ -94,7 +100,26 @@ export class ReporterStreamIntegration {
     this.outputBuilder = new OutputBuilder({ enableStreaming: true })
     this.outputWriter = new OutputWriter()
 
-    this.debug('Stream integration initialized')
+    // Initialize error handling components
+    this.errorHandler = new StreamErrorHandler({
+      enableFallbackFile: true,
+      enableFallbackConsole: true,
+      fallbackFilePath: this.config.outputFile ? 
+        this.config.outputFile.replace('.json', '-fallback.json') : 
+        'vitest-llm-fallback.json',
+      enableErrorReporting: true
+    })
+
+    this.diagnostics = new StreamingDiagnostics({
+      enabled: true,
+      enableOperationTracking: true,
+      enablePerformanceWarnings: true,
+      enableResourceMonitoring: true
+    })
+
+    this.streamRecovery = new StreamRecovery(this.errorHandler)
+
+    this.debug('Stream integration initialized with error handling and recovery')
   }
 
   /**
@@ -106,32 +131,57 @@ export class ReporterStreamIntegration {
       return
     }
 
-    // Detect terminal and environment capabilities
-    const envInfo = detectEnvironment()
-    this.terminalCapabilities = detectTerminalCapabilities()
-    
-    // Determine if we need to run in degradation mode
-    this.degradationMode = this.shouldDegradeGracefully(envInfo, this.terminalCapabilities)
-    
-    if (this.degradationMode) {
-      this.debug('Running in degradation mode: TTY=%s, CI=%s, Color=%s', 
-        this.terminalCapabilities.isTTY, 
-        envInfo.ci.isCI,
-        this.terminalCapabilities.supportsColor)
+    try {
+      // Start diagnostics and recovery systems
+      this.diagnostics.start()
+      this.streamRecovery.start()
+
+      // Detect terminal and environment capabilities
+      const envInfo = detectEnvironment()
+      this.terminalCapabilities = detectTerminalCapabilities()
+      
+      // Determine if we need to run in degradation mode
+      this.degradationMode = this.shouldDegradeGracefully(envInfo, this.terminalCapabilities)
+      
+      if (this.degradationMode) {
+        this.debug('Running in degradation mode: TTY=%s, CI=%s, Color=%s', 
+          this.terminalCapabilities.isTTY, 
+          envInfo.ci.isCI,
+          this.terminalCapabilities.supportsColor)
+      }
+
+      this.isActive = true
+      this.startTime = Date.now()
+      this.testCounts = { passed: 0, failed: 0, skipped: 0 }
+
+      this.emitEvent(StreamEventType.SUITE_START, {
+        timestamp: this.startTime,
+        environment: envInfo,
+        terminalCapabilities: this.terminalCapabilities,
+        degradationMode: this.degradationMode
+      })
+
+      this.debug('Stream integration started (degradation mode: %s)', this.degradationMode)
+    } catch (error) {
+      const recoveryResult = await this.errorHandler.handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'start_streaming',
+          priority: OutputPriority.CRITICAL,
+          source: OutputSource.SYSTEM
+        }
+      )
+
+      if (!recoveryResult.success) {
+        throw new Error(`Failed to start streaming integration: ${error}`)
+      }
+
+      // If recovery succeeded, we might be in degraded mode
+      this.degradationMode = true
+      this.isActive = true
+      this.startTime = Date.now()
+      this.testCounts = { passed: 0, failed: 0, skipped: 0 }
     }
-
-    this.isActive = true
-    this.startTime = Date.now()
-    this.testCounts = { passed: 0, failed: 0, skipped: 0 }
-
-    this.emitEvent(StreamEventType.SUITE_START, {
-      timestamp: this.startTime,
-      environment: envInfo,
-      terminalCapabilities: this.terminalCapabilities,
-      degradationMode: this.degradationMode
-    })
-
-    this.debug('Stream integration started (degradation mode: %s)', this.degradationMode)
   }
 
   /**
@@ -164,7 +214,21 @@ export class ReporterStreamIntegration {
       await this.synchronizer.shutdown()
     } catch (error) {
       this.debugError('Error stopping stream integration: %O', error)
+      
+      // Try to handle the error gracefully
+      await this.errorHandler.handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'stop_streaming',
+          priority: OutputPriority.HIGH,
+          source: OutputSource.SYSTEM
+        }
+      )
     } finally {
+      // Stop error handling components
+      this.streamRecovery.stop()
+      this.diagnostics.stop()
+      
       this.isActive = false
       this.debug('Stream integration stopped')
     }
@@ -205,6 +269,13 @@ export class ReporterStreamIntegration {
       return
     }
 
+    const operationId = this.diagnostics.trackOperationStart(
+      'streamTestResult',
+      'error' in result ? OutputPriority.HIGH : OutputPriority.NORMAL,
+      OutputSource.TEST,
+      { testName: result.test, hasError: 'error' in result }
+    )
+
     try {
       // Update counters
       if ('error' in result) {
@@ -231,17 +302,50 @@ export class ReporterStreamIntegration {
       }
 
       this.emitEvent(StreamEventType.TEST_COMPLETE, { result })
+      this.diagnostics.trackOperationComplete(operationId, true)
 
       this.debug('Streamed test result for: %s', result.test)
     } catch (error) {
       this.debugError('Error streaming test result: %O', error)
       
-      if (!this.config.gracefulDegradation) {
+      // Track the error
+      this.diagnostics.trackOperationError(operationId, {
+        type: StreamErrorType.EXECUTION,
+        severity: 'error' in result ? 'high' as any : 'normal' as any,
+        source: {
+          operation: 'streamTestResult',
+          priority: 'error' in result ? OutputPriority.HIGH : OutputPriority.NORMAL,
+          source: OutputSource.TEST,
+          testName: result.test
+        },
+        error: error instanceof Error ? error : new Error(String(error)),
+        timestamp: Date.now(),
+        attempt: 1
+      })
+
+      // Handle the error
+      const recoveryResult = await this.errorHandler.handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'streamTestResult',
+          priority: 'error' in result ? OutputPriority.HIGH : OutputPriority.NORMAL,
+          source: OutputSource.TEST,
+          metadata: { testResult: result }
+        }
+      )
+
+      if (recoveryResult.success) {
+        if (recoveryResult.strategy === RecoveryStrategy.FALLBACK_CONSOLE ||
+            recoveryResult.strategy === RecoveryStrategy.DEGRADE) {
+          // Fall back to degraded output
+          this.handleDegradedOutput(result)
+        }
+      } else if (!this.config.gracefulDegradation) {
         throw error
+      } else {
+        // Fall back to degraded output on error
+        this.handleDegradedOutput(result)
       }
-      
-      // Fall back to degraded output on error
-      this.handleDegradedOutput(result)
     }
   }
 
@@ -366,5 +470,54 @@ export class ReporterStreamIntegration {
   updateConfig(config: Partial<StreamIntegrationConfig>): void {
     this.config = { ...this.config, ...config }
     this.debug('Stream integration configuration updated')
+  }
+
+  /**
+   * Get stream health status
+   */
+  getStreamHealth(): StreamHealth {
+    return this.streamRecovery.getHealth()
+  }
+
+  /**
+   * Get error handler statistics
+   */
+  getErrorStats() {
+    return this.errorHandler.getStats()
+  }
+
+  /**
+   * Get diagnostics report
+   */
+  getDiagnosticsReport() {
+    return this.diagnostics.generateReport()
+  }
+
+  /**
+   * Get recovery monitoring data
+   */
+  getRecoveryData() {
+    return this.streamRecovery.getMonitoringData()
+  }
+
+  /**
+   * Manually trigger recovery for testing purposes
+   */
+  async triggerManualRecovery(failureType: any): Promise<void> {
+    await this.streamRecovery.manualRecovery(failureType)
+  }
+
+  /**
+   * Reset circuit breaker for testing purposes
+   */
+  resetCircuitBreaker(): void {
+    this.streamRecovery.resetCircuitBreaker()
+  }
+
+  /**
+   * Check if circuit breaker is open
+   */
+  isCircuitBreakerOpen(): boolean {
+    return this.streamRecovery.isCircuitBreakerOpen()
   }
 }
