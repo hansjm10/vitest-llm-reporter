@@ -40,11 +40,11 @@ export interface OrchestratorConfig {
 
 /**
  * Default orchestrator configuration
- * 
+ *
  * @example
  * ```typescript
  * import { DEFAULT_ORCHESTRATOR_CONFIG } from './events/EventOrchestrator'
- * 
+ *
  * const customConfig = {
  *   ...DEFAULT_ORCHESTRATOR_CONFIG,
  *   logErrors: true
@@ -269,7 +269,7 @@ export class EventOrchestrator {
     const consoleFromTask = this.extractConsoleFromTask(originalTestCase)
     // Also try our custom capture
     const consoleFromCapture = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
-    
+
     // Intelligently merge both console sources instead of choosing one
     const consoleOutput = consoleMerger.merge(consoleFromTask, consoleFromCapture)
 
@@ -305,26 +305,31 @@ export class EventOrchestrator {
     | undefined {
     if (!testCase || typeof testCase !== 'object') return undefined
     // Vitest augments TaskBase with `logs?: UserConsoleLog[]`
-    const logs = (testCase as { logs?: Array<{ content: string; type: string; taskId?: string; time?: number }> }).logs
-    
-    // Debug: Log what we're getting from Vitest
-    if (process.env.DEBUG_CONSOLE_CAPTURE) {
-      console.log('[ConsoleCapture] Vitest logs:', JSON.stringify(logs, null, 2))
-    }
-    
+    const logs = (
+      testCase as {
+        logs?: Array<{ content: string; type: string; taskId?: string; time?: number }>
+      }
+    ).logs
+
     if (!Array.isArray(logs) || logs.length === 0) return undefined
 
-    const out: { logs?: string[]; errors?: string[]; warns?: string[]; info?: string[]; debug?: string[] } = {}
+    const out: {
+      logs?: string[]
+      errors?: string[]
+      warns?: string[]
+      info?: string[]
+      debug?: string[]
+    } = {}
     for (const entry of logs) {
       const content = entry?.content
       const type = entry?.type
       const time = entry?.time
-      
+
       if (typeof content !== 'string' || typeof type !== 'string') continue
-      
+
       // Add timestamp if available (for better correlation with custom capture)
       const formattedContent = time !== undefined ? `[${time}ms] ${content}` : content
-      
+
       // Map Vitest console types to our output structure
       // Vitest uses 'stdout' and 'stderr' for raw output
       // But console methods might be captured differently
@@ -367,24 +372,24 @@ export class EventOrchestrator {
 
   /**
    * Handle a user console log event (Vitest v3 shape)
-   * 
+   *
    * @param log - The console log event from Vitest
    */
   public handleUserConsoleLog(log: UserConsoleLog): void {
     if (!this.config.captureConsoleOnFailure) return
     const testId = log.taskId
     if (!testId) return
-    
+
     // Ensure buffer exists for this test
     // This is crucial for capturing console from helper functions
     // that may run before handleTestCaseReady is called
     consoleCapture.startCapture(testId)
-    
+
     // Map Vitest log types to console methods
     // Vitest only provides stdout/stderr, not the specific console method
     // console.error typically goes to stderr, everything else to stdout
     const method: ConsoleMethod = log.type === 'stderr' ? 'error' : 'log'
-    
+
     try {
       consoleCapture.ingest(testId, method, [log.content])
     } catch (error) {

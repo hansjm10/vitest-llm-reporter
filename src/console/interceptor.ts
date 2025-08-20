@@ -67,7 +67,7 @@ export class ConsoleInterceptor {
           // Ignore debug logging errors
         }
       }
-      
+
       // Also wrap the original method call to prevent test crashes
       try {
         return Reflect.apply(original as ConsoleFunction, this.target, args)
@@ -126,7 +126,7 @@ export class ConsoleInterceptor {
 
   /**
    * Check if a specific method is patched
-   * 
+   *
    * @param method - The console method to check
    * @returns True if the method is currently patched, false otherwise
    */

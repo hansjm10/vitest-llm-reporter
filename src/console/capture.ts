@@ -279,7 +279,7 @@ export class ConsoleCapture {
 
   /**
    * Update capture configuration at runtime
-   * 
+   *
    * @param config - Partial configuration to merge with existing config
    */
   updateConfig(config: Partial<ConsoleCaptureConfig>): void {
@@ -311,7 +311,7 @@ export class ConsoleCapture {
   } {
     // Opportunistically clean up stale generations when stats are requested
     this.cleanupStaleGenerations()
-    
+
     return {
       isPatched: this.interceptor.patched,
       activeBuffers: this.buffers.size,
@@ -323,14 +323,14 @@ export class ConsoleCapture {
 
 /**
  * Singleton instance of ConsoleCapture for use across the reporter
- * 
+ *
  * @example
  * ```typescript
  * import { consoleCapture } from './console/capture'
- * 
+ *
  * // Start capturing for a test
  * consoleCapture.startCapture('test-id')
- * 
+ *
  * // Stop and retrieve output
  * const output = consoleCapture.stopCapture('test-id')
  * ```

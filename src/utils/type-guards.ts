@@ -22,10 +22,7 @@ export type { ExtractedError } from '../types/vitest-objects'
  * Used internally for safe property operations
  */
 function isPlainObject(value: unknown): value is object {
-  return value !== null && 
-         value !== undefined && 
-         typeof value === 'object' && 
-         !Array.isArray(value)
+  return value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)
 }
 
 /**

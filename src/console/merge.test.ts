@@ -38,9 +38,9 @@ describe('ConsoleMerger', () => {
         errors: ['custom error'],
         info: ['custom info']
       }
-      
+
       const result = merger.merge(vitestOutput, customOutput)
-      
+
       expect(result).toEqual({
         logs: ['vitest log'],
         warns: ['vitest warning'],
@@ -58,9 +58,9 @@ describe('ConsoleMerger', () => {
         logs: ['duplicate message', 'unique custom'],
         errors: ['error message']
       }
-      
+
       const result = merger.merge(vitestOutput, customOutput)
-      
+
       expect(result?.logs).toEqual(['duplicate message', 'unique custom', 'unique vitest'])
       expect(result?.errors).toEqual(['error message'])
     })
@@ -72,9 +72,9 @@ describe('ConsoleMerger', () => {
       const customOutput: ConsoleOutput = {
         logs: ['[456ms] Test message', 'Different log']
       }
-      
+
       const result = merger.merge(vitestOutput, customOutput)
-      
+
       // Should keep custom (first) and not duplicate with different timestamp
       expect(result?.logs).toContain('[456ms] Test message')
       expect(result?.logs).not.toContain('[123ms] Test message')
@@ -89,9 +89,9 @@ describe('ConsoleMerger', () => {
       const customOutput: ConsoleOutput = {
         logs: ['Test message']
       }
-      
+
       const result = merger.merge(vitestOutput, customOutput)
-      
+
       // Should keep the longer message as it contains more information
       expect(result?.logs).toHaveLength(1)
       expect(result?.logs?.[0]).toBe('Test message')
@@ -103,7 +103,7 @@ describe('ConsoleMerger', () => {
         logs: ['Helper function log'],
         errors: ['Helper function error']
       }
-      
+
       // Custom capture has better granularity
       const customOutput: ConsoleOutput = {
         logs: ['console.log output'],
@@ -112,16 +112,16 @@ describe('ConsoleMerger', () => {
         info: ['console.info output'],
         debug: ['console.debug output']
       }
-      
+
       const result = merger.merge(vitestOutput, customOutput)
-      
+
       // Should have all method types preserved
       expect(result).toHaveProperty('logs')
       expect(result).toHaveProperty('warns')
       expect(result).toHaveProperty('errors')
       expect(result).toHaveProperty('info')
       expect(result).toHaveProperty('debug')
-      
+
       // Helper function logs should be added if unique
       expect(result?.logs).toContain('console.log output')
       expect(result?.logs).toContain('Helper function log')
@@ -137,9 +137,9 @@ describe('ConsoleMerger', () => {
       const customOutput: ConsoleOutput = {
         warns: []
       }
-      
+
       const result = merger.merge(vitestOutput, customOutput)
-      
+
       // Should only have errors, no empty arrays
       expect(result).toEqual({
         errors: ['error message']
@@ -159,17 +159,17 @@ describe('ConsoleMerger', () => {
       }
       const customOutput: ConsoleOutput = {
         logs: [
-          '[500ms] Starting test',  // Same message, different timestamp
-          'Processing data',         // Exact duplicate
-          'Additional custom log'    // Unique
+          '[500ms] Starting test', // Same message, different timestamp
+          'Processing data', // Exact duplicate
+          'Additional custom log' // Unique
         ]
       }
-      
+
       const result = merger.merge(vitestOutput, customOutput)
-      
+
       expect(result?.logs).toContain('[500ms] Starting test')
       expect(result?.logs).not.toContain('[1000ms] Starting test')
-      expect(result?.logs?.filter(log => log === 'Processing data')).toHaveLength(1)
+      expect(result?.logs?.filter((log) => log === 'Processing data')).toHaveLength(1)
       expect(result?.logs).toContain('Additional custom log')
       expect(result?.logs).toContain('[2000ms] Test complete')
     })
@@ -186,16 +186,16 @@ describe('ConsoleMerger', () => {
         info: ['console.info'],
         debug: ['console.debug', 'console.trace']
       }
-      
+
       const result = merger.merge(vitestOutput, customOutput)
-      
+
       // All methods should be present
       expect(Object.keys(result || {})).toContain('logs')
       expect(Object.keys(result || {})).toContain('errors')
       expect(Object.keys(result || {})).toContain('warns')
       expect(Object.keys(result || {})).toContain('info')
       expect(Object.keys(result || {})).toContain('debug')
-      
+
       // Verify content
       expect(result?.debug).toHaveLength(2)
       expect(result?.debug).toContain('console.debug')
@@ -211,7 +211,7 @@ describe('ConsoleMerger', () => {
       const customOutput: ConsoleOutput = {
         logs: ['another log']
       }
-      
+
       // Should not throw and should handle gracefully
       expect(() => merger.merge(vitestOutput, customOutput)).not.toThrow()
     })
@@ -222,11 +222,11 @@ describe('ConsoleMerger', () => {
         logs: [longMessage]
       }
       const customOutput: ConsoleOutput = {
-        logs: [longMessage]  // Duplicate
+        logs: [longMessage] // Duplicate
       }
-      
+
       const result = merger.merge(vitestOutput, customOutput)
-      
+
       // Should deduplicate even for very long messages
       expect(result?.logs).toHaveLength(1)
       expect(result?.logs?.[0]).toBe(longMessage)
@@ -239,11 +239,11 @@ describe('ConsoleMerger', () => {
       const customOutput: ConsoleOutput = {
         logs: ['Message with \n newline', 'Different message']
       }
-      
+
       const result = merger.merge(vitestOutput, customOutput)
-      
+
       // Should handle special characters correctly
-      expect(result?.logs?.filter(log => log === 'Message with \n newline')).toHaveLength(1)
+      expect(result?.logs?.filter((log) => log === 'Message with \n newline')).toHaveLength(1)
       expect(result?.logs).toContain('Message with \t tab')
       expect(result?.logs).toContain('Different message')
     })

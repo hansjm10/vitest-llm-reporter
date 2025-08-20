@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * End-to-End test for Error Context Extraction feature
  *
@@ -161,7 +162,7 @@ export default defineConfig({
     // Read the output file
     const outputContent = readFileSync(outputFile, 'utf-8')
     const output = JSON.parse(outputContent)
-    
+
     // Debug: Log the actual console structure and full failure object
     console.log('First failure:', JSON.stringify(output.failures[0], null, 2))
 
@@ -210,25 +211,23 @@ export default defineConfig({
     // When running tests via subprocess, console output isn't always captured
     // This is a known limitation when tests run in separate processes
     // In normal test runs (not subprocess), console capture works correctly
-    
+
     // For now, we'll verify the structure exists but may be empty
     // TODO: Investigate subprocess console capture in future enhancement
     if (firstFailure.console) {
       expect(firstFailure.console).toBeDefined()
-      
+
       // If console was captured, verify content
       if (firstFailure.console.logs && firstFailure.console.logs.length > 0) {
         expect(firstFailure.console.logs).toBeInstanceOf(Array)
-        expect(firstFailure.console.logs.some(log => 
-          log.includes('E2E multiply log')
-        )).toBe(true)
+        expect(firstFailure.console.logs.some((log) => log.includes('E2E multiply log'))).toBe(true)
       }
-      
+
       if (firstFailure.console.errors && firstFailure.console.errors.length > 0) {
         expect(firstFailure.console.errors).toBeInstanceOf(Array)
-        expect(firstFailure.console.errors.some(err => 
-          err.includes('E2E multiply error')
-        )).toBe(true)
+        expect(firstFailure.console.errors.some((err) => err.includes('E2E multiply error'))).toBe(
+          true
+        )
       }
     }
   })
@@ -258,20 +257,18 @@ export default defineConfig({
     // Similar to first test, check if console exists and has content
     if (objectFailure.console) {
       expect(objectFailure.console).toBeDefined()
-      
+
       // If console was captured, verify content
       if (objectFailure.console.logs && objectFailure.console.logs.length > 0) {
         expect(objectFailure.console.logs).toBeInstanceOf(Array)
-        expect(objectFailure.console.logs.some(log => 
-          log.includes('E2E object log')
-        )).toBe(true)
+        expect(objectFailure.console.logs.some((log) => log.includes('E2E object log'))).toBe(true)
       }
-      
+
       if (objectFailure.console.errors && objectFailure.console.errors.length > 0) {
-        expect(objectFailure.console.errors).toBeInstanceOf(Array) 
-        expect(objectFailure.console.errors.some(err =>
-          err.includes('E2E object error')
-        )).toBe(true)
+        expect(objectFailure.console.errors).toBeInstanceOf(Array)
+        expect(objectFailure.console.errors.some((err) => err.includes('E2E object error'))).toBe(
+          true
+        )
       }
     }
   })
@@ -279,31 +276,29 @@ export default defineConfig({
   it('should capture console output for all failing tests', () => {
     const outputContent = readFileSync(outputFile, 'utf-8')
     const output = JSON.parse(outputContent)
-    
+
     // Find the zero multiplication failure
-    const zeroFailure = output.failures.find((f) => f.test === 'should handle multiplication by zero')
-    
+    const zeroFailure = output.failures.find(
+      (f) => f.test === 'should handle multiplication by zero'
+    )
+
     expect(zeroFailure).toBeDefined()
-    
+
     // Console capture in subprocess E2E tests has limitations
     // Check if console exists for this test
     if (zeroFailure.console) {
       expect(zeroFailure.console).toBeDefined()
-      
+
       // If console was captured, verify content
       if (zeroFailure.console.logs && zeroFailure.console.logs.length > 0) {
-        expect(zeroFailure.console.logs.some(log =>
-          log.includes('E2E zero log')
-        )).toBe(true)
+        expect(zeroFailure.console.logs.some((log) => log.includes('E2E zero log'))).toBe(true)
       }
-      
+
       if (zeroFailure.console.errors && zeroFailure.console.errors.length > 0) {
-        expect(zeroFailure.console.errors.some(err =>
-          err.includes('E2E zero error')
-        )).toBe(true)
+        expect(zeroFailure.console.errors.some((err) => err.includes('E2E zero error'))).toBe(true)
       }
     }
-    
+
     // Verify structure exists for all failures (may be empty due to subprocess limitations)
     output.failures.forEach((failure) => {
       // Console property should exist but may be empty

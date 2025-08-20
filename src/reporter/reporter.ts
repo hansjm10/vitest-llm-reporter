@@ -56,7 +56,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Creates a new instance of the LLM Reporter
-   * 
+   *
    * @param config - Configuration options for the reporter
    */
   constructor(config: LLMReporterConfig = {}) {
@@ -155,7 +155,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Get the resolved reporter configuration
-   * 
+   *
    * @returns The resolved configuration with all defaults applied
    */
   getConfig(): ResolvedLLMReporterConfig {
@@ -164,7 +164,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Get the Vitest context
-   * 
+   *
    * @returns The Vitest context if initialized, undefined otherwise
    */
   getContext(): Vitest | undefined {
@@ -173,7 +173,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Get a snapshot of the current test state
-   * 
+   *
    * @returns A snapshot of the state manager's current state
    */
   getState(): ReturnType<StateManager['getSnapshot']> {
@@ -183,7 +183,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Get the generated LLM reporter output
-   * 
+   *
    * @returns The output if generated, undefined otherwise
    */
   getOutput(): LLMReporterOutput | undefined {
@@ -192,7 +192,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Initialize the reporter with Vitest context
-   * 
+   *
    * @param ctx - The Vitest context
    */
   onInit(ctx: Vitest): void {
@@ -201,7 +201,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Handle test run start event
-   * 
+   *
    * @param specifications - The test specifications for the run
    */
   onTestRunStart(specifications: ReadonlyArray<TestSpecification>): void {
@@ -221,7 +221,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Handle test module queued event
-   * 
+   *
    * @param testModule - The test module that was queued
    */
   onTestModuleQueued(testModule: TestModule): void {
@@ -232,7 +232,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Handle test module collected event
-   * 
+   *
    * @param testModule - The test module that was collected
    */
   onTestModuleCollected(testModule: TestModule): void {
@@ -243,7 +243,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Handle test module start event
-   * 
+   *
    * @param testModule - The test module that is starting
    */
   onTestModuleStart(testModule: TestModule): void {
@@ -254,7 +254,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Handle test module end event
-   * 
+   *
    * @param testModule - The test module that has ended
    */
   onTestModuleEnd(testModule: TestModule): void {
@@ -265,7 +265,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Handle test case ready event
-   * 
+   *
    * @param testCase - The test case that is ready to run
    */
   onTestCaseReady(testCase: TestCase): void {
@@ -276,7 +276,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Handle test case result event
-   * 
+   *
    * @param testCase - The test case with its result
    */
   onTestCaseResult(testCase: TestCase): void {
@@ -287,7 +287,7 @@ export class LLMReporter implements Reporter {
 
   /**
    * Handle test run end event
-   * 
+   *
    * @param testModules - The test modules that were run
    * @param unhandledErrors - Any unhandled errors that occurred
    * @param reason - The reason the test run ended
@@ -351,14 +351,10 @@ export class LLMReporter implements Reporter {
 
   /**
    * Capture user console logs forwarded by Vitest (v3)
-   * 
+   *
    * @param log - The console log event from Vitest containing test output
    */
   onUserConsoleLog(log: UserConsoleLog): void {
-    // Debug: log when this is called
-    if (this.config.verbose) {
-      console.log('[LLMReporter] onUserConsoleLog called:', log)
-    }
     try {
       this.orchestrator.handleUserConsoleLog(log)
     } catch (error) {

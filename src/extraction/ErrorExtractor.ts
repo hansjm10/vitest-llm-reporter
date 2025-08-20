@@ -27,11 +27,11 @@ import type { ErrorContext } from '../types/schema'
 
 /**
  * Default error extraction configuration
- * 
+ *
  * @example
  * ```typescript
  * import { DEFAULT_ERROR_CONFIG } from './extraction/ErrorExtractor'
- * 
+ *
  * const customConfig = {
  *   ...DEFAULT_ERROR_CONFIG,
  *   maxContextLines: 5
