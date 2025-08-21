@@ -103,7 +103,11 @@ export class ConsoleOutputPattern implements IPatternMatcher {
     const lines = this.parseConsoleOutput(text)
     const significantLines = this.getSignificantLines(lines)
     
-    return significantLines
+    // If no significant lines found, extract from all non-empty lines
+    const linesToUse = significantLines.length > 0 ? significantLines : 
+      lines.filter(l => l.type !== 'empty' && l.normalized.length > 0)
+    
+    return linesToUse
       .map(line => `${line.type}:${line.normalized.substring(0, 50)}`)
       .join('|')
   }
@@ -268,7 +272,7 @@ export class ConsoleOutputPattern implements IPatternMatcher {
     const patternsB = this.extractPatterns(linesB)
 
     if (patternsA.length === 0 && patternsB.length === 0) {
-      return 0.5 // No patterns in either output
+      return 1.0 // Both have no patterns - they're identical in this respect
     }
 
     // Compare pattern distributions

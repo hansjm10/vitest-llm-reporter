@@ -45,7 +45,8 @@ describe('Compression System', () => {
       expect(template).toBeDefined()
       expect(template?.pattern).toContain('Cannot read property')
       expect(template?.variables.length).toBeGreaterThan(0)
-      expect(template?.commonElements).toContain('Cannot read property')
+      // The common element includes the quote
+      expect(template?.commonElements.some(el => el.includes('Cannot read property'))).toBe(true)
     })
 
     it('should extract template from similar stack traces', () => {
