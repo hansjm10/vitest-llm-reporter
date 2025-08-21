@@ -24,6 +24,8 @@ import {
   type SynchronizerConfig,
   type TestContext
 } from '../streaming/OutputSynchronizer'
+import type { TruncationConfig } from '../types/reporter'
+import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 
 /**
  * Event orchestrator configuration
@@ -45,6 +47,8 @@ export interface OrchestratorConfig {
   enableStreaming?: boolean
   /** Streaming synchronizer configuration */
   streamingConfig?: SynchronizerConfig
+  /** Truncation configuration */
+  truncationConfig?: TruncationConfig
 }
 
 /**
@@ -73,6 +77,17 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
     maxConcurrentTests: 10,
     deadlockCheckInterval: 5000,
     enableMonitoring: true
+  },
+  truncationConfig: {
+    enabled: false,
+    maxTokens: undefined,
+    model: 'gpt-4',
+    strategy: 'smart',
+    featureFlag: false,
+    enableEarlyTruncation: false,
+    enableStreamingTruncation: false,
+    enableLateTruncation: false,
+    enableMetrics: false
   }
 }
 
@@ -106,6 +121,7 @@ export class EventOrchestrator {
   private debugError = errorLogger()
   private outputSynchronizer?: OutputSynchronizer
   private activeTests = new Map<string, TestContext>()
+  private truncationEngine?: ITruncationEngine
 
   constructor(
     stateManager: StateManager,
@@ -135,6 +151,12 @@ export class EventOrchestrator {
     if (this.config.enableStreaming) {
       this.outputSynchronizer = new OutputSynchronizer(this.config.streamingConfig)
       this.debug('Streaming mode enabled')
+    }
+
+    // Initialize truncation engine if enabled
+    if (this.config.truncationConfig.enabled && this.config.truncationConfig.enableEarlyTruncation) {
+      this.truncationEngine = createTruncationEngine(this.config.truncationConfig)
+      this.debug('Early truncation enabled')
     }
   }
 
@@ -309,7 +331,10 @@ export class EventOrchestrator {
     const consoleFromCapture = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
 
     // Intelligently merge both console sources instead of choosing one
-    const consoleOutput = consoleMerger.merge(consoleFromTask, consoleFromCapture)
+    let consoleOutput = consoleMerger.merge(consoleFromTask, consoleFromCapture)
+
+    // Apply early truncation to console output if enabled
+    consoleOutput = this.applyEarlyTruncation(consoleOutput)
 
     // Extract and normalize error with full context including code snippets
     const normalizedError = this.errorExtractor.extractWithContext(extracted.error)
@@ -486,10 +511,45 @@ export class EventOrchestrator {
   }
 
   /**
+   * Applies early truncation to console output if enabled
+   */
+  private applyEarlyTruncation(consoleOutput: any): any {
+    if (!this.truncationEngine || !consoleOutput) {
+      return consoleOutput
+    }
+
+    // Apply truncation to each console output category
+    const truncatedOutput = { ...consoleOutput }
+    
+    for (const [key, logs] of Object.entries(consoleOutput)) {
+      if (Array.isArray(logs) && logs.length > 0) {
+        const combined = logs.join('\n')
+        if (this.truncationEngine.needsTruncation(combined)) {
+          const result = this.truncationEngine.truncate(combined)
+          truncatedOutput[key] = [result.content]
+          
+          this.debug('Early truncation applied to %s: %d -> %d tokens', 
+            key, result.metrics.originalTokens, result.metrics.truncatedTokens)
+        }
+      }
+    }
+    
+    return truncatedOutput
+  }
+
+  /**
+   * Gets truncation metrics if available
+   */
+  public getTruncationMetrics() {
+    return this.truncationEngine?.getMetrics() || []
+  }
+
+  /**
    * Updates orchestrator configuration
    */
   public updateConfig(config: OrchestratorConfig): void {
     this.config = { ...this.config, ...config }
+    
     // Propagate to console capture
     consoleCapture.updateConfig({
       enabled: this.config.captureConsoleOnFailure,
@@ -497,5 +557,19 @@ export class EventOrchestrator {
       maxLines: this.config.maxConsoleLines,
       includeDebugOutput: this.config.includeDebugOutput
     })
+    
+    // Update truncation engine config
+    if (this.truncationEngine && config.truncationConfig) {
+      this.truncationEngine.updateConfig(config.truncationConfig)
+    }
+    
+    // Initialize or destroy truncation engine based on config changes
+    if (config.truncationConfig?.enabled && config.truncationConfig?.enableEarlyTruncation && !this.truncationEngine) {
+      this.truncationEngine = createTruncationEngine(this.config.truncationConfig)
+      this.debug('Early truncation enabled via config update')
+    } else if (!config.truncationConfig?.enabled && this.truncationEngine) {
+      this.truncationEngine = undefined
+      this.debug('Early truncation disabled via config update')
+    }
   }
 }

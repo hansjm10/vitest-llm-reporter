@@ -9,6 +9,8 @@
 
 import type { LLMReporterOutput, TestSummary, TestResult, TestFailure } from '../types/schema'
 import type { SerializedError } from 'vitest'
+import type { TruncationConfig } from '../types/reporter'
+import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 
 /**
  * Output builder configuration
@@ -22,6 +24,8 @@ export interface OutputBuilderConfig {
   verbose?: boolean
   /** Enable streaming mode for real-time output */
   enableStreaming?: boolean
+  /** Truncation configuration */
+  truncation?: TruncationConfig
 }
 
 /**
@@ -31,7 +35,18 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
   includePassedTests: false,
   includeSkippedTests: false,
   verbose: false,
-  enableStreaming: false
+  enableStreaming: false,
+  truncation: {
+    enabled: false,
+    maxTokens: undefined,
+    model: 'gpt-4',
+    strategy: 'smart',
+    featureFlag: false,
+    enableEarlyTruncation: false,
+    enableStreamingTruncation: false,
+    enableLateTruncation: false,
+    enableMetrics: false
+  }
 }
 
 /**
@@ -69,9 +84,15 @@ export interface BuildOptions {
  */
 export class OutputBuilder {
   private config: Required<OutputBuilderConfig>
+  private truncationEngine?: ITruncationEngine
 
   constructor(config: OutputBuilderConfig = {}) {
     this.config = { ...DEFAULT_OUTPUT_CONFIG, ...config }
+    
+    // Initialize truncation engine for late-stage truncation if enabled
+    if (this.config.truncation.enabled && this.config.truncation.enableLateTruncation) {
+      this.truncationEngine = createTruncationEngine(this.config.truncation)
+    }
   }
 
   /**
@@ -101,7 +122,8 @@ export class OutputBuilder {
       output.skipped = options.testResults.skipped
     }
 
-    return output
+    // Apply late-stage truncation if enabled
+    return this.applyLateTruncation(output)
   }
 
   /**
@@ -298,9 +320,94 @@ export class OutputBuilder {
   }
 
   /**
+   * Applies late-stage truncation to the complete output
+   */
+  private applyLateTruncation(output: LLMReporterOutput): LLMReporterOutput {
+    if (!this.truncationEngine) {
+      return output
+    }
+
+    // Serialize output to check total size
+    const serialized = JSON.stringify(output, null, 2)
+    
+    if (!this.truncationEngine.needsTruncation(serialized)) {
+      return output
+    }
+
+    // Apply progressive truncation strategy
+    const truncatedOutput = { ...output }
+    
+    // Strategy 1: Truncate failure details first (keeping errors but reducing context)
+    if (truncatedOutput.failures) {
+      truncatedOutput.failures = truncatedOutput.failures.map(failure => {
+        const failureJson = JSON.stringify(failure)
+        if (this.truncationEngine!.needsTruncation(failureJson)) {
+          // Truncate console output first
+          if (failure.consoleOutput) {
+            const consoleStr = JSON.stringify(failure.consoleOutput)
+            const truncated = this.truncationEngine!.truncate(consoleStr)
+            try {
+              failure.consoleOutput = JSON.parse(truncated.content)
+            } catch {
+              // If parsing fails, create simplified console output
+              failure.consoleOutput = { logs: ['[Console output truncated]'] }
+            }
+          }
+          
+          // Truncate error context if still too large
+          if (failure.context && this.truncationEngine!.needsTruncation(JSON.stringify(failure))) {
+            failure.context.codeLines = failure.context.codeLines?.slice(0, 5) || []
+          }
+        }
+        return failure
+      })
+    }
+
+    // Check if we still need more truncation
+    const newSerialized = JSON.stringify(truncatedOutput, null, 2)
+    if (this.truncationEngine.needsTruncation(newSerialized)) {
+      // Strategy 2: Remove passed/skipped tests if they exist
+      if (truncatedOutput.passed?.length) {
+        delete truncatedOutput.passed
+      }
+      if (truncatedOutput.skipped?.length) {
+        delete truncatedOutput.skipped
+      }
+    }
+
+    return truncatedOutput
+  }
+
+  /**
+   * Gets truncation metrics if available
+   */
+  public getTruncationMetrics() {
+    return this.truncationEngine?.getMetrics() || []
+  }
+
+  /**
+   * Check if truncation is enabled
+   */
+  public get hasTruncation(): boolean {
+    return Boolean(this.truncationEngine)
+  }
+
+  /**
    * Updates builder configuration
    */
   public updateConfig(config: OutputBuilderConfig): void {
     this.config = { ...this.config, ...config }
+    
+    // Update truncation engine config
+    if (this.truncationEngine && config.truncation) {
+      this.truncationEngine.updateConfig(config.truncation)
+    }
+    
+    // Initialize or destroy truncation engine based on config changes
+    if (config.truncation?.enabled && config.truncation?.enableLateTruncation && !this.truncationEngine) {
+      this.truncationEngine = createTruncationEngine(this.config.truncation)
+    } else if (!config.truncation?.enabled && this.truncationEngine) {
+      this.truncationEngine = undefined
+    }
   }
 }

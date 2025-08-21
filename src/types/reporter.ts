@@ -41,6 +41,32 @@ export interface LLMReporterConfig {
   enableStreaming?: boolean
   /** Streaming-specific configuration options */
   streaming?: StreamingConfig
+  /** Truncation configuration options */
+  truncation?: TruncationConfig
+}
+
+/**
+ * Configuration for output truncation
+ */
+export interface TruncationConfig {
+  /** Enable truncation (default: false for backward compatibility) */
+  enabled?: boolean
+  /** Maximum tokens to allow in output (default: undefined = no limit) */
+  maxTokens?: number
+  /** Model to use for token counting (default: 'gpt-4') */
+  model?: string
+  /** Truncation strategy (default: 'smart') */
+  strategy?: 'simple' | 'smart' | 'priority'
+  /** Feature flag for gradual rollout (default: false) */
+  featureFlag?: boolean
+  /** Enable truncation at early stage (EventOrchestrator) */
+  enableEarlyTruncation?: boolean
+  /** Enable truncation in streaming (OutputSynchronizer) */
+  enableStreamingTruncation?: boolean
+  /** Enable truncation at late stage (OutputBuilder) */
+  enableLateTruncation?: boolean
+  /** Enable truncation metrics tracking */
+  enableMetrics?: boolean
 }
 
 /**

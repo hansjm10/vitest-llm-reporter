@@ -10,6 +10,8 @@
 import type { LLMReporterOutput } from '../types/schema'
 import { SchemaValidator, ValidationConfig, ValidationResult } from '../validation/validator'
 import { JsonSanitizer, JsonSanitizerConfig } from '../sanitization/json-sanitizer'
+import type { TruncationConfig } from '../types/reporter'
+import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 
 /**
  * Processing options
@@ -17,8 +19,10 @@ import { JsonSanitizer, JsonSanitizerConfig } from '../sanitization/json-sanitiz
 export interface ProcessingOptions {
   validate?: boolean
   sanitize?: boolean
+  truncate?: boolean
   validationConfig?: ValidationConfig
   sanitizationConfig?: JsonSanitizerConfig
+  truncationConfig?: TruncationConfig
 }
 
 /**
@@ -30,6 +34,8 @@ export interface ProcessingResult {
   errors?: Array<{ path: string; message: string; value?: unknown }>
   validated?: boolean
   sanitized?: boolean
+  truncated?: boolean
+  truncationMetrics?: Array<{ originalTokens: number; truncatedTokens: number; wasTruncated: boolean }>
 }
 
 /**
@@ -63,19 +69,27 @@ export interface ProcessingResult {
 export class SchemaProcessor {
   private validator: SchemaValidator
   private sanitizer: JsonSanitizer
-  private defaultOptions: Required<Pick<ProcessingOptions, 'validate' | 'sanitize'>>
+  private truncationEngine?: ITruncationEngine
+  private defaultOptions: Required<Pick<ProcessingOptions, 'validate' | 'sanitize' | 'truncate'>>
 
   constructor(options: ProcessingOptions = {}) {
     this.validator = new SchemaValidator(options.validationConfig)
     this.sanitizer = new JsonSanitizer(options.sanitizationConfig)
+    
+    // Initialize truncation engine if enabled
+    if (options.truncationConfig?.enabled) {
+      this.truncationEngine = createTruncationEngine(options.truncationConfig)
+    }
+    
     this.defaultOptions = {
       validate: options.validate ?? true,
-      sanitize: options.sanitize ?? true
+      sanitize: options.sanitize ?? true,
+      truncate: options.truncate ?? (options.truncationConfig?.enabled ?? false)
     }
   }
 
   /**
-   * Processes LLM reporter output with validation and/or sanitization
+   * Processes LLM reporter output with validation, sanitization, and/or truncation
    *
    * @param output - The output to process
    * @param options - Processing options (overrides constructor defaults)
@@ -84,16 +98,20 @@ export class SchemaProcessor {
   public process(output: unknown, options?: ProcessingOptions): ProcessingResult {
     const processOptions = {
       validate: options?.validate ?? this.defaultOptions.validate,
-      sanitize: options?.sanitize ?? this.defaultOptions.sanitize
+      sanitize: options?.sanitize ?? this.defaultOptions.sanitize,
+      truncate: options?.truncate ?? this.defaultOptions.truncate
     }
 
-    // If neither validation nor sanitization is requested, just pass through
-    if (!processOptions.validate && !processOptions.sanitize) {
+    let truncationMetrics: ProcessingResult['truncationMetrics']
+
+    // If nothing is requested, just pass through
+    if (!processOptions.validate && !processOptions.sanitize && !processOptions.truncate) {
       return {
         success: true,
         data: output as LLMReporterOutput,
         validated: false,
-        sanitized: false
+        sanitized: false,
+        truncated: false
       }
     }
 
@@ -106,34 +124,18 @@ export class SchemaProcessor {
           success: false,
           errors: validationResult.errors,
           validated: true,
-          sanitized: false
+          sanitized: false,
+          truncated: false
         }
       }
 
-      // If only validation was requested, return the validated data
-      if (!processOptions.sanitize) {
-        return {
-          success: true,
-          data: validationResult.data,
-          validated: true,
-          sanitized: false
-        }
-      }
-
-      // Continue to sanitization with validated data
       output = validationResult.data
     }
 
     // Sanitization phase
     if (processOptions.sanitize) {
       try {
-        const sanitized = this.sanitizer.sanitize(output as LLMReporterOutput)
-        return {
-          success: true,
-          data: sanitized,
-          validated: processOptions.validate,
-          sanitized: true
-        }
+        output = this.sanitizer.sanitize(output as LLMReporterOutput)
       } catch (error) {
         return {
           success: false,
@@ -144,15 +146,45 @@ export class SchemaProcessor {
             }
           ],
           validated: processOptions.validate,
-          sanitized: false
+          sanitized: false,
+          truncated: false
         }
       }
     }
 
-    // This should never be reached - indicates a logic error
-    throw new Error(
-      'Unexpected state: neither validation nor sanitization was performed despite passing initial check'
-    )
+    // Truncation phase
+    if (processOptions.truncate && this.truncationEngine) {
+      try {
+        const serialized = JSON.stringify(output)
+        if (this.truncationEngine.needsTruncation(serialized)) {
+          const truncationResult = this.truncationEngine.truncate(serialized)
+          output = JSON.parse(truncationResult.content)
+          truncationMetrics = [truncationResult.metrics]
+        }
+      } catch (error) {
+        return {
+          success: false,
+          errors: [
+            {
+              path: 'truncation',
+              message: error instanceof Error ? error.message : 'Truncation failed'
+            }
+          ],
+          validated: processOptions.validate,
+          sanitized: processOptions.sanitize,
+          truncated: false
+        }
+      }
+    }
+
+    return {
+      success: true,
+      data: output as LLMReporterOutput,
+      validated: processOptions.validate,
+      sanitized: processOptions.sanitize,
+      truncated: processOptions.truncate,
+      truncationMetrics
+    }
   }
 
   /**
@@ -181,9 +213,50 @@ export class SchemaProcessor {
   }
 
   /**
+   * Truncates pre-processed output
+   * Convenience method for truncation-only use cases
+   *
+   * @warning This assumes the input is already processed!
+   */
+  public truncate(output: LLMReporterOutput): { output: LLMReporterOutput; metrics?: any } {
+    if (!this.truncationEngine) {
+      return { output }
+    }
+
+    const serialized = JSON.stringify(output)
+    if (!this.truncationEngine.needsTruncation(serialized)) {
+      return { output }
+    }
+
+    const result = this.truncationEngine.truncate(serialized)
+    return {
+      output: JSON.parse(result.content),
+      metrics: result.metrics
+    }
+  }
+
+  /**
+   * Gets truncation metrics if available
+   */
+  public getTruncationMetrics() {
+    return this.truncationEngine?.getMetrics() || []
+  }
+
+  /**
    * Updates sanitization configuration
    */
   public updateSanitizationConfig(config: JsonSanitizerConfig): void {
     this.sanitizer = new JsonSanitizer(config)
+  }
+
+  /**
+   * Updates truncation configuration
+   */
+  public updateTruncationConfig(config: TruncationConfig): void {
+    if (config.enabled) {
+      this.truncationEngine = createTruncationEngine(config)
+    } else {
+      this.truncationEngine = undefined
+    }
   }
 }

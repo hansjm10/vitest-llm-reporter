@@ -17,6 +17,8 @@ import {
 } from './queue.js'
 import { StreamErrorHandler, type StreamErrorContext, RecoveryStrategy } from './ErrorHandler'
 import { StreamingDiagnostics, DiagnosticEvent, DiagnosticLevel } from './diagnostics'
+import type { TruncationConfig } from '../types/reporter'
+import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 
 /**
  * Configuration for the OutputSynchronizer
@@ -49,6 +51,8 @@ export interface SynchronizerConfig {
     /** Enable graceful degradation */
     enableGracefulDegradation?: boolean
   }
+  /** Truncation configuration for streaming */
+  truncation?: TruncationConfig
 }
 
 /**
@@ -136,6 +140,7 @@ export class OutputSynchronizer {
   private _shutdown = false
   private _errorHandler?: StreamErrorHandler
   private _diagnostics?: StreamingDiagnostics
+  private _truncationEngine?: ITruncationEngine
 
   constructor(config: SynchronizerConfig = {}) {
     this._config = {
@@ -153,6 +158,18 @@ export class OutputSynchronizer {
         enableFallbackConsole: true,
         enableGracefulDegradation: true,
         ...config.errorHandling
+      },
+      truncation: {
+        enabled: false,
+        maxTokens: undefined,
+        model: 'gpt-4',
+        strategy: 'smart',
+        featureFlag: false,
+        enableEarlyTruncation: false,
+        enableStreamingTruncation: false,
+        enableLateTruncation: false,
+        enableMetrics: false,
+        ...config.truncation
       }
     }
 
@@ -191,6 +208,11 @@ export class OutputSynchronizer {
         enableResourceMonitoring: true
       })
       this._diagnostics.start()
+    }
+
+    // Initialize truncation engine for streaming if enabled
+    if (this._config.truncation?.enabled && this._config.truncation?.enableStreamingTruncation) {
+      this._truncationEngine = createTruncationEngine(this._config.truncation)
     }
 
     if (this._config.enableMonitoring) {
@@ -357,11 +379,32 @@ export class OutputSynchronizer {
    */
   private async _executeWrite(operation: OutputOperation): Promise<void> {
     await this._outputMutex.withLock(async () => {
+      // Apply streaming truncation if enabled
+      let dataToWrite = operation.data
+      if (this._truncationEngine) {
+        const content = typeof dataToWrite === 'string' ? dataToWrite : dataToWrite.toString()
+        if (this._truncationEngine.needsTruncation(content)) {
+          const result = this._truncationEngine.truncate(content)
+          dataToWrite = result.content
+          
+          // Log truncation for diagnostics
+          this._diagnostics?.trackOperationComplete(
+            `truncation-${Date.now()}`,
+            true,
+            {
+              originalTokens: result.metrics.originalTokens,
+              truncatedTokens: result.metrics.truncatedTokens,
+              wasTruncated: result.metrics.wasTruncated
+            }
+          )
+        }
+      }
+      
       // Write to appropriate stream
       if (operation.stream === 'stdout') {
-        process.stdout.write(operation.data)
+        process.stdout.write(dataToWrite)
       } else {
-        process.stderr.write(operation.data)
+        process.stderr.write(dataToWrite)
       }
     }, operation.context?.id)
   }
@@ -621,5 +664,19 @@ export class OutputSynchronizer {
    */
   get hasDiagnostics(): boolean {
     return Boolean(this._diagnostics)
+  }
+
+  /**
+   * Get truncation metrics if available
+   */
+  getTruncationMetrics() {
+    return this._truncationEngine?.getMetrics() || []
+  }
+
+  /**
+   * Check if truncation is enabled
+   */
+  get hasTruncation(): boolean {
+    return Boolean(this._truncationEngine)
   }
 }
