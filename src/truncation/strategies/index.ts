@@ -13,11 +13,5 @@ export { StackTraceStrategy } from './StackTraceStrategy'
 export type {
   ITruncationStrategy,
   TruncationContext,
-  TruncationConfig,
-  TruncationResult,
-  ContentType,
-  HeadTailOptions,
-  SmartTruncationOptions,
-  ErrorFocusedOptions,
-  StackTraceOptions
-} from '../types.js'
+  TruncationResult
+} from '../types'
