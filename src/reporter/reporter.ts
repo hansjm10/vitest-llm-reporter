@@ -85,13 +85,11 @@ export class LLMReporter implements Reporter {
       maxConsoleBytes: config.maxConsoleBytes ?? 50_000,
       maxConsoleLines: config.maxConsoleLines ?? 100,
       includeDebugOutput: config.includeDebugOutput ?? false,
-<<<<<<< HEAD
       streamingMode: config.streamingMode ?? false,
       tokenCountingEnabled: config.tokenCountingEnabled ?? false,
       outputFormat: config.outputFormat ?? 'json',
       maxTokens: config.maxTokens ?? undefined,
-      tokenCountingModel: config.tokenCountingModel ?? 'gpt-4'
-=======
+      tokenCountingModel: config.tokenCountingModel ?? 'gpt-4',
       enableStreaming: shouldEnableStreaming,
       streaming: {
         maxConcurrentTests: config.streaming?.maxConcurrentTests ?? 10,
@@ -109,7 +107,6 @@ export class LLMReporter implements Reporter {
           deadlockDetection: config.streaming?.locks?.deadlockDetection ?? true
         }
       }
->>>>>>> 0710cff (Issue #18: Stream 4 - Add reporter integration and streaming hooks)
     }
 
     // Initialize components
