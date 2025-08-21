@@ -403,7 +403,7 @@ export class MetricsCollector implements IMetricsCollector {
       hits: totalHits,
       misses: totalMisses,
       size: totalOps,
-      capacity: this.config.cache.tokenCacheSize + this.config.cache.resultCacheSize + this.config.cache.templateCacheSize,
+      capacity: this.config.cache!.tokenCacheSize! + this.config.cache!.resultCacheSize! + this.config.cache!.templateCacheSize!,
       efficiency,
       caches: {
         tokenCache: createCacheInstanceMetrics('token'),
@@ -434,7 +434,7 @@ export class MetricsCollector implements IMetricsCollector {
       operationsPerSecond: this.throughputCounters.operationsExecuted / elapsedTime,
       bytesPerSecond: this.throughputCounters.bytesProcessed / elapsedTime,
       cacheOperationsPerSecond: this.throughputCounters.cacheOperations / elapsedTime,
-      averageBatchSize: this.config.streaming.priorityQueue.batchSize
+      averageBatchSize: this.config.streaming?.priorityQueue?.batchSize || 0
     }
   }
 
@@ -485,9 +485,9 @@ export class MetricsCollector implements IMetricsCollector {
    */
   private getCacheCapacity(cacheName: string): number {
     switch (cacheName) {
-      case 'token': return this.config.cache.tokenCacheSize
-      case 'result': return this.config.cache.resultCacheSize
-      case 'template': return this.config.cache.templateCacheSize
+      case 'token': return this.config.cache?.tokenCacheSize || 1000
+      case 'result': return this.config.cache?.resultCacheSize || 1000
+      case 'template': return this.config.cache?.templateCacheSize || 1000
       default: return 1000
     }
   }

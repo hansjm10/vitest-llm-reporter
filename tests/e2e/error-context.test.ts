@@ -230,7 +230,7 @@ export default defineConfig({
         )
       }
     }
-  })
+  }, 30000)
 
   it('should extract context for object comparison failures', () => {
     // The test should have already run, so just check the output

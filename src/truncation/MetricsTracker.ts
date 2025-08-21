@@ -6,7 +6,21 @@
  * @module truncation/MetricsTracker
  */
 
-import type { TruncationMetrics } from './TruncationEngine'
+/**
+ * Basic truncation metrics
+ */
+export interface TruncationMetrics {
+  /** Tokens removed during truncation */
+  tokensRemoved: number
+  /** Whether truncation occurred */
+  wasTruncated: boolean
+  /** Original token count */
+  originalTokens: number
+  /** Truncated token count */
+  truncatedTokens: number
+  /** Processing time in ms */
+  processingTime?: number
+}
 
 /**
  * Truncation stage identifier
@@ -121,7 +135,7 @@ export class TruncationMetricsTracker {
         totalTruncated++
         totalTokensSaved += (metric.originalTokens - metric.truncatedTokens)
       }
-      totalProcessingTime += metric.processingTime
+      totalProcessingTime += metric.processingTime || 0
     }
 
     // Find most active stage

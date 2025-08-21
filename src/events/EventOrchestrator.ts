@@ -535,7 +535,10 @@ export class EventOrchestrator {
           truncatedOutput[key] = [result.content]
           
           // Record metrics
-          globalTruncationMetrics.recordTruncation(result.metrics, 'early')
+          globalTruncationMetrics.recordTruncation({
+            ...result.metrics,
+            wasTruncated: true
+          }, 'early')
           
           this.debug('Early truncation applied to %s: %d -> %d tokens', 
             key, result.metrics.originalTokens, result.metrics.truncatedTokens)

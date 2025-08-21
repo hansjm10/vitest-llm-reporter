@@ -737,7 +737,7 @@ describe('LLMReporter', () => {
   })
 
   describe('Watch Mode Handling', () => {
-    it('should reset state when starting a new run while one is active', () => {
+    it('should reset state when starting a new run while one is active', async () => {
       // Create reporter with includePassedTests to verify reset behavior
       const watchReporter = new LLMReporter({ includePassedTests: true })
 
@@ -769,7 +769,7 @@ describe('LLMReporter', () => {
       expect(output?.passed?.[0].test).toBe('test 2')
     })
 
-    it('should handle multiple consecutive test runs on same reporter instance', () => {
+    it('should handle multiple consecutive test runs on same reporter instance', async () => {
       // Create reporter with includePassedTests to verify output
       const watchReporter = new LLMReporter({ includePassedTests: true })
 

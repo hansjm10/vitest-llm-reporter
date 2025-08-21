@@ -365,7 +365,7 @@ export class PerformanceManager implements IPerformanceManager {
     const cacheMetrics = beforeMetrics.cache
 
     // Check if cache hit ratio is below target
-    if (cacheMetrics.hitRatio < this.config.cache.targetHitRatio) {
+    if (cacheMetrics.hitRatio < this.config.cache!.targetHitRatio!) {
       await this.cacheManager.optimize()
       
       const afterMetrics = this.getMetrics()

@@ -133,8 +133,9 @@ export class BenchmarkSuite {
           await this.simulateTestProcessing(data)
           const duration = Date.now() - start
           
-          if (duration > this.config.thresholds.maxLatency) {
-            throw new Error(`Test processing too slow: ${duration}ms > ${this.config.thresholds.maxLatency}ms`)
+          const maxLatency = this.config.thresholds?.maxLatency ?? 1000
+          if (duration > maxLatency) {
+            throw new Error(`Test processing too slow: ${duration}ms > ${maxLatency}ms`)
           }
         },
         expectedOpsPerSecond: 500,
@@ -163,7 +164,8 @@ export class BenchmarkSuite {
           const duration = Date.now() - start
           const opsPerSecond = (2000 / duration) * 1000
           
-          if (opsPerSecond < this.config.thresholds.minThroughput) {
+          const minThroughput = this.config.thresholds?.minThroughput ?? 100
+          if (opsPerSecond < minThroughput) {
             throw new Error(`Cache performance too low: ${opsPerSecond} ops/sec`)
           }
         },
@@ -188,7 +190,8 @@ export class BenchmarkSuite {
           const afterMemory = process.memoryUsage()
           const memoryIncreaseMB = (afterMemory.heapUsed - beforeMemory.heapUsed) / (1024 * 1024)
           
-          if (memoryIncreaseMB > this.config.thresholds.maxMemoryUsage) {
+          const maxMemoryUsage = this.config.thresholds?.maxMemoryUsage ?? 512
+          if (memoryIncreaseMB > maxMemoryUsage) {
             throw new Error(`Memory usage too high: ${memoryIncreaseMB}MB`)
           }
           

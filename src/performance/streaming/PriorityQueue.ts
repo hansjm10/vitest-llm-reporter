@@ -47,7 +47,7 @@ export class PriorityQueue<T> {
     }
 
     // Maintain size limit
-    if (this.queue.length > this.config.maxSize) {
+    if (this.queue.length > this.config.maxSize!) {
       this.queue.pop() // Remove lowest priority item
     }
   }
@@ -66,13 +66,13 @@ export class PriorityQueue<T> {
 
   getOptimalBatchSize(): number {
     // Adjust batch size based on queue load
-    const loadRatio = this.queue.length / this.config.maxSize
+    const loadRatio = this.queue.length / this.config.maxSize!
     if (loadRatio > 0.8) {
-      return Math.max(this.config.batchSize * 0.5, 1)
+      return Math.max(this.config.batchSize! * 0.5, 1)
     } else if (loadRatio < 0.2) {
-      return this.config.batchSize * 1.5
+      return this.config.batchSize! * 1.5
     }
-    return this.config.batchSize
+    return this.config.batchSize!
   }
 
   size(): number {

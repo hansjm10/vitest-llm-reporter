@@ -394,7 +394,7 @@ export class OutputSynchronizer {
             {
               originalTokens: result.metrics.originalTokens,
               truncatedTokens: result.metrics.truncatedTokens,
-              wasTruncated: result.metrics.wasTruncated
+              wasTruncated: true
             }
           )
         }

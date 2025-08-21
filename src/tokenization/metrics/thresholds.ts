@@ -388,7 +388,7 @@ export class ThresholdManager {
   /**
    * Merge threshold settings with defaults
    */
-  private mergeSettings(
+  public mergeSettings(
     base: ThresholdSettings,
     updates?: Partial<ThresholdSettings>
   ): ThresholdSettings {

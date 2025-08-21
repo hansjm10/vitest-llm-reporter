@@ -16,7 +16,7 @@ export class AdaptiveBuffer {
 
   constructor(bufferLimits: Required<StreamingOptimizationConfig>['bufferLimits']) {
     this.bufferLimits = bufferLimits
-    this.currentSize = bufferLimits.initial
+    this.currentSize = bufferLimits.initial || 1000
   }
 
   optimize(currentSize: number, metrics: PerformanceMetrics): number {
@@ -36,18 +36,18 @@ export class AdaptiveBuffer {
     const optimalSize = this.calculateOptimalSize(metrics)
     
     // Ensure within limits
-    return Math.max(this.bufferLimits.min, Math.min(this.bufferLimits.max, optimalSize))
+    return Math.max(this.bufferLimits.min || 100, Math.min(this.bufferLimits.max || 10000, optimalSize))
   }
 
   private calculateOptimalSize(metrics: PerformanceMetrics): number {
     // High latency suggests buffer too small
     if (metrics.timing.averageLatency > 100) {
-      return Math.min(this.currentSize * 1.5, this.bufferLimits.max)
+      return Math.min(this.currentSize * 1.5, this.bufferLimits.max || 10000)
     }
     
     // Low throughput with high memory usage suggests buffer too large
     if (metrics.throughput.bytesPerSecond < 1000 && metrics.memory.usagePercentage > 80) {
-      return Math.max(this.currentSize * 0.8, this.bufferLimits.min)
+      return Math.max(this.currentSize * 0.8, this.bufferLimits.min || 100)
     }
     
     return this.currentSize
