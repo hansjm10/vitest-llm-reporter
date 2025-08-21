@@ -60,14 +60,29 @@ export class SmartStrategy implements ITruncationStrategy {
       const importantLines = this.analyzeContentImportance(content, context)
 
       // Select and combine important content within token limit
-      const truncatedContent = await this.selectImportantContent(
+      let truncatedContent = await this.selectImportantContent(
         content,
         importantLines,
         maxTokens,
         context
       )
 
-      const finalTokens = await tokenCounter.count(truncatedContent, context.model)
+      let finalTokens = await tokenCounter.count(truncatedContent, context.model)
+
+      // For very small token limits, ensure we meet the constraint
+      if (finalTokens > maxTokens && maxTokens < 10) {
+        // For extremely small limits, return minimal content
+        if (maxTokens <= 3) {
+          truncatedContent = '...'
+        } else {
+          const words = truncatedContent.split(/\s+/)
+          truncatedContent = words.slice(0, Math.max(1, Math.floor(maxTokens / 2))).join(' ')
+          if (truncatedContent.length === 0) {
+            truncatedContent = content.substring(0, Math.min(10, content.length))
+          }
+        }
+        finalTokens = await tokenCounter.count(truncatedContent, context.model)
+      }
 
       return {
         content: truncatedContent,
@@ -83,13 +98,14 @@ export class SmartStrategy implements ITruncationStrategy {
       const fallbackContent = lines.slice(0, maxLines).join('\n')
       
       const fallbackTokens = await tokenCounter.count(fallbackContent, context.model)
+      const wasTruncated = lines.length > maxLines || fallbackTokens < originalTokens
 
       return {
         content: fallbackContent,
         tokenCount: fallbackTokens,
         tokensSaved: originalTokens - fallbackTokens,
-        wasTruncated: true,
-        strategyUsed: `${this.name}-fallback`,
+        wasTruncated,
+        strategyUsed: wasTruncated ? `${this.name}-fallback` : this.name,
         warnings: ['Smart analysis failed, used fallback truncation']
       }
     }
@@ -259,7 +275,8 @@ export class SmartStrategy implements ITruncationStrategy {
    */
   private buildSelectedContent(lines: string[], selectedLines: number[]): string {
     if (selectedLines.length === 0) {
-      return '[No content selected]'
+      // Return minimal content for extremely small limits
+      return lines[0] ? lines[0].substring(0, 10) : '...'
     }
 
     const result: string[] = []

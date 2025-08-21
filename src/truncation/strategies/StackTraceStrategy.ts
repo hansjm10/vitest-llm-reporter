@@ -56,8 +56,18 @@ export class StackTraceStrategy implements ITruncationStrategy {
 
     try {
       // Parse and process stack trace
-      const truncatedContent = await this.processStackTrace(content, maxTokens, context)
-      const finalTokens = await tokenCounter.count(truncatedContent, context.model)
+      let truncatedContent = await this.processStackTrace(content, maxTokens, context)
+      let finalTokens = await tokenCounter.count(truncatedContent, context.model)
+
+      // For very small token limits, ensure we meet the constraint
+      if (finalTokens > maxTokens && maxTokens < 10) {
+        const words = truncatedContent.split(/\s+/)
+        truncatedContent = words.slice(0, Math.max(1, Math.floor(maxTokens / 2))).join(' ')
+        if (truncatedContent.length === 0) {
+          truncatedContent = content.substring(0, Math.min(10, content.length))
+        }
+        finalTokens = await tokenCounter.count(truncatedContent, context.model)
+      }
 
       return {
         content: truncatedContent,
