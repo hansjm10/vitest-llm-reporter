@@ -10,8 +10,10 @@
 import type { LLMReporterOutput } from '../types/schema'
 import { SchemaValidator, ValidationConfig, ValidationResult } from '../validation/validator'
 import { JsonSanitizer, JsonSanitizerConfig } from '../sanitization/json-sanitizer'
-import type { TruncationConfig } from '../types/reporter'
+import type { TruncationConfig, DeduplicationConfig } from '../types/reporter'
 import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
+import { createDeduplicationService, type IDeduplicationService } from '../deduplication'
+import type { DeduplicationResult, DuplicateEntry } from '../types/deduplication'
 
 /**
  * Processing options
@@ -20,9 +22,11 @@ export interface ProcessingOptions {
   validate?: boolean
   sanitize?: boolean
   truncate?: boolean
+  deduplicate?: boolean
   validationConfig?: ValidationConfig
   sanitizationConfig?: JsonSanitizerConfig
   truncationConfig?: TruncationConfig
+  deduplicationConfig?: DeduplicationConfig
 }
 
 /**
@@ -35,7 +39,9 @@ export interface ProcessingResult {
   validated?: boolean
   sanitized?: boolean
   truncated?: boolean
+  deduplicated?: boolean
   truncationMetrics?: Array<{ originalTokens: number; truncatedTokens: number; wasTruncated: boolean }>
+  deduplicationResult?: DeduplicationResult
 }
 
 /**
@@ -70,7 +76,8 @@ export class SchemaProcessor {
   private validator: SchemaValidator
   private sanitizer: JsonSanitizer
   private truncationEngine?: ITruncationEngine
-  private defaultOptions: Required<Pick<ProcessingOptions, 'validate' | 'sanitize' | 'truncate'>>
+  private deduplicationService?: IDeduplicationService
+  private defaultOptions: Required<Pick<ProcessingOptions, 'validate' | 'sanitize' | 'truncate' | 'deduplicate'>>
 
   constructor(options: ProcessingOptions = {}) {
     this.validator = new SchemaValidator(options.validationConfig)
@@ -81,10 +88,16 @@ export class SchemaProcessor {
       this.truncationEngine = createTruncationEngine(options.truncationConfig)
     }
     
+    // Initialize deduplication service if enabled
+    if (options.deduplicationConfig?.enabled) {
+      this.deduplicationService = createDeduplicationService(options.deduplicationConfig)
+    }
+    
     this.defaultOptions = {
       validate: options.validate ?? true,
       sanitize: options.sanitize ?? true,
-      truncate: options.truncate ?? (options.truncationConfig?.enabled ?? false)
+      truncate: options.truncate ?? (options.truncationConfig?.enabled ?? false),
+      deduplicate: options.deduplicate ?? (options.deduplicationConfig?.enabled ?? false)
     }
   }
 
@@ -99,13 +112,15 @@ export class SchemaProcessor {
     const processOptions = {
       validate: options?.validate ?? this.defaultOptions.validate,
       sanitize: options?.sanitize ?? this.defaultOptions.sanitize,
-      truncate: options?.truncate ?? this.defaultOptions.truncate
+      truncate: options?.truncate ?? this.defaultOptions.truncate,
+      deduplicate: options?.deduplicate ?? this.defaultOptions.deduplicate
     }
 
     let truncationMetrics: ProcessingResult['truncationMetrics']
+    let deduplicationResult: ProcessingResult['deduplicationResult']
 
     // If nothing is requested, just pass through
-    if (!processOptions.validate && !processOptions.sanitize && !processOptions.truncate) {
+    if (!processOptions.validate && !processOptions.sanitize && !processOptions.truncate && !processOptions.deduplicate) {
       return {
         success: true,
         data: output as LLMReporterOutput,
@@ -125,7 +140,8 @@ export class SchemaProcessor {
           errors: validationResult.errors,
           validated: true,
           sanitized: false,
-          truncated: false
+          truncated: false,
+          deduplicated: false
         }
       }
 
@@ -147,7 +163,8 @@ export class SchemaProcessor {
           ],
           validated: processOptions.validate,
           sanitized: false,
-          truncated: false
+          truncated: false,
+          deduplicated: false
         }
       }
     }
@@ -172,7 +189,47 @@ export class SchemaProcessor {
           ],
           validated: processOptions.validate,
           sanitized: processOptions.sanitize,
-          truncated: false
+          truncated: false,
+          deduplicated: false
+        }
+      }
+    }
+
+    // Deduplication phase
+    if (processOptions.deduplicate && this.deduplicationService) {
+      try {
+        const reporterOutput = output as LLMReporterOutput
+        if (reporterOutput.failures && reporterOutput.failures.length > 0) {
+          // Convert failures to DuplicateEntry format
+          const duplicateEntries: DuplicateEntry[] = reporterOutput.failures.map(failure => ({
+            testId: failure.test.name,
+            testName: failure.test.name,
+            filePath: failure.test.file || '',
+            timestamp: new Date(),
+            errorMessage: failure.error?.message,
+            stackTrace: failure.error?.stack,
+            consoleOutput: failure.console?.map(c => c.output) || []
+          }))
+
+          // Process deduplication
+          deduplicationResult = this.deduplicationService.process(duplicateEntries)
+          
+          // Optionally update the output with deduplication info
+          // This could be extended to actually modify the output structure
+        }
+      } catch (error) {
+        return {
+          success: false,
+          errors: [
+            {
+              path: 'deduplication',
+              message: error instanceof Error ? error.message : 'Deduplication failed'
+            }
+          ],
+          validated: processOptions.validate,
+          sanitized: processOptions.sanitize,
+          truncated: processOptions.truncate,
+          deduplicated: false
         }
       }
     }
@@ -183,7 +240,9 @@ export class SchemaProcessor {
       validated: processOptions.validate,
       sanitized: processOptions.sanitize,
       truncated: processOptions.truncate,
-      truncationMetrics
+      deduplicated: processOptions.deduplicate,
+      truncationMetrics,
+      deduplicationResult
     }
   }
 

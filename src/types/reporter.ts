@@ -7,6 +7,8 @@
  * @module reporter-types
  */
 
+import type { DeduplicationConfig } from './deduplication'
+
 /**
  * Configuration options for the LLM Reporter
  */
@@ -43,6 +45,8 @@ export interface LLMReporterConfig {
   streaming?: StreamingConfig
   /** Truncation configuration options */
   truncation?: TruncationConfig
+  /** Deduplication configuration options */
+  deduplication?: DeduplicationConfig
 }
 
 /**

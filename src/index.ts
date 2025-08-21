@@ -48,6 +48,15 @@ export type { StreamingReporterConfig } from './streaming/StreamingReporter'
 export { ReporterStreamIntegration, StreamEventType } from './streaming/ReporterStreamIntegration'
 export type { StreamIntegrationConfig, StreamEvent } from './streaming/ReporterStreamIntegration'
 
+// Export deduplication module
+export { DeduplicationService, createDeduplicationService } from './deduplication'
+export type { 
+  DeduplicationConfig,
+  DeduplicationResult,
+  DeduplicationStats,
+  IDeduplicationService
+} from './types/deduplication'
+
 // Default export for Vitest to use
 import { LLMReporter } from './reporter/reporter'
 export default LLMReporter
