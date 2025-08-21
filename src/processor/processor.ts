@@ -14,6 +14,7 @@ import type { TruncationConfig, DeduplicationConfig } from '../types/reporter'
 import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 import { createDeduplicationService, type IDeduplicationService } from '../deduplication'
 import type { DeduplicationResult, DuplicateEntry } from '../types/deduplication'
+import { PerformanceManager, createPerformanceManager, type PerformanceConfig } from '../performance'
 
 /**
  * Processing options
@@ -27,6 +28,8 @@ export interface ProcessingOptions {
   sanitizationConfig?: JsonSanitizerConfig
   truncationConfig?: TruncationConfig
   deduplicationConfig?: DeduplicationConfig
+  /** Performance optimization configuration */
+  performanceConfig?: PerformanceConfig
 }
 
 /**
@@ -77,6 +80,7 @@ export class SchemaProcessor {
   private sanitizer: JsonSanitizer
   private truncationEngine?: ITruncationEngine
   private deduplicationService?: IDeduplicationService
+  private performanceManager?: PerformanceManager
   private defaultOptions: Required<Pick<ProcessingOptions, 'validate' | 'sanitize' | 'truncate' | 'deduplicate'>>
 
   constructor(options: ProcessingOptions = {}) {
@@ -93,11 +97,34 @@ export class SchemaProcessor {
       this.deduplicationService = createDeduplicationService(options.deduplicationConfig)
     }
     
+    // Initialize performance manager if enabled
+    if (options.performanceConfig?.enabled) {
+      this.performanceManager = createPerformanceManager(options.performanceConfig)
+      this.initializePerformanceManager()
+    }
+    
     this.defaultOptions = {
       validate: options.validate ?? true,
       sanitize: options.sanitize ?? true,
       truncate: options.truncate ?? (options.truncationConfig?.enabled ?? false),
       deduplicate: options.deduplicate ?? (options.deduplicationConfig?.enabled ?? false)
+    }
+  }
+
+  /**
+   * Initialize performance manager
+   */
+  private async initializePerformanceManager(): Promise<void> {
+    if (!this.performanceManager) {
+      return
+    }
+
+    try {
+      await this.performanceManager.initialize()
+      this.performanceManager.start()
+    } catch (error) {
+      // Don't fail the processor if performance manager fails
+      this.performanceManager = undefined
     }
   }
 
@@ -108,7 +135,7 @@ export class SchemaProcessor {
    * @param options - Processing options (overrides constructor defaults)
    * @returns Processing result with success status and processed data
    */
-  public process(output: unknown, options?: ProcessingOptions): ProcessingResult {
+  public async process(output: unknown, options?: ProcessingOptions): Promise<ProcessingResult> {
     const processOptions = {
       validate: options?.validate ?? this.defaultOptions.validate,
       sanitize: options?.sanitize ?? this.defaultOptions.sanitize,
@@ -234,6 +261,16 @@ export class SchemaProcessor {
       }
     }
 
+    // Performance optimization phase
+    if (this.performanceManager) {
+      try {
+        await this.performanceManager.optimize()
+      } catch (error) {
+        // Performance optimization failure shouldn't fail the entire process
+        // Just log the error and continue
+      }
+    }
+
     return {
       success: true,
       data: output as LLMReporterOutput,
@@ -306,6 +343,20 @@ export class SchemaProcessor {
    */
   public updateSanitizationConfig(config: JsonSanitizerConfig): void {
     this.sanitizer = new JsonSanitizer(config)
+  }
+
+  /**
+   * Get performance metrics
+   */
+  public getPerformanceMetrics(): ReturnType<PerformanceManager['getMetrics']> | undefined {
+    return this.performanceManager?.getMetrics()
+  }
+
+  /**
+   * Check if performance is within configured limits
+   */
+  public isPerformanceWithinLimits(): boolean {
+    return this.performanceManager?.isWithinLimits() ?? true
   }
 
   /**

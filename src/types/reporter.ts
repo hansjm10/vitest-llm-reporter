@@ -8,6 +8,7 @@
  */
 
 import type { DeduplicationConfig } from './deduplication'
+import type { PerformanceConfig } from '../performance/types'
 
 /**
  * Configuration options for the LLM Reporter
@@ -47,6 +48,8 @@ export interface LLMReporterConfig {
   truncation?: TruncationConfig
   /** Deduplication configuration options */
   deduplication?: DeduplicationConfig
+  /** Performance optimization configuration */
+  performance?: PerformanceConfig
 }
 
 /**

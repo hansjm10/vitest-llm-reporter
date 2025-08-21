@@ -44,58 +44,14 @@ export { PerformanceManager } from './PerformanceManager'
 export { MetricsCollector } from './MetricsCollector'
 export { BenchmarkSuite } from './BenchmarkSuite'
 
-// Cache system (lazy imports for performance)
-export const CacheManager = async () => {
-  const { CacheManager } = await import('./cache/CacheManager')
-  return CacheManager
-}
+// Cache system exports
+export * from './cache'
 
-export const IntelligentCache = async () => {
-  const { IntelligentCache } = await import('./cache/IntelligentCache')
-  return IntelligentCache
-}
+// Memory management exports  
+export * from './memory'
 
-export const WarmupService = async () => {
-  const { WarmupService } = await import('./cache/WarmupService')
-  return WarmupService
-}
-
-// Memory management (lazy imports for performance)
-export const MemoryManager = async () => {
-  const { MemoryManager } = await import('./memory/MemoryManager')
-  return MemoryManager
-}
-
-export const ResourcePool = async () => {
-  const { ResourcePool } = await import('./memory/ResourcePool')
-  return ResourcePool
-}
-
-export const MemoryProfiler = async () => {
-  const { MemoryProfiler } = await import('./memory/MemoryProfiler')
-  return MemoryProfiler
-}
-
-// Streaming optimizations (lazy imports for performance)
-export const StreamOptimizer = async () => {
-  const { StreamOptimizer } = await import('./streaming/StreamOptimizer')
-  return StreamOptimizer
-}
-
-export const BackgroundProcessor = async () => {
-  const { BackgroundProcessor } = await import('./streaming/BackgroundProcessor')
-  return BackgroundProcessor
-}
-
-export const PriorityQueue = async () => {
-  const { PriorityQueue } = await import('./streaming/PriorityQueue')
-  return PriorityQueue
-}
-
-export const AdaptiveBuffer = async () => {
-  const { AdaptiveBuffer } = await import('./streaming/AdaptiveBuffer')
-  return AdaptiveBuffer
-}
+// Streaming optimization exports
+export * from './streaming'
 
 /**
  * Create a performance manager with default configuration

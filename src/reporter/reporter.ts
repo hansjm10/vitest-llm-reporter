@@ -31,6 +31,7 @@ interface ResolvedLLMReporterConfig
   tokenCountingModel: string
   enableStreaming: boolean
   streaming: Required<StreamingConfig>
+  performance: Required<PerformanceConfig>
 }
 
 // Import new components
@@ -44,6 +45,7 @@ import { OutputWriter } from '../output/OutputWriter'
 import { EventOrchestrator } from '../events/EventOrchestrator'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { detectEnvironment, hasTTY } from '../utils/environment'
+import { PerformanceManager, createPerformanceManager, type PerformanceConfig } from '../performance'
 
 export class LLMReporter implements Reporter {
   private config: ResolvedLLMReporterConfig
@@ -62,6 +64,7 @@ export class LLMReporter implements Reporter {
   private outputBuilder: OutputBuilder
   private outputWriter: OutputWriter
   private orchestrator: EventOrchestrator
+  private performanceManager?: PerformanceManager
 
   /**
    * Creates a new instance of the LLM Reporter
@@ -107,6 +110,65 @@ export class LLMReporter implements Reporter {
           timeout: config.streaming?.locks?.timeout ?? 5000,
           deadlockDetection: config.streaming?.locks?.deadlockDetection ?? true
         }
+      },
+      performance: {
+        mode: config.performance?.mode ?? 'production',
+        enabled: config.performance?.enabled ?? true,
+        maxOverheadPercent: config.performance?.maxOverheadPercent ?? 5,
+        enableMetrics: config.performance?.enableMetrics ?? true,
+        enableCaching: config.performance?.enableCaching ?? true,
+        enableMemoryManagement: config.performance?.enableMemoryManagement ?? true,
+        enableStreamingOptimizations: config.performance?.enableStreamingOptimizations ?? true,
+        cache: {
+          enabled: config.performance?.cache?.enabled ?? true,
+          tokenCacheSize: config.performance?.cache?.tokenCacheSize ?? 10000,
+          resultCacheSize: config.performance?.cache?.resultCacheSize ?? 5000,
+          templateCacheSize: config.performance?.cache?.templateCacheSize ?? 1000,
+          ttl: config.performance?.cache?.ttl ?? 3600000,
+          targetHitRatio: config.performance?.cache?.targetHitRatio ?? 80,
+          enableWarming: config.performance?.cache?.enableWarming ?? true,
+          evictionStrategy: config.performance?.cache?.evictionStrategy ?? 'adaptive',
+          enableMultiTier: config.performance?.cache?.enableMultiTier ?? true
+        },
+        memory: {
+          enabled: config.performance?.memory?.enabled ?? true,
+          pressureThreshold: config.performance?.memory?.pressureThreshold ?? 100,
+          enablePooling: config.performance?.memory?.enablePooling ?? true,
+          poolSizes: {
+            testResults: config.performance?.memory?.poolSizes?.testResults ?? 1000,
+            errors: config.performance?.memory?.poolSizes?.errors ?? 500,
+            consoleOutputs: config.performance?.memory?.poolSizes?.consoleOutputs ?? 2000
+          },
+          enableProfiling: config.performance?.memory?.enableProfiling ?? false,
+          monitoringInterval: config.performance?.memory?.monitoringInterval ?? 10000
+        },
+        streaming: {
+          enabled: config.performance?.streaming?.enabled ?? true,
+          enableAdaptiveBuffering: config.performance?.streaming?.enableAdaptiveBuffering ?? true,
+          bufferLimits: {
+            min: config.performance?.streaming?.bufferLimits?.min ?? 1024,
+            max: config.performance?.streaming?.bufferLimits?.max ?? 1048576,
+            initial: config.performance?.streaming?.bufferLimits?.initial ?? 8192
+          },
+          enableBackgroundProcessing: config.performance?.streaming?.enableBackgroundProcessing ?? true,
+          priorityQueue: {
+            maxSize: config.performance?.streaming?.priorityQueue?.maxSize ?? 10000,
+            batchSize: config.performance?.streaming?.priorityQueue?.batchSize ?? 100,
+            processingInterval: config.performance?.streaming?.priorityQueue?.processingInterval ?? 100
+          }
+        },
+        benchmark: {
+          enabled: config.performance?.benchmark?.enabled ?? false,
+          suite: config.performance?.benchmark?.suite ?? 'basic',
+          thresholds: {
+            maxLatency: config.performance?.benchmark?.thresholds?.maxLatency ?? 1000,
+            maxMemoryUsage: config.performance?.benchmark?.thresholds?.maxMemoryUsage ?? 512,
+            maxOverhead: config.performance?.benchmark?.thresholds?.maxOverhead ?? 5,
+            minThroughput: config.performance?.benchmark?.thresholds?.minThroughput ?? 100
+          },
+          sampleSize: config.performance?.benchmark?.sampleSize ?? 100,
+          warmupIterations: config.performance?.benchmark?.warmupIterations ?? 10
+        }
       }
     }
 
@@ -140,6 +202,30 @@ export class LLMReporter implements Reporter {
         streamingConfig: this.config.streaming
       }
     )
+
+    // Initialize performance manager if enabled
+    if (this.config.performance.enabled) {
+      this.performanceManager = createPerformanceManager(this.config.performance)
+      this.initializePerformanceManager()
+    }
+  }
+
+  /**
+   * Initialize performance manager
+   */
+  private async initializePerformanceManager(): Promise<void> {
+    if (!this.performanceManager) {
+      return
+    }
+
+    try {
+      await this.performanceManager.initialize()
+      this.debug('Performance manager initialized')
+    } catch (error) {
+      this.debugError('Failed to initialize performance manager: %O', error)
+      // Don't fail the reporter if performance manager fails
+      this.performanceManager = undefined
+    }
   }
 
   /**
@@ -172,6 +258,11 @@ export class LLMReporter implements Reporter {
   private cleanup(): void {
     this.orchestrator.reset()
     this.isTestRunActive = false
+    
+    // Stop performance monitoring
+    if (this.performanceManager) {
+      this.performanceManager.stop()
+    }
   }
 
   /**
@@ -182,6 +273,11 @@ export class LLMReporter implements Reporter {
     this.stateManager.reset()
     this.orchestrator.reset()
     this.output = undefined
+    
+    // Reset performance state
+    if (this.performanceManager) {
+      this.performanceManager.reset()
+    }
   }
 
   /**
@@ -241,6 +337,24 @@ export class LLMReporter implements Reporter {
   }
 
   /**
+   * Get performance metrics
+   *
+   * @returns Performance metrics if available, undefined otherwise
+   */
+  getPerformanceMetrics(): ReturnType<PerformanceManager['getMetrics']> | undefined {
+    return this.performanceManager?.getMetrics()
+  }
+
+  /**
+   * Check if performance is within configured limits
+   *
+   * @returns True if within limits, false otherwise
+   */
+  isPerformanceWithinLimits(): boolean {
+    return this.performanceManager?.isWithinLimits() ?? true
+  }
+
+  /**
    * Initialize the reporter with Vitest context
    *
    * @param ctx - The Vitest context
@@ -262,6 +376,11 @@ export class LLMReporter implements Reporter {
     this.isTestRunActive = true
 
     try {
+      // Start performance monitoring
+      if (this.performanceManager) {
+        this.performanceManager.start()
+      }
+      
       this.orchestrator.handleTestRunStart(specifications)
     } catch (error) {
       this.debugError('Error in onTestRunStart: %O', error)
@@ -380,6 +499,34 @@ export class LLMReporter implements Reporter {
             duration: 0,
             timestamp: new Date().toISOString()
           }
+        }
+      }
+
+      // Run performance optimization if enabled
+      if (this.performanceManager) {
+        try {
+          const optimizations = await this.performanceManager.optimize()
+          if (optimizations.length > 0) {
+            this.debug('Applied %d performance optimizations', optimizations.length)
+          }
+          
+          // Check if we're within performance limits
+          if (!this.performanceManager.isWithinLimits()) {
+            this.debugError('Performance overhead exceeded limits')
+          }
+          
+          // Log performance metrics in debug mode
+          if (this.config.performance.mode === 'development' || this.config.performance.mode === 'debug') {
+            const metrics = this.performanceManager.getMetrics()
+            this.debug('Performance metrics: %O', {
+              overhead: metrics.overhead.totalOverhead,
+              cacheHitRatio: metrics.cache.hitRatio,
+              memoryUsage: metrics.memory.usagePercentage,
+              throughput: metrics.throughput.testsPerSecond
+            })
+          }
+        } catch (perfError) {
+          this.debugError('Performance optimization failed: %O', perfError)
         }
       }
 
