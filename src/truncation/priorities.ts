@@ -5,7 +5,8 @@
  * configuring priority rules, and managing truncation order based on content importance.
  */
 
-import type { ContentPriority, ContentType, ContentTypeConfig } from './types.js'
+import type { ContentTypeConfig } from './types.js'
+import { ContentPriority, ContentType } from './types.js'
 
 /**
  * Default priority configurations for different content types

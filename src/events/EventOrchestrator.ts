@@ -26,6 +26,7 @@ import {
 } from '../streaming/OutputSynchronizer'
 import type { TruncationConfig } from '../types/reporter'
 import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
+import { globalTruncationMetrics } from '../truncation/MetricsTracker'
 
 /**
  * Event orchestrator configuration
@@ -157,6 +158,11 @@ export class EventOrchestrator {
     if (this.config.truncationConfig.enabled && this.config.truncationConfig.enableEarlyTruncation) {
       this.truncationEngine = createTruncationEngine(this.config.truncationConfig)
       this.debug('Early truncation enabled')
+      
+      // Enable global metrics if configured
+      if (this.config.truncationConfig.enableMetrics) {
+        globalTruncationMetrics.setEnabled(true)
+      }
     }
   }
 
@@ -528,6 +534,9 @@ export class EventOrchestrator {
           const result = this.truncationEngine.truncate(combined)
           truncatedOutput[key] = [result.content]
           
+          // Record metrics
+          globalTruncationMetrics.recordTruncation(result.metrics, 'early')
+          
           this.debug('Early truncation applied to %s: %d -> %d tokens', 
             key, result.metrics.originalTokens, result.metrics.truncatedTokens)
         }
@@ -542,6 +551,13 @@ export class EventOrchestrator {
    */
   public getTruncationMetrics() {
     return this.truncationEngine?.getMetrics() || []
+  }
+
+  /**
+   * Gets global truncation metrics summary
+   */
+  public getGlobalTruncationMetrics() {
+    return globalTruncationMetrics.getSummary()
   }
 
   /**

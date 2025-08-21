@@ -6,7 +6,8 @@
  */
 
 import type { SupportedModel } from '../tokenization/types.js'
-import type { TruncationContext, ContentPriority } from './types.js'
+import type { TruncationContext } from './types.js'
+import { ContentPriority } from './types.js'
 
 /**
  * Context window sizes for supported models (in tokens)

@@ -11,9 +11,9 @@ import type {
   TruncationContext, 
   TruncationResult, 
   TruncationEngineConfig,
-  TruncationStats,
-  ContentType
+  TruncationStats
 } from './types.js'
+import { ContentType } from './types.js'
 import type { SupportedModel } from '../tokenization/types.js'
 import type { TruncationConfig } from '../types/reporter.js'
 import { TokenCounter, getTokenCounter } from '../tokenization/TokenCounter.js'
@@ -486,14 +486,15 @@ class LegacyTruncationEngineAdapter implements ITruncationEngine {
   }> = []
 
   constructor(config: TruncationConfig) {
+    const model = (config.model as SupportedModel) || 'gpt-4'
     const engineConfig: TruncationEngineConfig = {
-      defaultModel: (config.model as SupportedModel) || 'gpt-4',
+      defaultModel: model,
       maxAttempts: 3,
       enableAggressiveFallback: true
     }
     
     this.engine = new TruncationEngine(engineConfig)
-    this.model = engineConfig.defaultModel
+    this.model = model
     this.maxTokens = config.maxTokens
   }
 
