@@ -258,7 +258,7 @@ export class OutputBuilder {
 
     // Check if this is a failure
     if ('error' in result) {
-      output.failures = [result as TestFailure]
+      output.failures = [result]
     } else {
       // Handle passed/skipped tests based on configuration
       if (this.shouldIncludePassedTests([result])) {

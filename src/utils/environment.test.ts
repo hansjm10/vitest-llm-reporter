@@ -26,8 +26,14 @@ describe('Environment Detection', () => {
 
     // Clear environment variables
     for (const key of Object.keys(process.env)) {
-      if (key.includes('CI') || key.includes('GITHUB') || key.includes('GITLAB') || 
-          key.includes('JENKINS') || key.includes('TRAVIS') || key.includes('BUILD')) {
+      if (
+        key.includes('CI') ||
+        key.includes('GITHUB') ||
+        key.includes('GITLAB') ||
+        key.includes('JENKINS') ||
+        key.includes('TRAVIS') ||
+        key.includes('BUILD')
+      ) {
         delete process.env[key]
       }
     }

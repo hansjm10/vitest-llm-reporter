@@ -1,20 +1,20 @@
 /**
  * Stream Manager - Minimal Implementation for Console Integration
- * 
+ *
  * This is a basic implementation to support Console Integration (Stream 3).
  * The full implementation will be provided by Stream 1.
- * 
+ *
  * @module streaming/StreamManager
  */
 
 import { EventEmitter } from 'node:events'
-import type { 
-  IStreamManager, 
-  StreamOperation, 
-  StreamConfig, 
-  StreamEvent, 
-  StreamEventType, 
-  StreamingMode 
+import type {
+  IStreamManager,
+  StreamOperation,
+  StreamConfig,
+  StreamEvent,
+  StreamEventType,
+  StreamingMode
 } from './types'
 import { createLogger } from '../utils/logger'
 
@@ -27,7 +27,7 @@ const DEFAULT_CONFIG: StreamConfig = {
 
 /**
  * Basic StreamManager implementation for console integration
- * 
+ *
  * This provides the minimal functionality needed for Stream 3 to integrate
  * console capture with streaming. The full implementation will replace this.
  */
@@ -41,7 +41,7 @@ export class StreamManager extends EventEmitter implements IStreamManager {
   async initialize(config: StreamConfig): Promise<void> {
     this.config = { ...DEFAULT_CONFIG, ...config }
     this.initialized = this.config.enabled
-    
+
     if (this.initialized) {
       this.startFlushTimer()
       this.debug('StreamManager initialized with config: %o', this.config)
@@ -79,7 +79,7 @@ export class StreamManager extends EventEmitter implements IStreamManager {
     }
 
     const operations = this.operationQueue.splice(0) // Clear queue
-    
+
     // Sort by priority (lower number = higher priority)
     operations.sort((a, b) => a.priority - b.priority)
 
@@ -151,7 +151,7 @@ export class StreamManager extends EventEmitter implements IStreamManager {
       timestamp: Date.now(),
       data
     }
-    
+
     this.emit(type, event)
   }
 

@@ -81,7 +81,7 @@ const DEFAULT_FILE_CONFIG: Required<FileOutputConfig> = {
  *   filePath: './output/test-results.json',
  *   formatting: { spaces: 2 }
  * });
- * 
+ *
  * if (strategy.canExecute()) {
  *   await strategy.initialize();
  *   await strategy.write(reporterOutput);
@@ -102,7 +102,7 @@ export class FileOutputStrategy implements OutputStrategy {
 
     this.config = this.mergeConfig(config)
     this.validator = new OutputValidator()
-    
+
     logger('FileOutputStrategy created for path: %s', this.config.filePath)
   }
 
@@ -124,7 +124,7 @@ export class FileOutputStrategy implements OutputStrategy {
     logger('Checking if file output can execute for: %s', this.config.filePath)
 
     const validation = this.validator.validateFilePermissions(this.config.filePath)
-    
+
     if (!validation.isValid) {
       logger('File output validation failed: %s', validation.error)
       return false
@@ -190,12 +190,12 @@ export class FileOutputStrategy implements OutputStrategy {
 
       // Write to file atomically (write to temp file, then rename)
       const tempPath = `${this.resolvedPath}.tmp`
-      await fs.promises.writeFile(tempPath, jsonContent, { 
-        encoding: this.config.options.encoding 
+      await fs.promises.writeFile(tempPath, jsonContent, {
+        encoding: this.config.options.encoding
       })
-      
+
       await fs.promises.rename(tempPath, this.resolvedPath)
-      
+
       logger('Successfully wrote %d bytes to %s', jsonContent.length, this.resolvedPath)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -270,7 +270,7 @@ export class FileOutputStrategy implements OutputStrategy {
     }
 
     const backupPath = `${this.resolvedPath}.backup.${Date.now()}`
-    
+
     try {
       await fs.promises.copyFile(this.resolvedPath, backupPath)
       logger('Created backup: %s', backupPath)

@@ -1,9 +1,9 @@
 /**
  * Synchronization primitives for streaming output
- * 
+ *
  * Provides mutex, semaphore, and reader-writer lock implementations
  * for coordinating concurrent test output streams.
- * 
+ *
  * @module streaming/locks
  */
 
@@ -31,7 +31,7 @@ export interface LockConfig {
 
 /**
  * Mutual exclusion lock for critical sections
- * 
+ *
  * Ensures only one operation can proceed at a time.
  * Provides deadlock detection and timeout mechanisms.
  */
@@ -57,7 +57,7 @@ export class Mutex {
    */
   async acquire(requesterId?: string): Promise<void> {
     const id = requesterId ?? `req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
-    
+
     if (!this._locked) {
       this._locked = true
       this._holder = id
@@ -84,10 +84,12 @@ export class Mutex {
         const index = this._waiters.indexOf(waiter)
         if (index >= 0) {
           this._waiters.splice(index, 1)
-          reject(new Error(
-            `Lock acquisition timeout for ${this._config.name} after ${this._config.timeout}ms. ` +
-            `Current holder: ${this._holder}, Waiters: ${this._waiters.length}`
-          ))
+          reject(
+            new Error(
+              `Lock acquisition timeout for ${this._config.name} after ${this._config.timeout}ms. ` +
+                `Current holder: ${this._holder}, Waiters: ${this._waiters.length}`
+            )
+          )
         }
       }, this._config.timeout)
 
@@ -112,7 +114,7 @@ export class Mutex {
     if (holderId && this._holder !== holderId) {
       throw new Error(
         `Lock holder mismatch in ${this._config.name}. ` +
-        `Expected: ${this._holder}, Got: ${holderId}`
+          `Expected: ${this._holder}, Got: ${holderId}`
       )
     }
 
@@ -164,7 +166,7 @@ export class Mutex {
 
 /**
  * Semaphore for controlling access to a limited resource pool
- * 
+ *
  * Allows up to N concurrent operations to proceed.
  */
 export class Semaphore {
@@ -177,7 +179,7 @@ export class Semaphore {
     if (permits <= 0) {
       throw new Error('Semaphore permits must be positive')
     }
-    
+
     this._permits = permits
     this._config = {
       timeout: config.timeout ?? 5000,
@@ -192,7 +194,7 @@ export class Semaphore {
    */
   async acquire(requesterId?: string): Promise<void> {
     const id = requesterId ?? `sem-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
-    
+
     if (this._permits > 0) {
       this._permits--
       this._acquisitions++
@@ -217,10 +219,12 @@ export class Semaphore {
         const index = this._waiters.indexOf(waiter)
         if (index >= 0) {
           this._waiters.splice(index, 1)
-          reject(new Error(
-            `Semaphore acquisition timeout for ${this._config.name} after ${this._config.timeout}ms. ` +
-            `Available permits: ${this._permits}, Waiters: ${this._waiters.length}`
-          ))
+          reject(
+            new Error(
+              `Semaphore acquisition timeout for ${this._config.name} after ${this._config.timeout}ms. ` +
+                `Available permits: ${this._permits}, Waiters: ${this._waiters.length}`
+            )
+          )
         }
       }, this._config.timeout)
 
@@ -280,7 +284,7 @@ export class Semaphore {
 
 /**
  * Reader-Writer lock for allowing multiple readers but exclusive writers
- * 
+ *
  * Optimizes for scenarios where reads are more frequent than writes.
  */
 export class ReadWriteLock {
@@ -306,7 +310,7 @@ export class ReadWriteLock {
    */
   async acquireRead(requesterId?: string): Promise<void> {
     const id = requesterId ?? `read-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
-    
+
     if (!this._writing && this._writeWaiters.length === 0) {
       this._readers++
       this._readCount++
@@ -331,10 +335,12 @@ export class ReadWriteLock {
         const index = this._readWaiters.indexOf(waiter)
         if (index >= 0) {
           this._readWaiters.splice(index, 1)
-          reject(new Error(
-            `Read lock acquisition timeout for ${this._config.name} after ${this._config.timeout}ms. ` +
-            `Readers: ${this._readers}, Writing: ${this._writing}, Write waiters: ${this._writeWaiters.length}`
-          ))
+          reject(
+            new Error(
+              `Read lock acquisition timeout for ${this._config.name} after ${this._config.timeout}ms. ` +
+                `Readers: ${this._readers}, Writing: ${this._writing}, Write waiters: ${this._writeWaiters.length}`
+            )
+          )
         }
       }, this._config.timeout)
 
@@ -352,7 +358,7 @@ export class ReadWriteLock {
    */
   async acquireWrite(requesterId?: string): Promise<void> {
     const id = requesterId ?? `write-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
-    
+
     if (!this._writing && this._readers === 0) {
       this._writing = true
       this._writeCount++
@@ -377,10 +383,12 @@ export class ReadWriteLock {
         const index = this._writeWaiters.indexOf(waiter)
         if (index >= 0) {
           this._writeWaiters.splice(index, 1)
-          reject(new Error(
-            `Write lock acquisition timeout for ${this._config.name} after ${this._config.timeout}ms. ` +
-            `Readers: ${this._readers}, Writing: ${this._writing}`
-          ))
+          reject(
+            new Error(
+              `Write lock acquisition timeout for ${this._config.name} after ${this._config.timeout}ms. ` +
+                `Readers: ${this._readers}, Writing: ${this._writing}`
+            )
+          )
         }
       }, this._config.timeout)
 
@@ -427,7 +435,7 @@ export class ReadWriteLock {
       // Wake up all waiting readers
       const readers = this._readWaiters.splice(0)
       process.nextTick(() => {
-        readers.forEach(reader => reader.resolve())
+        readers.forEach((reader) => reader.resolve())
       })
     }
   }

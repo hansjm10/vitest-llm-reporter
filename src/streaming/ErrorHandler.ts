@@ -217,15 +217,19 @@ export class StreamErrorHandler {
     }
   ): Promise<RecoveryResult> {
     const startTime = Date.now()
-    
+
     // Classify the error
     const errorContext = this.classifyError(error, operationContext)
-    
+
     // Record the error
     this.recordError(errorContext)
-    
-    this.debugError('Handling streaming error: %s (%s) - %s', 
-      errorContext.type, errorContext.severity, error.message)
+
+    this.debugError(
+      'Handling streaming error: %s (%s) - %s',
+      errorContext.type,
+      errorContext.severity,
+      error.message
+    )
 
     try {
       // Try custom error handler first
@@ -239,17 +243,21 @@ export class StreamErrorHandler {
 
       // Determine recovery strategy
       const strategy = this.determineRecoveryStrategy(errorContext)
-      
+
       // Execute recovery
       const result = await this.executeRecovery(errorContext, strategy)
-      
+
       // Record recovery stats
       this.recordRecovery(result)
-      
+
       const duration = Date.now() - startTime
-      this.debugPerf('Error recovery completed in %dms with strategy: %s (success: %s)', 
-        duration, strategy, result.success)
-      
+      this.debugPerf(
+        'Error recovery completed in %dms with strategy: %s (success: %s)',
+        duration,
+        strategy,
+        result.success
+      )
+
       return result
     } catch (recoveryError) {
       const duration = Date.now() - startTime
@@ -259,10 +267,10 @@ export class StreamErrorHandler {
         duration,
         error: recoveryError instanceof Error ? recoveryError : new Error(String(recoveryError))
       }
-      
+
       this.recordRecovery(result)
       this.debugError('Error recovery failed: %O', recoveryError)
-      
+
       return result
     }
   }
@@ -271,7 +279,7 @@ export class StreamErrorHandler {
    * Classify an error into type and severity
    */
   private classifyError(
-    error: Error, 
+    error: Error,
     operationContext: {
       operation: string
       priority: OutputPriority
@@ -292,22 +300,39 @@ export class StreamErrorHandler {
     if (message.includes('timeout') || name.includes('timeout')) {
       type = StreamErrorType.TIMEOUT
       severity = StreamErrorSeverity.HIGH
-    } else if (message.includes('connection') || message.includes('network') || name.includes('network')) {
+    } else if (
+      message.includes('connection') ||
+      message.includes('network') ||
+      name.includes('network')
+    ) {
       type = StreamErrorType.CONNECTION
       severity = StreamErrorSeverity.HIGH
     } else if (message.includes('queue') || message.includes('limit exceeded')) {
       type = StreamErrorType.QUEUE
       severity = StreamErrorSeverity.NORMAL
-    } else if (message.includes('lock') || message.includes('deadlock') || message.includes('synchroniz')) {
+    } else if (
+      message.includes('lock') ||
+      message.includes('deadlock') ||
+      message.includes('synchroniz')
+    ) {
       type = StreamErrorType.SYNCHRONIZATION
       severity = StreamErrorSeverity.HIGH
-    } else if (message.includes('write') || message.includes('file') || message.includes('output') || name.includes('enoent')) {
+    } else if (
+      message.includes('write') ||
+      message.includes('file') ||
+      message.includes('output') ||
+      name.includes('enoent')
+    ) {
       type = StreamErrorType.OUTPUT
       severity = StreamErrorSeverity.NORMAL
     } else if (message.includes('config') || message.includes('invalid')) {
       type = StreamErrorType.CONFIGURATION
       severity = StreamErrorSeverity.CRITICAL
-    } else if (message.includes('memory') || message.includes('resource') || name.includes('rangeerror')) {
+    } else if (
+      message.includes('memory') ||
+      message.includes('resource') ||
+      name.includes('rangeerror')
+    ) {
       type = StreamErrorType.RESOURCE
       severity = StreamErrorSeverity.HIGH
     } else if (operationContext.operation.includes('test')) {
@@ -360,20 +385,22 @@ export class StreamErrorHandler {
         case StreamErrorType.TIMEOUT:
         case StreamErrorType.RESOURCE:
           return RecoveryStrategy.RETRY
-        
+
         case StreamErrorType.QUEUE:
         case StreamErrorType.SYNCHRONIZATION:
           // For queue/sync issues, try retry but also consider degradation
           return attempt === 1 ? RecoveryStrategy.RETRY : RecoveryStrategy.DEGRADE
-        
+
         case StreamErrorType.OUTPUT:
           // For output errors, fallback to file
-          return this.config.enableFallbackFile ? RecoveryStrategy.FALLBACK_FILE : RecoveryStrategy.RETRY
-        
+          return this.config.enableFallbackFile
+            ? RecoveryStrategy.FALLBACK_FILE
+            : RecoveryStrategy.RETRY
+
         case StreamErrorType.EXECUTION:
           // For execution errors, usually skip the operation
           return RecoveryStrategy.SKIP
-        
+
         default:
           return RecoveryStrategy.RETRY
       }
@@ -383,7 +410,7 @@ export class StreamErrorHandler {
     if (this.config.enableFallbackFile && type !== StreamErrorType.OUTPUT) {
       return RecoveryStrategy.FALLBACK_FILE
     }
-    
+
     if (this.config.enableFallbackConsole) {
       return RecoveryStrategy.FALLBACK_CONSOLE
     }
@@ -404,22 +431,22 @@ export class StreamErrorHandler {
     switch (strategy) {
       case RecoveryStrategy.RETRY:
         return this.executeRetry(errorContext, startTime)
-      
+
       case RecoveryStrategy.FALLBACK_FILE:
         return this.executeFallbackFile(errorContext, startTime)
-      
+
       case RecoveryStrategy.FALLBACK_CONSOLE:
         return this.executeFallbackConsole(errorContext, startTime)
-      
+
       case RecoveryStrategy.SKIP:
         return this.executeSkip(errorContext, startTime)
-      
+
       case RecoveryStrategy.DEGRADE:
         return this.executeDegrade(errorContext, startTime)
-      
+
       case RecoveryStrategy.ABORT:
         return this.executeAbort(errorContext, startTime)
-      
+
       default:
         throw new Error(`Unknown recovery strategy: ${strategy}`)
     }
@@ -428,7 +455,10 @@ export class StreamErrorHandler {
   /**
    * Execute retry with exponential backoff
    */
-  private async executeRetry(errorContext: StreamErrorContext, startTime: number): Promise<RecoveryResult> {
+  private async executeRetry(
+    errorContext: StreamErrorContext,
+    startTime: number
+  ): Promise<RecoveryResult> {
     const delay = Math.min(
       this.config.baseRetryDelay * Math.pow(2, errorContext.attempt - 1),
       this.config.maxRetryDelay
@@ -437,7 +467,7 @@ export class StreamErrorHandler {
     this.debug('Retrying operation after %dms delay (attempt %d)', delay, errorContext.attempt + 1)
 
     // Wait with exponential backoff
-    await new Promise(resolve => setTimeout(resolve, delay))
+    await new Promise((resolve) => setTimeout(resolve, delay))
 
     return {
       success: true, // Recovery strategy executed (actual retry will be handled by caller)
@@ -450,7 +480,10 @@ export class StreamErrorHandler {
   /**
    * Execute fallback to file output
    */
-  private async executeFallbackFile(errorContext: StreamErrorContext, startTime: number): Promise<RecoveryResult> {
+  private async executeFallbackFile(
+    errorContext: StreamErrorContext,
+    startTime: number
+  ): Promise<RecoveryResult> {
     try {
       const fallbackData = {
         timestamp: Date.now(),
@@ -467,9 +500,9 @@ export class StreamErrorHandler {
       // Write to fallback file using Node.js fs
       const fs = await import('fs/promises')
       const path = await import('path')
-      
+
       const fallbackPath = path.resolve(this.config.fallbackFilePath)
-      
+
       // Read existing fallback data or create new
       let existingData: any[] = []
       try {
@@ -480,7 +513,7 @@ export class StreamErrorHandler {
       }
 
       existingData.push(fallbackData)
-      
+
       await fs.writeFile(fallbackPath, JSON.stringify(existingData, null, 2))
 
       this.debug('Fallback data written to: %s', fallbackPath)
@@ -504,12 +537,18 @@ export class StreamErrorHandler {
   /**
    * Execute fallback to console output
    */
-  private async executeFallbackConsole(errorContext: StreamErrorContext, startTime: number): Promise<RecoveryResult> {
+  private async executeFallbackConsole(
+    errorContext: StreamErrorContext,
+    startTime: number
+  ): Promise<RecoveryResult> {
     try {
       const message = `[STREAM-FALLBACK] ${errorContext.source.operation}: ${errorContext.error.message}`
-      
+
       // Use console output as fallback
-      if (errorContext.severity === StreamErrorSeverity.CRITICAL || errorContext.severity === StreamErrorSeverity.HIGH) {
+      if (
+        errorContext.severity === StreamErrorSeverity.CRITICAL ||
+        errorContext.severity === StreamErrorSeverity.HIGH
+      ) {
         console.error(message)
       } else {
         console.log(message)
@@ -534,7 +573,10 @@ export class StreamErrorHandler {
   /**
    * Execute skip strategy
    */
-  private async executeSkip(errorContext: StreamErrorContext, startTime: number): Promise<RecoveryResult> {
+  private async executeSkip(
+    errorContext: StreamErrorContext,
+    startTime: number
+  ): Promise<RecoveryResult> {
     this.debug('Skipping operation due to error: %s', errorContext.source.operation)
 
     return {
@@ -548,7 +590,10 @@ export class StreamErrorHandler {
   /**
    * Execute degrade strategy
    */
-  private async executeDegrade(errorContext: StreamErrorContext, startTime: number): Promise<RecoveryResult> {
+  private async executeDegrade(
+    errorContext: StreamErrorContext,
+    startTime: number
+  ): Promise<RecoveryResult> {
     this.debug('Degrading operation due to error: %s', errorContext.source.operation)
 
     // Signal that the operation should continue with reduced functionality
@@ -563,7 +608,10 @@ export class StreamErrorHandler {
   /**
    * Execute abort strategy
    */
-  private async executeAbort(errorContext: StreamErrorContext, startTime: number): Promise<RecoveryResult> {
+  private async executeAbort(
+    errorContext: StreamErrorContext,
+    startTime: number
+  ): Promise<RecoveryResult> {
     this.debugError('Aborting due to critical error: %s', errorContext.error.message)
 
     return {
@@ -579,13 +627,13 @@ export class StreamErrorHandler {
    */
   private recordError(errorContext: StreamErrorContext): void {
     this.stats.totalErrors++
-    
+
     const typeCount = this.stats.errorsByType.get(errorContext.type) ?? 0
     this.stats.errorsByType.set(errorContext.type, typeCount + 1)
-    
+
     const severityCount = this.stats.errorsBySeverity.get(errorContext.severity) ?? 0
     this.stats.errorsBySeverity.set(errorContext.severity, severityCount + 1)
-    
+
     this.stats.lastError = errorContext
 
     // Add to history
@@ -610,7 +658,7 @@ export class StreamErrorHandler {
 
     // Update average recovery time
     const totalRecoveries = this.stats.successfulRecoveries + this.stats.failedRecoveries
-    this.stats.averageRecoveryTime = 
+    this.stats.averageRecoveryTime =
       (this.stats.averageRecoveryTime * (totalRecoveries - 1) + result.duration) / totalRecoveries
   }
 

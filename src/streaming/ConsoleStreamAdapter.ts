@@ -1,17 +1,17 @@
 /**
  * Console Stream Adapter
- * 
+ *
  * Bridges the existing ConsoleCapture system with the new StreamManager
  * to enable real-time console output streaming while maintaining
  * backward compatibility with file-based output.
- * 
+ *
  * @module streaming/ConsoleStreamAdapter
  */
 
-import type { 
-  IConsoleStreamAdapter, 
-  IStreamManager, 
-  ConsoleStreamData, 
+import type {
+  IConsoleStreamAdapter,
+  IStreamManager,
+  ConsoleStreamData,
   StreamOperation
 } from './types'
 import { StreamPriority } from './types'
@@ -53,7 +53,7 @@ export class ConsoleStreamAdapter implements IConsoleStreamAdapter {
   initialize(streamManager: IStreamManager): void {
     this.streamManager = streamManager
     this.isInitialized = true
-    
+
     // Listen for stream events
     this.streamManager.on('stream_error', (event) => {
       this.debug('Stream error occurred: %o', event.error)
@@ -89,9 +89,7 @@ export class ConsoleStreamAdapter implements IConsoleStreamAdapter {
   }
 
   isReady(): boolean {
-    return this.isInitialized && 
-           this.streamManager !== undefined && 
-           this.streamManager.isReady()
+    return this.isInitialized && this.streamManager !== undefined && this.streamManager.isReady()
   }
 
   destroy(): void {
@@ -105,15 +103,15 @@ export class ConsoleStreamAdapter implements IConsoleStreamAdapter {
    */
   private formatConsoleOutput(data: ConsoleStreamData): string {
     const { method, testId, args, elapsed } = data
-    
+
     // Serialize arguments safely
     const message = this.serializeArgs(args)
-    
+
     // Format with test context and timing information
     const timestamp = elapsed !== undefined ? `[${elapsed}ms]` : ''
     const testInfo = testId ? `[${testId}]` : ''
     const methodInfo = method.toUpperCase()
-    
+
     return `${timestamp}${testInfo}[${methodInfo}] ${message}\n`
   }
 
@@ -122,20 +120,22 @@ export class ConsoleStreamAdapter implements IConsoleStreamAdapter {
    */
   private serializeArgs(args: unknown[]): string {
     try {
-      return args.map(arg => {
-        if (arg === undefined) return 'undefined'
-        if (arg === null) return 'null'
-        if (typeof arg === 'string') return arg
-        if (typeof arg === 'number' || typeof arg === 'boolean') return String(arg)
-        if (typeof arg === 'object') {
-          try {
-            return JSON.stringify(arg, null, 0)
-          } catch {
-            return '[Complex Object]'
+      return args
+        .map((arg) => {
+          if (arg === undefined) return 'undefined'
+          if (arg === null) return 'null'
+          if (typeof arg === 'string') return arg
+          if (typeof arg === 'number' || typeof arg === 'boolean') return String(arg)
+          if (typeof arg === 'object') {
+            try {
+              return JSON.stringify(arg, null, 0)
+            } catch {
+              return '[Complex Object]'
+            }
           }
-        }
-        return String(arg)
-      }).join(' ')
+          return String(arg)
+        })
+        .join(' ')
     } catch (error) {
       return '[Failed to serialize console arguments]'
     }

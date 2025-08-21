@@ -1,4 +1,4 @@
-import type { SupportedModel, ITokenizer } from '../types.js';
+import type { SupportedModel, ITokenizer } from '../types.js'
 
 /**
  * Base adapter interface for model-specific tokenization
@@ -7,48 +7,48 @@ export interface ITokenizationAdapter {
   /**
    * Get the models this adapter supports
    */
-  getSupportedModels(): SupportedModel[];
+  getSupportedModels(): SupportedModel[]
 
   /**
    * Check if this adapter supports a specific model
    */
-  supportsModel(model: SupportedModel): boolean;
+  supportsModel(model: SupportedModel): boolean
 
   /**
    * Create a tokenizer for the specified model
    */
-  createTokenizer(model: SupportedModel): Promise<ITokenizer>;
+  createTokenizer(model: SupportedModel): Promise<ITokenizer>
 
   /**
    * Get a display name for this adapter
    */
-  getName(): string;
+  getName(): string
 
   /**
    * Clear cached tokenizers
    */
-  clearCache(): void;
+  clearCache(): void
 
   /**
    * Get cache size
    */
-  getCacheSize(): number;
+  getCacheSize(): number
 }
 
 /**
  * Abstract base class for tokenization adapters
  */
 export abstract class BaseAdapter implements ITokenizationAdapter {
-  protected tokenizerCache = new Map<SupportedModel, ITokenizer>();
+  protected tokenizerCache = new Map<SupportedModel, ITokenizer>()
 
-  abstract getSupportedModels(): SupportedModel[];
-  abstract getName(): string;
-  
+  abstract getSupportedModels(): SupportedModel[]
+  abstract getName(): string
+
   /**
    * Default implementation checks if model is in supported models list
    */
   supportsModel(model: SupportedModel): boolean {
-    return this.getSupportedModels().includes(model);
+    return this.getSupportedModels().includes(model)
   }
 
   /**
@@ -56,41 +56,41 @@ export abstract class BaseAdapter implements ITokenizationAdapter {
    */
   async createTokenizer(model: SupportedModel): Promise<ITokenizer> {
     if (!this.supportsModel(model)) {
-      throw new Error(`Model ${model} is not supported by ${this.getName()}`);
+      throw new Error(`Model ${model} is not supported by ${this.getName()}`)
     }
 
     // Return cached tokenizer if available
-    const cached = this.tokenizerCache.get(model);
+    const cached = this.tokenizerCache.get(model)
     if (cached) {
-      return cached;
+      return cached
     }
 
     // Create new tokenizer
-    const tokenizer = await this.createTokenizerImplementation(model);
-    
+    const tokenizer = await this.createTokenizerImplementation(model)
+
     // Cache for future use
-    this.tokenizerCache.set(model, tokenizer);
-    
-    return tokenizer;
+    this.tokenizerCache.set(model, tokenizer)
+
+    return tokenizer
   }
 
   /**
    * Abstract method for creating the actual tokenizer
    * Implementations should override this method
    */
-  protected abstract createTokenizerImplementation(model: SupportedModel): Promise<ITokenizer>;
+  protected abstract createTokenizerImplementation(model: SupportedModel): Promise<ITokenizer>
 
   /**
    * Clear cached tokenizers
    */
   clearCache(): void {
-    this.tokenizerCache.clear();
+    this.tokenizerCache.clear()
   }
 
   /**
    * Get cache size
    */
   getCacheSize(): number {
-    return this.tokenizerCache.size;
+    return this.tokenizerCache.size
   }
 }

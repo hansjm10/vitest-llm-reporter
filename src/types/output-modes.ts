@@ -48,7 +48,7 @@ export interface OutputModeSelection {
 /**
  * Union type for different output mode configurations
  */
-export type OutputModeConfig = 
+export type OutputModeConfig =
   | { mode: 'file'; config: FileOutputConfig }
   | { mode: 'console'; config: ConsoleOutputConfig }
   | { mode: 'dual'; config: DualOutputConfig }

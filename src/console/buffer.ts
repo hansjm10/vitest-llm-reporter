@@ -262,9 +262,12 @@ export class ConsoleBuffer {
   /**
    * Flush buffer contents and optionally stream them
    */
-  async flush(testId?: string, enableStreaming = true): Promise<ReturnType<typeof this.getSimplifiedOutput>> {
+  async flush(
+    testId?: string,
+    enableStreaming = true
+  ): Promise<ReturnType<typeof this.getSimplifiedOutput>> {
     const output = this.getSimplifiedOutput()
-    
+
     // Stream the flush operation if enabled
     if (enableStreaming) {
       await this.streamFlush(testId)

@@ -17,7 +17,7 @@ export enum StreamingEventType {
   /** Test run started */
   RUN_START = 'run-start',
   /** Individual test started */
-  TEST_START = 'test-start', 
+  TEST_START = 'test-start',
   /** Individual test completed (passed/failed/skipped) */
   TEST_COMPLETE = 'test-complete',
   /** Test failed with error */
@@ -42,7 +42,7 @@ export interface StreamingEvent {
 /**
  * Union type for different event data structures
  */
-export type StreamingEventData = 
+export type StreamingEventData =
   | TestStartData
   | TestCompleteData
   | TestFailureData
@@ -168,7 +168,7 @@ export const DEFAULT_FORMATTER_CONFIG: Required<FormatterConfig> = {
  *   includeTimestamps: true,
  *   includeProgress: false
  * });
- * 
+ *
  * await formatter.initialize();
  * const output = await formatter.formatEvent({
  *   type: StreamingEventType.TEST_COMPLETE,
@@ -187,7 +187,7 @@ export interface StreamingFormatter {
 
   /**
    * Format a streaming event into output string
-   * 
+   *
    * @param event - The streaming event to format
    * @returns Promise resolving to formatted output string
    */
@@ -196,7 +196,7 @@ export interface StreamingFormatter {
   /**
    * Format the final summary output
    * Called at the end of test run with complete results
-   * 
+   *
    * @param output - Complete LLM reporter output
    * @returns Promise resolving to final formatted summary
    */
@@ -255,7 +255,7 @@ export interface FormatterState {
 
 /**
  * Base formatter class providing common functionality
- * 
+ *
  * Concrete formatters should extend this class and implement the abstract methods.
  */
 export abstract class BaseStreamingFormatter implements StreamingFormatter {

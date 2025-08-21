@@ -9,7 +9,12 @@
 
 import { EventEmitter } from 'events'
 import { coreLogger, errorLogger, perfLogger } from '../utils/logger'
-import { StreamErrorHandler, StreamErrorType, StreamErrorSeverity, RecoveryStrategy } from './ErrorHandler'
+import {
+  StreamErrorHandler,
+  StreamErrorType,
+  StreamErrorSeverity,
+  RecoveryStrategy
+} from './ErrorHandler'
 import { OutputPriority, OutputSource } from './queue'
 
 /**
@@ -175,7 +180,7 @@ export class StreamRecovery extends EventEmitter {
   private debug = coreLogger()
   private debugError = errorLogger()
   private debugPerf = perfLogger()
-  
+
   private monitoringData: StreamMonitoringData
   private healthCheckTimer?: NodeJS.Timeout
   private isActive = false
@@ -188,9 +193,9 @@ export class StreamRecovery extends EventEmitter {
     recoveryConfig: RecoveryConfig = {}
   ) {
     super()
-    
+
     this.errorHandler = errorHandler
-    
+
     this.healthConfig = {
       interval: healthConfig.interval ?? 5000,
       timeout: healthConfig.timeout ?? 2000,
@@ -204,7 +209,7 @@ export class StreamRecovery extends EventEmitter {
         ...healthConfig.performanceThresholds
       }
     }
-    
+
     this.recoveryConfig = {
       enableAutoRecovery: recoveryConfig.enableAutoRecovery ?? true,
       recoveryTimeout: recoveryConfig.recoveryTimeout ?? 30000,
@@ -250,7 +255,7 @@ export class StreamRecovery extends EventEmitter {
 
     // Start periodic health checks
     this.healthCheckTimer = setInterval(() => {
-      this.performHealthCheck().catch(error => {
+      this.performHealthCheck().catch((error) => {
         this.debugError('Health check failed: %O', error)
       })
     }, this.healthConfig.interval)
@@ -291,37 +296,36 @@ export class StreamRecovery extends EventEmitter {
     try {
       // Collect current metrics
       const metrics = await this.collectMetrics()
-      
+
       // Update performance history
       this.updatePerformanceHistory(metrics)
-      
+
       // Analyze health
       const newHealth = this.analyzeHealth(metrics)
-      
+
       // Update monitoring data
       this.updateMonitoringData(metrics, newHealth)
-      
+
       // Handle health status change
       if (newHealth !== this.monitoringData.health) {
         await this.handleHealthStatusChange(this.monitoringData.health, newHealth)
       }
-      
+
       this.monitoringData.health = newHealth
       this.monitoringData.lastHealthCheck = Date.now()
 
       const duration = Date.now() - startTime
       this.debugPerf('Health check completed in %dms - Status: %s', duration, newHealth)
-      
+
       this.emit(StreamRecoveryEvent.HEALTH_CHECK_COMPLETED, {
         health: newHealth,
         duration,
         metrics
       })
-
     } catch (error) {
       this.debugError('Health check error: %O', error)
       this.monitoringData.consecutiveFailures++
-      
+
       // If we can't even perform health checks, something is seriously wrong
       if (this.monitoringData.consecutiveFailures >= this.healthConfig.failureThreshold) {
         await this.handleHealthStatusChange(this.monitoringData.health, StreamHealth.FAILED)
@@ -403,24 +407,30 @@ export class StreamRecovery extends EventEmitter {
     }
 
     // Check critical thresholds
-    if (metrics.latency > (thresholds.maxLatency || 1000) * 2 || 
-        metrics.queueSize > (thresholds.maxQueueSize || 100) * 2 ||
-        metrics.memoryUsage > (thresholds.maxMemoryUsage || 100) * 2) {
+    if (
+      metrics.latency > (thresholds.maxLatency || 1000) * 2 ||
+      metrics.queueSize > (thresholds.maxQueueSize || 100) * 2 ||
+      metrics.memoryUsage > (thresholds.maxMemoryUsage || 100) * 2
+    ) {
       return StreamHealth.FAILED
     }
 
     // Check unhealthy thresholds
-    if (metrics.latency > (thresholds.maxLatency || 1000) ||
-        metrics.queueSize > (thresholds.maxQueueSize || 100) ||
-        metrics.memoryUsage > (thresholds.maxMemoryUsage || 100) ||
-        metrics.errorRate > 0.5) {
+    if (
+      metrics.latency > (thresholds.maxLatency || 1000) ||
+      metrics.queueSize > (thresholds.maxQueueSize || 100) ||
+      metrics.memoryUsage > (thresholds.maxMemoryUsage || 100) ||
+      metrics.errorRate > 0.5
+    ) {
       return StreamHealth.UNHEALTHY
     }
 
     // Check degraded thresholds
-    if (metrics.latency > (thresholds.maxLatency || 1000) * 0.7 ||
-        metrics.queueSize > (thresholds.maxQueueSize || 100) * 0.7 ||
-        metrics.errorRate > 0.2) {
+    if (
+      metrics.latency > (thresholds.maxLatency || 1000) * 0.7 ||
+      metrics.queueSize > (thresholds.maxQueueSize || 100) * 0.7 ||
+      metrics.errorRate > 0.2
+    ) {
       return StreamHealth.DEGRADED
     }
 
@@ -445,7 +455,7 @@ export class StreamRecovery extends EventEmitter {
     } else if (newHealth === StreamHealth.FAILED || newHealth === StreamHealth.UNHEALTHY) {
       this.monitoringData.consecutiveFailures++
       this.monitoringData.consecutiveSuccesses = 0
-      
+
       // Update circuit breaker
       this.updateCircuitBreaker(true)
     }
@@ -475,17 +485,23 @@ export class StreamRecovery extends EventEmitter {
       this.monitoringData.circuitBreaker.failureCount++
       this.monitoringData.circuitBreaker.lastFailureTime = Date.now()
 
-      if (this.monitoringData.circuitBreaker.failureCount >= this.recoveryConfig.circuitBreakerThreshold) {
+      if (
+        this.monitoringData.circuitBreaker.failureCount >=
+        this.recoveryConfig.circuitBreakerThreshold
+      ) {
         if (!this.monitoringData.circuitBreaker.isOpen) {
           this.monitoringData.circuitBreaker.isOpen = true
-          this.debug('Circuit breaker opened due to %d failures', this.monitoringData.circuitBreaker.failureCount)
+          this.debug(
+            'Circuit breaker opened due to %d failures',
+            this.monitoringData.circuitBreaker.failureCount
+          )
           this.emit(StreamRecoveryEvent.CIRCUIT_BREAKER_OPENED)
         }
       }
     } else {
       // Reset failure count on success
       this.monitoringData.circuitBreaker.failureCount = 0
-      
+
       // Close circuit breaker if it was open and timeout has passed
       if (this.monitoringData.circuitBreaker.isOpen) {
         const lastFailureTime = this.monitoringData.circuitBreaker.lastFailureTime
@@ -504,9 +520,12 @@ export class StreamRecovery extends EventEmitter {
   /**
    * Handle health status changes
    */
-  private async handleHealthStatusChange(oldHealth: StreamHealth, newHealth: StreamHealth): Promise<void> {
+  private async handleHealthStatusChange(
+    oldHealth: StreamHealth,
+    newHealth: StreamHealth
+  ): Promise<void> {
     this.debug('Health status change: %s → %s', oldHealth, newHealth)
-    
+
     this.emit(StreamRecoveryEvent.HEALTH_STATUS_CHANGED, {
       oldHealth,
       newHealth,
@@ -556,7 +575,7 @@ export class StreamRecovery extends EventEmitter {
     }
 
     const recoveryStrategy = this.determineRecoveryStrategy(failureType)
-    
+
     this.monitoringData.recovery = {
       mode: RecoveryMode.AUTOMATIC,
       attempt: 1,
@@ -564,8 +583,12 @@ export class StreamRecovery extends EventEmitter {
       strategy: recoveryStrategy
     }
 
-    this.debug('Starting recovery for failure type: %s with strategy: %s', failureType, recoveryStrategy)
-    
+    this.debug(
+      'Starting recovery for failure type: %s with strategy: %s',
+      failureType,
+      recoveryStrategy
+    )
+
     this.emit(StreamRecoveryEvent.RECOVERY_STARTED, {
       failureType,
       strategy: recoveryStrategy,
@@ -574,7 +597,7 @@ export class StreamRecovery extends EventEmitter {
 
     try {
       const result = await this.executeRecovery(failureType, recoveryStrategy)
-      
+
       if (result.success) {
         this.debug('Recovery completed successfully')
         this.monitoringData.recovery = undefined
@@ -584,7 +607,10 @@ export class StreamRecovery extends EventEmitter {
         await this.handleRecoveryFailure(failureType, result.error)
       }
     } catch (error) {
-      await this.handleRecoveryFailure(failureType, error instanceof Error ? error : new Error(String(error)))
+      await this.handleRecoveryFailure(
+        failureType,
+        error instanceof Error ? error : new Error(String(error))
+      )
     }
   }
 
@@ -615,7 +641,10 @@ export class StreamRecovery extends EventEmitter {
   /**
    * Execute recovery strategy
    */
-  private async executeRecovery(failureType: StreamFailureType, strategy: RecoveryStrategy): Promise<any> {
+  private async executeRecovery(
+    failureType: StreamFailureType,
+    strategy: RecoveryStrategy
+  ): Promise<any> {
     // Use the error handler to execute the recovery
     const mockError = new Error(`Stream failure: ${failureType}`)
     const operationContext = {
@@ -642,22 +671,25 @@ export class StreamRecovery extends EventEmitter {
     if (recovery.attempt < this.recoveryConfig.maxRecoveryAttempts) {
       // Try again with delay
       recovery.attempt++
-      
-      this.debug('Retrying recovery (attempt %d/%d) after delay', 
-        recovery.attempt, this.recoveryConfig.maxRecoveryAttempts)
-      
+
+      this.debug(
+        'Retrying recovery (attempt %d/%d) after delay',
+        recovery.attempt,
+        this.recoveryConfig.maxRecoveryAttempts
+      )
+
       setTimeout(() => {
-        this.triggerRecovery(failureType).catch(retryError => {
+        this.triggerRecovery(failureType).catch((retryError) => {
           this.debugError('Recovery retry failed: %O', retryError)
         })
       }, this.recoveryConfig.recoveryDelay * recovery.attempt)
     } else {
       // Recovery failed completely
       this.debugError('Recovery failed after %d attempts', recovery.attempt)
-      
+
       this.monitoringData.recovery = undefined
       this.monitoringData.health = StreamHealth.FAILED
-      
+
       this.emit(StreamRecoveryEvent.RECOVERY_FAILED, {
         failureType,
         attempts: recovery.attempt,
@@ -709,7 +741,10 @@ export class StreamRecovery extends EventEmitter {
   /**
    * Update configuration
    */
-  updateConfig(healthConfig?: Partial<HealthCheckConfig>, recoveryConfig?: Partial<RecoveryConfig>): void {
+  updateConfig(
+    healthConfig?: Partial<HealthCheckConfig>,
+    recoveryConfig?: Partial<RecoveryConfig>
+  ): void {
     if (healthConfig) {
       this.healthConfig = { ...this.healthConfig, ...healthConfig }
     }

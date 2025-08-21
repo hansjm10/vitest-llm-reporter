@@ -85,8 +85,8 @@ export function detectTTY(options?: EnvironmentDetectionOptions): TTYInfo {
   logger('Detecting TTY capabilities')
 
   // Allow forced TTY for testing
-  const stdout = options?.forceTTY?.stdout ?? (process.stdout?.isTTY === true)
-  const stderr = options?.forceTTY?.stderr ?? (process.stderr?.isTTY === true)
+  const stdout = options?.forceTTY?.stdout ?? process.stdout?.isTTY === true
+  const stderr = options?.forceTTY?.stderr ?? process.stderr?.isTTY === true
 
   const result: TTYInfo = {
     stdout,
@@ -118,21 +118,20 @@ export function detectCIEnvironment(options?: EnvironmentDetectionOptions): CIEn
 
   // Check for specific CI providers
   for (const [key, provider] of Object.entries(CI_PROVIDERS)) {
-    const hasProviderVars = provider.envVars.some(envVar => env[envVar])
+    const hasProviderVars = provider.envVars.some((envVar) => env[envVar])
     if (hasProviderVars) {
       logger('Detected CI provider: %s', provider.name)
-      
+
       const details: CIEnvironmentInfo['details'] = {}
-      
+
       // Extract common CI details based on provider
       switch (key) {
         case 'github':
           details.buildId = env.GITHUB_RUN_ID
           details.branch = env.GITHUB_REF_NAME
           details.commit = env.GITHUB_SHA
-          details.pullRequest = env.GITHUB_EVENT_NAME === 'pull_request' 
-            ? env.GITHUB_EVENT_NUMBER 
-            : undefined
+          details.pullRequest =
+            env.GITHUB_EVENT_NAME === 'pull_request' ? env.GITHUB_EVENT_NUMBER : undefined
           details.repository = env.GITHUB_REPOSITORY
           break
         case 'gitlab':
@@ -159,9 +158,8 @@ export function detectCIEnvironment(options?: EnvironmentDetectionOptions): CIEn
           details.buildId = env.TRAVIS_BUILD_NUMBER
           details.branch = env.TRAVIS_BRANCH
           details.commit = env.TRAVIS_COMMIT
-          details.pullRequest = env.TRAVIS_PULL_REQUEST !== 'false' 
-            ? env.TRAVIS_PULL_REQUEST 
-            : undefined
+          details.pullRequest =
+            env.TRAVIS_PULL_REQUEST !== 'false' ? env.TRAVIS_PULL_REQUEST : undefined
           details.repository = env.TRAVIS_REPO_SLUG
           break
         case 'azure':
@@ -174,9 +172,8 @@ export function detectCIEnvironment(options?: EnvironmentDetectionOptions): CIEn
           details.buildId = env.BUILDKITE_BUILD_NUMBER
           details.branch = env.BUILDKITE_BRANCH
           details.commit = env.BUILDKITE_COMMIT
-          details.pullRequest = env.BUILDKITE_PULL_REQUEST !== 'false' 
-            ? env.BUILDKITE_PULL_REQUEST 
-            : undefined
+          details.pullRequest =
+            env.BUILDKITE_PULL_REQUEST !== 'false' ? env.BUILDKITE_PULL_REQUEST : undefined
           details.repository = env.BUILDKITE_REPO
           break
         case 'drone':
@@ -197,7 +194,7 @@ export function detectCIEnvironment(options?: EnvironmentDetectionOptions): CIEn
   }
 
   // Check for generic CI indicators
-  const hasGenericCI = GENERIC_CI_VARS.some(envVar => env[envVar])
+  const hasGenericCI = GENERIC_CI_VARS.some((envVar) => env[envVar])
   if (hasGenericCI) {
     logger('Detected generic CI environment')
     return {

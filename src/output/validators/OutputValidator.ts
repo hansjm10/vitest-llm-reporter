@@ -159,7 +159,6 @@ export class OutputValidator {
         fileWritable,
         resolvedPath
       }
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger('File validation error: %s', errorMessage)
@@ -200,13 +199,13 @@ export class OutputValidator {
 
       // Validate stream writability
       let streamError: string | undefined
-      
+
       try {
         // Test stdout writability (non-destructive)
         if (hasStdout && process.stdout.writable === false) {
           streamError = 'stdout is not writable'
         }
-        
+
         // Test stderr writability (non-destructive)
         if (hasStderr && process.stderr.writable === false) {
           if (streamError) {
@@ -216,7 +215,8 @@ export class OutputValidator {
           }
         }
       } catch (streamTestError) {
-        const errorMessage = streamTestError instanceof Error ? streamTestError.message : String(streamTestError)
+        const errorMessage =
+          streamTestError instanceof Error ? streamTestError.message : String(streamTestError)
         streamError = `Stream test failed: ${errorMessage}`
       }
 
@@ -232,7 +232,12 @@ export class OutputValidator {
         }
       }
 
-      logger('Console validation successful - stdout: %s, stderr: %s, TTY: %s', hasStdout, hasStderr, hasTTY)
+      logger(
+        'Console validation successful - stdout: %s, stderr: %s, TTY: %s',
+        hasStdout,
+        hasStderr,
+        hasTTY
+      )
       return {
         isValid: true,
         hasStdout,
@@ -240,7 +245,6 @@ export class OutputValidator {
         hasTTY,
         environment: this.environment
       }
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger('Console validation error: %s', errorMessage)

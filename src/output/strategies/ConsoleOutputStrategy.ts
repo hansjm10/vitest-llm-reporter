@@ -74,7 +74,7 @@ const DEFAULT_CONSOLE_CONFIG: Required<ConsoleOutputConfig> = {
  *   stream: 'stdout',
  *   formatting: { spaces: 2, useColors: true }
  * });
- * 
+ *
  * if (strategy.canExecute()) {
  *   await strategy.initialize();
  *   await strategy.write(reporterOutput);
@@ -92,7 +92,7 @@ export class ConsoleOutputStrategy implements OutputStrategy {
     this.config = this.mergeConfig(config)
     this.validator = new OutputValidator()
     this.targetStream = this.getTargetStream()
-    
+
     logger('ConsoleOutputStrategy created for stream: %s', this.config.stream)
   }
 
@@ -127,16 +127,15 @@ export class ConsoleOutputStrategy implements OutputStrategy {
     }
 
     const validation = this.validator.validateConsoleCapabilities()
-    
+
     if (!validation.isValid) {
       logger('Console output validation failed: %s', validation.error)
       return false
     }
 
     // Check specific stream availability
-    const streamAvailable = this.config.stream === 'stderr' 
-      ? validation.hasStderr 
-      : validation.hasStdout
+    const streamAvailable =
+      this.config.stream === 'stderr' ? validation.hasStderr : validation.hasStdout
 
     if (!streamAvailable) {
       logger('Target stream %s not available', this.config.stream)
@@ -195,10 +194,10 @@ export class ConsoleOutputStrategy implements OutputStrategy {
 
     try {
       const output = this.formatOutput(data)
-      
+
       // Write to stream
       await this.writeToStream(output)
-      
+
       logger('Successfully wrote to console stream')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -246,7 +245,7 @@ export class ConsoleOutputStrategy implements OutputStrategy {
 
     // Add separator if requested
     if (this.config.options.addSeparators) {
-      parts.push('=' .repeat(60))
+      parts.push('='.repeat(60))
     }
 
     // Add the JSON content
@@ -255,7 +254,7 @@ export class ConsoleOutputStrategy implements OutputStrategy {
 
     // Add closing separator if requested
     if (this.config.options.addSeparators) {
-      parts.push('=' .repeat(60))
+      parts.push('='.repeat(60))
     }
 
     return parts.join('\n') + '\n'

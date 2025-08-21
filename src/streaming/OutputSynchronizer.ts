@@ -1,19 +1,19 @@
 /**
  * Output Synchronizer for Concurrent Tests
- * 
+ *
  * Coordinates output from multiple concurrent test executions to prevent
  * interleaved output and ensure proper test result ordering.
- * 
+ *
  * @module streaming/OutputSynchronizer
  */
 
 import { Mutex, ReadWriteLock, LockConfig } from './locks.js'
-import { 
-  PriorityOutputQueue, 
+import {
+  PriorityOutputQueue,
   TestOutputQueue,
-  OutputPriority, 
+  OutputPriority,
   OutputSource,
-  QueueConfig 
+  QueueConfig
 } from './queue.js'
 import { StreamErrorHandler, type StreamErrorContext, RecoveryStrategy } from './ErrorHandler'
 import { StreamingDiagnostics, DiagnosticEvent, DiagnosticLevel } from './diagnostics'
@@ -114,7 +114,7 @@ export interface SynchronizerStats {
 
 /**
  * Output Synchronizer for managing concurrent test output
- * 
+ *
  * Provides thread-safe coordination of test output streams with proper
  * ordering, deadlock detection, and performance optimization.
  */
@@ -126,9 +126,9 @@ export class OutputSynchronizer {
   private _activeTests = new Map<string, TestContext>()
   private _testOutputOrder = new Map<string, number>()
   private _deadlockStats = { detected: 0, resolved: 0, lastCheck: 0 }
-  private _performanceStats = { 
-    avgProcessingTime: 0, 
-    maxProcessingTime: 0, 
+  private _performanceStats = {
+    avgProcessingTime: 0,
+    maxProcessingTime: 0,
     totalOperations: 0,
     totalProcessingTime: 0
   }
@@ -203,16 +203,14 @@ export class OutputSynchronizer {
    */
   async registerTest(context: TestContext): Promise<void> {
     const testKey = this._getTestKey(context)
-    
+
     await this._testRegistryLock.withWriteLock(async () => {
       if (this._activeTests.has(testKey)) {
         throw new Error(`Test already registered: ${testKey}`)
       }
 
       if (this._activeTests.size >= this._config.maxConcurrentTests) {
-        throw new Error(
-          `Maximum concurrent tests exceeded (${this._config.maxConcurrentTests})`
-        )
+        throw new Error(`Maximum concurrent tests exceeded (${this._config.maxConcurrentTests})`)
       }
 
       this._activeTests.set(testKey, context)
@@ -225,7 +223,7 @@ export class OutputSynchronizer {
    */
   async unregisterTest(context: TestContext): Promise<void> {
     const testKey = this._getTestKey(context)
-    
+
     // Wait for any pending output for this test
     await this._outputQueue.completeTest(context.file, context.name)
 
@@ -244,13 +242,13 @@ export class OutputSynchronizer {
       'writeOutput',
       operation.priority,
       operation.source,
-      { 
+      {
         testFile: operation.context?.file,
         testName: operation.context?.name,
         dataSize: typeof operation.data === 'string' ? operation.data.length : operation.data.length
       }
     )
-    
+
     try {
       await this._writeOutputWithRetry(operation, 1)
       this._diagnostics?.trackOperationComplete(operationId || '', true)
@@ -278,11 +276,14 @@ export class OutputSynchronizer {
   /**
    * Write output with retry logic and error handling
    */
-  private async _writeOutputWithRetry(operation: OutputOperation, attempt: number = 1): Promise<void> {
+  private async _writeOutputWithRetry(
+    operation: OutputOperation,
+    attempt: number = 1
+  ): Promise<void> {
     try {
       if (operation.context) {
         const testKey = this._getTestKey(operation.context)
-        
+
         // Ensure test is registered
         const isRegistered = await this._testRegistryLock.withReadLock(async () => {
           return this._activeTests.has(testKey)
@@ -327,7 +328,10 @@ export class OutputSynchronizer {
         )
 
         if (recoveryResult.success) {
-          if (recoveryResult.strategy === RecoveryStrategy.RETRY && recoveryResult.output?.nextAttempt) {
+          if (
+            recoveryResult.strategy === RecoveryStrategy.RETRY &&
+            recoveryResult.output?.nextAttempt
+          ) {
             // Retry the operation
             return this._writeOutputWithRetry(operation, recoveryResult.output.nextAttempt)
           } else if (recoveryResult.strategy === RecoveryStrategy.FALLBACK_CONSOLE) {
@@ -342,7 +346,7 @@ export class OutputSynchronizer {
           }
         }
       }
-      
+
       // If error handling is disabled or failed, rethrow
       throw error
     }
@@ -375,7 +379,8 @@ export class OutputSynchronizer {
       }
     } catch (error) {
       // Even degraded mode failed, try console fallback
-      const message = typeof operation.data === 'string' ? operation.data : operation.data.toString()
+      const message =
+        typeof operation.data === 'string' ? operation.data : operation.data.toString()
       console.log(`[DEGRADED-OUTPUT] ${message}`)
     }
   }
@@ -416,11 +421,7 @@ export class OutputSynchronizer {
     const queueStats = this._outputQueue.getStats()
 
     // Detect potential deadlock conditions
-    const hasDeadlock = this._detectDeadlockConditions(
-      outputStats, 
-      registryStats, 
-      queueStats
-    )
+    const hasDeadlock = this._detectDeadlockConditions(outputStats, registryStats, queueStats)
 
     if (hasDeadlock) {
       this._deadlockStats.detected++
@@ -483,10 +484,12 @@ export class OutputSynchronizer {
   private _updatePerformanceStats(processingTime: number): void {
     this._performanceStats.totalOperations++
     this._performanceStats.totalProcessingTime += processingTime
-    this._performanceStats.avgProcessingTime = 
+    this._performanceStats.avgProcessingTime =
       this._performanceStats.totalProcessingTime / this._performanceStats.totalOperations
-    this._performanceStats.maxProcessingTime = 
-      Math.max(this._performanceStats.maxProcessingTime, processingTime)
+    this._performanceStats.maxProcessingTime = Math.max(
+      this._performanceStats.maxProcessingTime,
+      processingTime
+    )
   }
 
   /**
@@ -516,9 +519,7 @@ export class OutputSynchronizer {
    * Check if synchronizer is idle (no active operations)
    */
   get isIdle(): boolean {
-    return this._activeTests.size === 0 && 
-           this._outputQueue.isEmpty && 
-           !this._outputMutex.isLocked
+    return this._activeTests.size === 0 && this._outputQueue.isEmpty && !this._outputMutex.isLocked
   }
 
   /**
@@ -526,7 +527,7 @@ export class OutputSynchronizer {
    */
   async shutdown(): Promise<void> {
     this._shutdown = true
-    
+
     if (this._deadlockTimer) {
       clearInterval(this._deadlockTimer)
     }
@@ -562,8 +563,8 @@ export class OutputSynchronizer {
    * Create a test context helper
    */
   static createTestContext(
-    file: string, 
-    name: string, 
+    file: string,
+    name: string,
     priority: OutputPriority = OutputPriority.NORMAL
   ): TestContext {
     return {

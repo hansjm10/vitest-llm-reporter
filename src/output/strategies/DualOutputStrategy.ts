@@ -77,7 +77,7 @@ interface DualOperationResult {
  *   console: { stream: 'stdout', formatting: { spaces: 2 } },
  *   options: { fallbackMode: 'continue-on-error' }
  * });
- * 
+ *
  * if (strategy.canExecute()) {
  *   await strategy.initialize();
  *   await strategy.write(reporterOutput);
@@ -97,7 +97,7 @@ export class DualOutputStrategy implements OutputStrategy {
     this.consoleStrategy = new ConsoleOutputStrategy(config.console)
     this.validator = new OutputValidator()
     this.config = { ...DEFAULT_DUAL_CONFIG, ...(config.options || {}) }
-    
+
     logger('DualOutputStrategy created with fallback mode: %s', this.config.fallbackMode)
   }
 
@@ -145,22 +145,14 @@ export class DualOutputStrategy implements OutputStrategy {
 
     // Initialize strategies that can execute
     const initPromises: Promise<void>[] = []
-    
+
     if (fileCanExecute) {
-      initPromises.push(
-        this.withTimeout(
-          this.fileStrategy.initialize(),
-          'file initialization'
-        )
-      )
+      initPromises.push(this.withTimeout(this.fileStrategy.initialize(), 'file initialization'))
     }
-    
+
     if (consoleCanExecute) {
       initPromises.push(
-        this.withTimeout(
-          this.consoleStrategy.initialize(),
-          'console initialization'
-        )
+        this.withTimeout(this.consoleStrategy.initialize(), 'console initialization')
       )
     }
 
@@ -179,7 +171,6 @@ export class DualOutputStrategy implements OutputStrategy {
 
       this.initialized = true
       logger('DualOutputStrategy initialized successfully')
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger('Dual output initialization failed: %s', errorMessage)
@@ -199,18 +190,18 @@ export class DualOutputStrategy implements OutputStrategy {
 
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
-        const strategyName = (fileCanExecute && index === 0) ? 'file' : 'console'
+        const strategyName = fileCanExecute && index === 0 ? 'file' : 'console'
         failures.push(`${strategyName}: ${result.reason}`)
       }
     })
 
     if (failures.length > 0) {
       const errorMessage = failures.join(', ')
-      
+
       if (this.config.fallbackMode === 'require-both' || failures.length === results.length) {
         throw new Error(`Strategy initialization failed: ${errorMessage}`)
       }
-      
+
       logger('Some strategies failed to initialize: %s', errorMessage)
     }
   }
@@ -235,8 +226,12 @@ export class DualOutputStrategy implements OutputStrategy {
     }
 
     result.executionTime = Date.now() - startTime
-    logger('Dual write completed in %dms - file: %s, console: %s', 
-      result.executionTime, result.fileSuccess, result.consoleSuccess)
+    logger(
+      'Dual write completed in %dms - file: %s, console: %s',
+      result.executionTime,
+      result.fileSuccess,
+      result.consoleSuccess
+    )
 
     // Handle results based on fallback mode
     await this.handleWriteResult(result)
@@ -246,17 +241,19 @@ export class DualOutputStrategy implements OutputStrategy {
    * Performs parallel writes to both strategies
    */
   private async writeParallel(data: LLMReporterOutput): Promise<DualOperationResult> {
-    const writePromises: Array<Promise<{ type: 'file' | 'console'; success: boolean; error?: string }>> = []
+    const writePromises: Array<
+      Promise<{ type: 'file' | 'console'; success: boolean; error?: string }>
+    > = []
 
     // Add file write promise if file strategy can execute
     if (this.fileStrategy.canExecute()) {
       writePromises.push(
         this.withRetry(() => this.fileStrategy.write(data), 'file')
           .then(() => ({ type: 'file' as const, success: true }))
-          .catch((error: Error) => ({ 
-            type: 'file' as const, 
-            success: false, 
-            error: error.message 
+          .catch((error: Error) => ({
+            type: 'file' as const,
+            success: false,
+            error: error.message
           }))
       )
     }
@@ -266,17 +263,17 @@ export class DualOutputStrategy implements OutputStrategy {
       writePromises.push(
         this.withRetry(() => this.consoleStrategy.write(data), 'console')
           .then(() => ({ type: 'console' as const, success: true }))
-          .catch((error: Error) => ({ 
-            type: 'console' as const, 
-            success: false, 
-            error: error.message 
+          .catch((error: Error) => ({
+            type: 'console' as const,
+            success: false,
+            error: error.message
           }))
       )
     }
 
     // Execute all writes in parallel
     const results = await Promise.allSettled(writePromises)
-    
+
     return this.processParallelResults(results)
   }
 
@@ -304,10 +301,11 @@ export class DualOutputStrategy implements OutputStrategy {
         }
       } else {
         // Promise itself was rejected
-        const error = promiseResult.reason instanceof Error 
-          ? promiseResult.reason.message 
-          : String(promiseResult.reason)
-        
+        const error =
+          promiseResult.reason instanceof Error
+            ? promiseResult.reason.message
+            : String(promiseResult.reason)
+
         // We can't determine which strategy failed from here,
         // so we'll set both as potentially failed
         if (!result.fileError) result.fileError = error
@@ -401,10 +399,7 @@ export class DualOutputStrategy implements OutputStrategy {
     // Add close promises for active strategies
     if (this.fileStrategy.canExecute()) {
       closePromises.push(
-        this.withTimeout(
-          this.fileStrategy.close(),
-          'file close'
-        ).catch((error) => {
+        this.withTimeout(this.fileStrategy.close(), 'file close').catch((error) => {
           logger('File strategy close failed: %s', error)
         })
       )
@@ -412,10 +407,7 @@ export class DualOutputStrategy implements OutputStrategy {
 
     if (this.consoleStrategy.canExecute()) {
       closePromises.push(
-        this.withTimeout(
-          this.consoleStrategy.close(),
-          'console close'
-        ).catch((error) => {
+        this.withTimeout(this.consoleStrategy.close(), 'console close').catch((error) => {
           logger('Console strategy close failed: %s', error)
         })
       )
@@ -433,14 +425,14 @@ export class DualOutputStrategy implements OutputStrategy {
   /**
    * Wraps an operation with timeout
    */
-  private async withTimeout<T>(
-    operation: Promise<T>,
-    operationName: string
-  ): Promise<T> {
+  private async withTimeout<T>(operation: Promise<T>, operationName: string): Promise<T> {
     return Promise.race([
       operation,
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`${operationName} timed out`)), this.config.operationTimeout)
+        setTimeout(
+          () => reject(new Error(`${operationName} timed out`)),
+          this.config.operationTimeout
+        )
       )
     ])
   }
@@ -448,10 +440,7 @@ export class DualOutputStrategy implements OutputStrategy {
   /**
    * Wraps an operation with retry logic
    */
-  private async withRetry<T>(
-    operation: () => Promise<T>,
-    operationName: string
-  ): Promise<T> {
+  private async withRetry<T>(operation: () => Promise<T>, operationName: string): Promise<T> {
     let lastError: Error = new Error(`${operationName} failed with no attempts`)
 
     for (let attempt = 0; attempt <= this.config.retryAttempts; attempt++) {
@@ -459,11 +448,17 @@ export class DualOutputStrategy implements OutputStrategy {
         return await this.withTimeout(operation(), `${operationName} attempt ${attempt + 1}`)
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
-        
+
         if (attempt < this.config.retryAttempts) {
           const delay = Math.min(100 * Math.pow(2, attempt), 1000) // Exponential backoff, max 1s
-          logger('Retry %d for %s failed: %s (retrying in %dms)', attempt + 1, operationName, lastError.message, delay)
-          await new Promise(resolve => setTimeout(resolve, delay))
+          logger(
+            'Retry %d for %s failed: %s (retrying in %dms)',
+            attempt + 1,
+            operationName,
+            lastError.message,
+            delay
+          )
+          await new Promise((resolve) => setTimeout(resolve, delay))
         }
       }
     }

@@ -15,7 +15,11 @@ import { OutputBuilder } from '../output/OutputBuilder'
 import { OutputWriter } from '../output/OutputWriter'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { detectEnvironment, hasTTY } from '../utils/environment'
-import { detectTerminalCapabilities, supportsColor, type TerminalCapabilities } from '../utils/terminal'
+import {
+  detectTerminalCapabilities,
+  supportsColor,
+  type TerminalCapabilities
+} from '../utils/terminal'
 import { StreamErrorHandler, StreamErrorType, RecoveryStrategy } from './ErrorHandler'
 import { StreamRecovery, StreamHealth, RecoveryMode } from './StreamRecovery'
 import { StreamingDiagnostics, DiagnosticLevel } from './diagnostics'
@@ -104,9 +108,9 @@ export class ReporterStreamIntegration {
     this.errorHandler = new StreamErrorHandler({
       enableFallbackFile: true,
       enableFallbackConsole: true,
-      fallbackFilePath: this.config.outputFile ? 
-        this.config.outputFile.replace('.json', '-fallback.json') : 
-        'vitest-llm-fallback.json',
+      fallbackFilePath: this.config.outputFile
+        ? this.config.outputFile.replace('.json', '-fallback.json')
+        : 'vitest-llm-fallback.json',
       enableErrorReporting: true
     })
 
@@ -139,15 +143,17 @@ export class ReporterStreamIntegration {
       // Detect terminal and environment capabilities
       const envInfo = detectEnvironment()
       this.terminalCapabilities = detectTerminalCapabilities()
-      
+
       // Determine if we need to run in degradation mode
       this.degradationMode = this.shouldDegradeGracefully(envInfo, this.terminalCapabilities)
-      
+
       if (this.degradationMode) {
-        this.debug('Running in degradation mode: TTY=%s, CI=%s, Color=%s', 
-          this.terminalCapabilities.isTTY, 
+        this.debug(
+          'Running in degradation mode: TTY=%s, CI=%s, Color=%s',
+          this.terminalCapabilities.isTTY,
           envInfo.ci.isCI,
-          this.terminalCapabilities.supportsColor)
+          this.terminalCapabilities.supportsColor
+        )
       }
 
       this.isActive = true
@@ -214,7 +220,7 @@ export class ReporterStreamIntegration {
       await this.synchronizer.shutdown()
     } catch (error) {
       this.debugError('Error stopping stream integration: %O', error)
-      
+
       // Try to handle the error gracefully
       await this.errorHandler.handleError(
         error instanceof Error ? error : new Error(String(error)),
@@ -228,7 +234,7 @@ export class ReporterStreamIntegration {
       // Stop error handling components
       this.streamRecovery.stop()
       this.diagnostics.stop()
-      
+
       this.isActive = false
       this.debug('Stream integration stopped')
     }
@@ -307,11 +313,11 @@ export class ReporterStreamIntegration {
       this.debug('Streamed test result for: %s', result.test)
     } catch (error) {
       this.debugError('Error streaming test result: %O', error)
-      
+
       // Track the error
       this.diagnostics.trackOperationError(operationId, {
         type: StreamErrorType.EXECUTION,
-        severity: 'error' in result ? 'high' as any : 'normal' as any,
+        severity: 'error' in result ? ('high' as any) : ('normal' as any),
         source: {
           operation: 'streamTestResult',
           priority: 'error' in result ? OutputPriority.HIGH : OutputPriority.NORMAL,
@@ -335,8 +341,10 @@ export class ReporterStreamIntegration {
       )
 
       if (recoveryResult.success) {
-        if (recoveryResult.strategy === RecoveryStrategy.FALLBACK_CONSOLE ||
-            recoveryResult.strategy === RecoveryStrategy.DEGRADE) {
+        if (
+          recoveryResult.strategy === RecoveryStrategy.FALLBACK_CONSOLE ||
+          recoveryResult.strategy === RecoveryStrategy.DEGRADE
+        ) {
           // Fall back to degraded output
           this.handleDegradedOutput(result)
         }
@@ -356,7 +364,7 @@ export class ReporterStreamIntegration {
     // In degradation mode, just emit minimal console output
     const status = 'error' in result ? 'FAIL' : 'PASS'
     const message = `${status} ${result.test}`
-    
+
     // Use simple console output instead of complex streaming
     try {
       process.stdout.write(`${message}\n`)
@@ -379,7 +387,7 @@ export class ReporterStreamIntegration {
       this.debug('Dual-mode output written to: %s', this.config.outputFile)
     } catch (error) {
       this.debugError('Error writing dual-mode output: %O', error)
-      
+
       if (!this.config.gracefulDegradation) {
         throw error
       }
@@ -421,7 +429,7 @@ export class ReporterStreamIntegration {
 
     const listeners = this.listeners.get(type)
     if (listeners) {
-      listeners.forEach(listener => {
+      listeners.forEach((listener) => {
         try {
           listener(event)
         } catch (error) {

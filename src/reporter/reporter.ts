@@ -14,7 +14,8 @@ import type { LLMReporterConfig, StreamingConfig } from '../types/reporter'
 import type { LLMReporterOutput } from '../types/schema'
 
 // Type for resolved configuration with explicit undefined handling
-interface ResolvedLLMReporterConfig extends Omit<LLMReporterConfig, 'outputFile' | 'enableStreaming' | 'streaming'> {
+interface ResolvedLLMReporterConfig
+  extends Omit<LLMReporterConfig, 'outputFile' | 'enableStreaming' | 'streaming'> {
   verbose: boolean
   outputFile: string | undefined // Explicitly undefined, not optional
   includePassedTests: boolean
@@ -154,7 +155,10 @@ export class LLMReporter implements Reporter {
     if (config.maxTokens !== undefined && config.maxTokens < 0) {
       throw new Error('maxTokens must be a positive number')
     }
-    if (config.outputFormat !== undefined && !['json', 'jsonl', 'markdown'].includes(config.outputFormat)) {
+    if (
+      config.outputFormat !== undefined &&
+      !['json', 'jsonl', 'markdown'].includes(config.outputFormat)
+    ) {
       throw new Error('outputFormat must be one of: json, jsonl, markdown')
     }
     if (config.tokenCountingModel !== undefined && typeof config.tokenCountingModel !== 'string') {

@@ -89,9 +89,9 @@ interface ProgressBarOptions {
  *   showProgressBars: true,
  *   includeCodeBlocks: true
  * });
- * 
+ *
  * await formatter.initialize();
- * 
+ *
  * // Output: ## ✅ Test Passed: `should work`
  * // **File:** `/path/to/test.js:10-15`
  * // **Duration:** 5ms
@@ -125,7 +125,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     this.updateCounters(event)
 
     const output = await this.formatEventToMarkdown(event)
-    
+
     // Track sections created
     if (output.trim()) {
       const custom = this.state.custom as any
@@ -164,7 +164,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     // Failures section
     if (output.failures && output.failures.length > 0) {
       lines.push(`## ${this.getEmoji('failure')} Failed Tests (${output.failures.length})\n`)
-      
+
       if (this.markdownConfig.useCollapsible && output.failures.length > 3) {
         lines.push('<details>')
         lines.push('<summary>Click to expand failed tests</summary>\n')
@@ -183,7 +183,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     // Passed tests section (if included)
     if (output.passed && output.passed.length > 0) {
       lines.push(`## ${this.getEmoji('success')} Passed Tests (${output.passed.length})\n`)
-      
+
       if (this.markdownConfig.useCollapsible) {
         lines.push('<details>')
         lines.push('<summary>Click to expand passed tests</summary>\n')
@@ -206,7 +206,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     // Skipped tests section (if included)
     if (output.skipped && output.skipped.length > 0) {
       lines.push(`## ${this.getEmoji('skipped')} Skipped Tests (${output.skipped.length})\n`)
-      
+
       for (const test of output.skipped) {
         lines.push(`- ${this.getEmoji('skipped')} **${test.test}** in \`${test.file}\``)
       }
@@ -220,14 +220,17 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
    * Format individual streaming event to Markdown
    */
   private async formatEventToMarkdown(event: StreamingEvent): Promise<string> {
-    const timestamp = this.markdownConfig.includeTimestamps ? 
-      this.formatTimestamp(event.timestamp) : ''
+    const timestamp = this.markdownConfig.includeTimestamps
+      ? this.formatTimestamp(event.timestamp)
+      : ''
 
     switch (event.type) {
       case StreamingEventType.RUN_START:
         const runStart = event.data as RunStartData
-        return `# ${this.getEmoji('start')} Test Run Started\n\n` +
-               `${timestamp}**Total Tests:** ${runStart.totalTests}\n\n`
+        return (
+          `# ${this.getEmoji('start')} Test Run Started\n\n` +
+          `${timestamp}**Total Tests:** ${runStart.totalTests}\n\n`
+        )
 
       case StreamingEventType.TEST_START:
         return '' // Don't output for test start to avoid clutter
@@ -250,8 +253,11 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
 
       case StreamingEventType.RUN_COMPLETE:
         if (isRunCompleteData(event.data)) {
-          return `## ${this.getEmoji('complete')} Test Run Complete\n\n` +
-                 this.createSummaryTable(event.data.summary) + '\n'
+          return (
+            `## ${this.getEmoji('complete')} Test Run Complete\n\n` +
+            this.createSummaryTable(event.data.summary) +
+            '\n'
+          )
         }
         break
 
@@ -272,10 +278,10 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     const { result, progress } = data
     const emoji = result.status === 'passed' ? this.getEmoji('success') : this.getEmoji('skipped')
     const status = result.status === 'passed' ? 'Passed' : 'Skipped'
-    
+
     let output = `### ${emoji}${emoji ? ' ' : ''}Test ${status}: \`${result.test}\`\n\n`
     output += `${timestamp}**File:** \`${result.file}:${result.startLine}-${result.endLine}\`\n`
-    
+
     if (result.duration) {
       output += `**Duration:** ${result.duration}ms\n`
     }
@@ -286,7 +292,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
 
     if (this.markdownConfig.includeProgress) {
       output += `**Progress:** ${super.formatProgress(progress.completed, progress.total)}\n`
-      
+
       if (this.markdownConfig.showProgressBars) {
         output += this.createProgressBar(progress.completed, progress.total)
       }
@@ -300,11 +306,11 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
    */
   private formatTestFailure(data: TestFailureData, timestamp: string): string {
     const { failure, progress } = data
-    
+
     let output = `### ${this.getEmoji('failure')} Test Failed: \`${failure.test}\`\n\n`
     output += `${timestamp}**File:** \`${failure.file}:${failure.startLine}-${failure.endLine}\`\n`
     output += `**Error Type:** ${failure.error.type}\n`
-    
+
     if (failure.suite && failure.suite.length > 0) {
       output += `**Suite:** ${failure.suite.join(' > ')}\n`
     }
@@ -361,7 +367,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
 
     if (this.markdownConfig.includeProgress) {
       output += `\n**Progress:** ${super.formatProgress(progress.completed, progress.total)}\n`
-      
+
       if (this.markdownConfig.showProgressBars) {
         output += this.createProgressBar(progress.completed, progress.total)
       }
@@ -377,7 +383,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     const { results } = data
     const total = results.passed + results.failed + results.skipped
     const emoji = results.failed > 0 ? this.getEmoji('failure') : this.getEmoji('success')
-    
+
     let output = `### ${emoji} Suite Complete: \`${data.suiteName}\`\n\n`
     output += `${timestamp}**File:** \`${data.file}\`\n`
     output += `**Results:** ${results.passed} passed, ${results.failed} failed, ${results.skipped} skipped (${total} total)\n`
@@ -445,7 +451,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
    */
   private createSummaryTable(summary: any): string {
     const { total, passed, failed, skipped, duration } = summary
-    
+
     return `| Metric | Value |
 |--------|-------|
 | **Total Tests** | ${total} |
@@ -459,7 +465,11 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
   /**
    * Create progress bar visualization
    */
-  private createProgressBar(completed: number, total: number, options?: Partial<ProgressBarOptions>): string {
+  private createProgressBar(
+    completed: number,
+    total: number,
+    options?: Partial<ProgressBarOptions>
+  ): string {
     if (!this.markdownConfig.showProgressBars || total === 0) {
       return ''
     }
@@ -487,16 +497,16 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
    */
   private createProgressVisualization(summary: any): string {
     const { total, passed, failed, skipped } = summary
-    
+
     if (total === 0) {
       return 'No tests executed.\n'
     }
 
     let viz = ''
-    
+
     // Overall progress
     viz += `**Overall:** ${this.createProgressBar(passed + failed + skipped, total)}\n`
-    
+
     // Breakdown
     viz += `**Passed:** ${this.createProgressBar(passed, total, { fillChar: '🟩', emptyChar: '⬜' })}\n`
     viz += `**Failed:** ${this.createProgressBar(failed, total, { fillChar: '🟥', emptyChar: '⬜' })}\n`

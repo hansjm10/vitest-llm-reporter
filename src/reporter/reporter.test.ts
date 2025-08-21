@@ -638,15 +638,21 @@ describe('LLMReporter', () => {
 
   describe('Configuration Validation', () => {
     it('should validate maxTokens is positive', () => {
-      expect(() => new LLMReporter({ maxTokens: -1 })).toThrow('maxTokens must be a positive number')
+      expect(() => new LLMReporter({ maxTokens: -1 })).toThrow(
+        'maxTokens must be a positive number'
+      )
     })
 
     it('should validate outputFormat is valid', () => {
-      expect(() => new LLMReporter({ outputFormat: 'invalid' as any })).toThrow('outputFormat must be one of: json, jsonl, markdown')
+      expect(() => new LLMReporter({ outputFormat: 'invalid' as any })).toThrow(
+        'outputFormat must be one of: json, jsonl, markdown'
+      )
     })
 
     it('should validate tokenCountingModel is a string', () => {
-      expect(() => new LLMReporter({ tokenCountingModel: 123 as any })).toThrow('tokenCountingModel must be a string')
+      expect(() => new LLMReporter({ tokenCountingModel: 123 as any })).toThrow(
+        'tokenCountingModel must be a string'
+      )
     })
 
     it('should allow valid maxTokens values', () => {

@@ -101,9 +101,9 @@ interface JsonLineEvent {
  *   compact: true,
  *   includeProgress: true
  * });
- * 
+ *
  * await formatter.initialize();
- * 
+ *
  * // Output: {"event":"test-complete","timestamp":1234567890,"data":{"test":"should work","status":"passed"},"meta":{"progress":{"completed":1,"total":5,"percentage":20}}}
  * const output = await formatter.formatEvent(testCompleteEvent);
  * ```
@@ -134,7 +134,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
     this.updateCounters(event)
 
     const jsonEvent = this.createJsonLineEvent(event)
-    const jsonString = this.jsonlConfig.compact 
+    const jsonString = this.jsonlConfig.compact
       ? JSON.stringify(jsonEvent)
       : JSON.stringify(jsonEvent, null, 2)
 
@@ -174,7 +174,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
       finalEvent.sequence = ++this.sequence
     }
 
-    const jsonString = this.jsonlConfig.compact 
+    const jsonString = this.jsonlConfig.compact
       ? JSON.stringify(finalEvent)
       : JSON.stringify(finalEvent, null, 2)
 
@@ -318,9 +318,8 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
             failed: event.data.failed,
             skipped: event.data.skipped,
             currentTest: event.data.currentTest,
-            percentage: event.data.total > 0 
-              ? Math.round((event.data.completed / event.data.total) * 100) 
-              : 0
+            percentage:
+              event.data.total > 0 ? Math.round((event.data.completed / event.data.total) * 100) : 0
           }
         }
         return event.data
@@ -344,9 +343,10 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
           meta.progress = {
             completed: progressData.completed,
             total: progressData.total,
-            percentage: progressData.total > 0 
-              ? Math.round((progressData.completed / progressData.total) * 100)
-              : 0
+            percentage:
+              progressData.total > 0
+                ? Math.round((progressData.completed / progressData.total) * 100)
+                : 0
           }
         }
       }
@@ -389,8 +389,8 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
   static parseJsonLines(jsonlString: string): JsonLineEvent[] {
     return jsonlString
       .split('\n')
-      .filter(line => line.trim())
-      .map(line => JSON.parse(line))
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line))
   }
 
   /**

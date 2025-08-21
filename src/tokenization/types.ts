@@ -11,18 +11,18 @@ export type SupportedModel =
   | 'claude-3-sonnet'
   | 'claude-3-haiku'
   | 'claude-3-5-sonnet'
-  | 'claude-3-5-haiku';
+  | 'claude-3-5-haiku'
 
 /**
  * Configuration options for the tokenization service
  */
 export interface TokenizationConfig {
   /** Default model to use for tokenization */
-  defaultModel?: SupportedModel;
+  defaultModel?: SupportedModel
   /** Maximum cache size for LRU cache */
-  cacheSize?: number;
+  cacheSize?: number
   /** Whether to enable lazy loading of tokenizers */
-  lazyLoad?: boolean;
+  lazyLoad?: boolean
 }
 
 /**
@@ -30,11 +30,11 @@ export interface TokenizationConfig {
  */
 export interface TokenizationResult {
   /** Number of tokens */
-  tokenCount: number;
+  tokenCount: number
   /** Model used for tokenization */
-  model: SupportedModel;
+  model: SupportedModel
   /** Whether result was retrieved from cache */
-  fromCache: boolean;
+  fromCache: boolean
 }
 
 /**
@@ -42,9 +42,9 @@ export interface TokenizationResult {
  */
 export interface CacheEntry {
   /** Tokenization result */
-  result: TokenizationResult;
+  result: TokenizationResult
   /** Timestamp when entry was created */
-  timestamp: number;
+  timestamp: number
 }
 
 /**
@@ -52,9 +52,9 @@ export interface CacheEntry {
  */
 export interface CacheKey {
   /** Text content */
-  text: string;
+  text: string
   /** Model used */
-  model: SupportedModel;
+  model: SupportedModel
 }
 
 /**
@@ -62,11 +62,11 @@ export interface CacheKey {
  */
 export interface ITokenizer {
   /** Encode text to tokens */
-  encode(text: string): number[];
+  encode(text: string): number[]
   /** Count tokens in text */
-  countTokens(text: string): number;
+  countTokens(text: string): number
   /** Get model name */
-  getModel(): SupportedModel;
+  getModel(): SupportedModel
 }
 
 /**
@@ -74,9 +74,9 @@ export interface ITokenizer {
  */
 export interface ITokenizerFactory {
   /** Create tokenizer for specified model */
-  createTokenizer(model: SupportedModel): Promise<ITokenizer>;
+  createTokenizer(model: SupportedModel): Promise<ITokenizer>
   /** Check if model is supported */
-  isModelSupported(model: string): model is SupportedModel;
+  isModelSupported(model: string): model is SupportedModel
 }
 
 /**
@@ -84,15 +84,15 @@ export interface ITokenizerFactory {
  */
 export interface ILRUCache<K, V> {
   /** Get value by key */
-  get(key: K): V | undefined;
+  get(key: K): V | undefined
   /** Set key-value pair */
-  set(key: K, value: V): void;
+  set(key: K, value: V): void
   /** Check if key exists */
-  has(key: K): boolean;
+  has(key: K): boolean
   /** Clear all entries */
-  clear(): void;
+  clear(): void
   /** Get current size */
-  size(): number;
+  size(): number
   /** Get maximum capacity */
-  capacity(): number;
+  capacity(): number
 }

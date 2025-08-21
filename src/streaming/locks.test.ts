@@ -1,6 +1,6 @@
 /**
  * Tests for synchronization locks
- * 
+ *
  * @module streaming/locks.test
  */
 
@@ -22,13 +22,13 @@ describe('Mutex', () => {
 
     it('should block second acquisition', async () => {
       await mutex.acquire('test1')
-      
+
       const promise = mutex.acquire('test2')
-      
+
       // Should still be pending after a short delay
-      await new Promise(resolve => setTimeout(resolve, 50))
+      await new Promise((resolve) => setTimeout(resolve, 50))
       expect(mutex.getStats().waiters).toBe(1)
-      
+
       mutex.release('test1')
       await expect(promise).resolves.toBeUndefined()
     })
@@ -36,7 +36,7 @@ describe('Mutex', () => {
     it('should release lock correctly', () => {
       mutex.acquire('test1')
       expect(mutex.isLocked).toBe(true)
-      
+
       mutex.release('test1')
       expect(mutex.isLocked).toBe(false)
     })
@@ -55,7 +55,7 @@ describe('Mutex', () => {
     it('should timeout after configured time', async () => {
       const shortMutex = new Mutex({ timeout: 100 })
       await shortMutex.acquire('holder')
-      
+
       const start = Date.now()
       await expect(shortMutex.acquire('waiter')).rejects.toThrow('Lock acquisition timeout')
       const elapsed = Date.now() - start
@@ -67,32 +67,34 @@ describe('Mutex', () => {
   describe('withLock helper', () => {
     it('should execute function with lock held', async () => {
       let executed = false
-      
+
       await mutex.withLock(() => {
         executed = true
         expect(mutex.isLocked).toBe(true)
       })
-      
+
       expect(executed).toBe(true)
       expect(mutex.isLocked).toBe(false)
     })
 
     it('should release lock even on error', async () => {
-      await expect(mutex.withLock(() => {
-        throw new Error('Test error')
-      })).rejects.toThrow('Test error')
-      
+      await expect(
+        mutex.withLock(() => {
+          throw new Error('Test error')
+        })
+      ).rejects.toThrow('Test error')
+
       expect(mutex.isLocked).toBe(false)
     })
 
     it('should handle async functions', async () => {
       let executed = false
-      
+
       await mutex.withLock(async () => {
-        await new Promise(resolve => setTimeout(resolve, 50))
+        await new Promise((resolve) => setTimeout(resolve, 50))
         executed = true
       })
-      
+
       expect(executed).toBe(true)
       expect(mutex.isLocked).toBe(false)
     })
@@ -129,7 +131,7 @@ describe('Semaphore', () => {
     it('should allow acquisition up to permit limit', async () => {
       await expect(semaphore.acquire('test1')).resolves.toBeUndefined()
       expect(semaphore.availablePermits).toBe(1)
-      
+
       await expect(semaphore.acquire('test2')).resolves.toBeUndefined()
       expect(semaphore.availablePermits).toBe(0)
     })
@@ -137,12 +139,12 @@ describe('Semaphore', () => {
     it('should block when permits exhausted', async () => {
       await semaphore.acquire('test1')
       await semaphore.acquire('test2')
-      
+
       const promise = semaphore.acquire('test3')
-      
-      await new Promise(resolve => setTimeout(resolve, 50))
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
       expect(semaphore.getStats().waiters).toBe(1)
-      
+
       semaphore.release()
       await expect(promise).resolves.toBeUndefined()
     })
@@ -150,7 +152,7 @@ describe('Semaphore', () => {
     it('should release permits correctly', async () => {
       await semaphore.acquire('test1')
       expect(semaphore.availablePermits).toBe(1)
-      
+
       semaphore.release()
       expect(semaphore.availablePermits).toBe(2)
     })
@@ -160,23 +162,25 @@ describe('Semaphore', () => {
     it('should execute function with permit held', async () => {
       const initialPermits = semaphore.availablePermits
       let executed = false
-      
+
       await semaphore.withPermit(() => {
         executed = true
         expect(semaphore.availablePermits).toBe(initialPermits - 1)
       })
-      
+
       expect(executed).toBe(true)
       expect(semaphore.availablePermits).toBe(initialPermits)
     })
 
     it('should release permit even on error', async () => {
       const initialPermits = semaphore.availablePermits
-      
-      await expect(semaphore.withPermit(() => {
-        throw new Error('Test error')
-      })).rejects.toThrow('Test error')
-      
+
+      await expect(
+        semaphore.withPermit(() => {
+          throw new Error('Test error')
+        })
+      ).rejects.toThrow('Test error')
+
       expect(semaphore.availablePermits).toBe(initialPermits)
     })
   })
@@ -185,9 +189,11 @@ describe('Semaphore', () => {
     it('should timeout when permits unavailable', async () => {
       const shortSemaphore = new Semaphore(1, { timeout: 100 })
       await shortSemaphore.acquire('holder')
-      
+
       const start = Date.now()
-      await expect(shortSemaphore.acquire('waiter')).rejects.toThrow('Semaphore acquisition timeout')
+      await expect(shortSemaphore.acquire('waiter')).rejects.toThrow(
+        'Semaphore acquisition timeout'
+      )
       const elapsed = Date.now() - start
       expect(elapsed).toBeGreaterThanOrEqual(90)
       expect(elapsed).toBeLessThan(200)
@@ -213,7 +219,7 @@ describe('ReadWriteLock', () => {
     it('should allow multiple concurrent readers', async () => {
       await expect(rwLock.acquireRead('reader1')).resolves.toBeUndefined()
       await expect(rwLock.acquireRead('reader2')).resolves.toBeUndefined()
-      
+
       const stats = rwLock.getStats()
       expect(stats.readers).toBe(2)
       expect(stats.writing).toBe(false)
@@ -221,12 +227,12 @@ describe('ReadWriteLock', () => {
 
     it('should block readers when writer is active', async () => {
       await rwLock.acquireWrite('writer')
-      
+
       const promise = rwLock.acquireRead('reader')
-      
-      await new Promise(resolve => setTimeout(resolve, 50))
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
       expect(rwLock.getStats().readWaiters).toBe(1)
-      
+
       rwLock.releaseWrite()
       await expect(promise).resolves.toBeUndefined()
     })
@@ -235,10 +241,10 @@ describe('ReadWriteLock', () => {
       await rwLock.acquireRead('reader1')
       await rwLock.acquireRead('reader2')
       expect(rwLock.getStats().readers).toBe(2)
-      
+
       rwLock.releaseRead()
       expect(rwLock.getStats().readers).toBe(1)
-      
+
       rwLock.releaseRead()
       expect(rwLock.getStats().readers).toBe(0)
     })
@@ -251,7 +257,7 @@ describe('ReadWriteLock', () => {
   describe('write operations', () => {
     it('should allow exclusive write access', async () => {
       await expect(rwLock.acquireWrite('writer')).resolves.toBeUndefined()
-      
+
       const stats = rwLock.getStats()
       expect(stats.writing).toBe(true)
       expect(stats.readers).toBe(0)
@@ -259,24 +265,24 @@ describe('ReadWriteLock', () => {
 
     it('should block writers when readers are active', async () => {
       await rwLock.acquireRead('reader')
-      
+
       const promise = rwLock.acquireWrite('writer')
-      
-      await new Promise(resolve => setTimeout(resolve, 50))
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
       expect(rwLock.getStats().writeWaiters).toBe(1)
-      
+
       rwLock.releaseRead()
       await expect(promise).resolves.toBeUndefined()
     })
 
     it('should block writers when another writer is active', async () => {
       await rwLock.acquireWrite('writer1')
-      
+
       const promise = rwLock.acquireWrite('writer2')
-      
-      await new Promise(resolve => setTimeout(resolve, 50))
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
       expect(rwLock.getStats().writeWaiters).toBe(1)
-      
+
       rwLock.releaseWrite()
       await expect(promise).resolves.toBeUndefined()
     })
@@ -284,52 +290,58 @@ describe('ReadWriteLock', () => {
     it('should release write locks correctly', async () => {
       await rwLock.acquireWrite('writer')
       expect(rwLock.getStats().writing).toBe(true)
-      
+
       rwLock.releaseWrite()
       expect(rwLock.getStats().writing).toBe(false)
     })
 
     it('should throw on release when not writing', () => {
-      expect(() => rwLock.releaseWrite()).toThrow('Cannot release write lock - not currently writing')
+      expect(() => rwLock.releaseWrite()).toThrow(
+        'Cannot release write lock - not currently writing'
+      )
     })
   })
 
   describe('withLock helpers', () => {
     it('should execute read function with read lock', async () => {
       let executed = false
-      
+
       await rwLock.withReadLock(() => {
         executed = true
         expect(rwLock.getStats().readers).toBe(1)
       })
-      
+
       expect(executed).toBe(true)
       expect(rwLock.getStats().readers).toBe(0)
     })
 
     it('should execute write function with write lock', async () => {
       let executed = false
-      
+
       await rwLock.withWriteLock(() => {
         executed = true
         expect(rwLock.getStats().writing).toBe(true)
       })
-      
+
       expect(executed).toBe(true)
       expect(rwLock.getStats().writing).toBe(false)
     })
 
     it('should release locks even on error', async () => {
-      await expect(rwLock.withReadLock(() => {
-        throw new Error('Test error')
-      })).rejects.toThrow('Test error')
-      
+      await expect(
+        rwLock.withReadLock(() => {
+          throw new Error('Test error')
+        })
+      ).rejects.toThrow('Test error')
+
       expect(rwLock.getStats().readers).toBe(0)
 
-      await expect(rwLock.withWriteLock(() => {
-        throw new Error('Test error')
-      })).rejects.toThrow('Test error')
-      
+      await expect(
+        rwLock.withWriteLock(() => {
+          throw new Error('Test error')
+        })
+      ).rejects.toThrow('Test error')
+
       expect(rwLock.getStats().writing).toBe(false)
     })
   })
@@ -337,22 +349,22 @@ describe('ReadWriteLock', () => {
   describe('priority handling', () => {
     it('should prioritize waiting writers over new readers', async () => {
       await rwLock.acquireRead('reader1')
-      
+
       // Queue a writer
       const writerPromise = rwLock.acquireWrite('writer')
-      await new Promise(resolve => setTimeout(resolve, 10))
-      
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
       // Try to queue more readers - they should wait for the writer
       const readerPromise = rwLock.acquireRead('reader2')
-      await new Promise(resolve => setTimeout(resolve, 10))
-      
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
       expect(rwLock.getStats().writeWaiters).toBe(1)
       expect(rwLock.getStats().readWaiters).toBe(1)
-      
+
       // Release the active reader - writer should get priority
       rwLock.releaseRead()
       await expect(writerPromise).resolves.toBeUndefined()
-      
+
       expect(rwLock.getStats().writing).toBe(true)
       expect(rwLock.getStats().readWaiters).toBe(1)
     })

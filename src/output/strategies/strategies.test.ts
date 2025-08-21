@@ -54,24 +54,28 @@ const mockReporterOutput: LLMReporterOutput = {
     duration: 1500,
     timestamp: '2024-01-01T10:00:00.000Z'
   },
-  failures: [{
-    test: 'failing test',
-    file: '/test/example.test.ts',
-    startLine: 10,
-    endLine: 15,
-    error: {
-      message: 'Test failed',
-      type: 'AssertionError'
+  failures: [
+    {
+      test: 'failing test',
+      file: '/test/example.test.ts',
+      startLine: 10,
+      endLine: 15,
+      error: {
+        message: 'Test failed',
+        type: 'AssertionError'
+      }
     }
-  }],
-  passed: [{
-    test: 'passing test 1',
-    file: '/test/example.test.ts',
-    startLine: 1,
-    endLine: 5,
-    status: 'passed' as const,
-    duration: 100
-  }]
+  ],
+  passed: [
+    {
+      test: 'passing test 1',
+      file: '/test/example.test.ts',
+      startLine: 1,
+      endLine: 5,
+      status: 'passed' as const,
+      duration: 100
+    }
+  ]
 }
 
 // Test utilities
@@ -104,40 +108,40 @@ describe('OutputValidator', () => {
     it('should validate writable file path', () => {
       const tempFile = createTempFile('{"test": "data"}')
       const result = validator.validateFilePermissions(tempFile)
-      
+
       expect(result.isValid).toBe(true)
       expect(result.directoryWritable).toBe(true)
       expect(result.fileExists).toBe(true)
       expect(result.fileWritable).toBe(true)
       expect(result.resolvedPath).toBe(path.resolve(tempFile))
-      
+
       cleanupTempFile(tempFile)
     })
 
     it('should validate new file in existing directory', () => {
       const tempDir = fs.mkdtempSync(path.join(process.cwd(), 'test-dir-'))
       const newFile = path.join(tempDir, 'new-file.json')
-      
+
       const result = validator.validateFilePermissions(newFile)
-      
+
       expect(result.isValid).toBe(true)
       expect(result.directoryWritable).toBe(true)
       expect(result.fileExists).toBe(false)
       expect(result.resolvedPath).toBe(path.resolve(newFile))
-      
+
       fs.rmSync(tempDir, { recursive: true })
     })
 
     it('should handle invalid paths', () => {
       const result = validator.validateFilePermissions('')
-      
+
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
     })
 
     it('should handle paths with null bytes', () => {
       const result = validator.validateFilePermissions('/path/with\0null')
-      
+
       expect(result.isValid).toBe(false)
       expect(result.error).toBeDefined()
     })
@@ -146,7 +150,7 @@ describe('OutputValidator', () => {
   describe('validateConsoleCapabilities', () => {
     it('should validate console capabilities', () => {
       const result = validator.validateConsoleCapabilities()
-      
+
       expect(result.isValid).toBe(true)
       expect(result.hasStdout).toBe(true)
       expect(result.hasStderr).toBe(true)
@@ -159,10 +163,10 @@ describe('OutputValidator', () => {
     it('should validate dual output capabilities', () => {
       const tempFile = createTempFile()
       const result = validator.validateDualOutput(tempFile)
-      
+
       expect(result.isValid).toBe(true)
       expect(result.context).toBeDefined()
-      
+
       cleanupTempFile(tempFile)
     })
   })
@@ -186,7 +190,7 @@ describe('FileOutputStrategy', () => {
     })
 
     expect(strategy.canExecute()).toBe(true)
-    
+
     await strategy.initialize()
     await strategy.write(mockReporterOutput)
     await strategy.close()
@@ -201,28 +205,28 @@ describe('FileOutputStrategy', () => {
   it('should handle directory creation', async () => {
     const tempDir = fs.mkdtempSync(path.join(process.cwd(), 'test-nested-'))
     const nestedFile = path.join(tempDir, 'nested', 'deep', 'output.json')
-    
+
     const strategy = new FileOutputStrategy({
       filePath: nestedFile,
       options: { createDirectories: true }
     })
 
     expect(strategy.canExecute()).toBe(true)
-    
+
     await strategy.initialize()
     await strategy.write(mockReporterOutput)
     await strategy.close()
 
     // Verify nested directory was created
     expect(fs.existsSync(nestedFile)).toBe(true)
-    
+
     fs.rmSync(tempDir, { recursive: true })
   })
 
   it('should handle backup creation', async () => {
     // Write initial content
     fs.writeFileSync(tempFile, '{"initial": "data"}')
-    
+
     const strategy = new FileOutputStrategy({
       filePath: tempFile,
       options: { backupExisting: true }
@@ -235,15 +239,15 @@ describe('FileOutputStrategy', () => {
     // Check for backup file
     const tempDir = path.dirname(tempFile)
     const files = fs.readdirSync(tempDir)
-    const backupFile = files.find(f => f.includes('.backup.'))
-    
+    const backupFile = files.find((f) => f.includes('.backup.'))
+
     expect(backupFile).toBeDefined()
   })
 
   it('should handle circular references', async () => {
     const circularData: any = { ...mockReporterOutput }
     circularData.circular = circularData // Create circular reference
-    
+
     const strategy = new FileOutputStrategy({
       filePath: tempFile,
       formatting: { handleCircularRefs: true }
@@ -291,7 +295,7 @@ describe('ConsoleOutputStrategy', () => {
       }),
       writable: true
     }
-    
+
     vi.stubGlobal('process', {
       ...process,
       stdout: mockStdout,
@@ -310,7 +314,7 @@ describe('ConsoleOutputStrategy', () => {
     })
 
     expect(strategy.canExecute()).toBe(true)
-    
+
     await strategy.initialize()
     await strategy.write(mockReporterOutput)
     await strategy.close()
@@ -341,7 +345,7 @@ describe('ConsoleOutputStrategy', () => {
 
     expect(strategy.canExecute()).toBe(true)
     expect(strategy.isSilent()).toBe(true)
-    
+
     await strategy.initialize()
     await strategy.write(mockReporterOutput)
     await strategy.close()
@@ -403,7 +407,7 @@ describe('DualOutputStrategy', () => {
       }),
       writable: true
     }
-    
+
     vi.stubGlobal('process', {
       ...process,
       stdout: mockStdout,
@@ -424,7 +428,7 @@ describe('DualOutputStrategy', () => {
     })
 
     expect(strategy.canExecute()).toBe(true)
-    
+
     await strategy.initialize()
     await strategy.write(mockReporterOutput)
     await strategy.close()
@@ -457,7 +461,7 @@ describe('DualOutputStrategy', () => {
   it('should handle continue-on-error fallback mode', async () => {
     // Create a scenario where file write might fail
     const badFile = '/root/readonly/bad-file.json'
-    
+
     const strategy = new DualOutputStrategy({
       file: { filePath: badFile },
       console: { stream: 'stdout' },
@@ -512,14 +516,14 @@ describe('DualOutputStrategy', () => {
     const strategy = new DualOutputStrategy({
       file: { filePath: tempFile },
       console: { stream: 'stdout' },
-      options: { 
+      options: {
         operationTimeout: 100, // Very short timeout
-        fallbackMode: 'continue-on-error' 
+        fallbackMode: 'continue-on-error'
       }
     })
 
     await strategy.initialize()
-    
+
     // Should not throw due to continue-on-error mode
     await strategy.write(mockReporterOutput)
     await strategy.close()
@@ -580,7 +584,7 @@ describe('Performance Tests', () => {
     }
 
     const startTime = Date.now()
-    
+
     const strategy = new FileOutputStrategy({
       filePath: tempFile,
       formatting: { spaces: 0 } // Compact for performance
@@ -591,10 +595,10 @@ describe('Performance Tests', () => {
     await strategy.close()
 
     const duration = Date.now() - startTime
-    
+
     // Should complete in reasonable time (< 5 seconds)
     expect(duration).toBeLessThan(5000)
-    
+
     // Verify file was written correctly
     const content = fs.readFileSync(tempFile, 'utf8')
     const parsed = JSON.parse(content)
@@ -609,13 +613,13 @@ describe('Performance Tests', () => {
     })
 
     const startTime = Date.now()
-    
+
     await strategy.initialize()
     await strategy.write(mockReporterOutput)
     await strategy.close()
 
     const duration = Date.now() - startTime
-    
+
     // Parallel should be faster than sequential for complex operations
     expect(duration).toBeLessThan(1000)
   })

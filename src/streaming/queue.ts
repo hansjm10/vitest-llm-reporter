@@ -1,9 +1,9 @@
 /**
  * Priority-based queue system for streaming output
- * 
+ *
  * Provides ordered execution of output operations with test-aware prioritization.
  * Handles concurrent test output scheduling and prevents output interleaving.
- * 
+ *
  * @module streaming/queue
  */
 
@@ -85,7 +85,7 @@ export interface QueueConfig {
 
 /**
  * Priority queue for managing concurrent output operations
- * 
+ *
  * Ensures proper ordering of test output while maintaining performance.
  */
 export class PriorityOutputQueue {
@@ -199,7 +199,7 @@ export class PriorityOutputQueue {
           await this._processSingle()
         }
         // Allow other operations to run
-        await new Promise(resolve => setImmediate(resolve))
+        await new Promise((resolve) => setImmediate(resolve))
       }
     } finally {
       this._processing = false
@@ -227,10 +227,10 @@ export class PriorityOutputQueue {
     while (
       batch.length < this._config.maxBatchSize &&
       this._operations.length > 0 &&
-      (Date.now() - startTime) < this._config.batchTimeout
+      Date.now() - startTime < this._config.batchTimeout
     ) {
       const operation = this._operations.shift()!
-      
+
       // Check if operation can be batched with current batch
       if (this._canBatch(operation, batch)) {
         batch.push(operation)
@@ -289,10 +289,8 @@ export class PriorityOutputQueue {
   private async _executeOperation(operation: QueuedOperation): Promise<void> {
     const timeoutId = setTimeout(() => {
       this._stats.timeouts++
-      operation.reject(new Error(
-        `Operation timeout after ${operation.timeout}ms: ${operation.id}`
-      ))
-    }, operation.timeout!)
+      operation.reject(new Error(`Operation timeout after ${operation.timeout}ms: ${operation.id}`))
+    }, operation.timeout)
 
     try {
       await operation.executor()
@@ -327,7 +325,7 @@ export class PriorityOutputQueue {
    */
   clear(): void {
     const operations = this._operations.splice(0)
-    operations.forEach(op => {
+    operations.forEach((op) => {
       op.reject(new Error('Queue cleared'))
     })
   }
@@ -363,14 +361,14 @@ export class PriorityOutputQueue {
    */
   async drain(): Promise<void> {
     while (this._operations.length > 0 || this._processing) {
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
     }
   }
 }
 
 /**
  * Specialized queue for test output coordination
- * 
+ *
  * Provides test-aware ordering and grouping of output operations.
  */
 export class TestOutputQueue extends PriorityOutputQueue {
@@ -407,12 +405,10 @@ export class TestOutputQueue extends PriorityOutputQueue {
   async completeTest(testFile: string, testName: string): Promise<void> {
     const testKey = `${testFile}::${testName}`
     this._activeTests.delete(testKey)
-    
+
     // Wait for any pending operations for this test
-    while (this._operations.some(op => 
-      op.testFile === testFile && op.testName === testName
-    )) {
-      await new Promise(resolve => setTimeout(resolve, 10))
+    while (this._operations.some((op) => op.testFile === testFile && op.testName === testName)) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
     }
   }
 
@@ -427,8 +423,6 @@ export class TestOutputQueue extends PriorityOutputQueue {
    * Check if a test has pending output
    */
   hasTestOutput(testFile: string, testName: string): boolean {
-    return this._operations.some(op => 
-      op.testFile === testFile && op.testName === testName
-    )
+    return this._operations.some((op) => op.testFile === testFile && op.testName === testName)
   }
 }

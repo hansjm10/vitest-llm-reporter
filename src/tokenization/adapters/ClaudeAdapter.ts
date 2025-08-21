@@ -1,37 +1,37 @@
-import { getEncoding } from 'js-tiktoken';
-import { BaseAdapter } from './BaseAdapter.js';
-import type { SupportedModel, ITokenizer } from '../types.js';
+import { getEncoding } from 'js-tiktoken'
+import { BaseAdapter } from './BaseAdapter.js'
+import type { SupportedModel, ITokenizer } from '../types.js'
 
 /**
  * Approximation-based tokenizer for Claude models
  * Uses GPT-4 tokenization as a reasonable approximation
  */
 class ClaudeTokenizer implements ITokenizer {
-  private encoding: any;
+  private encoding: any
 
   constructor(
     private model: SupportedModel,
     encoding: any
   ) {
-    this.encoding = encoding;
+    this.encoding = encoding
   }
 
   encode(text: string): number[] {
     // Use GPT-4 encoding as approximation
-    const tokens = this.encoding.encode(text);
-    
+    const tokens = this.encoding.encode(text)
+
     // Apply Claude-specific adjustments if needed
     // Claude tends to have slightly different tokenization patterns
-    return this.adjustTokensForClaude(tokens, text);
+    return this.adjustTokensForClaude(tokens, text)
   }
 
   countTokens(text: string): number {
-    const tokens = this.encode(text);
-    return tokens.length;
+    const tokens = this.encode(text)
+    return tokens.length
   }
 
   getModel(): SupportedModel {
-    return this.model;
+    return this.model
   }
 
   /**
@@ -43,10 +43,10 @@ class ClaudeTokenizer implements ITokenizer {
     // 1. Whitespace and newlines
     // 2. Special characters
     // 3. Code blocks
-    
+
     // For now, return the GPT tokens as-is
     // In the future, this could be refined with empirical data
-    return tokens;
+    return tokens
   }
 }
 
@@ -60,24 +60,26 @@ export class ClaudeAdapter extends BaseAdapter {
     'claude-3-sonnet',
     'claude-3-haiku',
     'claude-3-5-sonnet',
-    'claude-3-5-haiku',
-  ];
+    'claude-3-5-haiku'
+  ]
 
   getName(): string {
-    return 'Claude Adapter (GPT-4 approximation)';
+    return 'Claude Adapter (GPT-4 approximation)'
   }
 
   getSupportedModels(): SupportedModel[] {
-    return [...this.supportedModels];
+    return [...this.supportedModels]
   }
 
   protected async createTokenizerImplementation(model: SupportedModel): Promise<ITokenizer> {
     try {
       // Use GPT-4's cl100k_base encoding as approximation for Claude
-      const encoding = getEncoding('cl100k_base');
-      return new ClaudeTokenizer(model, encoding);
+      const encoding = getEncoding('cl100k_base')
+      return new ClaudeTokenizer(model, encoding)
     } catch (error) {
-      throw new Error(`Failed to initialize Claude tokenizer approximation for model ${model}: ${error}`);
+      throw new Error(
+        `Failed to initialize Claude tokenizer approximation for model ${model}: ${error}`
+      )
     }
   }
 
@@ -85,15 +87,15 @@ export class ClaudeAdapter extends BaseAdapter {
    * Get information about the tokenization method used
    */
   getTokenizationMethod(): string {
-    return 'GPT-4 cl100k_base approximation';
+    return 'GPT-4 cl100k_base approximation'
   }
 
   /**
    * Get accuracy information about this approximation
    */
   getApproximationInfo(): {
-    accuracy: string;
-    notes: string[];
+    accuracy: string
+    notes: string[]
   } {
     return {
       accuracy: 'Approximate (~85-95% accurate)',
@@ -101,9 +103,9 @@ export class ClaudeAdapter extends BaseAdapter {
         'Uses GPT-4 tokenization as baseline',
         'Claude tokenization patterns may differ',
         'Best effort approximation without official Claude tokenizer',
-        'Consider this for estimation purposes only',
-      ],
-    };
+        'Consider this for estimation purposes only'
+      ]
+    }
   }
 
   /**
@@ -111,14 +113,14 @@ export class ClaudeAdapter extends BaseAdapter {
    * Applies a small adjustment based on empirical observations
    */
   async estimateTokensWithAdjustment(text: string, model: SupportedModel): Promise<number> {
-    const tokenizer = await this.createTokenizer(model);
-    const baseCount = tokenizer.countTokens(text);
-    
+    const tokenizer = await this.createTokenizer(model)
+    const baseCount = tokenizer.countTokens(text)
+
     // Apply a small adjustment factor based on model
     // Claude models tend to have slightly different tokenization
-    const adjustmentFactor = this.getAdjustmentFactor(model);
-    
-    return Math.round(baseCount * adjustmentFactor);
+    const adjustmentFactor = this.getAdjustmentFactor(model)
+
+    return Math.round(baseCount * adjustmentFactor)
   }
 
   /**
@@ -128,15 +130,15 @@ export class ClaudeAdapter extends BaseAdapter {
     // These are rough approximations based on the model complexity
     switch (model) {
       case 'claude-3-opus':
-        return 1.02; // Slightly higher token count
+        return 1.02 // Slightly higher token count
       case 'claude-3-sonnet':
       case 'claude-3-5-sonnet':
-        return 1.0; // Close to GPT-4
+        return 1.0 // Close to GPT-4
       case 'claude-3-haiku':
       case 'claude-3-5-haiku':
-        return 0.98; // Slightly lower token count
+        return 0.98 // Slightly lower token count
       default:
-        return 1.0;
+        return 1.0
     }
   }
 }

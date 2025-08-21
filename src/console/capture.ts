@@ -289,9 +289,9 @@ export class ConsoleCapture {
    * Stream console data in real-time through the ConsoleStreamAdapter
    */
   private streamConsoleData(
-    method: ConsoleMethod, 
-    testId: string, 
-    args: unknown[], 
+    method: ConsoleMethod,
+    testId: string,
+    args: unknown[],
     elapsed?: number,
     startTime?: number
   ): void {

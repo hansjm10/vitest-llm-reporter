@@ -114,30 +114,30 @@ describe('StreamingFormatter Base Classes', () => {
 
     it('should initialize properly', async () => {
       expect(formatter.getState().initialized).toBe(false)
-      
+
       await formatter.initialize()
-      
+
       expect(formatter.getState().initialized).toBe(true)
     })
 
     it('should prevent double initialization', async () => {
       await formatter.initialize()
       const state1 = formatter.getState()
-      
+
       await formatter.initialize() // Should not reinitialize
       const state2 = formatter.getState()
-      
+
       expect(state1).toEqual(state2)
     })
 
     it('should track event counters properly', async () => {
       await formatter.initialize()
-      
+
       const testCompleteEvent = createStreamingEvent(StreamingEventType.TEST_COMPLETE, {
         result: createTestResult(),
         progress: { completed: 1, total: 5 }
       } as TestCompleteData)
-      
+
       const testFailureEvent = createStreamingEvent(StreamingEventType.TEST_FAILURE, {
         failure: createTestFailure(),
         progress: { completed: 2, total: 5 }
@@ -156,17 +156,17 @@ describe('StreamingFormatter Base Classes', () => {
 
     it('should reset state properly', async () => {
       await formatter.initialize()
-      
+
       const event = createStreamingEvent(StreamingEventType.TEST_COMPLETE, {
         result: createTestResult(),
         progress: { completed: 1, total: 5 }
       } as TestCompleteData)
-      
+
       await formatter.formatEvent(event)
       expect(formatter.getState().eventsProcessed).toBe(1)
-      
+
       formatter.reset()
-      
+
       const state = formatter.getState()
       expect(state.eventsProcessed).toBe(0)
       expect(state.testsProcessed).toBe(0)
@@ -177,9 +177,9 @@ describe('StreamingFormatter Base Classes', () => {
     it('should handle configuration updates', () => {
       const initialConfig = formatter.getConfig()
       expect(initialConfig.includeTimestamps).toBe(true)
-      
+
       formatter.updateConfig({ includeTimestamps: false })
-      
+
       const updatedConfig = formatter.getConfig()
       expect(updatedConfig.includeTimestamps).toBe(false)
     })
@@ -187,18 +187,21 @@ describe('StreamingFormatter Base Classes', () => {
     it('should cleanup properly', async () => {
       await formatter.initialize()
       expect(formatter.getState().initialized).toBe(true)
-      
+
       await formatter.cleanup()
-      
+
       expect(formatter.getState().initialized).toBe(false)
     })
   })
 
   describe('Streaming Event Utilities', () => {
     it('should create streaming events correctly', () => {
-      const data = { result: createTestResult(), progress: { completed: 1, total: 5 } } as TestCompleteData
+      const data = {
+        result: createTestResult(),
+        progress: { completed: 1, total: 5 }
+      } as TestCompleteData
       const event = createStreamingEvent(StreamingEventType.TEST_COMPLETE, data)
-      
+
       expect(event.type).toBe(StreamingEventType.TEST_COMPLETE)
       expect(event.data).toEqual(data)
       expect(event.timestamp).toBeTypeOf('number')
@@ -206,30 +209,57 @@ describe('StreamingFormatter Base Classes', () => {
     })
 
     it('should identify test complete data', () => {
-      const testCompleteData = { result: createTestResult(), progress: { completed: 1, total: 5 } } as TestCompleteData
-      const testFailureData = { failure: createTestFailure(), progress: { completed: 1, total: 5 } } as TestFailureData
-      const runCompleteData = { summary: createLLMOutput().summary, finalOutput: createLLMOutput() } as RunCompleteData
-      
+      const testCompleteData = {
+        result: createTestResult(),
+        progress: { completed: 1, total: 5 }
+      } as TestCompleteData
+      const testFailureData = {
+        failure: createTestFailure(),
+        progress: { completed: 1, total: 5 }
+      } as TestFailureData
+      const runCompleteData = {
+        summary: createLLMOutput().summary,
+        finalOutput: createLLMOutput()
+      } as RunCompleteData
+
       expect(isTestCompleteData(testCompleteData)).toBe(true)
       expect(isTestCompleteData(testFailureData)).toBe(false)
       expect(isTestCompleteData(runCompleteData)).toBe(false)
     })
 
     it('should identify test failure data', () => {
-      const testCompleteData = { result: createTestResult(), progress: { completed: 1, total: 5 } } as TestCompleteData
-      const testFailureData = { failure: createTestFailure(), progress: { completed: 1, total: 5 } } as TestFailureData
-      const runCompleteData = { summary: createLLMOutput().summary, finalOutput: createLLMOutput() } as RunCompleteData
-      
+      const testCompleteData = {
+        result: createTestResult(),
+        progress: { completed: 1, total: 5 }
+      } as TestCompleteData
+      const testFailureData = {
+        failure: createTestFailure(),
+        progress: { completed: 1, total: 5 }
+      } as TestFailureData
+      const runCompleteData = {
+        summary: createLLMOutput().summary,
+        finalOutput: createLLMOutput()
+      } as RunCompleteData
+
       expect(isTestFailureData(testFailureData)).toBe(true)
       expect(isTestFailureData(testCompleteData)).toBe(false)
       expect(isTestFailureData(runCompleteData)).toBe(false)
     })
 
     it('should identify run complete data', () => {
-      const testCompleteData = { result: createTestResult(), progress: { completed: 1, total: 5 } } as TestCompleteData
-      const testFailureData = { failure: createTestFailure(), progress: { completed: 1, total: 5 } } as TestFailureData
-      const runCompleteData = { summary: createLLMOutput().summary, finalOutput: createLLMOutput() } as RunCompleteData
-      
+      const testCompleteData = {
+        result: createTestResult(),
+        progress: { completed: 1, total: 5 }
+      } as TestCompleteData
+      const testFailureData = {
+        failure: createTestFailure(),
+        progress: { completed: 1, total: 5 }
+      } as TestFailureData
+      const runCompleteData = {
+        summary: createLLMOutput().summary,
+        finalOutput: createLLMOutput()
+      } as RunCompleteData
+
       expect(isRunCompleteData(runCompleteData)).toBe(true)
       expect(isRunCompleteData(testCompleteData)).toBe(false)
       expect(isRunCompleteData(testFailureData)).toBe(false)
@@ -246,7 +276,7 @@ describe('JsonLineFormatter', () => {
 
   it('should initialize correctly', async () => {
     await formatter.initialize()
-    
+
     expect(formatter.getState().initialized).toBe(true)
     expect(formatter.getJsonlStats().currentSequence).toBe(0)
     expect(formatter.getJsonlStats().totalLinesOutput).toBe(0)
@@ -254,16 +284,16 @@ describe('JsonLineFormatter', () => {
 
   it('should format test complete events as JSONL', async () => {
     await formatter.initialize()
-    
+
     const event = createStreamingEvent(StreamingEventType.TEST_COMPLETE, {
       result: createTestResult(),
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
-    
+
     const output = await formatter.formatEvent(event)
-    
+
     expect(output).toMatch(/^\{.*\}\n$/)
-    
+
     const parsed = JSON.parse(output.trim())
     expect(parsed.event).toBe('test-complete')
     expect(parsed.version).toBe('1.0.0')
@@ -275,14 +305,14 @@ describe('JsonLineFormatter', () => {
 
   it('should format test failure events as JSONL', async () => {
     await formatter.initialize()
-    
+
     const event = createStreamingEvent(StreamingEventType.TEST_FAILURE, {
       failure: createTestFailure(),
       progress: { completed: 1, total: 5 }
     } as TestFailureData)
-    
+
     const output = await formatter.formatEvent(event)
-    
+
     const parsed = JSON.parse(output.trim())
     expect(parsed.event).toBe('test-failure')
     expect(parsed.data.test).toBe('should not fail')
@@ -298,18 +328,18 @@ describe('JsonLineFormatter', () => {
 
   it('should format final output correctly', async () => {
     await formatter.initialize()
-    
+
     const llmOutput = createLLMOutput()
     const output = await formatter.formatFinal(llmOutput)
-    
+
     const lines = output.trim().split('\n')
     expect(lines.length).toBe(2) // Summary + full output
-    
+
     const summaryLine = JSON.parse(lines[0])
     expect(summaryLine.event).toBe('run-summary')
     expect(summaryLine.data.summary).toEqual(llmOutput.summary)
     expect(summaryLine.data.complete).toBe(true)
-    
+
     const fullOutputLine = JSON.parse(lines[1])
     expect(fullOutputLine.event).toBe('full-output')
     expect(fullOutputLine.data).toEqual(llmOutput)
@@ -318,18 +348,18 @@ describe('JsonLineFormatter', () => {
   it('should handle compact vs non-compact output', async () => {
     const compactFormatter = new JsonLineFormatter({ compact: true })
     const verboseFormatter = new JsonLineFormatter({ compact: false })
-    
+
     await compactFormatter.initialize()
     await verboseFormatter.initialize()
-    
+
     const event = createStreamingEvent(StreamingEventType.TEST_COMPLETE, {
       result: createTestResult(),
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
-    
+
     const compactOutput = await compactFormatter.formatEvent(event)
     const verboseOutput = await verboseFormatter.formatEvent(event)
-    
+
     expect(compactOutput.split('\n').length).toBe(2) // Single line + newline
     expect(verboseOutput.split('\n').length).toBeGreaterThan(2) // Multi-line JSON
   })
@@ -337,26 +367,26 @@ describe('JsonLineFormatter', () => {
   it('should create minimal and verbose formatters', async () => {
     const minimal = JsonLineFormatter.createMinimal()
     const verbose = JsonLineFormatter.createVerbose()
-    
+
     await minimal.initialize()
     await verbose.initialize()
-    
+
     const event = createStreamingEvent(StreamingEventType.TEST_COMPLETE, {
       result: createTestResult(),
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
-    
+
     const minimalOutput = await minimal.formatEvent(event)
     const verboseOutput = await verbose.formatEvent(event)
-    
+
     const minimalParsed = JSON.parse(minimalOutput.trim())
     const verboseParsed = JSON.parse(verboseOutput.trim())
-    
+
     // Minimal should not include optional fields
     expect(minimalParsed.timestamp).toBeUndefined()
     expect(minimalParsed.sequence).toBeUndefined()
     expect(minimalParsed.meta).toBeUndefined()
-    
+
     // Verbose should include all fields
     expect(verboseParsed.timestamp).toBeDefined()
     expect(verboseParsed.sequence).toBeDefined()
@@ -365,9 +395,9 @@ describe('JsonLineFormatter', () => {
 
   it('should parse JSONL strings correctly', () => {
     const jsonl = `{"event":"test-complete","data":{"test":"test1"}}\n{"event":"test-failure","data":{"test":"test2"}}\n`
-    
+
     const events = JsonLineFormatter.parseJsonLines(jsonl)
-    
+
     expect(events).toHaveLength(2)
     expect(events[0].event).toBe('test-complete')
     expect(events[1].event).toBe('test-failure')
@@ -378,7 +408,7 @@ describe('JsonLineFormatter', () => {
       result: createTestResult(),
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
-    
+
     await expect(formatter.formatEvent(event)).rejects.toThrow('must be initialized')
     await expect(formatter.formatFinal(createLLMOutput())).rejects.toThrow('must be initialized')
   })
@@ -393,21 +423,21 @@ describe('MarkdownStreamFormatter', () => {
 
   it('should initialize correctly', async () => {
     await formatter.initialize()
-    
+
     expect(formatter.getState().initialized).toBe(true)
     expect(formatter.getMarkdownStats().sectionsCreated).toBe(0)
   })
 
   it('should format test complete events as Markdown', async () => {
     await formatter.initialize()
-    
+
     const event = createStreamingEvent(StreamingEventType.TEST_COMPLETE, {
       result: createTestResult(),
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
-    
+
     const output = await formatter.formatEvent(event)
-    
+
     expect(output).toContain('### ✅ Test Passed: `should work`')
     expect(output).toContain('**File:** `/path/to/test.js:10-15`')
     expect(output).toContain('**Duration:** 100ms')
@@ -417,14 +447,14 @@ describe('MarkdownStreamFormatter', () => {
 
   it('should format test failure events as Markdown', async () => {
     await formatter.initialize()
-    
+
     const event = createStreamingEvent(StreamingEventType.TEST_FAILURE, {
       failure: createTestFailure(),
       progress: { completed: 1, total: 5 }
     } as TestFailureData)
-    
+
     const output = await formatter.formatEvent(event)
-    
+
     expect(output).toContain('### ❌ Test Failed: `should not fail`')
     expect(output).toContain('**Error Type:** AssertionError')
     expect(output).toContain('**Error Message:**')
@@ -438,10 +468,10 @@ describe('MarkdownStreamFormatter', () => {
 
   it('should format final output as comprehensive Markdown report', async () => {
     await formatter.initialize()
-    
+
     const llmOutput = createLLMOutput()
     const output = await formatter.formatFinal(llmOutput)
-    
+
     expect(output).toContain('# Test Results Summary')
     expect(output).toContain('## 📋 Overview')
     expect(output).toContain('| Metric | Value |')
@@ -455,14 +485,14 @@ describe('MarkdownStreamFormatter', () => {
 
   it('should handle run start events', async () => {
     await formatter.initialize()
-    
+
     const event = createStreamingEvent(StreamingEventType.RUN_START, {
       totalTests: 10,
       startTime: Date.now()
     })
-    
+
     const output = await formatter.formatEvent(event)
-    
+
     expect(output).toContain('# 🚀 Test Run Started')
     expect(output).toContain('**Total Tests:** 10')
   })
@@ -470,14 +500,14 @@ describe('MarkdownStreamFormatter', () => {
   it('should handle emoji configuration', async () => {
     const noEmojiFormatter = new MarkdownStreamFormatter({ useEmoji: false })
     await noEmojiFormatter.initialize()
-    
+
     const event = createStreamingEvent(StreamingEventType.TEST_COMPLETE, {
       result: createTestResult(),
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
-    
+
     const output = await noEmojiFormatter.formatEvent(event)
-    
+
     expect(output).not.toContain('✅')
     expect(output).toContain('### Test Passed: `should work`')
   })
@@ -485,10 +515,10 @@ describe('MarkdownStreamFormatter', () => {
   it('should handle progress bar configuration', async () => {
     const noProgressFormatter = new MarkdownStreamFormatter({ showProgressBars: false })
     await noProgressFormatter.initialize()
-    
+
     const llmOutput = createLLMOutput()
     const output = await noProgressFormatter.formatFinal(llmOutput)
-    
+
     expect(output).not.toContain('█')
     expect(output).not.toContain('░')
   })
@@ -496,13 +526,15 @@ describe('MarkdownStreamFormatter', () => {
   it('should handle collapsible sections', async () => {
     const collapsibleFormatter = new MarkdownStreamFormatter({ useCollapsible: true })
     await collapsibleFormatter.initialize()
-    
+
     const llmOutput = createLLMOutput({
-      failures: Array(5).fill(0).map((_, i) => createTestFailure({ test: `test ${i}` }))
+      failures: Array(5)
+        .fill(0)
+        .map((_, i) => createTestFailure({ test: `test ${i}` }))
     })
-    
+
     const output = await collapsibleFormatter.formatFinal(llmOutput)
-    
+
     expect(output).toContain('<details>')
     expect(output).toContain('<summary>Click to expand failed tests</summary>')
     expect(output).toContain('</details>')
@@ -511,10 +543,10 @@ describe('MarkdownStreamFormatter', () => {
   it('should create GitHub and minimal formatters', async () => {
     const github = MarkdownStreamFormatter.createGitHub()
     const minimal = MarkdownStreamFormatter.createMinimal()
-    
+
     expect(github.getMarkdownStats().useEmoji).toBe(true)
     expect(github.getMarkdownStats().showProgressBars).toBe(false) // GitHub optimized
-    
+
     expect(minimal.getMarkdownStats().useEmoji).toBe(false)
     expect(minimal.getMarkdownStats().showProgressBars).toBe(false)
   })
@@ -522,32 +554,35 @@ describe('MarkdownStreamFormatter', () => {
   it('should limit error output lines', async () => {
     const shortFormatter = new MarkdownStreamFormatter({ maxErrorLines: 2 })
     await shortFormatter.initialize()
-    
+
     const failure = createTestFailure({
       error: {
         ...createTestFailure().error,
-        stack: Array(10).fill(0).map((_, i) => `Line ${i}`).join('\n')
+        stack: Array(10)
+          .fill(0)
+          .map((_, i) => `Line ${i}`)
+          .join('\n')
       }
     })
-    
+
     const event = createStreamingEvent(StreamingEventType.TEST_FAILURE, {
       failure,
       progress: { completed: 1, total: 5 }
     } as TestFailureData)
-    
+
     const output = await shortFormatter.formatEvent(event)
-    
+
     expect(output).toContain('... (8 more lines)')
   })
 
   it('should throttle progress updates', async () => {
     await formatter.initialize()
-    
+
     // Mock Date.now to control timing
     const originalNow = Date.now
     let currentTime = 1000
     vi.spyOn(Date, 'now').mockImplementation(() => currentTime)
-    
+
     try {
       const progressEvent1 = createStreamingEvent(StreamingEventType.PROGRESS, {
         completed: 1,
@@ -556,7 +591,7 @@ describe('MarkdownStreamFormatter', () => {
         failed: 0,
         skipped: 0
       })
-      
+
       const progressEvent2 = createStreamingEvent(StreamingEventType.PROGRESS, {
         completed: 2,
         total: 10,
@@ -564,15 +599,15 @@ describe('MarkdownStreamFormatter', () => {
         failed: 0,
         skipped: 0
       })
-      
+
       const output1 = await formatter.formatEvent(progressEvent1)
       expect(output1).toContain('Progress Update')
-      
+
       // Second event immediately (within 1 second) should be throttled
       currentTime += 500
       const output2 = await formatter.formatEvent(progressEvent2)
       expect(output2).toBe('')
-      
+
       // Third event after delay should not be throttled
       currentTime += 600
       const output3 = await formatter.formatEvent(progressEvent2)
@@ -587,7 +622,7 @@ describe('MarkdownStreamFormatter', () => {
       result: createTestResult(),
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
-    
+
     await expect(formatter.formatEvent(event)).rejects.toThrow('must be initialized')
     await expect(formatter.formatFinal(createLLMOutput())).rejects.toThrow('must be initialized')
   })
@@ -597,10 +632,10 @@ describe('Integration Tests', () => {
   it('should work with both formatters handling the same events', async () => {
     const jsonFormatter = new JsonLineFormatter()
     const markdownFormatter = new MarkdownStreamFormatter()
-    
+
     await jsonFormatter.initialize()
     await markdownFormatter.initialize()
-    
+
     const events = [
       createStreamingEvent(StreamingEventType.RUN_START, {
         totalTests: 3,
@@ -619,64 +654,60 @@ describe('Integration Tests', () => {
         finalOutput: createLLMOutput()
       } as RunCompleteData)
     ]
-    
+
     const jsonOutputs: string[] = []
     const markdownOutputs: string[] = []
-    
+
     for (const event of events) {
       jsonOutputs.push(await jsonFormatter.formatEvent(event))
       markdownOutputs.push(await markdownFormatter.formatEvent(event))
     }
-    
+
     // Verify both formatters processed all events
     expect(jsonFormatter.getState().eventsProcessed).toBe(4)
     expect(markdownFormatter.getState().eventsProcessed).toBe(4)
-    
+
     // Verify JSON outputs are valid
-    jsonOutputs.forEach(output => {
+    jsonOutputs.forEach((output) => {
       if (output.trim()) {
         expect(() => JSON.parse(output.trim())).not.toThrow()
       }
     })
-    
+
     // Verify Markdown outputs contain expected patterns
     const allMarkdown = markdownOutputs.join('')
     expect(allMarkdown).toContain('Test Run Started')
     expect(allMarkdown).toContain('Test Passed:')
     expect(allMarkdown).toContain('Test Failed:')
     expect(allMarkdown).toContain('Test Run Complete')
-    
+
     // Test final formatting
     const llmOutput = createLLMOutput()
     const jsonFinal = await jsonFormatter.formatFinal(llmOutput)
     const markdownFinal = await markdownFormatter.formatFinal(llmOutput)
-    
+
     expect(jsonFinal).toContain('"event":"run-summary"')
     expect(markdownFinal).toContain('# Test Results Summary')
   })
 
   it('should maintain consistent state across different formatters', async () => {
-    const formatters = [
-      new JsonLineFormatter(),
-      new MarkdownStreamFormatter(),
-      new MockFormatter()
-    ]
-    
+    const formatters = [new JsonLineFormatter(), new MarkdownStreamFormatter(), new MockFormatter()]
+
     for (const formatter of formatters) {
       await formatter.initialize()
     }
-    
+
     const event = createStreamingEvent(StreamingEventType.TEST_COMPLETE, {
       result: createTestResult(),
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
-    
+
     for (const formatter of formatters) {
       await formatter.formatEvent(event)
     }
-    
+
     // All formatters should have consistent state
-    formatters.forEach(formatter => {
+    formatters.forEach((formatter) => {
       const state = formatter.getState()
       expect(state.eventsProcessed).toBe(1)
       expect(state.testsProcessed).toBe(1)

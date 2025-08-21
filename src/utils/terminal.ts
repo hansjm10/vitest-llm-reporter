@@ -15,10 +15,10 @@ const logger = createLogger('terminal')
  * Terminal color support levels
  */
 export enum ColorLevel {
-  None = 0,      // No color support
-  Basic = 1,     // 16 colors
-  Extended = 2,  // 256 colors  
-  TrueColor = 3  // 16M colors (24-bit)
+  None = 0, // No color support
+  Basic = 1, // 16 colors
+  Extended = 2, // 256 colors
+  TrueColor = 3 // 16M colors (24-bit)
 }
 
 /**
@@ -116,7 +116,7 @@ export function detectColorLevel(options?: TerminalDetectionOptions): ColorLevel
   }
 
   // Check if stdout is TTY
-  const isTTY = options?.forceTTY ?? (process.stdout?.isTTY === true)
+  const isTTY = options?.forceTTY ?? process.stdout?.isTTY === true
   if (!isTTY) {
     logger('Not a TTY, no color support')
     return ColorLevel.None
@@ -144,7 +144,7 @@ export function detectColorLevel(options?: TerminalDetectionOptions): ColorLevel
 
   // Fallback to TERM environment variable analysis
   const term = env.TERM?.toLowerCase() || ''
-  
+
   // True color support
   if (term.includes('truecolor') || term.includes('24bit')) {
     logger('Detected true color support via TERM')
@@ -152,15 +152,13 @@ export function detectColorLevel(options?: TerminalDetectionOptions): ColorLevel
   }
 
   // 256 color support
-  if (term.includes('256') || term.includes('xterm-') || 
-      term === 'screen' || term === 'tmux') {
+  if (term.includes('256') || term.includes('xterm-') || term === 'screen' || term === 'tmux') {
     logger('Detected 256 color support via TERM')
     return ColorLevel.Extended
   }
 
   // Basic color support
-  if (term.includes('color') || term === 'xterm' || 
-      term === 'vt100' || term === 'ansi') {
+  if (term.includes('color') || term === 'xterm' || term === 'vt100' || term === 'ansi') {
     logger('Detected basic color support via TERM')
     return ColorLevel.Basic
   }
@@ -203,8 +201,7 @@ export function detectTerminalSize(options?: TerminalDetectionOptions): Terminal
     const width = process.stdout.columns
     const height = process.stdout.rows
 
-    if (typeof width === 'number' && width > 0 && 
-        typeof height === 'number' && height > 0) {
+    if (typeof width === 'number' && width > 0 && typeof height === 'number' && height > 0) {
       logger('Detected terminal size: %dx%d', width, height)
       return {
         width,
@@ -231,7 +228,11 @@ export function detectTerminalSize(options?: TerminalDetectionOptions): Terminal
   }
 
   // Return defaults for non-TTY environments
-  logger('Using default terminal size: %dx%d', DEFAULT_TERMINAL_SIZE.width, DEFAULT_TERMINAL_SIZE.height)
+  logger(
+    'Using default terminal size: %dx%d',
+    DEFAULT_TERMINAL_SIZE.width,
+    DEFAULT_TERMINAL_SIZE.height
+  )
   return { ...DEFAULT_TERMINAL_SIZE }
 }
 
@@ -287,12 +288,14 @@ export function detectUnicodeSupport(options?: TerminalDetectionOptions): Unicod
 /**
  * Detects complete terminal capabilities
  */
-export function detectTerminalCapabilities(options?: TerminalDetectionOptions): TerminalCapabilities {
+export function detectTerminalCapabilities(
+  options?: TerminalDetectionOptions
+): TerminalCapabilities {
   logger('Starting terminal capabilities detection')
 
   const env = { ...process.env, ...options?.additionalEnvVars }
-  const isTTY = options?.forceTTY ?? (process.stdout?.isTTY === true)
-  
+  const isTTY = options?.forceTTY ?? process.stdout?.isTTY === true
+
   const colorLevel = detectColorLevel(options)
   const size = detectTerminalSize(options)
   const unicode = detectUnicodeSupport(options)

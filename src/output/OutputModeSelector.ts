@@ -75,7 +75,7 @@ class StreamOutputStrategy implements OutputStrategy {
  *
  * Implements the decision matrix for selecting output modes:
  * - CI environment → file mode
- * - TTY available → console mode  
+ * - TTY available → console mode
  * - Config override → use config
  * - Fallback chain for failures
  *
@@ -213,7 +213,7 @@ export class OutputModeSelector {
 
     if (strategy.canExecute()) {
       logger('Output mode %s is available and configured', mode)
-      
+
       const source: ConfigurationSource = {
         source: this.config.forcedMode ? 'config' : 'environment',
         reason: this.getSelectionReason(mode),
@@ -238,16 +238,16 @@ export class OutputModeSelector {
     logger('Starting fallback chain')
 
     const fallbackOrder: OutputMode[] = ['console', 'file', 'dual', 'stream']
-    
+
     for (const mode of fallbackOrder) {
       logger('Trying fallback mode: %s', mode)
-      
+
       const config = this.createModeConfig(mode)
       const strategy = this.createStrategy(mode, config)
 
       if (strategy.canExecute()) {
         logger('Fallback mode %s is available', mode)
-        
+
         const source: ConfigurationSource = {
           source: 'fallback',
           reason: `Fallback to ${mode} mode - other modes unavailable`,
@@ -265,7 +265,7 @@ export class OutputModeSelector {
     // Last resort: force console with minimal config
     logger('All modes failed, forcing console as last resort')
     const config = this.createModeConfig('console')
-    
+
     const source: ConfigurationSource = {
       source: 'fallback',
       reason: 'Emergency fallback to console mode',

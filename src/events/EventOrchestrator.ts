@@ -19,7 +19,11 @@ import type { ConsoleMethod } from '../types/console'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { consoleCapture } from '../console'
 import { consoleMerger } from '../console/merge'
-import { OutputSynchronizer, type SynchronizerConfig, type TestContext } from '../streaming/OutputSynchronizer'
+import {
+  OutputSynchronizer,
+  type SynchronizerConfig,
+  type TestContext
+} from '../streaming/OutputSynchronizer'
 
 /**
  * Event orchestrator configuration
@@ -240,7 +244,7 @@ export class EventOrchestrator {
           (testCase as any).name || testCase.id
         )
         this.activeTests.set(testCase.id, testContext)
-        this.outputSynchronizer.registerTest(testContext).catch(error => {
+        this.outputSynchronizer.registerTest(testContext).catch((error) => {
           this.debugError('Failed to register test for streaming: %O', error)
         })
       }
@@ -458,7 +462,7 @@ export class EventOrchestrator {
 
     const testContext = this.activeTests.get(testId)
     if (testContext) {
-      this.outputSynchronizer.unregisterTest(testContext).catch(error => {
+      this.outputSynchronizer.unregisterTest(testContext).catch((error) => {
         this.debugError('Failed to unregister test from streaming: %O', error)
       })
       this.activeTests.delete(testId)
@@ -471,10 +475,10 @@ export class EventOrchestrator {
   public reset(): void {
     this.stateManager.reset()
     consoleCapture.reset()
-    
+
     // Clean up streaming resources
     if (this.outputSynchronizer) {
-      this.outputSynchronizer.shutdown().catch(error => {
+      this.outputSynchronizer.shutdown().catch((error) => {
         this.debugError('Error shutting down output synchronizer: %O', error)
       })
     }

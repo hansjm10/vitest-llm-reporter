@@ -220,14 +220,14 @@ export class StreamingDiagnostics {
   private debug = createLogger('diagnostics')
   private debugPerf = perfLogger()
   private debugError = errorLogger()
-  
+
   private isActive = false
   private startTime = 0
   private operationHistory: OperationMetrics[] = []
   private errorHistory: StreamErrorContext[] = []
   private performanceHistory: PerformanceMetrics[] = []
   private performanceTimer?: NodeJS.Timeout
-  
+
   private operationCounter = 0
   private activeOperations = new Map<string, OperationMetrics>()
 
@@ -263,7 +263,7 @@ export class StreamingDiagnostics {
 
     this.isActive = true
     this.startTime = Date.now()
-    
+
     // Start performance monitoring
     if (this.config.enableResourceMonitoring) {
       this.performanceTimer = setInterval(() => {
@@ -271,8 +271,12 @@ export class StreamingDiagnostics {
       }, this.config.performanceInterval)
     }
 
-    this.logEvent(DiagnosticEvent.SYSTEM_EVENT, DiagnosticLevel.INFO, 
-      'Streaming diagnostics started', { startTime: this.startTime })
+    this.logEvent(
+      DiagnosticEvent.SYSTEM_EVENT,
+      DiagnosticLevel.INFO,
+      'Streaming diagnostics started',
+      { startTime: this.startTime }
+    )
   }
 
   /**
@@ -290,12 +294,16 @@ export class StreamingDiagnostics {
       this.performanceTimer = undefined
     }
 
-    this.logEvent(DiagnosticEvent.SYSTEM_EVENT, DiagnosticLevel.INFO, 
-      'Streaming diagnostics stopped', { 
+    this.logEvent(
+      DiagnosticEvent.SYSTEM_EVENT,
+      DiagnosticLevel.INFO,
+      'Streaming diagnostics stopped',
+      {
         duration: Date.now() - this.startTime,
         totalOperations: this.operationCounter,
         totalErrors: this.errorHistory.length
-      })
+      }
+    )
   }
 
   /**
@@ -323,8 +331,12 @@ export class StreamingDiagnostics {
 
     this.activeOperations.set(operationId, metrics)
 
-    this.logEvent(DiagnosticEvent.OPERATION_START, DiagnosticLevel.DEBUG,
-      `Operation started: ${operation}`, { operationId, priority, source })
+    this.logEvent(
+      DiagnosticEvent.OPERATION_START,
+      DiagnosticLevel.DEBUG,
+      `Operation started: ${operation}`,
+      { operationId, priority, source }
+    )
 
     return operationId
   }
@@ -358,12 +370,16 @@ export class StreamingDiagnostics {
       this.checkPerformanceWarnings(metrics)
     }
 
-    this.logEvent(DiagnosticEvent.OPERATION_COMPLETE, DiagnosticLevel.DEBUG,
-      `Operation completed: ${metrics.operation}`, {
+    this.logEvent(
+      DiagnosticEvent.OPERATION_COMPLETE,
+      DiagnosticLevel.DEBUG,
+      `Operation completed: ${metrics.operation}`,
+      {
         operationId,
         duration: metrics.duration,
         success
-      })
+      }
+    )
   }
 
   /**
@@ -391,13 +407,17 @@ export class StreamingDiagnostics {
 
     this.addToErrorHistory(errorContext)
 
-    this.logEvent(DiagnosticEvent.OPERATION_ERROR, DiagnosticLevel.ERROR,
-      `Operation error: ${errorContext.source.operation}`, {
+    this.logEvent(
+      DiagnosticEvent.OPERATION_ERROR,
+      DiagnosticLevel.ERROR,
+      `Operation error: ${errorContext.source.operation}`,
+      {
         operationId,
         errorType: errorContext.type,
         severity: errorContext.severity,
         message: errorContext.error.message
-      })
+      }
+    )
   }
 
   /**
@@ -408,16 +428,18 @@ export class StreamingDiagnostics {
       return
     }
 
-    const level = health === StreamHealth.HEALTHY ? DiagnosticLevel.DEBUG : 
-                 health === StreamHealth.DEGRADED ? DiagnosticLevel.WARN :
-                 DiagnosticLevel.ERROR
+    const level =
+      health === StreamHealth.HEALTHY
+        ? DiagnosticLevel.DEBUG
+        : health === StreamHealth.DEGRADED
+          ? DiagnosticLevel.WARN
+          : DiagnosticLevel.ERROR
 
-    this.logEvent(DiagnosticEvent.HEALTH_CHECK, level,
-      `Stream health check: ${health}`, {
-        health,
-        performance: monitoringData.performance,
-        circuitBreaker: monitoringData.circuitBreaker
-      })
+    this.logEvent(DiagnosticEvent.HEALTH_CHECK, level, `Stream health check: ${health}`, {
+      health,
+      performance: monitoringData.performance,
+      circuitBreaker: monitoringData.circuitBreaker
+    })
 
     // Check for resource warnings
     if (this.config.enablePerformanceWarnings) {
@@ -450,8 +472,8 @@ export class StreamingDiagnostics {
     // Calculate latency metrics from recent operations
     const recentOps = this.operationHistory.slice(-100) // Last 100 operations
     const latencies = recentOps
-      .filter(op => op.duration !== undefined)
-      .map(op => op.duration!)
+      .filter((op) => op.duration !== undefined)
+      .map((op) => op.duration!)
       .sort((a, b) => a - b)
 
     const latencyMetrics = {
@@ -464,7 +486,7 @@ export class StreamingDiagnostics {
     // Calculate error metrics
     const recentErrors = this.errorHistory.slice(-100)
     const errorsByType: Record<string, number> = {}
-    recentErrors.forEach(error => {
+    recentErrors.forEach((error) => {
       errorsByType[error.type] = (errorsByType[error.type] || 0) + 1
     })
 
@@ -507,12 +529,16 @@ export class StreamingDiagnostics {
     const thresholds = this.config.warningThresholds
 
     if (metrics.duration && metrics.duration > (thresholds.latency || 1000)) {
-      this.logEvent(DiagnosticEvent.PERFORMANCE_WARNING, DiagnosticLevel.WARN,
-        `High latency detected: ${metrics.duration}ms`, {
+      this.logEvent(
+        DiagnosticEvent.PERFORMANCE_WARNING,
+        DiagnosticLevel.WARN,
+        `High latency detected: ${metrics.duration}ms`,
+        {
           operation: metrics.operation,
           duration: metrics.duration,
           threshold: thresholds.latency
-        })
+        }
+      )
     }
   }
 
@@ -523,19 +549,27 @@ export class StreamingDiagnostics {
     const thresholds = this.config.warningThresholds
 
     if (performance.memoryUsage > (thresholds.memoryUsage || 100)) {
-      this.logEvent(DiagnosticEvent.RESOURCE_WARNING, DiagnosticLevel.WARN,
-        `High memory usage: ${performance.memoryUsage}MB`, {
+      this.logEvent(
+        DiagnosticEvent.RESOURCE_WARNING,
+        DiagnosticLevel.WARN,
+        `High memory usage: ${performance.memoryUsage}MB`,
+        {
           memoryUsage: performance.memoryUsage,
           threshold: thresholds.memoryUsage
-        })
+        }
+      )
     }
 
     if (performance.queueSize > (thresholds.queueSize || 50)) {
-      this.logEvent(DiagnosticEvent.QUEUE_WARNING, DiagnosticLevel.WARN,
-        `Large queue size: ${performance.queueSize}`, {
+      this.logEvent(
+        DiagnosticEvent.QUEUE_WARNING,
+        DiagnosticLevel.WARN,
+        `Large queue size: ${performance.queueSize}`,
+        {
           queueSize: performance.queueSize,
           threshold: thresholds.queueSize
-        })
+        }
+      )
     }
   }
 
@@ -564,7 +598,8 @@ export class StreamingDiagnostics {
    */
   private addToPerformanceHistory(metrics: PerformanceMetrics): void {
     this.performanceHistory.push(metrics)
-    if (this.performanceHistory.length > 100) { // Keep last 100 performance measurements
+    if (this.performanceHistory.length > 100) {
+      // Keep last 100 performance measurements
       this.performanceHistory.shift()
     }
   }
@@ -572,7 +607,12 @@ export class StreamingDiagnostics {
   /**
    * Log diagnostic event
    */
-  private logEvent(event: DiagnosticEvent, level: DiagnosticLevel, message: string, data?: any): void {
+  private logEvent(
+    event: DiagnosticEvent,
+    level: DiagnosticLevel,
+    message: string,
+    data?: any
+  ): void {
     if (!this.shouldLog(level)) {
       return
     }
@@ -628,17 +668,19 @@ export class StreamingDiagnostics {
     const duration = now - this.startTime
 
     // Calculate operation statistics
-    const successfulOps = this.operationHistory.filter(op => op.success === true).length
-    const failedOps = this.operationHistory.filter(op => op.success === false).length
+    const successfulOps = this.operationHistory.filter((op) => op.success === true).length
+    const failedOps = this.operationHistory.filter((op) => op.success === false).length
     const totalOps = this.operationHistory.length
-    const avgTime = totalOps > 0 ? 
-      this.operationHistory.reduce((sum, op) => sum + (op.duration || 0), 0) / totalOps : 0
+    const avgTime =
+      totalOps > 0
+        ? this.operationHistory.reduce((sum, op) => sum + (op.duration || 0), 0) / totalOps
+        : 0
 
     // Calculate error statistics
     const errorsByType: Record<string, number> = {}
     const errorsBySeverity: Record<string, number> = {}
-    
-    this.errorHistory.forEach(error => {
+
+    this.errorHistory.forEach((error) => {
       errorsByType[error.type] = (errorsByType[error.type] || 0) + 1
       errorsBySeverity[error.severity] = (errorsBySeverity[error.severity] || 0) + 1
     })
@@ -657,7 +699,7 @@ export class StreamingDiagnostics {
     const system: SystemResources = {
       memory: {
         total: 0, // Would need OS-specific code to get total memory
-        free: 0,  // Would need OS-specific code to get free memory
+        free: 0, // Would need OS-specific code to get free memory
         heapUsed: memUsage.heapUsed / 1024 / 1024,
         heapTotal: memUsage.heapTotal / 1024 / 1024,
         external: memUsage.external / 1024 / 1024
@@ -698,12 +740,17 @@ export class StreamingDiagnostics {
   /**
    * Generate recommendations based on current metrics
    */
-  private generateRecommendations(perf: PerformanceMetrics, errorsByType: Record<string, number>): string[] {
+  private generateRecommendations(
+    perf: PerformanceMetrics,
+    errorsByType: Record<string, number>
+  ): string[] {
     const recommendations: string[] = []
 
     // Memory recommendations
     if (perf.memoryUsage > (this.config.warningThresholds?.memoryUsage || 100)) {
-      recommendations.push(`Consider reducing memory usage (current: ${perf.memoryUsage.toFixed(1)}MB)`)
+      recommendations.push(
+        `Consider reducing memory usage (current: ${perf.memoryUsage.toFixed(1)}MB)`
+      )
     }
 
     // Queue recommendations
@@ -713,20 +760,28 @@ export class StreamingDiagnostics {
 
     // Latency recommendations
     if (perf.latencyMetrics.average > (this.config.warningThresholds?.latency || 1000)) {
-      recommendations.push('High average latency detected - consider optimizing critical operations')
+      recommendations.push(
+        'High average latency detected - consider optimizing critical operations'
+      )
     }
 
     // Error-specific recommendations
     if (errorsByType[StreamErrorType.TIMEOUT] > 0) {
-      recommendations.push('Timeout errors detected - consider increasing timeout values or optimizing slow operations')
+      recommendations.push(
+        'Timeout errors detected - consider increasing timeout values or optimizing slow operations'
+      )
     }
 
     if (errorsByType[StreamErrorType.QUEUE] > 0) {
-      recommendations.push('Queue errors detected - consider increasing queue capacity or implementing backpressure')
+      recommendations.push(
+        'Queue errors detected - consider increasing queue capacity or implementing backpressure'
+      )
     }
 
     if (errorsByType[StreamErrorType.RESOURCE] > 0) {
-      recommendations.push('Resource errors detected - consider implementing resource pooling or cleanup')
+      recommendations.push(
+        'Resource errors detected - consider implementing resource pooling or cleanup'
+      )
     }
 
     return recommendations

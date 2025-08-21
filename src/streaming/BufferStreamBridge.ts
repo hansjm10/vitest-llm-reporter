@@ -1,10 +1,10 @@
 /**
  * Buffer Stream Bridge
- * 
+ *
  * Provides streaming integration for ConsoleBuffer, allowing buffer contents
  * to be streamed in real-time while maintaining existing buffer functionality
  * for file-based output.
- * 
+ *
  * @module streaming/BufferStreamBridge
  */
 
@@ -95,8 +95,8 @@ export class BufferStreamBridge {
    * Stream a buffer addition in real-time
    */
   async streamBufferAddition(
-    method: ConsoleMethod, 
-    content: string, 
+    method: ConsoleMethod,
+    content: string,
     testId?: string
   ): Promise<void> {
     if (!this.isReady() || !this.config.enableRealTimeStreaming) {
@@ -128,10 +128,7 @@ export class BufferStreamBridge {
   /**
    * Stream entire buffer contents (for buffer flush operations)
    */
-  async streamBufferFlush(
-    buffer: ConsoleBuffer, 
-    testId?: string
-  ): Promise<void> {
+  async streamBufferFlush(buffer: ConsoleBuffer, testId?: string): Promise<void> {
     if (!this.isReady() || !this.config.streamFlushes) {
       return
     }
@@ -139,7 +136,7 @@ export class BufferStreamBridge {
     try {
       // Get simplified output for streaming
       const output = buffer.getSimplifiedOutput()
-      
+
       // Stream each method's output
       for (const [methodKey, lines] of Object.entries(output)) {
         if (!lines || lines.length === 0) continue
@@ -150,7 +147,7 @@ export class BufferStreamBridge {
 
         // Create a summary of the flushed content
         const content = this.formatBufferFlushOutput(method, lines, testId)
-        
+
         const operation: StreamOperation = {
           content,
           priority: METHOD_PRIORITY_MAP[method],
@@ -170,9 +167,7 @@ export class BufferStreamBridge {
    * Check if bridge is ready for streaming
    */
   isReady(): boolean {
-    return this.isInitialized && 
-           this.streamManager !== undefined && 
-           this.streamManager.isReady()
+    return this.isInitialized && this.streamManager !== undefined && this.streamManager.isReady()
   }
 
   /**
@@ -289,38 +284,34 @@ export class BufferStreamBridge {
   /**
    * Format batched operations for streaming
    */
-  private formatBatchedOutput(
-    method: ConsoleMethod, 
-    operations: QueuedBufferOperation[]
-  ): string {
+  private formatBatchedOutput(method: ConsoleMethod, operations: QueuedBufferOperation[]): string {
     const methodInfo = method.toUpperCase()
     const testInfo = operations[0].testId ? `[${operations[0].testId}]` : ''
-    
+
     if (operations.length === 1) {
       return this.formatSingleOutput(operations[0])
     }
 
-    const contents = operations.map(op => op.content).join('\n  ')
+    const contents = operations.map((op) => op.content).join('\n  ')
     return `${testInfo}[${methodInfo}] Batch (${operations.length} entries):\n  ${contents}\n`
   }
 
   /**
    * Format buffer flush output for streaming
    */
-  private formatBufferFlushOutput(
-    method: ConsoleMethod, 
-    lines: string[], 
-    testId?: string
-  ): string {
+  private formatBufferFlushOutput(method: ConsoleMethod, lines: string[], testId?: string): string {
     const testInfo = testId ? `[${testId}]` : ''
     const methodInfo = method.toUpperCase()
-    
+
     if (lines.length === 1) {
       return `${testInfo}[${methodInfo}] ${lines[0]}\n`
     }
 
-    return `${testInfo}[${methodInfo}] Buffer Flush (${lines.length} lines):\n` +
-           lines.map(line => `  ${line}`).join('\n') + '\n'
+    return (
+      `${testInfo}[${methodInfo}] Buffer Flush (${lines.length} lines):\n` +
+      lines.map((line) => `  ${line}`).join('\n') +
+      '\n'
+    )
   }
 
   /**
@@ -328,11 +319,11 @@ export class BufferStreamBridge {
    */
   private mapOutputKeyToMethod(key: string): ConsoleMethod | null {
     const mapping: Record<string, ConsoleMethod> = {
-      'logs': 'log',
-      'errors': 'error',
-      'warns': 'warn',
-      'info': 'info',
-      'debug': 'debug'
+      logs: 'log',
+      errors: 'error',
+      warns: 'warn',
+      info: 'info',
+      debug: 'debug'
     }
 
     return mapping[key] || null
