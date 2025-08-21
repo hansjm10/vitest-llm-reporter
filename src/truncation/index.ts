@@ -6,17 +6,20 @@
  */
 
 // Export all strategies
-export * from './strategies/index.js'
+export * from './strategies/index'
 
-// Export all types
-export * from './types.js'
+// Export core types and engine
+export * from './types'
+export * from './TruncationEngine'
+export * from './context'
+export * from './priorities'
 
-// Export strategy factory function
-import { HeadTailStrategy } from './strategies/HeadTailStrategy.js'
-import { SmartStrategy } from './strategies/SmartStrategy.js'
-import { ErrorFocusedStrategy } from './strategies/ErrorFocusedStrategy.js'
-import { StackTraceStrategy } from './strategies/StackTraceStrategy.js'
-import type { ITruncationStrategy, ContentType } from './types.js'
+// Export strategy factory function for convenience
+import { HeadTailStrategy } from './strategies/HeadTailStrategy'
+import { SmartStrategy } from './strategies/SmartStrategy'
+import { ErrorFocusedStrategy } from './strategies/ErrorFocusedStrategy'
+import { StackTraceStrategy } from './strategies/StackTraceStrategy'
+import type { ITruncationStrategy } from './types'
 
 /**
  * Strategy registry for easy access
@@ -36,26 +39,6 @@ export type StrategyName = keyof typeof TRUNCATION_STRATEGIES
 export function createTruncationStrategy(name: StrategyName): ITruncationStrategy {
   const StrategyClass = TRUNCATION_STRATEGIES[name]
   return new StrategyClass()
-}
-
-/**
- * Get the best strategy for a content type
- */
-export function getBestStrategyForContentType(contentType: ContentType): StrategyName {
-  switch (contentType) {
-    case 'stack-trace':
-      return 'stack-trace'
-    case 'error-message':
-    case 'assertion':
-      return 'error-focused'
-    case 'code-context':
-    case 'console-output':
-      return 'smart'
-    case 'metadata':
-    case 'generic':
-    default:
-      return 'head-tail'
-  }
 }
 
 /**
