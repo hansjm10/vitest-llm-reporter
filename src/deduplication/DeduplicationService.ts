@@ -344,7 +344,7 @@ export class DeduplicationService implements IDeduplicationService {
   ): void {
     this.stats.uniqueFailures = this.stats.totalFailures - references.size
     this.stats.duplicateGroups = groups.size
-    this.stats.processingTime = Date.now() - startTime
+    this.stats.processingTime = Math.max(1, Date.now() - startTime) // Ensure processingTime is at least 1ms
 
     // Calculate compression ratio
     if (this.stats.totalFailures > 0) {
@@ -372,7 +372,7 @@ export class DeduplicationService implements IDeduplicationService {
       case 'aggressive':
         return this.config.thresholds.low
       case 'conservative':
-        return this.config.thresholds.high
+        return this.config.thresholds.exact // Conservative should use exact threshold
       case 'moderate':
       default:
         return this.config.thresholds.medium

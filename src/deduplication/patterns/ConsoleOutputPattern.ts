@@ -368,7 +368,9 @@ export class ConsoleOutputPattern implements IPatternMatcher {
    * Get similarity level from score
    */
   private getLevel(score: number): SimilarityLevel {
-    if (score >= 0.95) return 'exact'
+    // Use epsilon for floating point comparison
+    const epsilon = 0.0001
+    if (score >= 1.0 - epsilon) return 'exact'
     if (score >= 0.8) return 'high'
     if (score >= 0.6) return 'medium'
     return 'low'

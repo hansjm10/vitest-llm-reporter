@@ -207,6 +207,20 @@ export class TemplateExtractor {
       }
     }
 
+    // Trim prefix to last complete word if needed
+    // But keep the whole prefix if it ends with a space or quote
+    const lastChar = prefix[prefix.length - 1]
+    if (lastChar !== ' ' && lastChar !== '"' && lastChar !== "'") {
+      const lastSpace = prefix.lastIndexOf(' ')
+      if (lastSpace > 0) {
+        // Only trim if we're not including a quote after the space
+        const nextCharInOriginal = strings[0][prefix.length]
+        if (nextCharInOriginal !== '"' && nextCharInOriginal !== "'") {
+          prefix = prefix.substring(0, lastSpace)
+        }
+      }
+    }
+
     return prefix
   }
 
@@ -328,7 +342,10 @@ export class TemplateExtractor {
     for (const segment of segments) {
       if (segment.type === 'static') {
         pattern += segment.content
-        commonElements.push(segment.content)
+        // Add the full static content to common elements
+        if (segment.content.length > 0) {
+          commonElements.push(segment.content)
+        }
       } else {
         const varName = `var${varIndex++}`
         pattern += `{{${varName}}}`

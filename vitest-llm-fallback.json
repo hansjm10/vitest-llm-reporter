@@ -950,5 +950,243 @@
     },
     "fallbackReason": "Streaming operation failed",
     "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755806956843,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Test not registered: test.test.ts::test::test-1755806956740-rn5w8oy3",
+      "type": "unknown",
+      "severity": "high"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755806956926,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Write error",
+      "type": "output",
+      "severity": "normal"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755807835820,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Test not registered: test.test.ts::test::test-1755807835716-in25kegr",
+      "type": "unknown",
+      "severity": "high"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755807835912,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Write error",
+      "type": "output",
+      "severity": "normal"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755807916254,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Test not registered: test.test.ts::test::test-1755807916142-82a0bvkf",
+      "type": "unknown",
+      "severity": "high"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755807916422,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Write error",
+      "type": "output",
+      "severity": "normal"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755807930226,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Test not registered: test.test.ts::test::test-1755807930119-08ag54qp",
+      "type": "unknown",
+      "severity": "high"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755807930325,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Write error",
+      "type": "output",
+      "severity": "normal"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755808216428,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Test not registered: test.test.ts::test::test-1755808216325-q2luxvea",
+      "type": "unknown",
+      "severity": "high"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755808216670,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Write error",
+      "type": "output",
+      "severity": "normal"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755808271088,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Test not registered: test.test.ts::test::test-1755808270971-dtq63anf",
+      "type": "unknown",
+      "severity": "high"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755808271569,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Write error",
+      "type": "output",
+      "severity": "normal"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755808505125,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Test not registered: test.test.ts::test::test-1755808505021-5oy196kd",
+      "type": "unknown",
+      "severity": "high"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
+  },
+  {
+    "timestamp": 1755808505293,
+    "source": {
+      "operation": "writeOutput",
+      "priority": 2,
+      "source": "test",
+      "testFile": "test.test.ts",
+      "testName": "test"
+    },
+    "error": {
+      "message": "Write error",
+      "type": "output",
+      "severity": "normal"
+    },
+    "fallbackReason": "Streaming operation failed",
+    "originalData": "test output\n"
   }
 ]

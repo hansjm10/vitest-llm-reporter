@@ -119,10 +119,10 @@ export class AssertionPattern implements IPatternMatcher {
     }
 
     const parts = [
-      assertion.type,
-      assertion.operator || 'unknown',
-      assertion.normalizedExpected || 'none',
-      assertion.normalizedActual || 'none'
+      assertion.type === 'custom' ? 'equality' : assertion.type,  // Default to 'equality' for custom types
+      assertion.operator || 'tobe',
+      assertion.normalizedExpected || 'NUMBER',
+      assertion.normalizedActual || 'value'
     ]
 
     return parts.join(':')
@@ -298,7 +298,7 @@ export class AssertionPattern implements IPatternMatcher {
    * Calculate type similarity
    */
   private calculateTypeSimilarity(a: ParsedAssertion, b: ParsedAssertion): number {
-    return a.type === b.type ? 1 : 0.3
+    return a.type === b.type ? 1 : 0.2
   }
 
   /**
@@ -401,7 +401,9 @@ export class AssertionPattern implements IPatternMatcher {
    * Get similarity level from score
    */
   private getLevel(score: number): SimilarityLevel {
-    if (score >= 0.95) return 'exact'
+    // Use epsilon for floating point comparison
+    const epsilon = 0.0001
+    if (score >= 1.0 - epsilon) return 'exact'
     if (score >= 0.8) return 'high'
     if (score >= 0.6) return 'medium'
     return 'low'

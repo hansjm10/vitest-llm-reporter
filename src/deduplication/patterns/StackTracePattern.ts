@@ -81,7 +81,11 @@ export class StackTracePattern implements IPatternMatcher {
       .map(frame => {
         const parts = []
         if (frame.function) parts.push(frame.function)
-        if (frame.file) parts.push(this.normalizeFilePath(frame.file))
+        if (frame.file) {
+          // Keep the original file extension in signature
+          const file = frame.file.replace(/\\/g, '/')
+          parts.push(file.includes('/') ? file.substring(file.lastIndexOf('/') + 1) : file)
+        }
         return parts.join('@')
       })
       .join('|')
@@ -419,7 +423,7 @@ export class StackTracePattern implements IPatternMatcher {
    * Get similarity level from score
    */
   private getLevel(score: number): SimilarityLevel {
-    if (score >= 0.95) return 'exact'
+    if (score >= 1.0) return 'exact'
     if (score >= 0.8) return 'high'
     if (score >= 0.6) return 'medium'
     return 'low'
