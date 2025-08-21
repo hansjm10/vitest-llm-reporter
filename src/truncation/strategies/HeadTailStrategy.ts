@@ -31,7 +31,7 @@ export class HeadTailStrategy implements ITruncationStrategy {
     context: TruncationContext
   ): Promise<TruncationResult> {
     const tokenCounter = getTokenCounter()
-    const originalTokens = await tokenCounter.countTokens(content, context.model)
+    const originalTokens = await tokenCounter.count(content, context.model)
 
     // If content is already within limits, don't truncate
     if (originalTokens <= maxTokens) {
@@ -58,7 +58,7 @@ export class HeadTailStrategy implements ITruncationStrategy {
       truncatedContent = this.truncateByCharacters(content, maxTokens, headRatio, tailRatio, separator, context)
     }
 
-    const finalTokens = await tokenCounter.countTokens(truncatedContent, context.model)
+    const finalTokens = await tokenCounter.count(truncatedContent, context.model)
 
     return {
       content: truncatedContent,
@@ -86,7 +86,7 @@ export class HeadTailStrategy implements ITruncationStrategy {
     context: TruncationContext
   ): Promise<number> {
     const tokenCounter = getTokenCounter()
-    const originalTokens = await tokenCounter.countTokens(content, context.model)
+    const originalTokens = await tokenCounter.count(content, context.model)
 
     if (originalTokens <= maxTokens) {
       return 0

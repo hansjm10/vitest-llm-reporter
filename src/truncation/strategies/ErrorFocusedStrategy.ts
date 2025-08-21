@@ -45,7 +45,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
     context: TruncationContext
   ): Promise<TruncationResult> {
     const tokenCounter = getTokenCounter()
-    const originalTokens = await tokenCounter.countTokens(content, context.model)
+    const originalTokens = await tokenCounter.count(content, context.model)
 
     // If content is already within limits, don't truncate
     if (originalTokens <= maxTokens) {
@@ -61,7 +61,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
     try {
       // Extract error-focused content
       const truncatedContent = await this.extractErrorFocusedContent(content, maxTokens, context)
-      const finalTokens = await tokenCounter.countTokens(truncatedContent, context.model)
+      const finalTokens = await tokenCounter.count(truncatedContent, context.model)
 
       return {
         content: truncatedContent,
@@ -76,7 +76,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
       const maxLines = Math.min(15, lines.length)
       const fallbackContent = lines.slice(0, maxLines).join('\n')
       
-      const fallbackTokens = await tokenCounter.countTokens(fallbackContent, context.model)
+      const fallbackTokens = await tokenCounter.count(fallbackContent, context.model)
 
       return {
         content: fallbackContent,
@@ -106,7 +106,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
     context: TruncationContext
   ): Promise<number> {
     const tokenCounter = getTokenCounter()
-    const originalTokens = await tokenCounter.countTokens(content, context.model)
+    const originalTokens = await tokenCounter.count(content, context.model)
 
     if (originalTokens <= maxTokens) {
       return 0
@@ -281,7 +281,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
     let currentTokens = 0
 
     for (const section of sortedSections) {
-      const sectionTokens = await tokenCounter.countTokens(section.content, context.model)
+      const sectionTokens = await tokenCounter.count(section.content, context.model)
       
       if (currentTokens + sectionTokens <= maxTokens) {
         selected.push(section)
@@ -291,7 +291,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
         const remainingTokens = maxTokens - currentTokens
         if (remainingTokens > 50) { // Only if there's meaningful space
           const truncatedContent = section.content.substring(0, remainingTokens * 4 - 10) + '...'
-          const truncatedTokens = await tokenCounter.countTokens(truncatedContent, context.model)
+          const truncatedTokens = await tokenCounter.count(truncatedContent, context.model)
           
           if (truncatedTokens <= remainingTokens) {
             selected.push({

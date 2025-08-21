@@ -42,7 +42,7 @@ export class SmartStrategy implements ITruncationStrategy {
     context: TruncationContext
   ): Promise<TruncationResult> {
     const tokenCounter = getTokenCounter()
-    const originalTokens = await tokenCounter.countTokens(content, context.model)
+    const originalTokens = await tokenCounter.count(content, context.model)
 
     // If content is already within limits, don't truncate
     if (originalTokens <= maxTokens) {
@@ -67,7 +67,7 @@ export class SmartStrategy implements ITruncationStrategy {
         context
       )
 
-      const finalTokens = await tokenCounter.countTokens(truncatedContent, context.model)
+      const finalTokens = await tokenCounter.count(truncatedContent, context.model)
 
       return {
         content: truncatedContent,
@@ -82,7 +82,7 @@ export class SmartStrategy implements ITruncationStrategy {
       const maxLines = Math.min(20, lines.length)
       const fallbackContent = lines.slice(0, maxLines).join('\n')
       
-      const fallbackTokens = await tokenCounter.countTokens(fallbackContent, context.model)
+      const fallbackTokens = await tokenCounter.count(fallbackContent, context.model)
 
       return {
         content: fallbackContent,
@@ -112,7 +112,7 @@ export class SmartStrategy implements ITruncationStrategy {
     context: TruncationContext
   ): Promise<number> {
     const tokenCounter = getTokenCounter()
-    const originalTokens = await tokenCounter.countTokens(content, context.model)
+    const originalTokens = await tokenCounter.count(content, context.model)
 
     if (originalTokens <= maxTokens) {
       return 0
@@ -233,7 +233,7 @@ export class SmartStrategy implements ITruncationStrategy {
 
     // Build content and check if it fits
     let result = this.buildSelectedContent(lines, selectedLines)
-    let currentTokens = await tokenCounter.countTokens(result, context.model)
+    let currentTokens = await tokenCounter.count(result, context.model)
 
     // If still too large, reduce by removing less important lines
     while (currentTokens > maxTokens && selectedLines.length > 1) {
@@ -248,7 +248,7 @@ export class SmartStrategy implements ITruncationStrategy {
       }
 
       result = this.buildSelectedContent(lines, selectedLines)
-      currentTokens = await tokenCounter.countTokens(result, context.model)
+      currentTokens = await tokenCounter.count(result, context.model)
     }
 
     return result

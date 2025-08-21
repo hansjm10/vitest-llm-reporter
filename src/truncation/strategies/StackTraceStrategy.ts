@@ -41,7 +41,7 @@ export class StackTraceStrategy implements ITruncationStrategy {
     context: TruncationContext
   ): Promise<TruncationResult> {
     const tokenCounter = getTokenCounter()
-    const originalTokens = await tokenCounter.countTokens(content, context.model)
+    const originalTokens = await tokenCounter.count(content, context.model)
 
     // If content is already within limits, don't truncate
     if (originalTokens <= maxTokens) {
@@ -57,7 +57,7 @@ export class StackTraceStrategy implements ITruncationStrategy {
     try {
       // Parse and process stack trace
       const truncatedContent = await this.processStackTrace(content, maxTokens, context)
-      const finalTokens = await tokenCounter.countTokens(truncatedContent, context.model)
+      const finalTokens = await tokenCounter.count(truncatedContent, context.model)
 
       return {
         content: truncatedContent,
@@ -72,7 +72,7 @@ export class StackTraceStrategy implements ITruncationStrategy {
       const maxLines = Math.min(25, lines.length)
       const fallbackContent = lines.slice(0, maxLines).join('\n')
       
-      const fallbackTokens = await tokenCounter.countTokens(fallbackContent, context.model)
+      const fallbackTokens = await tokenCounter.count(fallbackContent, context.model)
 
       return {
         content: fallbackContent,
@@ -102,7 +102,7 @@ export class StackTraceStrategy implements ITruncationStrategy {
     context: TruncationContext
   ): Promise<number> {
     const tokenCounter = getTokenCounter()
-    const originalTokens = await tokenCounter.countTokens(content, context.model)
+    const originalTokens = await tokenCounter.count(content, context.model)
 
     if (originalTokens <= maxTokens) {
       return 0
@@ -249,13 +249,13 @@ export class StackTraceStrategy implements ITruncationStrategy {
 
     // Calculate current token count
     for (const frame of selected) {
-      currentTokens += await tokenCounter.countTokens(frame.content, context.model)
+      currentTokens += await tokenCounter.count(frame.content, context.model)
     }
 
     // Add user code frames (prioritized)
     const sortedUserFrames = userFrames.sort((a, b) => b.importance - a.importance)
     for (const frame of sortedUserFrames) {
-      const frameTokens = await tokenCounter.countTokens(frame.content, context.model)
+      const frameTokens = await tokenCounter.count(frame.content, context.model)
       if (currentTokens + frameTokens <= maxTokens) {
         selected.push(frame)
         currentTokens += frameTokens
@@ -267,7 +267,7 @@ export class StackTraceStrategy implements ITruncationStrategy {
     // Add important library frames if there's space
     const sortedLibraryFrames = libraryFrames.sort((a, b) => b.importance - a.importance)
     for (const frame of sortedLibraryFrames) {
-      const frameTokens = await tokenCounter.countTokens(frame.content, context.model)
+      const frameTokens = await tokenCounter.count(frame.content, context.model)
       if (currentTokens + frameTokens <= maxTokens) {
         selected.push(frame)
         currentTokens += frameTokens
