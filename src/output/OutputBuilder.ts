@@ -343,20 +343,24 @@ export class OutputBuilder {
         const failureJson = JSON.stringify(failure)
         if (this.truncationEngine!.needsTruncation(failureJson)) {
           // Truncate console output first
-          if (failure.consoleOutput) {
-            const consoleStr = JSON.stringify(failure.consoleOutput)
+          if (failure.console) {
+            const consoleStr = JSON.stringify(failure.console)
             const truncated = this.truncationEngine!.truncate(consoleStr)
             try {
-              failure.consoleOutput = JSON.parse(truncated.content)
+              failure.console = JSON.parse(truncated.content)
             } catch {
               // If parsing fails, create simplified console output
-              failure.consoleOutput = { logs: ['[Console output truncated]'] }
+              failure.console = { logs: ['[Console output truncated]'] }
             }
           }
           
-          // Truncate error context if still too large
-          if (failure.context && this.truncationEngine!.needsTruncation(JSON.stringify(failure))) {
-            failure.context.codeLines = failure.context.codeLines?.slice(0, 5) || []
+          // Truncate error stack if still too large
+          if (failure.error && this.truncationEngine!.needsTruncation(JSON.stringify(failure))) {
+            // Limit stack trace lines
+            if (failure.error.stack) {
+              const stackLines = failure.error.stack.split('\n')
+              failure.error.stack = stackLines.slice(0, 10).join('\n')
+            }
           }
         }
         return failure

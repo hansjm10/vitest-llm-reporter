@@ -7,7 +7,14 @@
  * @module performance
  */
 
-// Type definitions
+// Import types for internal use
+import type {
+  PerformanceConfig,
+  BenchmarkConfig,
+  PerformanceMode
+} from './types'
+
+// Re-export type definitions
 export type {
   PerformanceConfig,
   PerformanceMetrics,
@@ -38,6 +45,11 @@ export type {
   IMemoryManager,
   IStreamOptimizer
 } from './types'
+
+// Import for internal use
+import { PerformanceManager } from './PerformanceManager'
+import { MetricsCollector } from './MetricsCollector'
+import { BenchmarkSuite } from './BenchmarkSuite'
 
 // Core components
 export { PerformanceManager } from './PerformanceManager'

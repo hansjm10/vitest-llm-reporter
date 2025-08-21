@@ -17,6 +17,7 @@ import { createLogger } from '../utils/logger.js'
 import type { OutputStrategy } from './strategies/FileOutputStrategy.js'
 import type { EnvironmentInfo } from '../types/environment.js'
 import type { LLMReporterOutput } from '../types/schema.js'
+import { DEFAULT_ENVIRONMENT_PREFERENCES } from '../types/output-modes.js'
 import type {
   OutputMode,
   OutputModeSelection,
@@ -24,7 +25,6 @@ import type {
   OutputModeConfig,
   ConfigurationSource,
   EnvironmentOutputPreferences,
-  DEFAULT_ENVIRONMENT_PREFERENCES,
   StreamOutputConfig
 } from '../types/output-modes.js'
 

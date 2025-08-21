@@ -7,10 +7,18 @@
  * @module cache
  */
 
+// Import for internal use
+import { IntelligentCache } from './IntelligentCache'
+import { CacheManager } from './CacheManager'
+import { WarmupService } from './WarmupService'
+
 // Core cache components
 export { IntelligentCache } from './IntelligentCache'
 export { CacheManager } from './CacheManager'
 export { WarmupService } from './WarmupService'
+
+// Import EvictionStrategyFactory for internal use
+import { EvictionStrategyFactory } from './strategies'
 
 // Cache strategies
 export {

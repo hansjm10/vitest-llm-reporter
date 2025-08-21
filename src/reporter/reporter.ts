@@ -461,11 +461,11 @@ export class LLMReporter implements Reporter {
    * @param unhandledErrors - Any unhandled errors that occurred
    * @param reason - The reason the test run ended
    */
-  onTestRunEnd(
+  async onTestRunEnd(
     testModules: ReadonlyArray<TestModule>,
     unhandledErrors: ReadonlyArray<SerializedError>,
     reason: TestRunEndReason
-  ): void {
+  ): Promise<void> {
     try {
       // Delegate to orchestrator with error handling
       try {

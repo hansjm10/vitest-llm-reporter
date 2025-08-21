@@ -26,25 +26,29 @@ export type {
 
 // Console types
 export type {
-  ConsoleMessage,
-  ConsoleLevel,
-  ConsoleCapture,
+  ConsoleMethod,
+  ConsoleEntry,
+  ConsoleBufferConfig,
   ConsoleCaptureConfig
 } from './console'
 
 // Environment types
 export type {
+  CIEnvironmentInfo,
+  TTYInfo,
   EnvironmentInfo,
-  SystemInfo,
-  RuntimeInfo
+  EnvironmentDetectionOptions
 } from './environment'
 
 // Extraction types
 export type {
-  ExtractedContext,
-  ExtractedError,
+  NormalizedError,
+  ErrorExtractionConfig,
+  StackFrame,
+  AssertionDetails,
   ExtractedTestCase,
-  ExtractionOptions
+  ExtractionConfig,
+  ContextExtractionOptions
 } from './extraction'
 
 // Output mode types
@@ -56,26 +60,26 @@ export type {
 
 // Internal reporter types
 export type {
+  CollectedTest,
   InternalState,
-  InternalConfig,
-  InternalMetrics
+  TestBase,
+  VitestSuite,
+  TestCaseData
 } from './reporter-internal'
 
 // State types
 export type {
-  ReporterState,
-  TestState,
-  SuiteState,
-  FileState
+  StateConfig,
+  TestResults,
+  ModuleTiming,
+  StateSnapshot,
+  TestStatistics
 } from './state'
 
 // Vitest object types
 export type {
-  VitestFile,
-  VitestSuite,
-  VitestTask,
-  VitestTest,
-  VitestError
+  ExtractedError,
+  VitestErrorContext
 } from './vitest-objects'
 
 // Deduplication types

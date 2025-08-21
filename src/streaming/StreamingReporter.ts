@@ -239,14 +239,14 @@ export class StreamingReporter extends LLMReporter {
   /**
    * Override onTestRunEnd to complete streaming and write dual output
    */
-  onTestRunEnd(
+  async onTestRunEnd(
     testModules: ReadonlyArray<TestModule>,
     unhandledErrors: ReadonlyArray<SerializedError>,
     reason: TestRunEndReason
-  ): void {
+  ): Promise<void> {
     try {
       // Call parent implementation to build final output
-      super.onTestRunEnd(testModules, unhandledErrors, reason)
+      await super.onTestRunEnd(testModules, unhandledErrors, reason)
 
       // Handle streaming completion
       this.completeStreaming()

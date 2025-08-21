@@ -458,8 +458,18 @@ export class DeduplicationService implements IDeduplicationService {
       uniqueFailures: 0,
       duplicateGroups: 0,
       compressionRatio: 0,
-      patternDistribution: {},
-      similarityDistribution: {},
+      patternDistribution: {
+        'stack-trace': 0,
+        'error-message': 0,
+        'console-output': 0,
+        'assertion': 0
+      },
+      similarityDistribution: {
+        'exact': 0,
+        'high': 0,
+        'medium': 0,
+        'low': 0
+      },
       processingTime: 0,
       memoryUsed: 0
     }

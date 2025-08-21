@@ -10,7 +10,8 @@
 import type { LLMReporterOutput } from '../types/schema'
 import { SchemaValidator, ValidationConfig, ValidationResult } from '../validation/validator'
 import { JsonSanitizer, JsonSanitizerConfig } from '../sanitization/json-sanitizer'
-import type { TruncationConfig, DeduplicationConfig } from '../types/reporter'
+import type { TruncationConfig } from '../types/reporter'
+import type { DeduplicationConfig } from '../types/deduplication'
 import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 import { createDeduplicationService, type IDeduplicationService } from '../deduplication'
 import type { DeduplicationResult, DuplicateEntry } from '../types/deduplication'
@@ -203,7 +204,11 @@ export class SchemaProcessor {
         if (this.truncationEngine.needsTruncation(serialized)) {
           const truncationResult = this.truncationEngine.truncate(serialized)
           output = JSON.parse(truncationResult.content)
-          truncationMetrics = [truncationResult.metrics]
+          truncationMetrics = [{
+            originalTokens: truncationResult.metrics.originalTokens,
+            truncatedTokens: truncationResult.metrics.truncatedTokens,
+            wasTruncated: true
+          }]
         }
       } catch (error) {
         return {
@@ -229,13 +234,13 @@ export class SchemaProcessor {
         if (reporterOutput.failures && reporterOutput.failures.length > 0) {
           // Convert failures to DuplicateEntry format
           const duplicateEntries: DuplicateEntry[] = reporterOutput.failures.map(failure => ({
-            testId: failure.test.name,
-            testName: failure.test.name,
-            filePath: failure.test.file || '',
+            testId: failure.test,
+            testName: failure.test,
+            filePath: failure.file || '',
             timestamp: new Date(),
             errorMessage: failure.error?.message,
             stackTrace: failure.error?.stack,
-            consoleOutput: failure.console?.map(c => c.output) || []
+            consoleOutput: failure.console?.logs || []
           }))
 
           // Process deduplication

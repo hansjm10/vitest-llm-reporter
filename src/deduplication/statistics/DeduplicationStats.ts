@@ -99,8 +99,18 @@ export class DeduplicationStatsCollector {
       uniqueFailures: 0,
       duplicateGroups: 0,
       compressionRatio: 0,
-      patternDistribution: {},
-      similarityDistribution: {},
+      patternDistribution: {
+        'stack-trace': 0,
+        'error-message': 0,
+        'console-output': 0,
+        'assertion': 0
+      },
+      similarityDistribution: {
+        'exact': 0,
+        'high': 0,
+        'medium': 0,
+        'low': 0
+      },
       processingTime: 0,
       memoryUsed: 0,
 
@@ -217,14 +227,24 @@ export class DeduplicationStatsCollector {
     })
 
     // Update pattern distribution
-    this.stats.patternDistribution = {}
+    this.stats.patternDistribution = {
+      'stack-trace': 0,
+      'error-message': 0,
+      'console-output': 0,
+      'assertion': 0
+    }
     for (const group of groups) {
       this.stats.patternDistribution[group.pattern] = 
         (this.stats.patternDistribution[group.pattern] || 0) + group.count
     }
 
     // Update similarity distribution
-    this.stats.similarityDistribution = {}
+    this.stats.similarityDistribution = {
+      'exact': 0,
+      'high': 0,
+      'medium': 0,
+      'low': 0
+    }
     for (const group of groups) {
       // Count examples by similarity level
       for (const example of group.examples) {
