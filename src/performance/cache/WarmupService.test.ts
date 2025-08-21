@@ -61,8 +61,15 @@ describe('WarmupService', () => {
 
     it('should accept custom configuration', () => {
       const customConfig: CacheConfig = {
+        enabled: true,
         enableWarming: false,
-        tokenCacheSize: 2000
+        tokenCacheSize: 2000,
+        resultCacheSize: 500,
+        templateCacheSize: 100,
+        ttl: 3600000,
+        targetHitRatio: 80,
+        evictionStrategy: 'lru',
+        enableMultiTier: true
       }
       const customService = new WarmupService(customConfig)
       expect(customService).toBeDefined()
@@ -70,7 +77,15 @@ describe('WarmupService', () => {
 
     it('should initialize with warmup disabled when configured', () => {
       const disabledConfig: CacheConfig = {
-        enableWarming: false
+        enabled: true,
+        enableWarming: false,
+        tokenCacheSize: 1000,
+        resultCacheSize: 500,
+        templateCacheSize: 100,
+        ttl: 3600000,
+        targetHitRatio: 80,
+        evictionStrategy: 'lru',
+        enableMultiTier: true
       }
       const disabledService = new WarmupService(disabledConfig)
       expect(disabledService).toBeDefined()
@@ -90,7 +105,15 @@ describe('WarmupService', () => {
 
     it('should skip warmup when warming is disabled', async () => {
       const disabledService = new WarmupService({
-        enableWarming: false
+        enabled: true,
+        enableWarming: false,
+        tokenCacheSize: 1000,
+        resultCacheSize: 500,
+        templateCacheSize: 100,
+        ttl: 3600000,
+        targetHitRatio: 80,
+        evictionStrategy: 'lru',
+        enableMultiTier: true
       })
       
       const result = await disabledService.warmupCache('test-cache', mockCache)
@@ -332,7 +355,14 @@ describe('WarmupService', () => {
     it('should handle disabled configuration', async () => {
       const disabledService = new WarmupService({
         enabled: false,
-        enableWarming: false
+        enableWarming: false,
+        tokenCacheSize: 1000,
+        resultCacheSize: 500,
+        templateCacheSize: 100,
+        ttl: 3600000,
+        targetHitRatio: 80,
+        evictionStrategy: 'lru',
+        enableMultiTier: true
       })
       
       const result = await disabledService.warmupCache('disabled-cache', mockCache)
@@ -342,7 +372,17 @@ describe('WarmupService', () => {
     })
 
     it('should handle minimal configuration', async () => {
-      const minimalService = new WarmupService({})
+      const minimalService = new WarmupService({
+        enabled: true,
+        enableWarming: true,
+        tokenCacheSize: 1000,
+        resultCacheSize: 500,
+        templateCacheSize: 100,
+        ttl: 3600000,
+        targetHitRatio: 80,
+        evictionStrategy: 'lru',
+        enableMultiTier: true
+      })
       const result = await minimalService.warmupCache('minimal-cache', mockCache)
       
       expect(result).toBeDefined()
