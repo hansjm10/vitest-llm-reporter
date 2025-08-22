@@ -370,7 +370,9 @@ export class StreamRecovery extends EventEmitter {
    */
   private calculateErrorRate(): number {
     const stats = this.errorHandler.getStats()
-    const recentErrors = stats.recentErrors?.length ?? 0
+    const recentErrors = Array.isArray(stats.recentErrors) 
+      ? stats.recentErrors.length 
+      : 0
     return recentErrors / 10 // Error rate based on last 10 operations
   }
 

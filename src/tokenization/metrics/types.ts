@@ -7,6 +7,8 @@
 
 import type { SupportedModel } from '../types.js'
 
+export type { SupportedModel }
+
 /**
  * Section identifiers for different parts of test output
  */

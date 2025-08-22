@@ -10,9 +10,10 @@ import {
   createModelAwareThresholds,
   type ThresholdSettings,
   type ThresholdLevel,
-  type ModelLimits
+  type ModelLimits,
+  type ThresholdConfig
 } from './thresholds'
-import type { SupportedModel, TokenMetricsConfig } from './types'
+import type { SupportedModel, TokenMetricsConfig, MetricSection } from './types'
 
 describe('ThresholdManager', () => {
   let manager: ThresholdManager
@@ -305,8 +306,8 @@ describe('ThresholdManager', () => {
             critical: 75,
             enabled: true
           }
-        }
-      }
+        } as Partial<Record<MetricSection, ThresholdConfig>>
+      } as Partial<ThresholdSettings>
 
       manager.updateSettings(updates)
       const settings = manager.getSettings()
@@ -398,8 +399,8 @@ describe('ThresholdManager', () => {
         includePassedTests: false,
         includeSkippedTests: false,
         maxContentSize: 50000,
-        enableBatching: true
-        // No thresholds property
+        enableBatching: true,
+        thresholds: {}
       }
 
       const settings = ThresholdManager.fromReporterConfig(config)
@@ -464,8 +465,8 @@ describe('ThresholdManager', () => {
             warning: 45,
             enabled: true
           }
-        }
-      }
+        } as Partial<Record<MetricSection, ThresholdConfig>>
+      } as Partial<ThresholdSettings>
 
       const merged = manager.mergeSettings(base, updates)
 
@@ -559,12 +560,12 @@ describe('createModelAwareThresholds', () => {
     // Claude has much higher limits (120000 conservative)
     expect(claudeThresholds.totalTokens.critical).toBe(120000)
     expect(claudeThresholds.totalTokens.critical).toBeGreaterThan(
-      gpt4Thresholds.totalTokens.critical
+      gpt4Thresholds.totalTokens.critical ?? 0
     )
 
     expect(claudeThresholds.perTestTokens.critical).toBe(24000)
     expect(claudeThresholds.perTestTokens.critical).toBeGreaterThan(
-      gpt4Thresholds.perTestTokens.critical
+      gpt4Thresholds.perTestTokens.critical ?? 0
     )
   })
 

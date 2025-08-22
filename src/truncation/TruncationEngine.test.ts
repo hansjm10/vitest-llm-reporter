@@ -322,7 +322,7 @@ describe('TruncationEngine', () => {
     })
 
     it("should handle strategy that doesn't achieve target", async () => {
-      mockStrategy.truncate.mockResolvedValue({
+      ;(mockStrategy.truncate as any).mockResolvedValue({
         content: 'partially truncated',
         tokenCount: 9000, // Still too high (over 8000 limit)
         tokensSaved: 1000,
@@ -410,7 +410,7 @@ describe('TruncationEngine', () => {
 
     it('should handle strategy estimation failures', async () => {
       mockTokenCounter.count.mockResolvedValueOnce(10000)
-      mockStrategy.estimateSavings.mockRejectedValue(new Error('Estimation failed'))
+      ;(mockStrategy.estimateSavings as any).mockRejectedValue(new Error('Estimation failed'))
 
       const savings = await engine.estimateSavings('content', 'gpt-4', ContentType.ERROR)
 

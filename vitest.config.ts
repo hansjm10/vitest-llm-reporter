@@ -10,10 +10,12 @@ export default defineConfig({
       'default',
       // Add LLM reporter for structured output
       new LLMReporter({
-        outputFile: 'test-output.json',
-        verbose: true,
-        includePassedTests: true,
-        includeSkippedTests: true
+        outputFile: undefined, // Display to console instead of file
+        verbose: false, // Reduce verbosity for cleaner output
+        includePassedTests: false, // Don't include passed tests in final report
+        includeSkippedTests: false, // Don't include skipped tests in final report
+        enableStreaming: false, // Disable streaming - focus on final JSON output
+        streamingMode: false    // Disable streaming mode
       })
     ],
     coverage: {

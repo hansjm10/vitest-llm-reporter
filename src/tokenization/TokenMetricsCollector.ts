@@ -410,7 +410,7 @@ export class TokenMetricsCollector {
         const lines: string[] = []
         if (exportData.summary)
           lines.push(JSON.stringify({ type: 'summary', data: exportData.summary }))
-        if (exportData.files) {
+        if (exportData.files && Array.isArray(exportData.files)) {
           for (const file of exportData.files) {
             lines.push(JSON.stringify({ type: 'file', data: file }))
           }

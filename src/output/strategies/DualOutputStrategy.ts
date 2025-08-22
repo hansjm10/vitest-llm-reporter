@@ -181,7 +181,7 @@ export class DualOutputStrategy implements OutputStrategy {
   /**
    * Handles initialization results from parallel execution
    */
-  private handleInitializationResults(
+  private async handleInitializationResults(
     results: PromiseSettledResult<void>[],
     fileCanExecute: boolean,
     _consoleCanExecute: boolean
@@ -204,6 +204,8 @@ export class DualOutputStrategy implements OutputStrategy {
 
       logger('Some strategies failed to initialize: %s', errorMessage)
     }
+
+    return Promise.resolve()
   }
 
   /**

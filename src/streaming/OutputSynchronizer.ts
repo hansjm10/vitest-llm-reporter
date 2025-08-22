@@ -496,7 +496,7 @@ export class OutputSynchronizer {
     }
 
     // Queue backed up significantly
-    if (queueStats.pending > 100) {
+    if (typeof queueStats.pending === 'number' && queueStats.pending > 100) {
       return true
     }
 
@@ -510,7 +510,7 @@ export class OutputSynchronizer {
     try {
       // Clear stale operations from queue
       const queueStats = this._outputQueue.getStats()
-      if (queueStats.pending > 50) {
+      if (typeof queueStats.pending === 'number' && queueStats.pending > 50) {
         // Emergency clear of low priority operations
         this._outputQueue.clear()
       }

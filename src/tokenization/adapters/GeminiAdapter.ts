@@ -74,7 +74,7 @@ class GeminiTokenizer implements ITokenizer {
     } else {
       // Split longer segments
       const numTokens = Math.ceil(segment.length / 4)
-      return Array(numTokens).fill(segment) as number[]
+      return Array(numTokens).fill(segment) as string[]
     }
   }
 

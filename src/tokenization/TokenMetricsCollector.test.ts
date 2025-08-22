@@ -273,8 +273,8 @@ describe('TokenMetricsCollector', () => {
         includePassedTests: true,
         includeSkippedTests: true,
         maxContentSize: 50000,
-        cacheResults: true,
-        exportFormats: ['json']
+        enableBatching: false,
+        thresholds: {}
       })
       const context = minimalCollector.getContext()
 
@@ -345,19 +345,21 @@ describe('TokenMetricsCollector', () => {
           failed: 1,
           passed: 1,
           skipped: 0,
-          duration: 1000
+          duration: 1000,
+          timestamp: new Date().toISOString()
         },
         failures: [
           {
             test: 'failing test',
             file: 'test.js',
-            suite: 'test suite',
+            suite: ['test suite'],
             startLine: 10,
+        endLine: 15,
             error: {
               message: 'Test failed',
               type: 'AssertionError',
               stack: 'Error stack trace',
-              assertion: 'expect(false).toBe(true)'
+              assertion: { expected: true, actual: false }
             }
           }
         ],
@@ -365,8 +367,9 @@ describe('TokenMetricsCollector', () => {
           {
             test: 'passing test',
             file: 'test.js',
-            suite: 'test suite',
+            suite: ['test suite'],
             startLine: 20,
+            endLine: 25,
             status: 'passed',
             duration: 100
           }
@@ -417,9 +420,10 @@ describe('TokenMetricsCollector', () => {
           {
             test: 'skipped test',
             file: 'test.js',
-            suite: 'test suite',
+            suite: ['test suite'],
             startLine: 30,
-            status: 'skipped'
+            endLine: 35,
+            status: 'skipped' as const
           }
         ]
       }
@@ -477,13 +481,14 @@ describe('TokenMetricsCollector', () => {
       testFailure = {
         test: 'test name',
         file: 'test.js',
-        suite: 'test suite',
+        suite: ['test suite'],
         startLine: 10,
+        endLine: 15,
         error: {
           message: 'Test failed',
           type: 'AssertionError',
           stack: 'Error stack trace',
-          assertion: 'expect(false).toBe(true)'
+          assertion: { expected: true, actual: false }
         }
       }
     })
@@ -528,7 +533,7 @@ describe('TokenMetricsCollector', () => {
     it('should handle test with console output', async () => {
       const testWithConsole = {
         ...testFailure,
-        console: [{ type: 'log', output: 'Console output' }]
+        console: { logs: ['Console output'] }
       }
 
       const metrics = await collector.processTest(testWithConsole)
@@ -578,8 +583,9 @@ describe('TokenMetricsCollector', () => {
       await collector.processTest({
         test: 'test',
         file: 'test.js',
-        suite: 'suite',
+        suite: ['suite'],
         startLine: 10,
+        endLine: 15,
         error: {
           message: 'Failed',
           type: 'Error',
@@ -685,19 +691,25 @@ describe('TokenMetricsCollector', () => {
       metrics = {
         summary: {
           totalTokens: 1000,
+          sections: {} as any, // Mock sections
           testCounts: { total: 10, failed: 2, passed: 8, skipped: 0 },
-          averageTokensPerTest: 100,
+          fileCounts: { total: 1, withFailures: 1, withSkipped: 0 },
+          model: 'gpt-4' as const,
+          startTime: Date.now() - 5000,
+          endTime: Date.now(),
           duration: 5000,
-          collectedAt: Date.now()
+          averageTokensPerTest: 100,
+          averageTokensPerFailure: 200
         },
         files: [
           {
             filePath: 'test.js',
-            testCount: 5,
+            tests: [],
+            sections: {} as any, // Mock sections
             totalTokens: 500,
-            averageTokensPerTest: 100,
-            status: 'processed',
-            tests: []
+            testCounts: { total: 5, failed: 1, passed: 4, skipped: 0 },
+            duration: 1000,
+            collectedAt: Date.now()
           }
         ],
         metadata: {
@@ -727,7 +739,9 @@ describe('TokenMetricsCollector', () => {
         includeTests: true,
         includeFiles: true,
         includeSummary: true,
-        includeMetadata: true
+        includeMetadata: true,
+        includeStats: true,
+        includeIssues: true
       })
 
       expect(exported).toContain('\n')
@@ -740,7 +754,10 @@ describe('TokenMetricsCollector', () => {
         includeTests: true,
         includeFiles: true,
         includeSummary: true,
-        includeMetadata: true
+        includeMetadata: true,
+        includeStats: false,
+        includeIssues: false,
+        prettyPrint: false
       })
 
       const lines = exported.split('\n')
@@ -759,7 +776,10 @@ describe('TokenMetricsCollector', () => {
         includeTests: true,
         includeFiles: true,
         includeSummary: true,
-        includeMetadata: true
+        includeMetadata: true,
+        includeStats: false,
+        includeIssues: false,
+        prettyPrint: false
       })
 
       expect(exported).toContain('# Token Metrics Report')
@@ -773,7 +793,10 @@ describe('TokenMetricsCollector', () => {
         includeTests: true,
         includeFiles: true,
         includeSummary: true,
-        includeMetadata: true
+        includeMetadata: true,
+        includeStats: false,
+        includeIssues: false,
+        prettyPrint: false
       })
 
       expect(exported).toContain('Type,Name,File,Tokens,Status,Duration')
@@ -784,7 +807,11 @@ describe('TokenMetricsCollector', () => {
         includeFiles: false,
         includeMetadata: false,
         includeSummary: true,
-        includeTests: false
+        includeTests: false,
+        includeStats: false,
+        includeIssues: false,
+        format: 'json',
+        prettyPrint: false
       })
 
       const parsed = JSON.parse(exported)
@@ -799,7 +826,10 @@ describe('TokenMetricsCollector', () => {
         includeTests: true,
         includeFiles: true,
         includeSummary: true,
-        includeMetadata: true
+        includeMetadata: true,
+        includeIssues: false,
+        format: 'json',
+        prettyPrint: false
       })
 
       const parsed = JSON.parse(exported)
@@ -812,7 +842,10 @@ describe('TokenMetricsCollector', () => {
         includeTests: true,
         includeFiles: true,
         includeSummary: true,
-        includeMetadata: true
+        includeMetadata: true,
+        includeStats: false,
+        format: 'json',
+        prettyPrint: false
       })
 
       const parsed = JSON.parse(exported)
@@ -870,8 +903,9 @@ describe('TokenMetricsCollector', () => {
       await collector.processTest({
         test: 'test',
         file: 'test.js',
-        suite: 'suite',
+        suite: ['suite'],
         startLine: 10,
+        endLine: 15,
         error: { message: 'Error', type: 'Error', stack: 'stack' }
       })
 
@@ -917,8 +951,9 @@ describe('TokenMetricsCollector', () => {
       const testWithLargeError = {
         test: 'test',
         file: 'test.js',
-        suite: 'suite',
+        suite: ['suite'],
         startLine: 10,
+        endLine: 15,
         error: {
           message: 'x'.repeat(60000),
           type: 'Error',
@@ -944,8 +979,9 @@ describe('TokenMetricsCollector', () => {
       await collector.processTest({
         test: 'test',
         file: 'test.js',
-        suite: 'suite',
+        suite: ['suite'],
         startLine: 10,
+        endLine: 15,
         error: { message: 'Error', type: 'Error', stack: 'stack' }
       })
 
@@ -963,8 +999,9 @@ describe('TokenMetricsCollector', () => {
       await collector.processTest({
         test: 'test',
         file: 'test.js',
-        suite: 'suite',
+        suite: ['suite'],
         startLine: 10,
+        endLine: 15,
         error: { message: 'Error', type: 'Error', stack: 'stack' }
       })
 
@@ -996,8 +1033,9 @@ describe('TokenMetricsCollector', () => {
       await collector.processTest({
         test: 'test',
         file: 'test.js',
-        suite: 'suite',
+        suite: ['suite'],
         startLine: 10,
+        endLine: 15,
         error: { message: 'Error', type: 'Error', stack: 'stack' }
       })
 
@@ -1039,8 +1077,9 @@ describe('TokenMetricsCollector', () => {
         await collector.processTest({
           test: 'test',
           file: 'test.js',
-          suite: 'suite',
+          suite: ['suite'],
           startLine: 10,
+        endLine: 15,
           error: { message: 'Error', type: 'Error', stack: 'stack' }
         })
       } catch (error) {
@@ -1106,13 +1145,14 @@ describe('TokenMetricsCollector', () => {
 
       try {
         await collector.collectFromOutput({
-          summary: { total: 1, failed: 1, passed: 0, skipped: 0, duration: 1000 },
+          summary: { total: 1, failed: 1, passed: 0, skipped: 0, duration: 1000, timestamp: new Date().toISOString() },
           failures: [
             {
               test: 'test',
               file: 'test.js',
-              suite: 'suite',
+              suite: ['suite'],
               startLine: 10,
+              endLine: 15,
               error: { message: 'Error', type: 'Error', stack: 'stack' }
             }
           ]

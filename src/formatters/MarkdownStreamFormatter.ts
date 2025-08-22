@@ -8,7 +8,7 @@
  * @module formatters/MarkdownStreamFormatter
  */
 
-import type { LLMReporterOutput, TestSummary } from '../types/schema'
+import type { LLMReporterOutput, TestSummary, TestFailure } from '../types/schema'
 import {
   BaseStreamingFormatter,
   type StreamingEvent,
@@ -107,7 +107,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     this.markdownConfig = mergedConfig
   }
 
-  protected doInitialize(): void {
+  protected async doInitialize(): Promise<void> {
     this.sections = []
     this.state.custom = {
       ...this.state.custom,
@@ -116,7 +116,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     }
   }
 
-  formatEvent(event: StreamingEvent): string {
+  async formatEvent(event: StreamingEvent): Promise<string> {
     if (!this.state.initialized) {
       throw new Error('MarkdownStreamFormatter must be initialized before use')
     }
@@ -134,7 +134,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     return output
   }
 
-  formatFinal(output: LLMReporterOutput): string {
+  async formatFinal(output: LLMReporterOutput): Promise<string> {
     if (!this.state.initialized) {
       throw new Error('MarkdownStreamFormatter must be initialized before use')
     }
@@ -426,21 +426,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
   /**
    * Format failure detail for final summary
    */
-  private formatFailureDetail(
-    failure: {
-      test: string
-      file: string
-      startLine: number
-      endLine: number
-      error: {
-        message: string
-        assertion?: { expected: unknown; actual: unknown }
-        stack?: string[]
-      }
-      console?: Record<string, string[]>
-    },
-    index: number
-  ): string {
+  private formatFailureDetail(failure: TestFailure, index: number): string {
     let output = `### ${index}. ${this.getEmoji('failure')} \`${failure.test}\`\n\n`
     output += `**File:** \`${failure.file}:${failure.startLine}-${failure.endLine}\`\n`
     output += `**Error:** ${failure.error.message}\n`

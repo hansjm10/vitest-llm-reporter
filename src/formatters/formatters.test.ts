@@ -290,7 +290,7 @@ describe('JsonLineFormatter', () => {
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
 
-    const output = formatter.formatEvent(event)
+    const output = await formatter.formatEvent(event)
 
     expect(output).toMatch(/^\{.*\}\n$/)
 
@@ -311,7 +311,7 @@ describe('JsonLineFormatter', () => {
       progress: { completed: 1, total: 5 }
     } as TestFailureData)
 
-    const output = formatter.formatEvent(event)
+    const output = await formatter.formatEvent(event)
 
     const parsed = JSON.parse(output.trim())
     expect(parsed.event).toBe('test-failure')
@@ -330,7 +330,7 @@ describe('JsonLineFormatter', () => {
     await formatter.initialize()
 
     const llmOutput = createLLMOutput()
-    const output = formatter.formatFinal(llmOutput)
+    const output = await formatter.formatFinal(llmOutput)
 
     const lines = output.trim().split('\n')
     expect(lines.length).toBe(2) // Summary + full output
@@ -357,8 +357,8 @@ describe('JsonLineFormatter', () => {
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
 
-    const compactOutput = compactFormatter.formatEvent(event)
-    const verboseOutput = verboseFormatter.formatEvent(event)
+    const compactOutput = await compactFormatter.formatEvent(event)
+    const verboseOutput = await verboseFormatter.formatEvent(event)
 
     expect(compactOutput.split('\n').length).toBe(2) // Single line + newline
     expect(verboseOutput.split('\n').length).toBeGreaterThan(2) // Multi-line JSON
@@ -376,8 +376,8 @@ describe('JsonLineFormatter', () => {
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
 
-    const minimalOutput = minimal.formatEvent(event)
-    const verboseOutput = verbose.formatEvent(event)
+    const minimalOutput = await minimal.formatEvent(event)
+    const verboseOutput = await verbose.formatEvent(event)
 
     const minimalParsed = JSON.parse(minimalOutput.trim())
     const verboseParsed = JSON.parse(verboseOutput.trim())
@@ -403,14 +403,14 @@ describe('JsonLineFormatter', () => {
     expect(events[1].event).toBe('test-failure')
   })
 
-  it('should throw error when not initialized', () => {
+  it('should throw error when not initialized', async () => {
     const event = createStreamingEvent(StreamingEventType.TEST_COMPLETE, {
       result: createTestResult(),
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
 
-    expect(() => formatter.formatEvent(event)).toThrow('must be initialized')
-    expect(() => formatter.formatFinal(createLLMOutput())).toThrow('must be initialized')
+    await expect(formatter.formatEvent(event)).rejects.toThrow('must be initialized')
+    await expect(formatter.formatFinal(createLLMOutput())).rejects.toThrow('must be initialized')
   })
 })
 
@@ -436,7 +436,7 @@ describe('MarkdownStreamFormatter', () => {
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
 
-    const output = formatter.formatEvent(event)
+    const output = await formatter.formatEvent(event)
 
     expect(output).toContain('### ✅ Test Passed: `should work`')
     expect(output).toContain('**File:** `/path/to/test.js:10-15`')
@@ -453,7 +453,7 @@ describe('MarkdownStreamFormatter', () => {
       progress: { completed: 1, total: 5 }
     } as TestFailureData)
 
-    const output = formatter.formatEvent(event)
+    const output = await formatter.formatEvent(event)
 
     expect(output).toContain('### ❌ Test Failed: `should not fail`')
     expect(output).toContain('**Error Type:** AssertionError')
@@ -470,7 +470,7 @@ describe('MarkdownStreamFormatter', () => {
     await formatter.initialize()
 
     const llmOutput = createLLMOutput()
-    const output = formatter.formatFinal(llmOutput)
+    const output = await formatter.formatFinal(llmOutput)
 
     expect(output).toContain('# Test Results Summary')
     expect(output).toContain('## 📋 Overview')
@@ -491,7 +491,7 @@ describe('MarkdownStreamFormatter', () => {
       startTime: Date.now()
     })
 
-    const output = formatter.formatEvent(event)
+    const output = await formatter.formatEvent(event)
 
     expect(output).toContain('# 🚀 Test Run Started')
     expect(output).toContain('**Total Tests:** 10')
@@ -506,7 +506,7 @@ describe('MarkdownStreamFormatter', () => {
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
 
-    const output = noEmojiFormatter.formatEvent(event)
+    const output = await noEmojiFormatter.formatEvent(event)
 
     expect(output).not.toContain('✅')
     expect(output).toContain('### Test Passed: `should work`')
@@ -517,7 +517,7 @@ describe('MarkdownStreamFormatter', () => {
     await noProgressFormatter.initialize()
 
     const llmOutput = createLLMOutput()
-    const output = noProgressFormatter.formatFinal(llmOutput)
+    const output = await noProgressFormatter.formatFinal(llmOutput)
 
     expect(output).not.toContain('█')
     expect(output).not.toContain('░')
@@ -533,7 +533,7 @@ describe('MarkdownStreamFormatter', () => {
         .map((_, i) => createTestFailure({ test: `test ${i}` }))
     })
 
-    const output = collapsibleFormatter.formatFinal(llmOutput)
+    const output = await collapsibleFormatter.formatFinal(llmOutput)
 
     expect(output).toContain('<details>')
     expect(output).toContain('<summary>Click to expand failed tests</summary>')
@@ -570,7 +570,7 @@ describe('MarkdownStreamFormatter', () => {
       progress: { completed: 1, total: 5 }
     } as TestFailureData)
 
-    const output = shortFormatter.formatEvent(event)
+    const output = await shortFormatter.formatEvent(event)
 
     expect(output).toContain('... (8 more lines)')
   })
@@ -600,31 +600,31 @@ describe('MarkdownStreamFormatter', () => {
         skipped: 0
       })
 
-      const output1 = formatter.formatEvent(progressEvent1)
+      const output1 = await formatter.formatEvent(progressEvent1)
       expect(output1).toContain('Progress Update')
 
       // Second event immediately (within 1 second) should be throttled
       currentTime += 500
-      const output2 = formatter.formatEvent(progressEvent2)
+      const output2 = await formatter.formatEvent(progressEvent2)
       expect(output2).toBe('')
 
       // Third event after delay should not be throttled
       currentTime += 600
-      const output3 = formatter.formatEvent(progressEvent2)
+      const output3 = await formatter.formatEvent(progressEvent2)
       expect(output3).toContain('Progress Update')
     } finally {
       vi.mocked(Date.now).mockRestore()
     }
   })
 
-  it('should throw error when not initialized', () => {
+  it('should throw error when not initialized', async () => {
     const event = createStreamingEvent(StreamingEventType.TEST_COMPLETE, {
       result: createTestResult(),
       progress: { completed: 1, total: 5 }
     } as TestCompleteData)
 
-    expect(() => formatter.formatEvent(event)).toThrow('must be initialized')
-    expect(() => formatter.formatFinal(createLLMOutput())).toThrow('must be initialized')
+    await expect(formatter.formatEvent(event)).rejects.toThrow('must be initialized')
+    await expect(formatter.formatFinal(createLLMOutput())).rejects.toThrow('must be initialized')
   })
 })
 
@@ -659,8 +659,8 @@ describe('Integration Tests', () => {
     const markdownOutputs: string[] = []
 
     for (const event of events) {
-      jsonOutputs.push(jsonFormatter.formatEvent(event))
-      markdownOutputs.push(markdownFormatter.formatEvent(event))
+      jsonOutputs.push(await jsonFormatter.formatEvent(event))
+      markdownOutputs.push(await markdownFormatter.formatEvent(event))
     }
 
     // Verify both formatters processed all events
@@ -683,8 +683,8 @@ describe('Integration Tests', () => {
 
     // Test final formatting
     const llmOutput = createLLMOutput()
-    const jsonFinal = jsonFormatter.formatFinal(llmOutput)
-    const markdownFinal = markdownFormatter.formatFinal(llmOutput)
+    const jsonFinal = await jsonFormatter.formatFinal(llmOutput)
+    const markdownFinal = await markdownFormatter.formatFinal(llmOutput)
 
     expect(jsonFinal).toContain('"event":"run-summary"')
     expect(markdownFinal).toContain('# Test Results Summary')

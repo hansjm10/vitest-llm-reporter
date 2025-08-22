@@ -43,11 +43,47 @@ interface AllocationTracker {
 }
 
 /**
+ * Test result pool object type
+ */
+interface TestResultPoolObject {
+  test: {
+    name: string
+    file: string
+    duration: number
+  }
+  result: {
+    state: string
+    errors: unknown[]
+  }
+  console: unknown[]
+}
+
+/**
+ * Error pool object type
+ */
+interface ErrorPoolObject {
+  message: string
+  stack: string
+  name: string
+  cause: unknown
+}
+
+/**
+ * Console output pool object type
+ */
+interface ConsoleOutputPoolObject {
+  type: string
+  output: string
+  timestamp: number
+  source: string
+}
+
+/**
  * Memory manager implementation
  */
 export class MemoryManager implements IMemoryManager {
   private readonly config: Required<MemoryConfig>
-  private readonly pools: Map<string, ResourcePool<unknown>>
+  private readonly pools: Map<string, ResourcePool<any>>
   private readonly profiler: MemoryProfiler
   private readonly thresholds: MemoryThresholds
   private readonly allocationTracker: AllocationTracker
@@ -124,7 +160,7 @@ export class MemoryManager implements IMemoryManager {
       // Test result pool
       this.pools.set(
         'testResults',
-        new ResourcePool<Record<string, unknown>>(
+        new ResourcePool<TestResultPoolObject>(
           () => ({
             test: { name: '', file: '', duration: 0 },
             result: { state: 'pending', errors: [] },
@@ -148,7 +184,7 @@ export class MemoryManager implements IMemoryManager {
       // Error pool
       this.pools.set(
         'errors',
-        new ResourcePool<Record<string, unknown>>(
+        new ResourcePool<ErrorPoolObject>(
           () => ({
             message: '',
             stack: '',
@@ -169,7 +205,7 @@ export class MemoryManager implements IMemoryManager {
       // Console output pool
       this.pools.set(
         'consoleOutputs',
-        new ResourcePool<Record<string, unknown>>(
+        new ResourcePool<ConsoleOutputPoolObject>(
           () => ({
             type: 'log',
             output: '',
@@ -460,7 +496,7 @@ export class MemoryManager implements IMemoryManager {
   /**
    * Clean up object pools
    */
-  private cleanupPools(): number {
+  private async cleanupPools(): Promise<number> {
     let totalSaved = 0
 
     for (const [type, pool] of this.pools) {
@@ -480,7 +516,7 @@ export class MemoryManager implements IMemoryManager {
   /**
    * Clean up allocation tracking
    */
-  private cleanupAllocations(): number {
+  private async cleanupAllocations(): Promise<number> {
     const now = Date.now()
     const maxAge = 60 * 60 * 1000 // 1 hour
     let cleaned = 0
@@ -499,7 +535,7 @@ export class MemoryManager implements IMemoryManager {
   /**
    * Force garbage collection
    */
-  private forceGarbageCollection(): number {
+  private async forceGarbageCollection(): Promise<number> {
     const beforeUsage = process.memoryUsage().heapUsed
 
     if (global.gc) {

@@ -114,7 +114,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
     this.jsonlConfig = mergedConfig
   }
 
-  protected doInitialize(): void {
+  protected async doInitialize(): Promise<void> {
     this.sequence = 0
     this.state.custom = {
       ...this.state.custom,
@@ -122,7 +122,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
     }
   }
 
-  formatEvent(event: StreamingEvent): string {
+  async formatEvent(event: StreamingEvent): Promise<string> {
     if (!this.state.initialized) {
       throw new Error('JsonLineFormatter must be initialized before use')
     }
@@ -141,7 +141,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
     return jsonString + '\n'
   }
 
-  formatFinal(output: LLMReporterOutput): string {
+  async formatFinal(output: LLMReporterOutput): Promise<string> {
     if (!this.state.initialized) {
       throw new Error('JsonLineFormatter must be initialized before use')
     }
