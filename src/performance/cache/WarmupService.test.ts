@@ -253,8 +253,6 @@ describe('WarmupService', () => {
       // Mock cache with specific metrics
       vi.mocked(mockCache.getMetrics).mockReturnValue({
         hitRatio: 85,
-        hits: 850,
-        misses: 150,
         size: 200,
         capacity: 1000,
         evictions: 10,
