@@ -698,7 +698,8 @@ describe('MemoryManager', () => {
 
   describe('error handling', () => {
     it('should handle pool initialization errors', () => {
-      vi.mocked(mockResourcePool).mockImplementationOnce(() => {
+      const { ResourcePool } = require('./ResourcePool')
+      vi.mocked(ResourcePool).mockImplementationOnce(() => {
         throw new Error('Pool init failed')
       })
       

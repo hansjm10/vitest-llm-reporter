@@ -15,10 +15,9 @@ import type {
   TruncationContext,
   TruncationResult,
   TruncationEngineConfig,
-  TruncationStats,
-  ContentPriority
+  TruncationStats
 } from './types'
-import { ContentType } from './types'
+import { ContentType, ContentPriority } from './types'
 import type { SupportedModel } from '../tokenization/types'
 import type { TruncationConfig } from '../types/reporter'
 
@@ -50,7 +49,7 @@ vi.mock('./context.js', () => ({
 // Mock priority utilities
 vi.mock('./priorities.js', () => ({
   defaultPriorityManager: {},
-  getContentPriority: vi.fn().mockReturnValue('high' as ContentPriority)
+  getContentPriority: vi.fn().mockReturnValue(ContentPriority.HIGH)
 }))
 
 describe('TruncationEngine', () => {
@@ -176,7 +175,7 @@ describe('TruncationEngine', () => {
 
   describe('truncate', () => {
     it('should return empty result for empty content', async () => {
-      const result = await engine.truncate('', 'gpt-4', ContentType.ERROR_MESSAGE)
+      const result = await engine.truncate('', 'gpt-4', ContentType.ERROR)
       
       expect(result.content).toBe('')
       expect(result.tokenCount).toBe(0)
@@ -188,7 +187,7 @@ describe('TruncationEngine', () => {
       mockTokenCounter.count.mockResolvedValueOnce(500) // Below limit
       
       const content = 'short content'
-      const result = await engine.truncate(content, 'gpt-4', ContentType.ERROR_MESSAGE)
+      const result = await engine.truncate(content, 'gpt-4', ContentType.ERROR)
       
       expect(result.content).toBe(content)
       expect(result.tokenCount).toBe(500)
@@ -203,7 +202,7 @@ describe('TruncationEngine', () => {
         .mockResolvedValueOnce(400) // After truncation (within limit)
       
       const content = 'long content that needs truncation'
-      const result = await engine.truncate(content, 'gpt-4', ContentType.ERROR_MESSAGE)
+      const result = await engine.truncate(content, 'gpt-4', ContentType.ERROR)
       
       expect(result.content).toBe('truncated content')
       expect(result.tokenCount).toBe(400)
@@ -234,7 +233,7 @@ describe('TruncationEngine', () => {
         .mockResolvedValueOnce(400)
       
       const content = 'content to truncate'
-      const result = await engine.truncate(content, 'gpt-4', ContentType.ERROR_MESSAGE)
+      const result = await engine.truncate(content, 'gpt-4', ContentType.ERROR)
       
       expect(failingStrategy.truncate).toHaveBeenCalled()
       expect(mockStrategy.truncate).toHaveBeenCalled()
@@ -258,7 +257,7 @@ describe('TruncationEngine', () => {
       mockTokenCounter.count.mockResolvedValue(10000)
       
       const content = 'content to truncate'
-      const result = await limitedEngine.truncate(content, 'gpt-4', ContentType.ERROR_MESSAGE)
+      const result = await limitedEngine.truncate(content, 'gpt-4', ContentType.ERROR)
       
       expect(failingStrategy.truncate).toHaveBeenCalledTimes(1)
       expect(mockStrategy.truncate).not.toHaveBeenCalled() // Should stop after max attempts
@@ -288,7 +287,7 @@ describe('TruncationEngine', () => {
       const result = await engine.truncate(
         'content',
         'gpt-4',
-        ContentType.ERROR_MESSAGE,
+        ContentType.ERROR,
         { preferredStrategies: ['low-priority'] }
       )
       
@@ -302,7 +301,7 @@ describe('TruncationEngine', () => {
       mockTokenCounter.count.mockResolvedValue(10000)
       
       const content = 'very long content that needs aggressive truncation'
-      const result = await engine.truncate(content, 'gpt-4', ContentType.ERROR_MESSAGE)
+      const result = await engine.truncate(content, 'gpt-4', ContentType.ERROR)
       
       expect(result.content).toContain('[Content truncated by aggressive fallback]')
       expect(result.strategyUsed).toBe('aggressive-fallback')
@@ -316,7 +315,7 @@ describe('TruncationEngine', () => {
       mockTokenCounter.count.mockResolvedValue(10000)
       
       const content = 'content that needs truncation'
-      const result = await noFallbackEngine.truncate(content, 'gpt-4', ContentType.ERROR_MESSAGE)
+      const result = await noFallbackEngine.truncate(content, 'gpt-4', ContentType.ERROR)
       
       expect(result.content).toBe(content) // Original content returned
       expect(result.strategyUsed).toBe('no-strategies')
@@ -337,7 +336,7 @@ describe('TruncationEngine', () => {
         .mockResolvedValueOnce(10000)
         .mockResolvedValueOnce(7000) // Still exceeds limit
       
-      const result = await engine.truncate('content', 'gpt-4', ContentType.ERROR_MESSAGE)
+      const result = await engine.truncate('content', 'gpt-4', ContentType.ERROR)
       
       expect(result.warnings).toContain('Strategy test-strategy did not achieve target token count')
       expect(result.tokenCount).toBe(7000)
@@ -349,7 +348,7 @@ describe('TruncationEngine', () => {
         .mockResolvedValueOnce(10000)
         .mockResolvedValueOnce(400)
       
-      await engine.truncate('content', 'gpt-4', ContentType.ERROR_MESSAGE)
+      await engine.truncate('content', 'gpt-4', ContentType.ERROR)
       
       const stats = engine.getStats()
       expect(stats.totalTruncations).toBe(1)
@@ -366,12 +365,12 @@ describe('TruncationEngine', () => {
       
       const options = {
         maxTokens: 4000,
-        priority: 'medium' as ContentPriority,
+        priority: ContentPriority.MEDIUM,
         preserveStructure: true,
         metadata: { source: 'test' }
       }
       
-      await engine.truncate('content', 'gpt-4', ContentType.ERROR_MESSAGE, options)
+      await engine.truncate('content', 'gpt-4', ContentType.ERROR, options)
       
       expect(mockStrategy.truncate).toHaveBeenCalledWith(
         'content',
@@ -389,7 +388,7 @@ describe('TruncationEngine', () => {
     it('should return 0 for content that doesn\'t need truncation', async () => {
       mockTokenCounter.count.mockResolvedValueOnce(500) // Below limit
       
-      const savings = await engine.estimateSavings('short content', 'gpt-4', ContentType.ERROR_MESSAGE)
+      const savings = await engine.estimateSavings('short content', 'gpt-4', ContentType.ERROR)
       
       expect(savings).toBe(0)
     })
@@ -407,7 +406,7 @@ describe('TruncationEngine', () => {
       
       engine.registerStrategy(highSavingsStrategy)
       
-      const savings = await engine.estimateSavings('long content', 'gpt-4', ContentType.ERROR_MESSAGE)
+      const savings = await engine.estimateSavings('long content', 'gpt-4', ContentType.ERROR)
       
       expect(savings).toBe(8000) // Best estimate from strategies
     })
@@ -416,7 +415,7 @@ describe('TruncationEngine', () => {
       mockTokenCounter.count.mockResolvedValueOnce(10000)
       mockStrategy.estimateSavings.mockRejectedValue(new Error('Estimation failed'))
       
-      const savings = await engine.estimateSavings('content', 'gpt-4', ContentType.ERROR_MESSAGE)
+      const savings = await engine.estimateSavings('content', 'gpt-4', ContentType.ERROR)
       
       expect(savings).toBe(0) // Falls back to 0 when all estimates fail
     })
@@ -425,7 +424,7 @@ describe('TruncationEngine', () => {
       engine.unregisterStrategy('test-strategy')
       mockTokenCounter.count.mockResolvedValueOnce(10000)
       
-      const savings = await engine.estimateSavings('content', 'gpt-4', ContentType.ERROR_MESSAGE)
+      const savings = await engine.estimateSavings('content', 'gpt-4', ContentType.ERROR)
       
       expect(savings).toBe(2000) // 10000 - 8000 (effective max)
     })
@@ -585,7 +584,7 @@ describe('TruncationEngine', () => {
         .mockResolvedValueOnce(10000)
         .mockResolvedValueOnce(400)
       
-      await engine.truncate('content', 'gpt-4', ContentType.ERROR_MESSAGE)
+      await engine.truncate('content', 'gpt-4', ContentType.ERROR)
       
       expect(incompatibleStrategy.truncate).not.toHaveBeenCalled()
       expect(mockStrategy.truncate).toHaveBeenCalled()
@@ -612,7 +611,7 @@ describe('TruncationEngine', () => {
         .mockResolvedValueOnce(10000)
         .mockResolvedValueOnce(400)
       
-      const result = await engine.truncate('content', 'gpt-4', ContentType.ERROR_MESSAGE)
+      const result = await engine.truncate('content', 'gpt-4', ContentType.ERROR)
       
       expect(highPriorityStrategy.truncate).toHaveBeenCalled()
       expect(result.strategyUsed).toBe('high-priority')

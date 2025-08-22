@@ -15,7 +15,7 @@ vi.mock('../../utils/logger', () => ({
 describe('WarmupService', () => {
   let warmupService: WarmupService
   let mockCache: ICache
-  let defaultConfig: CacheConfig
+  let defaultConfig: Required<CacheConfig>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -30,8 +30,6 @@ describe('WarmupService', () => {
       size: vi.fn().mockReturnValue(0),
       getMetrics: vi.fn().mockReturnValue({
         hitRatio: 80,
-        hits: 800,
-        misses: 200,
         size: 100,
         capacity: 1000,
         evictions: 5,
@@ -49,7 +47,7 @@ describe('WarmupService', () => {
       enableWarming: true,
       evictionStrategy: 'lru',
       enableMultiTier: true
-    }
+    } as Required<CacheConfig>
 
     warmupService = new WarmupService(defaultConfig)
   })
@@ -60,7 +58,7 @@ describe('WarmupService', () => {
     })
 
     it('should accept custom configuration', () => {
-      const customConfig: CacheConfig = {
+      const customConfig: Required<CacheConfig> = {
         enabled: true,
         enableWarming: false,
         tokenCacheSize: 2000,
@@ -76,7 +74,7 @@ describe('WarmupService', () => {
     })
 
     it('should initialize with warmup disabled when configured', () => {
-      const disabledConfig: CacheConfig = {
+      const disabledConfig: Required<CacheConfig> = {
         enabled: true,
         enableWarming: false,
         tokenCacheSize: 1000,
@@ -114,7 +112,7 @@ describe('WarmupService', () => {
         targetHitRatio: 80,
         evictionStrategy: 'lru',
         enableMultiTier: true
-      })
+      } as Required<CacheConfig>)
       
       const result = await disabledService.warmupCache('test-cache', mockCache)
       
@@ -175,8 +173,6 @@ describe('WarmupService', () => {
       // Mock high-frequency access patterns
       vi.mocked(mockCache.getMetrics).mockReturnValue({
         hitRatio: 90,
-        hits: 900,
-        misses: 100,
         size: 500,
         capacity: 1000,
         evictions: 2,
@@ -192,8 +188,6 @@ describe('WarmupService', () => {
       // Mock cache with poor performance
       vi.mocked(mockCache.getMetrics).mockReturnValue({
         hitRatio: 30,
-        hits: 300,
-        misses: 700,
         size: 100,
         capacity: 1000,
         evictions: 50,
@@ -277,8 +271,6 @@ describe('WarmupService', () => {
       // Mock cache with very high hit ratio
       vi.mocked(mockCache.getMetrics).mockReturnValue({
         hitRatio: 98,
-        hits: 980,
-        misses: 20,
         size: 500,
         capacity: 1000,
         evictions: 1,
@@ -297,8 +289,6 @@ describe('WarmupService', () => {
       vi.mocked(mockCache.size).mockReturnValue(1000)
       vi.mocked(mockCache.getMetrics).mockReturnValue({
         hitRatio: 75,
-        hits: 750,
-        misses: 250,
         size: 1000,
         capacity: 1000,
         evictions: 100,
@@ -363,7 +353,7 @@ describe('WarmupService', () => {
         targetHitRatio: 80,
         evictionStrategy: 'lru',
         enableMultiTier: true
-      })
+      } as Required<CacheConfig>)
       
       const result = await disabledService.warmupCache('disabled-cache', mockCache)
       
@@ -382,7 +372,7 @@ describe('WarmupService', () => {
         targetHitRatio: 80,
         evictionStrategy: 'lru',
         enableMultiTier: true
-      })
+      } as Required<CacheConfig>)
       const result = await minimalService.warmupCache('minimal-cache', mockCache)
       
       expect(result).toBeDefined()
@@ -390,10 +380,16 @@ describe('WarmupService', () => {
     })
 
     it('should handle large cache configuration', async () => {
-      const largeConfig: CacheConfig = {
+      const largeConfig: Required<CacheConfig> = {
+        enabled: true,
         tokenCacheSize: 100000,
+        resultCacheSize: 500,
+        templateCacheSize: 100,
         enableWarming: true,
-        ttl: 86400000 // 24 hours
+        ttl: 86400000, // 24 hours
+        targetHitRatio: 80,
+        evictionStrategy: 'lru',
+        enableMultiTier: true
       }
       
       const largeService = new WarmupService(largeConfig)

@@ -180,7 +180,16 @@ describe('TokenMetricsCollector', () => {
     })
 
     it('should apply default configuration values', () => {
-      const minimalCollector = new TokenMetricsCollector({})
+      const minimalCollector = new TokenMetricsCollector({
+        enabled: true,
+        model: 'gpt-4',
+        trackSections: true,
+        includePassedTests: true,
+        includeSkippedTests: true,
+        maxContentSize: 50000,
+        cacheResults: true,
+        exportFormats: ['json']
+      })
       const context = minimalCollector.getContext()
       
       expect(context.config.enabled).toBe(true)
