@@ -1,20 +1,28 @@
 /**
  * Mock Implementations for Integration Tests
- * 
+ *
  * Provides mock implementations of core interfaces for testing
  */
 
-import type { 
-  IStreamManager, 
-  StreamConfig, 
-  StreamOperation, 
-  StreamEvent, 
+import type {
+  IStreamManager,
+  StreamConfig,
+  StreamOperation,
+  StreamEvent,
   StreamEventType,
   IConsoleStreamAdapter,
-  ConsoleStreamData 
+  ConsoleStreamData
 } from '../../src/streaming/types'
-import type { IDeduplicationService, DeduplicationConfig, DeduplicationResult } from '../../src/types/deduplication'
-import type { IPerformanceManager, PerformanceConfig, PerformanceMetrics } from '../../src/performance/types'
+import type {
+  IDeduplicationService,
+  DeduplicationConfig,
+  DeduplicationResult
+} from '../../src/types/deduplication'
+import type {
+  IPerformanceManager,
+  PerformanceConfig,
+  PerformanceMetrics
+} from '../../src/performance/types'
 import type { LLMReporterOutput } from '../../src/types/schema'
 
 /**
@@ -36,17 +44,17 @@ export class MockStreamManager implements IStreamManager {
     if (!this.ready) {
       throw new Error('StreamManager not initialized or not ready')
     }
-    
+
     this.operations.push(operation)
     this.emit('stream_data', { operation })
   }
 
   async flush(): Promise<void> {
     if (!this.ready) return
-    
+
     this.emit('stream_flush', { operationsCount: this.operations.length })
     // Simulate flush delay
-    await new Promise(resolve => setTimeout(resolve, 10))
+    await new Promise((resolve) => setTimeout(resolve, 10))
   }
 
   isReady(): boolean {
@@ -92,9 +100,9 @@ export class MockStreamManager implements IStreamManager {
       timestamp: Date.now(),
       data
     }
-    
+
     const listeners = this.eventListeners.get(type) || []
-    listeners.forEach(listener => listener(event))
+    listeners.forEach((listener) => listener(event))
   }
 }
 
@@ -117,7 +125,7 @@ export class MockConsoleStreamAdapter implements IConsoleStreamAdapter {
     }
 
     this.streamedData.push(data)
-    
+
     // Convert console data to stream operation
     const operation: StreamOperation = {
       content: `[${data.method}] ${JSON.stringify(data.args)}`,
@@ -159,7 +167,7 @@ export class MockDeduplicationService implements IDeduplicationService {
 
   async processOutput(output: LLMReporterOutput): Promise<DeduplicationResult> {
     this.processedCount++
-    
+
     if (!this.config.enabled) {
       return {
         originalCount: output.failures?.length || 0,
@@ -193,19 +201,19 @@ export class MockDeduplicationService implements IDeduplicationService {
           similarity: 0.9,
           count: 2
         })
-        
+
         references.push({
           original: failures[i],
           groupId: `group-${groupIndex}`,
           isDuplicate: false
         })
-        
+
         references.push({
           original: failures[i + 1],
           groupId: `group-${groupIndex}`,
           isDuplicate: true
         })
-        
+
         groupIndex++
       } else {
         // Single failure, no grouping
@@ -226,7 +234,10 @@ export class MockDeduplicationService implements IDeduplicationService {
         totalFailures: failures.length,
         uniqueFailures: failures.length - Math.floor(failures.length / 2),
         duplicateGroups: groups.length,
-        compressionRatio: failures.length > 0 ? (failures.length - Math.floor(failures.length / 2)) / failures.length : 1.0,
+        compressionRatio:
+          failures.length > 0
+            ? (failures.length - Math.floor(failures.length / 2)) / failures.length
+            : 1.0,
         processingTime: 25
       }
     }
@@ -259,15 +270,15 @@ export class MockPerformanceManager implements IPerformanceManager {
   private optimizationCount = 0
 
   constructor(config: PerformanceConfig = {}) {
-    this.config = { 
+    this.config = {
       enabled: false,
       mode: 'balanced',
       enableCaching: false,
       enableMemoryOptimization: false,
       enableStreamOptimization: false,
-      ...config 
+      ...config
     }
-    
+
     this.metrics = {
       totalOperations: 0,
       averageLatency: 0,
@@ -280,25 +291,25 @@ export class MockPerformanceManager implements IPerformanceManager {
 
   async initialize(): Promise<void> {
     // Mock initialization
-    await new Promise(resolve => setTimeout(resolve, 5))
+    await new Promise((resolve) => setTimeout(resolve, 5))
   }
 
   async start(): Promise<void> {
     if (!this.config.enabled) return
     // Mock start
-    await new Promise(resolve => setTimeout(resolve, 5))
+    await new Promise((resolve) => setTimeout(resolve, 5))
   }
 
   async stop(): Promise<void> {
     // Mock stop
-    await new Promise(resolve => setTimeout(resolve, 5))
+    await new Promise((resolve) => setTimeout(resolve, 5))
   }
 
   async optimize(): Promise<void> {
     if (!this.config.enabled) return
-    
+
     this.optimizationCount++
-    
+
     // Mock optimization effects
     this.metrics = {
       ...this.metrics,
@@ -308,8 +319,8 @@ export class MockPerformanceManager implements IPerformanceManager {
       optimizationSavings: this.metrics.optimizationSavings + 10,
       lastUpdateTime: Date.now()
     }
-    
-    await new Promise(resolve => setTimeout(resolve, 10))
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
   }
 
   getMetrics(): PerformanceMetrics {

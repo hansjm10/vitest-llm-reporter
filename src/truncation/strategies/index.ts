@@ -10,8 +10,4 @@ export { ErrorFocusedStrategy } from './ErrorFocusedStrategy'
 export { StackTraceStrategy } from './StackTraceStrategy'
 
 // Re-export types for convenience
-export type {
-  ITruncationStrategy,
-  TruncationContext,
-  TruncationResult
-} from '../types'
+export type { ITruncationStrategy, TruncationContext, TruncationResult } from '../types'

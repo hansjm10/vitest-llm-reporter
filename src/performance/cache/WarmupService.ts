@@ -7,10 +7,7 @@
  * @module WarmupService
  */
 
-import type {
-  ICache,
-  CacheConfig
-} from '../types'
+import type { ICache, CacheConfig } from '../types'
 import { coreLogger, errorLogger } from '../../utils/logger'
 
 /**
@@ -60,7 +57,7 @@ export class WarmupService {
     this.config = config
     this.accessPatterns = new Map()
     this.strategies = new Map()
-    
+
     this.initializeStrategies()
   }
 
@@ -113,12 +110,50 @@ export class WarmupService {
     const errors: string[] = []
     let entriesWarmed = 0
 
+    // Check if warming is disabled
+    if (!this.config.enableWarming) {
+      this.debug('Warming disabled, skipping warmup for cache: %s', cacheName)
+      return {
+        cacheName,
+        entriesWarmed: 0,
+        duration: Date.now() - startTime,
+        success: true,
+        errors: []
+      }
+    }
+
+    // Validate cache parameter
+    if (!cache || typeof cache !== 'object') {
+      const errorMsg = `Invalid cache provided for ${cacheName}`
+      this.debugError(errorMsg)
+      return {
+        cacheName,
+        entriesWarmed: 0,
+        duration: Date.now() - startTime,
+        success: false,
+        errors: [errorMsg]
+      }
+    }
+
+    // Validate cache has required methods
+    if (!cache.set || typeof cache.set !== 'function') {
+      const errorMsg = `Cache ${cacheName} missing required method: set`
+      this.debugError(errorMsg)
+      return {
+        cacheName,
+        entriesWarmed: 0,
+        duration: Date.now() - startTime,
+        success: false,
+        errors: [errorMsg]
+      }
+    }
+
     try {
       this.debug('Starting warmup for cache: %s', cacheName)
 
       // Get patterns for this cache
       const patterns = this.accessPatterns.get(cacheName) || new Map()
-      
+
       if (patterns.size === 0) {
         this.debug('No access patterns found for cache: %s', cacheName)
         return {
@@ -132,21 +167,21 @@ export class WarmupService {
 
       // Generate warmup candidates using all enabled strategies
       const candidates = this.generateWarmupCandidates(patterns)
-      
+
       // Sort candidates by priority
       candidates.sort((a, b) => b.priority - a.priority)
 
       // Warm up top candidates
       const maxWarmupEntries = Math.min(candidates.length, 500) // Limit to prevent overwhelming
-      
+
       for (let i = 0; i < maxWarmupEntries; i++) {
         const candidate = candidates[i]
-        
+
         try {
           // Generate mock data for warmup (in real implementation, this would
           // come from a data source or be based on historical data)
           const mockData = this.generateMockDataForKey(candidate.key)
-          
+
           if (mockData !== null) {
             cache.set(candidate.key, mockData)
             entriesWarmed++
@@ -159,12 +194,17 @@ export class WarmupService {
 
         // Add small delay to prevent overwhelming the system
         if (i % 50 === 0 && i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 10))
+          await new Promise((resolve) => setTimeout(resolve, 10))
         }
       }
 
       const duration = Date.now() - startTime
-      this.debug('Warmup completed for cache %s: %d entries in %dms', cacheName, entriesWarmed, duration)
+      this.debug(
+        'Warmup completed for cache %s: %d entries in %dms',
+        cacheName,
+        entriesWarmed,
+        duration
+      )
 
       return {
         cacheName,
@@ -255,7 +295,7 @@ export class WarmupService {
 
     // Deduplicate candidates (keep highest priority for each key)
     const candidateMap = new Map<string, WarmupPattern>()
-    
+
     for (const candidate of candidates) {
       const existing = candidateMap.get(candidate.key)
       if (!existing || candidate.priority > existing.priority) {
@@ -313,7 +353,7 @@ export class WarmupService {
           const hourOfDay = new Date(pattern.lastAccessed).getHours()
           const currentHour = new Date().getHours()
           const hourDiff = Math.abs(currentHour - hourOfDay)
-          
+
           include = hourDiff <= 2 // Similar time of day
           adjustedPriority = pattern.frequency + (4 - Math.min(4, hourDiff))
           break
@@ -332,9 +372,7 @@ export class WarmupService {
     }
 
     // Limit candidates per strategy
-    return candidates
-      .sort((a, b) => b.priority - a.priority)
-      .slice(0, strategy.maxEntries)
+    return candidates.sort((a, b) => b.priority - a.priority).slice(0, strategy.maxEntries)
   }
 
   /**
@@ -343,16 +381,16 @@ export class WarmupService {
   private calculatePriority(frequency: number, lastAccessed: number, size: number): number {
     const now = Date.now()
     const hoursSinceAccess = (now - lastAccessed) / (60 * 60 * 1000)
-    
+
     // Higher frequency = higher priority
     const frequencyScore = Math.log(frequency + 1) * 2
-    
+
     // More recent access = higher priority
     const recencyScore = Math.max(0, 10 - hoursSinceAccess)
-    
+
     // Smaller size = higher priority (faster to load)
     const sizeScore = Math.max(1, 5 - Math.log10(size + 1))
-    
+
     return frequencyScore + recencyScore + sizeScore
   }
 
@@ -362,25 +400,25 @@ export class WarmupService {
   private cleanupOldPatterns(patterns: Map<string, WarmupPattern>): void {
     const now = Date.now()
     const maxAge = 30 * 24 * 60 * 60 * 1000 // 30 days
-    
+
     const keysToDelete: string[] = []
-    
+
     for (const [key, pattern] of patterns) {
       if (now - pattern.lastAccessed > maxAge) {
         keysToDelete.push(key)
       }
     }
-    
+
     // Remove oldest patterns first
     const sortedKeys = keysToDelete
-      .map(key => ({ key, pattern: patterns.get(key)! }))
+      .map((key) => ({ key, pattern: patterns.get(key)! }))
       .sort((a, b) => a.pattern.lastAccessed - b.pattern.lastAccessed)
       .slice(0, Math.max(1000, patterns.size - 8000)) // Keep size under 8000
-    
+
     for (const { key } of sortedKeys) {
       patterns.delete(key)
     }
-    
+
     if (sortedKeys.length > 0) {
       this.debug('Cleaned up %d old patterns', sortedKeys.length)
     }
@@ -394,7 +432,7 @@ export class WarmupService {
     // 1. Determine the type of data expected for this key
     // 2. Generate or fetch appropriate mock/default data
     // 3. Return null if data cannot be generated
-    
+
     // For now, we'll return simple mock data based on key patterns
     if (key.includes('token')) {
       return {
@@ -418,7 +456,7 @@ export class WarmupService {
         variables: ['var1', 'var2']
       }
     }
-    
+
     // Default mock data
     return {
       key,
@@ -430,28 +468,31 @@ export class WarmupService {
   /**
    * Get warmup statistics
    */
-  getStatistics(): Record<string, {
-    patternCount: number
-    totalAccesses: number
-    averagePriority: number
-    oldestPattern: number
-    newestPattern: number
-  }> {
+  getStatistics(): Record<
+    string,
+    {
+      patternCount: number
+      totalAccesses: number
+      averagePriority: number
+      oldestPattern: number
+      newestPattern: number
+    }
+  > {
     const stats: Record<string, any> = {}
-    
+
     for (const [cacheName, patterns] of this.accessPatterns) {
       let totalAccesses = 0
       let totalPriority = 0
       let oldestTimestamp = Date.now()
       let newestTimestamp = 0
-      
+
       for (const pattern of patterns.values()) {
         totalAccesses += pattern.frequency
         totalPriority += pattern.priority
         oldestTimestamp = Math.min(oldestTimestamp, pattern.lastAccessed)
         newestTimestamp = Math.max(newestTimestamp, pattern.lastAccessed)
       }
-      
+
       stats[cacheName] = {
         patternCount: patterns.size,
         totalAccesses,
@@ -460,7 +501,7 @@ export class WarmupService {
         newestPattern: newestTimestamp
       }
     }
-    
+
     return stats
   }
 
@@ -485,7 +526,7 @@ export class WarmupService {
         ])
       )
     }
-    
+
     return JSON.stringify(data)
   }
 
@@ -495,24 +536,24 @@ export class WarmupService {
   importPatterns(data: string): boolean {
     try {
       const parsed = JSON.parse(data)
-      
+
       if (parsed.patterns) {
         this.accessPatterns.clear()
-        
+
         for (const [cacheName, patterns] of Object.entries(parsed.patterns)) {
           const cachePatterns = new Map<string, WarmupPattern>()
-          
+
           for (const [key, pattern] of Object.entries(patterns as Record<string, WarmupPattern>)) {
             cachePatterns.set(key, pattern)
           }
-          
+
           this.accessPatterns.set(cacheName, cachePatterns)
         }
-        
+
         this.debug('Imported warmup patterns from persistence')
         return true
       }
-      
+
       return false
     } catch (error) {
       this.debugError('Failed to import warmup patterns: %O', error)

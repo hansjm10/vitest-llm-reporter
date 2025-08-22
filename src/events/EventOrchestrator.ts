@@ -155,10 +155,13 @@ export class EventOrchestrator {
     }
 
     // Initialize truncation engine if enabled
-    if (this.config.truncationConfig.enabled && this.config.truncationConfig.enableEarlyTruncation) {
+    if (
+      this.config.truncationConfig.enabled &&
+      this.config.truncationConfig.enableEarlyTruncation
+    ) {
       this.truncationEngine = createTruncationEngine(this.config.truncationConfig)
       this.debug('Early truncation enabled')
-      
+
       // Enable global metrics if configured
       if (this.config.truncationConfig.enableMetrics) {
         globalTruncationMetrics.setEnabled(true)
@@ -526,26 +529,33 @@ export class EventOrchestrator {
 
     // Apply truncation to each console output category
     const truncatedOutput = { ...consoleOutput }
-    
+
     for (const [key, logs] of Object.entries(consoleOutput)) {
       if (Array.isArray(logs) && logs.length > 0) {
         const combined = logs.join('\n')
         if (this.truncationEngine.needsTruncation(combined)) {
           const result = this.truncationEngine.truncate(combined)
           truncatedOutput[key] = [result.content]
-          
+
           // Record metrics
-          globalTruncationMetrics.recordTruncation({
-            ...result.metrics,
-            wasTruncated: true
-          }, 'early')
-          
-          this.debug('Early truncation applied to %s: %d -> %d tokens', 
-            key, result.metrics.originalTokens, result.metrics.truncatedTokens)
+          globalTruncationMetrics.recordTruncation(
+            {
+              ...result.metrics,
+              wasTruncated: true
+            },
+            'early'
+          )
+
+          this.debug(
+            'Early truncation applied to %s: %d -> %d tokens',
+            key,
+            result.metrics.originalTokens,
+            result.metrics.truncatedTokens
+          )
         }
       }
     }
-    
+
     return truncatedOutput
   }
 
@@ -568,7 +578,7 @@ export class EventOrchestrator {
    */
   public updateConfig(config: OrchestratorConfig): void {
     this.config = { ...this.config, ...config }
-    
+
     // Propagate to console capture
     consoleCapture.updateConfig({
       enabled: this.config.captureConsoleOnFailure,
@@ -576,14 +586,18 @@ export class EventOrchestrator {
       maxLines: this.config.maxConsoleLines,
       includeDebugOutput: this.config.includeDebugOutput
     })
-    
+
     // Update truncation engine config
     if (this.truncationEngine && config.truncationConfig) {
       this.truncationEngine.updateConfig(config.truncationConfig)
     }
-    
+
     // Initialize or destroy truncation engine based on config changes
-    if (config.truncationConfig?.enabled && config.truncationConfig?.enableEarlyTruncation && !this.truncationEngine) {
+    if (
+      config.truncationConfig?.enabled &&
+      config.truncationConfig?.enableEarlyTruncation &&
+      !this.truncationEngine
+    ) {
       this.truncationEngine = createTruncationEngine(this.config.truncationConfig)
       this.debug('Early truncation enabled via config update')
     } else if (!config.truncationConfig?.enabled && this.truncationEngine) {

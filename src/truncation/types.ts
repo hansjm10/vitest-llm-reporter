@@ -1,6 +1,6 @@
 /**
  * Truncation types and interfaces
- * 
+ *
  * This module defines the core interfaces and types for the truncation system,
  * including the strategy pattern interface and context management types.
  */
@@ -61,17 +61,17 @@ export interface TruncationResult {
 
 /**
  * Truncation strategy interface
- * 
+ *
  * Implementations define specific approaches to truncating content
  * while preserving important information based on context.
  */
 export interface ITruncationStrategy {
   /** Strategy name for identification */
   readonly name: string
-  
+
   /** Strategy priority (higher means more preferred) */
   readonly priority: number
-  
+
   /**
    * Truncate content according to this strategy
    * @param content Original content to truncate
@@ -79,8 +79,12 @@ export interface ITruncationStrategy {
    * @param context Truncation context and configuration
    * @returns Truncated content and metadata
    */
-  truncate(content: string, maxTokens: number, context: TruncationContext): Promise<TruncationResult>
-  
+  truncate(
+    content: string,
+    maxTokens: number,
+    context: TruncationContext
+  ): Promise<TruncationResult>
+
   /**
    * Check if this strategy can handle the given content
    * @param content Content to evaluate
@@ -88,7 +92,7 @@ export interface ITruncationStrategy {
    * @returns True if strategy can handle this content
    */
   canTruncate(content: string, context: TruncationContext): boolean
-  
+
   /**
    * Estimate potential token savings without performing truncation
    * @param content Content to evaluate

@@ -4,12 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { CacheManager } from './CacheManager'
-import type {
-  CacheConfig,
-  CacheMetrics,
-  CacheInstanceMetrics,
-  ICache
-} from '../types'
+import type { CacheConfig, CacheMetrics, CacheInstanceMetrics, ICache } from '../types'
 
 // Mock the logger utilities
 vi.mock('../../utils/logger', () => ({
@@ -69,7 +64,7 @@ describe('CacheManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     defaultConfig = {
       enabled: true,
       tokenCacheSize: 1000,
@@ -81,7 +76,7 @@ describe('CacheManager', () => {
       evictionStrategy: 'lru',
       enableMultiTier: true
     }
-    
+
     cacheManager = new CacheManager(defaultConfig)
   })
 
@@ -101,7 +96,7 @@ describe('CacheManager', () => {
         targetHitRatio: 90,
         enableMultiTier: false
       }
-      
+
       const manager = new CacheManager(customConfig)
       expect(manager).toBeDefined()
     })
@@ -109,7 +104,7 @@ describe('CacheManager', () => {
     it('should initialize default caches when enabled', () => {
       const manager = new CacheManager({ enabled: true })
       const cacheNames = manager.getCacheNames()
-      
+
       expect(cacheNames).toContain('token')
       expect(cacheNames).toContain('result')
       expect(cacheNames).toContain('template')
@@ -118,7 +113,7 @@ describe('CacheManager', () => {
     it('should not initialize caches when disabled', () => {
       const manager = new CacheManager({ enabled: false })
       const cacheNames = manager.getCacheNames()
-      
+
       expect(cacheNames).toHaveLength(0)
     })
 
@@ -152,9 +147,9 @@ describe('CacheManager', () => {
           averageLookupTime: 0
         })
       }
-      
+
       cacheManager.registerCache('custom', customCache, 'memory', 10)
-      
+
       expect(cacheManager.getCache('custom')).toBe(customCache)
       expect(cacheManager.getCacheNames()).toContain('custom')
     })
@@ -175,10 +170,10 @@ describe('CacheManager', () => {
           averageLookupTime: 0
         })
       }
-      
+
       cacheManager.registerCache('custom', customCache, 'memory', 10)
       cacheManager.recordOperation('custom', 'hit', 5)
-      
+
       const stats = cacheManager.getStatistics()
       expect(stats.custom).toBeDefined()
       expect(stats.custom.hits).toBe(1)
@@ -216,7 +211,7 @@ describe('CacheManager', () => {
   describe('warmup', () => {
     it('should warm up all caches', async () => {
       await cacheManager.warmup()
-      
+
       expect(mockWarmupService.warmupCache).toHaveBeenCalledTimes(3)
       expect(mockWarmupService.warmupCache).toHaveBeenCalledWith('token', expect.any(Object))
       expect(mockWarmupService.warmupCache).toHaveBeenCalledWith('result', expect.any(Object))
@@ -225,7 +220,7 @@ describe('CacheManager', () => {
 
     it('should respect priority order during warmup', async () => {
       await cacheManager.warmup()
-      
+
       const calls = mockWarmupService.warmupCache.mock.calls
       expect(calls[0][0]).toBe('token') // priority 1
       expect(calls[1][0]).toBe('result') // priority 2
@@ -235,20 +230,20 @@ describe('CacheManager', () => {
     it('should skip warmup when disabled', async () => {
       const disabledManager = new CacheManager({ enableWarming: false })
       await disabledManager.warmup()
-      
+
       expect(mockWarmupService.warmupCache).not.toHaveBeenCalled()
     })
 
     it('should skip warmup when cache manager disabled', async () => {
       const disabledManager = new CacheManager({ enabled: false })
       await disabledManager.warmup()
-      
+
       expect(mockWarmupService.warmupCache).not.toHaveBeenCalled()
     })
 
     it('should handle warmup errors gracefully', async () => {
       mockWarmupService.warmupCache.mockRejectedValueOnce(new Error('Warmup failed'))
-      
+
       await expect(cacheManager.warmup()).resolves.not.toThrow()
     })
   })
@@ -257,20 +252,20 @@ describe('CacheManager', () => {
     it('should clear all caches', () => {
       // Clear all mock call histories before testing
       vi.clearAllMocks()
-      
+
       cacheManager.clearAll()
-      
+
       // Check that the mocked IntelligentCache clear methods were called
       // Since the default config uses multiTier=true, token and result use IntelligentCache
       expect(mockIntelligentCache.clear).toHaveBeenCalledTimes(2) // token, result
-      
+
       // The template cache uses LRUCacheWrapper, so check the underlying LRUCache was cleared
       expect(mockLRUCacheInstance.clear).toHaveBeenCalledTimes(1) // template
     })
 
     it('should record clear operations', () => {
       cacheManager.clearAll()
-      
+
       const stats = cacheManager.getStatistics()
       expect(stats.token.clears).toBe(1)
       expect(stats.result.clears).toBe(1)
@@ -284,7 +279,7 @@ describe('CacheManager', () => {
           throw new Error('Clear failed')
         })
       }
-      
+
       expect(() => cacheManager.clearAll()).not.toThrow()
     })
   })
@@ -306,9 +301,9 @@ describe('CacheManager', () => {
       cacheManager.recordOperation('token', 'hit', 2)
       cacheManager.recordOperation('token', 'miss', 3)
       cacheManager.recordOperation('result', 'hit', 1)
-      
+
       const metrics = cacheManager.getMetrics()
-      
+
       expect(metrics).toBeDefined()
       expect(metrics.hitRatio).toBeGreaterThan(0)
       expect(metrics.hits).toBe(2)
@@ -322,9 +317,9 @@ describe('CacheManager', () => {
       cacheManager.recordOperation('token', 'hit', 2)
       cacheManager.recordOperation('token', 'hit', 2)
       cacheManager.recordOperation('token', 'miss', 3)
-      
+
       const metrics = cacheManager.getMetrics()
-      
+
       // 2 hits out of 3 operations = 66.67% hit ratio
       // Target is 80%, so efficiency should be (66.67 / 80) * 100 = 83.33%
       expect(metrics.efficiency).toBeCloseTo(83.33, 1)
@@ -333,7 +328,7 @@ describe('CacheManager', () => {
     it('should handle empty caches gracefully', () => {
       const emptyManager = new CacheManager({ enabled: false })
       const metrics = emptyManager.getMetrics()
-      
+
       expect(metrics.hitRatio).toBe(0)
       expect(metrics.hits).toBe(0)
       expect(metrics.misses).toBe(0)
@@ -344,9 +339,9 @@ describe('CacheManager', () => {
       mockIntelligentCache.getMetrics.mockImplementationOnce(() => {
         throw new Error('Metrics collection failed')
       })
-      
+
       const metrics = cacheManager.getMetrics()
-      
+
       expect(metrics).toBeDefined()
       expect(metrics.hitRatio).toBe(0)
     })
@@ -355,29 +350,29 @@ describe('CacheManager', () => {
   describe('optimize', () => {
     it('should optimize all caches', async () => {
       await cacheManager.optimize()
-      
+
       expect(mockIntelligentCache.optimize).toHaveBeenCalled()
     })
 
     it('should skip optimization when disabled', async () => {
       const disabledManager = new CacheManager({ enabled: false })
       await disabledManager.optimize()
-      
+
       expect(mockIntelligentCache.optimize).not.toHaveBeenCalled()
     })
 
     it('should handle optimization errors gracefully', async () => {
       mockIntelligentCache.optimize.mockRejectedValueOnce(new Error('Optimization failed'))
-      
+
       await expect(cacheManager.optimize()).resolves.not.toThrow()
     })
 
     it('should warm up LRU caches with low hit ratios', async () => {
       // Create a manager with LRU caches
       const lruManager = new CacheManager({ enableMultiTier: false })
-      
+
       await lruManager.optimize()
-      
+
       // Should attempt warmup for underperforming caches
       expect(mockWarmupService.warmupCache).toHaveBeenCalled()
     })
@@ -387,9 +382,9 @@ describe('CacheManager', () => {
     it('should return performance summary for all caches', () => {
       cacheManager.recordOperation('token', 'hit', 2)
       cacheManager.recordOperation('token', 'miss', 3)
-      
+
       const summary = cacheManager.getPerformanceSummary()
-      
+
       expect(summary).toBeDefined()
       expect(summary.token).toBeDefined()
       expect(summary.token.hitRatio).toBeDefined()
@@ -406,9 +401,9 @@ describe('CacheManager', () => {
         evictions: 5,
         averageLookupTime: 2
       })
-      
+
       const summary = cacheManager.getPerformanceSummary()
-      
+
       expect(summary.token.utilization).toBe(50) // 50/100 * 100
     })
   })
@@ -416,13 +411,13 @@ describe('CacheManager', () => {
   describe('invalidatePattern', () => {
     it('should invalidate entries matching string pattern', () => {
       const result = cacheManager.invalidatePattern('test.*')
-      
+
       expect(result).toBeGreaterThanOrEqual(0)
     })
 
     it('should invalidate entries matching regex pattern', () => {
       const result = cacheManager.invalidatePattern(/test.*/g)
-      
+
       expect(result).toBeGreaterThanOrEqual(0)
     })
 
@@ -434,7 +429,7 @@ describe('CacheManager', () => {
   describe('recordOperation', () => {
     it('should record hit operation', () => {
       cacheManager.recordOperation('token', 'hit', 5)
-      
+
       const stats = cacheManager.getStatistics()
       expect(stats.token.hits).toBe(1)
       expect(stats.token.operations).toBe(1)
@@ -443,7 +438,7 @@ describe('CacheManager', () => {
 
     it('should record miss operation', () => {
       cacheManager.recordOperation('token', 'miss', 10)
-      
+
       const stats = cacheManager.getStatistics()
       expect(stats.token.misses).toBe(1)
       expect(stats.token.operations).toBe(1)
@@ -452,7 +447,7 @@ describe('CacheManager', () => {
 
     it('should record set operation', () => {
       cacheManager.recordOperation('token', 'set', 3)
-      
+
       const stats = cacheManager.getStatistics()
       expect(stats.token.sets).toBe(1)
       expect(stats.token.operations).toBe(1)
@@ -460,14 +455,14 @@ describe('CacheManager', () => {
 
     it('should record delete operation', () => {
       cacheManager.recordOperation('token', 'delete', 2)
-      
+
       const stats = cacheManager.getStatistics()
       expect(stats.token.deletes).toBe(1)
     })
 
     it('should record clear operation', () => {
       cacheManager.recordOperation('token', 'clear', 1)
-      
+
       const stats = cacheManager.getStatistics()
       expect(stats.token.clears).toBe(1)
     })
@@ -481,13 +476,13 @@ describe('CacheManager', () => {
     it('should return operation statistics for all caches', () => {
       cacheManager.recordOperation('token', 'hit', 5)
       cacheManager.recordOperation('result', 'miss', 10)
-      
+
       const stats = cacheManager.getStatistics()
-      
+
       expect(stats.token).toBeDefined()
       expect(stats.result).toBeDefined()
       expect(stats.template).toBeDefined()
-      
+
       expect(stats.token.hits).toBe(1)
       expect(stats.result.misses).toBe(1)
     })
@@ -495,10 +490,10 @@ describe('CacheManager', () => {
     it('should return independent copies of statistics', () => {
       const stats1 = cacheManager.getStatistics()
       const stats2 = cacheManager.getStatistics()
-      
+
       expect(stats1).not.toBe(stats2)
       expect(stats1).toEqual(stats2)
-      
+
       // Modifying one shouldn't affect the other
       stats1.token.hits = 999
       expect(stats2.token.hits).not.toBe(999)
@@ -519,10 +514,10 @@ describe('CacheManager', () => {
     it('should track cache hits and misses', () => {
       mockLRUCacheInstance.get.mockReturnValueOnce('value')
       mockLRUCacheInstance.get.mockReturnValueOnce(undefined)
-      
+
       wrapper.get('key1')
       wrapper.get('key2')
-      
+
       const metrics = wrapper.getMetrics()
       expect(metrics.hitRatio).toBeCloseTo(50, 1) // 1 hit, 1 miss = 50%
     })
@@ -532,9 +527,9 @@ describe('CacheManager', () => {
         .mockReturnValueOnce(100) // size before
         .mockReturnValueOnce(100) // size after (indicating eviction)
       mockLRUCacheInstance.capacity.mockReturnValue(100)
-      
+
       wrapper.set('key', 'value')
-      
+
       const metrics = wrapper.getMetrics()
       expect(metrics.evictions).toBe(1)
     })
@@ -542,25 +537,25 @@ describe('CacheManager', () => {
     it('should reset metrics on clear', () => {
       wrapper.get('key') // Generate some metrics
       wrapper.clear()
-      
+
       const metrics = wrapper.getMetrics()
       expect(metrics.hitRatio).toBe(0)
     })
 
     it('should handle delete operations', () => {
       mockLRUCacheInstance.has.mockReturnValue(true)
-      
+
       const result = wrapper.delete('key')
-      
+
       expect(result).toBe(true)
       expect(mockLRUCacheInstance.set).toHaveBeenCalledWith('key', undefined)
     })
 
     it('should return false for delete of non-existent key', () => {
       mockLRUCacheInstance.has.mockReturnValue(false)
-      
+
       const result = wrapper.delete('nonexistent')
-      
+
       expect(result).toBe(false)
     })
   })
@@ -570,7 +565,7 @@ describe('CacheManager', () => {
       vi.mocked(mockIntelligentCache.getMetrics).mockImplementationOnce(() => {
         throw new Error('Cache init failed')
       })
-      
+
       expect(() => new CacheManager(defaultConfig)).not.toThrow()
     })
 
@@ -583,7 +578,7 @@ describe('CacheManager', () => {
       mockIntelligentCache.getMetrics.mockImplementationOnce(() => {
         throw new Error('Metrics failed')
       })
-      
+
       const metrics = cacheManager.getMetrics()
       expect(metrics).toBeDefined()
       expect(metrics.hitRatio).toBe(0)
@@ -594,7 +589,7 @@ describe('CacheManager', () => {
     it('should apply default values for missing config properties', () => {
       const manager = new CacheManager({})
       const config = manager['config']
-      
+
       expect(config.enabled).toBe(true)
       expect(config.tokenCacheSize).toBe(10000)
       expect(config.targetHitRatio).toBe(80)
@@ -607,10 +602,10 @@ describe('CacheManager', () => {
         targetHitRatio: 90,
         evictionStrategy: 'ttl'
       }
-      
+
       const manager = new CacheManager(customConfig)
       const config = manager['config']
-      
+
       expect(config.tokenCacheSize).toBe(5000)
       expect(config.targetHitRatio).toBe(90)
       expect(config.evictionStrategy).toBe('ttl')

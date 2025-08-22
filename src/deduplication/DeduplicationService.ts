@@ -90,13 +90,13 @@ export class DeduplicationService implements IDeduplicationService {
 
     // Group failures by similarity
     const groups = this.groupFailures(failures)
-    
+
     // Create references for each failure
     const references = this.createReferences(failures, groups)
-    
+
     // Update statistics
     this.updateStats(groups, references, startTime)
-    
+
     // Generate compressed output if enabled
     const compressedOutput = this.config.compression.enabled
       ? this.generateCompressedOutput(groups, references)
@@ -142,22 +142,22 @@ export class DeduplicationService implements IDeduplicationService {
 
     for (let i = 0; i < failures.length; i++) {
       const failure = failures[i]
-      
+
       if (processed.has(failure.testId)) {
         continue
       }
 
       // Find similar failures
       const similarFailures = this.findSimilarFailures(failure, failures.slice(i + 1), processed)
-      
+
       if (similarFailures.length >= this.config.compression.minGroupSize - 1) {
         // Create a new group
         const group = this.createGroup([failure, ...similarFailures])
         groups.set(group.id, group)
-        
+
         // Mark all as processed
         processed.add(failure.testId)
-        similarFailures.forEach(f => processed.add(f.testId))
+        similarFailures.forEach((f) => processed.add(f.testId))
       }
     }
 
@@ -255,10 +255,10 @@ export class DeduplicationService implements IDeduplicationService {
       signature,
       pattern,
       count: failures.length,
-      firstSeen: new Date(Math.min(...failures.map(f => f.timestamp.getTime()))),
-      lastSeen: new Date(Math.max(...failures.map(f => f.timestamp.getTime()))),
+      firstSeen: new Date(Math.min(...failures.map((f) => f.timestamp.getTime()))),
+      lastSeen: new Date(Math.max(...failures.map((f) => f.timestamp.getTime()))),
       examples: failures.slice(0, this.config.compression.preserveExamples),
-      references: failures.map(f => f.testId)
+      references: failures.map((f) => f.testId)
     }
   }
 
@@ -273,7 +273,7 @@ export class DeduplicationService implements IDeduplicationService {
 
     for (const group of groups.values()) {
       for (const testId of group.references) {
-        const failure = failures.find(f => f.testId === testId)
+        const failure = failures.find((f) => f.testId === testId)
         if (failure) {
           const similarity = this.calculateSimilarity(failure, group.examples[0])
           references.set(testId, {
@@ -303,7 +303,7 @@ export class DeduplicationService implements IDeduplicationService {
         pattern: group.pattern,
         template: group.signature,
         count: group.count,
-        examples: group.examples.slice(0, 2).map(e => ({
+        examples: group.examples.slice(0, 2).map((e) => ({
           id: e.testId,
           vars: {}
         }))
@@ -319,7 +319,8 @@ export class DeduplicationService implements IDeduplicationService {
     }
 
     const originalSize = JSON.stringify(groups).length + JSON.stringify(references).length
-    const compressedSize = JSON.stringify(compressedGroups).length + JSON.stringify(compressedRefs).length
+    const compressedSize =
+      JSON.stringify(compressedGroups).length + JSON.stringify(compressedRefs).length
 
     return {
       version: '1.0.0',
@@ -348,18 +349,18 @@ export class DeduplicationService implements IDeduplicationService {
 
     // Calculate compression ratio
     if (this.stats.totalFailures > 0) {
-      this.stats.compressionRatio = 1 - (this.stats.uniqueFailures / this.stats.totalFailures)
+      this.stats.compressionRatio = 1 - this.stats.uniqueFailures / this.stats.totalFailures
     }
 
     // Update pattern distribution
     for (const group of groups.values()) {
-      this.stats.patternDistribution[group.pattern] = 
+      this.stats.patternDistribution[group.pattern] =
         (this.stats.patternDistribution[group.pattern] || 0) + group.count
     }
 
     // Update similarity distribution
     for (const ref of references.values()) {
-      this.stats.similarityDistribution[ref.similarity.level] = 
+      this.stats.similarityDistribution[ref.similarity.level] =
         (this.stats.similarityDistribution[ref.similarity.level] || 0) + 1
     }
   }
@@ -402,14 +403,14 @@ export class DeduplicationService implements IDeduplicationService {
    */
   private generateSignature(failure: DuplicateEntry): string {
     const parts = []
-    
+
     if (failure.errorMessage) {
       parts.push(this.normalizeText(failure.errorMessage))
     }
-    
+
     if (failure.stackTrace) {
       const lines = failure.stackTrace.split('\n').slice(0, 3)
-      parts.push(lines.map(l => this.normalizeText(l)).join('|'))
+      parts.push(lines.map((l) => this.normalizeText(l)).join('|'))
     }
 
     return parts.join(':')
@@ -443,7 +444,7 @@ export class DeduplicationService implements IDeduplicationService {
     let hash = 0
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
+      hash = (hash << 5) - hash + char
       hash = hash & hash // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(36)
@@ -462,13 +463,13 @@ export class DeduplicationService implements IDeduplicationService {
         'stack-trace': 0,
         'error-message': 0,
         'console-output': 0,
-        'assertion': 0
+        assertion: 0
       },
       similarityDistribution: {
-        'exact': 0,
-        'high': 0,
-        'medium': 0,
-        'low': 0
+        exact: 0,
+        high: 0,
+        medium: 0,
+        low: 0
       },
       processingTime: 0,
       memoryUsed: 0

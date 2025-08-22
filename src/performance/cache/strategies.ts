@@ -7,9 +7,7 @@
  * @module CacheStrategies
  */
 
-import type {
-  CacheEvictionStrategy
-} from '../types'
+import type { CacheEvictionStrategy } from '../types'
 
 /**
  * Cache entry for strategy operations
@@ -68,7 +66,7 @@ export class LRUEvictionStrategy implements IEvictionStrategy {
     targetCount: number
   ): EvictionCandidate[] {
     return entries
-      .map(entry => ({
+      .map((entry) => ({
         entry,
         score: context.currentTime - entry.lastAccessed,
         reason: 'Least recently used'
@@ -90,7 +88,7 @@ export class LFUEvictionStrategy implements IEvictionStrategy {
     targetCount: number
   ): EvictionCandidate[] {
     return entries
-      .map(entry => ({
+      .map((entry) => ({
         entry,
         score: 1 / (entry.accessCount + 1), // Lower frequency = higher score
         reason: 'Least frequently used'
@@ -115,8 +113,8 @@ export class TTLEvictionStrategy implements IEvictionStrategy {
 
     // First, find all expired entries
     const expiredEntries = entries
-      .filter(entry => entry.ttl && (context.currentTime - entry.timestamp) > entry.ttl)
-      .map(entry => ({
+      .filter((entry) => entry.ttl && context.currentTime - entry.timestamp > entry.ttl)
+      .map((entry) => ({
         entry,
         score: context.currentTime - entry.timestamp - (entry.ttl || 0),
         reason: 'Expired (TTL)'
@@ -127,8 +125,8 @@ export class TTLEvictionStrategy implements IEvictionStrategy {
     // If we need more candidates, select entries closest to expiration
     if (candidates.length < targetCount) {
       const nearExpirationEntries = entries
-        .filter(entry => entry.ttl && !expiredEntries.some(e => e.entry.key === entry.key))
-        .map(entry => {
+        .filter((entry) => entry.ttl && !expiredEntries.some((e) => e.entry.key === entry.key))
+        .map((entry) => {
           const timeToExpiration = (entry.ttl || 0) - (context.currentTime - entry.timestamp)
           return {
             entry,
@@ -158,10 +156,10 @@ export class AdaptiveEvictionStrategy implements IEvictionStrategy {
     targetCount: number
   ): EvictionCandidate[] {
     return entries
-      .map(entry => {
+      .map((entry) => {
         const score = this.calculateAdaptiveScore(entry, context)
         const reason = this.generateReason(entry, context, score)
-        
+
         return {
           entry,
           score,
@@ -177,36 +175,39 @@ export class AdaptiveEvictionStrategy implements IEvictionStrategy {
    */
   private calculateAdaptiveScore(entry: StrategyCacheEntry, context: StrategyContext): number {
     const weights = this.getWeights(context)
-    
+
     // Recency factor (0-1, higher = older)
-    const recencyFactor = Math.min(1, (context.currentTime - entry.lastAccessed) / (24 * 60 * 60 * 1000))
-    
+    const recencyFactor = Math.min(
+      1,
+      (context.currentTime - entry.lastAccessed) / (24 * 60 * 60 * 1000)
+    )
+
     // Frequency factor (0-1, higher = less frequent)
-    const maxAccess = Math.max(1, ...entries.map(e => e.accessCount))
-    const frequencyFactor = 1 - (entry.accessCount / maxAccess)
-    
+    const maxAccess = Math.max(1, ...entries.map((e) => e.accessCount))
+    const frequencyFactor = 1 - entry.accessCount / maxAccess
+
     // Size factor (0-1, higher = larger)
-    const maxSize = Math.max(1, ...entries.map(e => e.size))
+    const maxSize = Math.max(1, ...entries.map((e) => e.size))
     const sizeFactor = entry.size / maxSize
-    
+
     // TTL factor (0-1, higher = more expired)
     let ttlFactor = 0
     if (entry.ttl) {
       const timeElapsed = context.currentTime - entry.timestamp
       ttlFactor = Math.min(1, timeElapsed / entry.ttl)
     }
-    
+
     // Memory pressure factor (multiplier)
     const pressureFactor = this.getPressureFactor(context.memoryPressure)
-    
+
     // Calculate weighted score
-    const score = (
-      recencyFactor * weights.recency +
-      frequencyFactor * weights.frequency +
-      sizeFactor * weights.size +
-      ttlFactor * weights.ttl
-    ) * pressureFactor
-    
+    const score =
+      (recencyFactor * weights.recency +
+        frequencyFactor * weights.frequency +
+        sizeFactor * weights.size +
+        ttlFactor * weights.ttl) *
+      pressureFactor
+
     return score
   }
 
@@ -238,44 +239,53 @@ export class AdaptiveEvictionStrategy implements IEvictionStrategy {
    */
   private getPressureFactor(pressure: StrategyContext['memoryPressure']): number {
     switch (pressure) {
-      case 'critical': return 2.0 // Aggressive eviction
-      case 'high': return 1.5
-      case 'moderate': return 1.2
-      case 'low': 
-      default: return 1.0
+      case 'critical':
+        return 2.0 // Aggressive eviction
+      case 'high':
+        return 1.5
+      case 'moderate':
+        return 1.2
+      case 'low':
+      default:
+        return 1.0
     }
   }
 
   /**
    * Generate human-readable reason for eviction
    */
-  private generateReason(entry: StrategyCacheEntry, context: StrategyContext, score: number): string {
+  private generateReason(
+    entry: StrategyCacheEntry,
+    context: StrategyContext,
+    score: number
+  ): string {
     const reasons: string[] = []
-    
+
     const hoursSinceAccess = (context.currentTime - entry.lastAccessed) / (60 * 60 * 1000)
     if (hoursSinceAccess > 24) {
       reasons.push('old access')
     }
-    
+
     if (entry.accessCount < 2) {
       reasons.push('low frequency')
     }
-    
-    if (entry.size > 100000) { // > 100KB
+
+    if (entry.size > 100000) {
+      // > 100KB
       reasons.push('large size')
     }
-    
-    if (entry.ttl && (context.currentTime - entry.timestamp) > entry.ttl * 0.8) {
+
+    if (entry.ttl && context.currentTime - entry.timestamp > entry.ttl * 0.8) {
       reasons.push('near expiration')
     }
-    
+
     if (context.memoryPressure === 'critical' || context.memoryPressure === 'high') {
       reasons.push('memory pressure')
     }
-    
-    return reasons.length > 0 ? 
-      `Adaptive: ${reasons.join(', ')} (score: ${score.toFixed(2)})` :
-      `Adaptive eviction (score: ${score.toFixed(2)})`
+
+    return reasons.length > 0
+      ? `Adaptive: ${reasons.join(', ')} (score: ${score.toFixed(2)})`
+      : `Adaptive eviction (score: ${score.toFixed(2)})`
   }
 }
 
@@ -292,7 +302,7 @@ export class SizeBasedEvictionStrategy implements IEvictionStrategy {
   ): EvictionCandidate[] {
     // Prioritize larger entries for eviction to free more space
     return entries
-      .map(entry => ({
+      .map((entry) => ({
         entry,
         score: entry.size,
         reason: `Large entry (${entry.size} bytes)`
@@ -315,14 +325,12 @@ export class RandomEvictionStrategy implements IEvictionStrategy {
   ): EvictionCandidate[] {
     // Shuffle entries and take the first N
     const shuffled = [...entries].sort(() => Math.random() - 0.5)
-    
-    return shuffled
-      .slice(0, targetCount)
-      .map(entry => ({
-        entry,
-        score: Math.random(),
-        reason: 'Random eviction'
-      }))
+
+    return shuffled.slice(0, targetCount).map((entry) => ({
+      entry,
+      score: Math.random(),
+      reason: 'Random eviction'
+    }))
   }
 }
 
@@ -413,7 +421,7 @@ export class TimePatternWarmingStrategy implements ICacheWarmingStrategy {
 
   getPriority(key: string, metadata: WarmingMetadata): number {
     const currentHour = new Date().getHours()
-    const hourMatches = metadata.timePattern.filter(h => Math.abs(h - currentHour) <= 1).length
+    const hourMatches = metadata.timePattern.filter((h) => Math.abs(h - currentHour) <= 1).length
     return hourMatches * metadata.frequency
   }
 }
@@ -446,11 +454,11 @@ export class KeyPatternWarmingStrategy implements ICacheWarmingStrategy {
   constructor(private patterns: RegExp[]) {}
 
   shouldWarm(key: string, metadata: WarmingMetadata): boolean {
-    return this.patterns.some(pattern => pattern.test(key)) && metadata.frequency >= 1
+    return this.patterns.some((pattern) => pattern.test(key)) && metadata.frequency >= 1
   }
 
   getPriority(key: string, metadata: WarmingMetadata): number {
-    const patternMatches = this.patterns.filter(pattern => pattern.test(key)).length
+    const patternMatches = this.patterns.filter((pattern) => pattern.test(key)).length
     return patternMatches * metadata.frequency
   }
 }
@@ -463,11 +471,14 @@ export class WarmingStrategyFactory {
     ['frequency', new FrequencyWarmingStrategy()],
     ['time-pattern', new TimePatternWarmingStrategy()],
     ['size-optimized', new SizeOptimizedWarmingStrategy()],
-    ['key-pattern', new KeyPatternWarmingStrategy([
-      /^token:/, // Token counting cache
-      /^result:/, // Result cache
-      /^template:/ // Template cache
-    ])]
+    [
+      'key-pattern',
+      new KeyPatternWarmingStrategy([
+        /^token:/, // Token counting cache
+        /^result:/, // Result cache
+        /^template:/ // Template cache
+      ])
+    ]
   ])
 
   /**

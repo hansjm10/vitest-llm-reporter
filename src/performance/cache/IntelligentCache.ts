@@ -7,12 +7,7 @@
  * @module IntelligentCache
  */
 
-import type {
-  ICache,
-  CacheInstanceMetrics,
-  CacheEvictionStrategy,
-  CacheConfig
-} from '../types'
+import type { ICache, CacheInstanceMetrics, CacheEvictionStrategy, CacheConfig } from '../types'
 import { coreLogger, errorLogger } from '../../utils/logger'
 
 /**
@@ -81,28 +76,37 @@ export class IntelligentCache implements ICache {
       ['warm', new Map()],
       ['cold', new Map()]
     ])
-    
+
     this.tierConfigs = new Map([
-      ['hot', {
-        maxSize: Math.floor(this.config.tokenCacheSize * 0.2), // 20% for hot
-        maxEntrySize: 1024 * 1024, // 1MB max entry size
-        defaultTtl: this.config.ttl / 2, // Shorter TTL for hot tier
-        evictionStrategy: 'lru'
-      }],
-      ['warm', {
-        maxSize: Math.floor(this.config.tokenCacheSize * 0.5), // 50% for warm
-        maxEntrySize: 512 * 1024, // 512KB max entry size
-        defaultTtl: this.config.ttl,
-        evictionStrategy: this.config.evictionStrategy
-      }],
-      ['cold', {
-        maxSize: Math.floor(this.config.tokenCacheSize * 0.3), // 30% for cold
-        maxEntrySize: 256 * 1024, // 256KB max entry size
-        defaultTtl: this.config.ttl * 2, // Longer TTL for cold tier
-        evictionStrategy: 'ttl'
-      }]
+      [
+        'hot',
+        {
+          maxSize: Math.floor(this.config.tokenCacheSize * 0.2), // 20% for hot
+          maxEntrySize: 1024 * 1024, // 1MB max entry size
+          defaultTtl: this.config.ttl / 2, // Shorter TTL for hot tier
+          evictionStrategy: 'lru'
+        }
+      ],
+      [
+        'warm',
+        {
+          maxSize: Math.floor(this.config.tokenCacheSize * 0.5), // 50% for warm
+          maxEntrySize: 512 * 1024, // 512KB max entry size
+          defaultTtl: this.config.ttl,
+          evictionStrategy: this.config.evictionStrategy
+        }
+      ],
+      [
+        'cold',
+        {
+          maxSize: Math.floor(this.config.tokenCacheSize * 0.3), // 30% for cold
+          maxEntrySize: 256 * 1024, // 256KB max entry size
+          defaultTtl: this.config.ttl * 2, // Longer TTL for cold tier
+          evictionStrategy: 'ttl'
+        }
+      ]
     ])
-    
+
     this.accessPatterns = new Map()
     this.metrics = {
       hits: 0,
@@ -150,18 +154,18 @@ export class IntelligentCache implements ICache {
           // Update access metadata
           const updatedEntry = this.updateAccessMetadata(entry)
           tier.set(key, updatedEntry)
-          
+
           // Update access patterns
           this.updateAccessPattern(key, updatedEntry)
-          
+
           // Consider promotion to higher tier
           if (tierName !== 'hot') {
             this.considerPromotion(key, updatedEntry)
           }
-          
+
           this.metrics.hits++
           this.metrics.totalLookupTime += Date.now() - startTime
-          
+
           this.debug('Cache hit for key %s in %s tier', key, tierName)
           return entry.value
         } else if (entry) {
@@ -174,7 +178,7 @@ export class IntelligentCache implements ICache {
       // Cache miss
       this.metrics.misses++
       this.metrics.totalLookupTime += Date.now() - startTime
-      
+
       this.debug('Cache miss for key %s', key)
       return undefined
     } catch (error) {
@@ -191,20 +195,20 @@ export class IntelligentCache implements ICache {
       const now = Date.now()
       const entrySize = this.estimateSize(value)
       const effectiveTtl = ttl ?? this.config.ttl
-      
+
       // Determine initial tier based on size and patterns
       const targetTier = this.determineInitialTier(key, entrySize)
       const tierConfig = this.tierConfigs.get(targetTier)!
-      
+
       // Check if entry is too large for any tier
       if (entrySize > tierConfig.maxEntrySize) {
         this.debug('Entry too large for cache: %s (%d bytes)', key, entrySize)
         return
       }
-      
+
       // Remove existing entry from any tier
       this.delete(key)
-      
+
       // Create new entry
       const entry: CacheEntryMetadata = {
         key,
@@ -216,17 +220,17 @@ export class IntelligentCache implements ICache {
         ttl: effectiveTtl,
         tier: targetTier
       }
-      
+
       // Ensure capacity in target tier
       this.ensureCapacity(targetTier, entrySize)
-      
+
       // Add to target tier
       const tier = this.tiers.get(targetTier)!
       tier.set(key, entry)
-      
+
       // Update access patterns
       this.updateAccessPattern(key, entry)
-      
+
       this.debug('Cached entry %s in %s tier (%d bytes)', key, targetTier, entrySize)
     } catch (error) {
       this.debugError('Error during cache set: %O', error)
@@ -272,7 +276,7 @@ export class IntelligentCache implements ICache {
       tier.clear()
     }
     this.accessPatterns.clear()
-    
+
     // Reset metrics
     this.metrics.hits = 0
     this.metrics.misses = 0
@@ -281,7 +285,7 @@ export class IntelligentCache implements ICache {
     this.metrics.demotions = 0
     this.metrics.totalOperations = 0
     this.metrics.totalLookupTime = 0
-    
+
     this.debug('Cache cleared')
   }
 
@@ -289,8 +293,7 @@ export class IntelligentCache implements ICache {
    * Get total cache size
    */
   size(): number {
-    return Array.from(this.tiers.values())
-      .reduce((total, tier) => total + tier.size, 0)
+    return Array.from(this.tiers.values()).reduce((total, tier) => total + tier.size, 0)
   }
 
   /**
@@ -299,9 +302,11 @@ export class IntelligentCache implements ICache {
   getMetrics(): CacheInstanceMetrics {
     const totalOperations = this.metrics.hits + this.metrics.misses
     const hitRatio = totalOperations > 0 ? (this.metrics.hits / totalOperations) * 100 : 0
-    const averageLookupTime = this.metrics.totalOperations > 0 ? 
-      this.metrics.totalLookupTime / this.metrics.totalOperations : 0
-    
+    const averageLookupTime =
+      this.metrics.totalOperations > 0
+        ? this.metrics.totalLookupTime / this.metrics.totalOperations
+        : 0
+
     return {
       hitRatio,
       size: this.size(),
@@ -320,7 +325,7 @@ export class IntelligentCache implements ICache {
       warm: { size: 0, capacity: 0, utilization: 0 },
       cold: { size: 0, capacity: 0, utilization: 0 }
     }
-    
+
     for (const [tierName, tier] of this.tiers) {
       const tierConfig = this.tierConfigs.get(tierName)!
       result[tierName] = {
@@ -329,7 +334,7 @@ export class IntelligentCache implements ICache {
         utilization: (tier.size / tierConfig.maxSize) * 100
       }
     }
-    
+
     return result
   }
 
@@ -338,16 +343,16 @@ export class IntelligentCache implements ICache {
    */
   optimize(): void {
     this.debug('Starting cache optimization')
-    
+
     // Clean up expired entries
     this.cleanupExpiredEntries()
-    
+
     // Rebalance tiers based on access patterns
     this.rebalanceTiers()
-    
+
     // Adjust tier sizes if needed
     this.adjustTierSizes()
-    
+
     this.debug('Cache optimization completed')
   }
 
@@ -368,17 +373,17 @@ export class IntelligentCache implements ICache {
   private updateAccessPattern(key: string, entry: CacheEntryMetadata): void {
     const now = Date.now()
     const existing = this.accessPatterns.get(key)
-    
-    const frequency = existing ? 
-      (existing.frequency * 0.9) + (entry.accessCount * 0.1) : 
-      entry.accessCount
-    
+
+    const frequency = existing
+      ? existing.frequency * 0.9 + entry.accessCount * 0.1
+      : entry.accessCount
+
     const recency = (now - entry.lastAccessed) / 1000 // seconds
     const size = entry.size
-    
+
     // Calculate access score (higher is better)
-    const score = (frequency * 10) + Math.max(0, 100 - recency) + (1 / Math.log(size + 1))
-    
+    const score = frequency * 10 + Math.max(0, 100 - recency) + 1 / Math.log(size + 1)
+
     this.accessPatterns.set(key, {
       frequency,
       recency,
@@ -393,12 +398,13 @@ export class IntelligentCache implements ICache {
   private determineInitialTier(key: string, size: number): CacheTier {
     // Check if we have historical access patterns
     const pattern = this.accessPatterns.get(key)
-    
+
     if (pattern && pattern.score > 50) {
       return 'hot'
     } else if (pattern && pattern.score > 20) {
       return 'warm'
-    } else if (size < 1024) { // Small entries go to warm tier initially
+    } else if (size < 1024) {
+      // Small entries go to warm tier initially
       return 'warm'
     } else {
       return 'cold'
@@ -411,16 +417,16 @@ export class IntelligentCache implements ICache {
   private considerPromotion(key: string, entry: CacheEntryMetadata): void {
     const pattern = this.accessPatterns.get(key)
     if (!pattern) return
-    
+
     const currentTier = entry.tier
     let targetTier: CacheTier | null = null
-    
+
     if (currentTier === 'cold' && pattern.score > 30) {
       targetTier = 'warm'
     } else if (currentTier === 'warm' && pattern.score > 60) {
       targetTier = 'hot'
     }
-    
+
     if (targetTier && this.canFitInTier(targetTier, entry.size)) {
       this.promoteTo(key, entry, targetTier)
     }
@@ -431,17 +437,17 @@ export class IntelligentCache implements ICache {
    */
   private promoteTo(key: string, entry: CacheEntryMetadata, targetTier: CacheTier): void {
     const currentTier = entry.tier
-    
+
     // Remove from current tier
     this.tiers.get(currentTier)?.delete(key)
-    
+
     // Ensure capacity in target tier
     this.ensureCapacity(targetTier, entry.size)
-    
+
     // Add to target tier
     const promotedEntry = { ...entry, tier: targetTier }
     this.tiers.get(targetTier)?.set(key, promotedEntry)
-    
+
     this.metrics.promotions++
     this.debug('Promoted %s from %s to %s tier', key, currentTier, targetTier)
   }
@@ -452,7 +458,7 @@ export class IntelligentCache implements ICache {
   private canFitInTier(tier: CacheTier, size: number): boolean {
     const tierConfig = this.tierConfigs.get(tier)!
     const currentTier = this.tiers.get(tier)!
-    
+
     return currentTier.size < tierConfig.maxSize && size <= tierConfig.maxEntrySize
   }
 
@@ -462,7 +468,7 @@ export class IntelligentCache implements ICache {
   private ensureCapacity(tier: CacheTier, requiredSize: number): void {
     const tierConfig = this.tierConfigs.get(tier)!
     const currentTier = this.tiers.get(tier)!
-    
+
     if (currentTier.size >= tierConfig.maxSize) {
       this.evictFromTier(tier, 1) // Evict at least one entry
     }
@@ -475,53 +481,47 @@ export class IntelligentCache implements ICache {
     const tierConfig = this.tierConfigs.get(tier)!
     const currentTier = this.tiers.get(tier)!
     const entries = Array.from(currentTier.values())
-    
+
     if (entries.length === 0) return
-    
+
     let toEvict: CacheEntryMetadata[]
-    
+
     switch (tierConfig.evictionStrategy) {
       case 'lru':
-        toEvict = entries
-          .sort((a, b) => a.lastAccessed - b.lastAccessed)
-          .slice(0, count)
+        toEvict = entries.sort((a, b) => a.lastAccessed - b.lastAccessed).slice(0, count)
         break
-      
+
       case 'lfu':
-        toEvict = entries
-          .sort((a, b) => a.accessCount - b.accessCount)
-          .slice(0, count)
+        toEvict = entries.sort((a, b) => a.accessCount - b.accessCount).slice(0, count)
         break
-      
+
       case 'ttl':
-        toEvict = entries
-          .filter(e => this.isExpired(e))
-          .slice(0, count)
-        
+        toEvict = entries.filter((e) => this.isExpired(e)).slice(0, count)
+
         // If not enough expired entries, fall back to LRU
         if (toEvict.length < count) {
           const remaining = entries
-            .filter(e => !this.isExpired(e))
+            .filter((e) => !this.isExpired(e))
             .sort((a, b) => a.lastAccessed - b.lastAccessed)
             .slice(0, count - toEvict.length)
           toEvict = [...toEvict, ...remaining]
         }
         break
-      
+
       case 'adaptive':
       default:
         // Use access score for adaptive eviction
         toEvict = entries
-          .map(e => ({
+          .map((e) => ({
             entry: e,
             pattern: this.accessPatterns.get(e.key)
           }))
           .sort((a, b) => (a.pattern?.score ?? 0) - (b.pattern?.score ?? 0))
           .slice(0, count)
-          .map(item => item.entry)
+          .map((item) => item.entry)
         break
     }
-    
+
     // Evict selected entries
     for (const entry of toEvict) {
       currentTier.delete(entry.key)
@@ -556,7 +556,7 @@ export class IntelligentCache implements ICache {
   private cleanupExpiredEntries(): void {
     const now = Date.now()
     let cleanedCount = 0
-    
+
     for (const [tierName, tier] of this.tiers) {
       for (const [key, entry] of tier) {
         if (this.isExpired(entry)) {
@@ -566,7 +566,7 @@ export class IntelligentCache implements ICache {
         }
       }
     }
-    
+
     if (cleanedCount > 0) {
       this.debug('Cleaned up %d expired entries', cleanedCount)
     }
@@ -576,8 +576,9 @@ export class IntelligentCache implements ICache {
    * Rebalance entries across tiers based on access patterns
    */
   private rebalanceTiers(): void {
-    const allEntries: Array<{ key: string; entry: CacheEntryMetadata; pattern?: AccessPattern }> = []
-    
+    const allEntries: Array<{ key: string; entry: CacheEntryMetadata; pattern?: AccessPattern }> =
+      []
+
     // Collect all entries with their patterns
     for (const tier of this.tiers.values()) {
       for (const [key, entry] of tier) {
@@ -588,19 +589,19 @@ export class IntelligentCache implements ICache {
         })
       }
     }
-    
+
     // Clear all tiers
     for (const tier of this.tiers.values()) {
       tier.clear()
     }
-    
+
     // Redistribute based on scores
     allEntries
       .sort((a, b) => (b.pattern?.score ?? 0) - (a.pattern?.score ?? 0))
       .forEach(({ key, entry, pattern }) => {
         const score = pattern?.score ?? 0
         let targetTier: CacheTier
-        
+
         if (score > 50) {
           targetTier = 'hot'
         } else if (score > 20) {
@@ -608,7 +609,7 @@ export class IntelligentCache implements ICache {
         } else {
           targetTier = 'cold'
         }
-        
+
         // Check if we can fit in the target tier
         if (this.canFitInTier(targetTier, entry.size)) {
           const updatedEntry = { ...entry, tier: targetTier }
@@ -641,11 +642,11 @@ export class IntelligentCache implements ICache {
    */
   private startMaintenance(): void {
     const maintenanceInterval = 60000 // 1 minute
-    
+
     const runMaintenance = () => {
       try {
         this.cleanupExpiredEntries()
-        
+
         // Run optimization every 5 minutes
         if (Date.now() % (5 * 60000) < maintenanceInterval) {
           this.optimize()
@@ -653,10 +654,10 @@ export class IntelligentCache implements ICache {
       } catch (error) {
         this.debugError('Maintenance error: %O', error)
       }
-      
+
       setTimeout(runMaintenance, maintenanceInterval)
     }
-    
+
     setTimeout(runMaintenance, maintenanceInterval)
   }
 }

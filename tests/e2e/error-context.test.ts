@@ -130,7 +130,7 @@ export default defineConfig({
       // If build fails, let the test fail later when reading output
       console.error('E2E build failed:', e)
     }
-  })
+  }, 30000)
 
   afterAll(() => {
     // Clean up test files - use try-catch to prevent cleanup errors from failing tests

@@ -1,8 +1,8 @@
 /**
  * Compression Module
- * 
+ *
  * Exports for template extraction and reference management
- * 
+ *
  * @module compression
  */
 

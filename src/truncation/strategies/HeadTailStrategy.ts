@@ -53,9 +53,23 @@ export class HeadTailStrategy implements ITruncationStrategy {
     let truncatedContent: string
 
     if (preserveLines) {
-      truncatedContent = this.truncateByLines(content, maxTokens, headRatio, tailRatio, separator, context)
+      truncatedContent = this.truncateByLines(
+        content,
+        maxTokens,
+        headRatio,
+        tailRatio,
+        separator,
+        context
+      )
     } else {
-      truncatedContent = this.truncateByCharacters(content, maxTokens, headRatio, tailRatio, separator, context)
+      truncatedContent = this.truncateByCharacters(
+        content,
+        maxTokens,
+        headRatio,
+        tailRatio,
+        separator,
+        context
+      )
     }
 
     let finalTokens = await tokenCounter.count(truncatedContent, context.model)
@@ -106,7 +120,7 @@ export class HeadTailStrategy implements ITruncationStrategy {
     // Estimate that head/tail preserves about 70-80% of original content typically
     const estimatedPreserved = Math.floor(originalTokens * 0.75)
     const estimatedFinal = Math.min(estimatedPreserved, maxTokens)
-    
+
     return Math.max(0, originalTokens - estimatedFinal)
   }
 
@@ -140,7 +154,7 @@ export class HeadTailStrategy implements ITruncationStrategy {
 
     // Build and test truncated content iteratively
     let truncatedContent = this.buildTruncatedContent(lines, headLines, tailLines, separator)
-    
+
     // If still too large, reduce further
     while (headLines + tailLines > 2) {
       const estimatedTokens = Math.floor(truncatedContent.length / 4) // Rough estimate
@@ -175,7 +189,7 @@ export class HeadTailStrategy implements ITruncationStrategy {
     const separatorLength = separator.length
 
     // Estimate available characters (roughly 4 chars per token)
-    const availableChars = (maxTokens * 4) - separatorLength
+    const availableChars = maxTokens * 4 - separatorLength
 
     const headChars = Math.floor(availableChars * headRatio)
     const tailChars = Math.floor(availableChars * tailRatio)

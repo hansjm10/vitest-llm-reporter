@@ -1,12 +1,16 @@
 /**
  * Deduplication Configuration Schema
- * 
+ *
  * Schema definitions and validation for deduplication configuration
- * 
+ *
  * @module DeduplicationConfigSchema
  */
 
-import type { DeduplicationConfig, DeduplicationStrategy, PatternType } from '../../types/deduplication'
+import type {
+  DeduplicationConfig,
+  DeduplicationStrategy,
+  PatternType
+} from '../../types/deduplication'
 
 /**
  * Default deduplication configuration

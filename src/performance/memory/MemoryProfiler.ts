@@ -37,37 +37,47 @@ export class MemoryProfiler {
   recordSnapshot(metrics: MemoryMetrics): void {
     if (!this.config.enableProfiling) return
 
-    const memUsage = process.memoryUsage()
-    const snapshot: MemorySnapshot = {
-      timestamp: Date.now(),
-      heapUsed: memUsage.heapUsed,
-      heapTotal: memUsage.heapTotal,
-      external: memUsage.external,
-      rss: memUsage.rss,
-      arrayBuffers: memUsage.arrayBuffers || 0
-    }
+    try {
+      const memUsage = process.memoryUsage()
+      const snapshot: MemorySnapshot = {
+        timestamp: Date.now(),
+        heapUsed: memUsage.heapUsed,
+        heapTotal: memUsage.heapTotal,
+        external: memUsage.external,
+        rss: memUsage.rss,
+        arrayBuffers: memUsage.arrayBuffers || 0
+      }
 
-    this.snapshots.push(snapshot)
-    
-    // Keep only recent snapshots
-    if (this.snapshots.length > 1000) {
-      this.snapshots = this.snapshots.slice(-500)
+      this.snapshots.push(snapshot)
+
+      // Keep only recent snapshots
+      if (this.snapshots.length > 1000) {
+        this.snapshots = this.snapshots.slice(-500)
+      }
+    } catch (error) {
+      // Silently handle memory usage errors
+      this.debug('Failed to record memory snapshot: %O', error)
     }
   }
 
   async profile(): Promise<void> {
     if (!this.config.enableProfiling) return
-    
-    // Record current snapshot
-    const memUsage = process.memoryUsage()
-    this.recordSnapshot({
-      currentUsage: memUsage.heapUsed,
-      peakUsage: memUsage.heapUsed,
-      usagePercentage: 0,
-      gcCount: 0,
-      pressureLevel: 'low',
-      poolStats: { totalPooled: 0, activeObjects: 0, poolHitRatio: 0 }
-    })
+
+    try {
+      // Record current snapshot
+      const memUsage = process.memoryUsage()
+      this.recordSnapshot({
+        currentUsage: memUsage.heapUsed,
+        peakUsage: memUsage.heapUsed,
+        usagePercentage: 0,
+        gcCount: 0,
+        pressureLevel: 'low',
+        poolStats: { totalPooled: 0, activeObjects: 0, poolHitRatio: 0 }
+      })
+    } catch (error) {
+      // Silently handle memory usage errors
+      this.debug('Failed to profile memory: %O', error)
+    }
   }
 
   analyzeTrend(): MemoryTrend {
@@ -78,7 +88,10 @@ export class MemoryProfiler {
     // Simple linear regression on recent snapshots
     const recent = this.snapshots.slice(-50)
     const n = recent.length
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0
+    let sumX = 0,
+      sumY = 0,
+      sumXY = 0,
+      sumXX = 0
 
     recent.forEach((snapshot, i) => {
       sumX += i
@@ -88,7 +101,7 @@ export class MemoryProfiler {
     })
 
     const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
-    const timeSpan = recent[n-1].timestamp - recent[0].timestamp
+    const timeSpan = recent[n - 1].timestamp - recent[0].timestamp
     const rate = slope * (1000 / timeSpan) // bytes per second
 
     return {

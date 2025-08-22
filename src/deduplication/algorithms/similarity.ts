@@ -1,9 +1,9 @@
 /**
  * Similarity Algorithms
- * 
+ *
  * Collection of similarity calculation algorithms used
  * across the deduplication system.
- * 
+ *
  * @module similarity
  */
 
@@ -31,8 +31,8 @@ export function levenshteinDistance(a: string, b: string): number {
       } else {
         matrix[i][j] = Math.min(
           matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+          matrix[i][j - 1] + 1, // insertion
+          matrix[i - 1][j] + 1 // deletion
         )
       }
     }
@@ -46,12 +46,12 @@ export function levenshteinDistance(a: string, b: string): number {
  */
 export function levenshteinSimilarity(a: string, b: string): number {
   if (a === b) return 1
-  
+
   const maxLen = Math.max(a.length, b.length)
   if (maxLen === 0) return 1
-  
+
   const distance = levenshteinDistance(a, b)
-  return 1 - (distance / maxLen)
+  return 1 - distance / maxLen
 }
 
 /**
@@ -59,10 +59,10 @@ export function levenshteinSimilarity(a: string, b: string): number {
  */
 export function jaccardSimilarity<T>(setA: Set<T>, setB: Set<T>): number {
   if (setA.size === 0 && setB.size === 0) return 1
-  
-  const intersection = new Set([...setA].filter(x => setB.has(x)))
+
+  const intersection = new Set([...setA].filter((x) => setB.has(x)))
   const union = new Set([...setA, ...setB])
-  
+
   return union.size > 0 ? intersection.size / union.size : 0
 }
 
@@ -100,7 +100,9 @@ export function cosineSimilarity(vectorA: number[], vectorB: number[]): number {
 export function longestCommonSubsequence<T>(seqA: T[], seqB: T[]): number {
   const m = seqA.length
   const n = seqB.length
-  const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0))
+  const dp: number[][] = Array(m + 1)
+    .fill(null)
+    .map(() => Array(n + 1).fill(0))
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
@@ -121,7 +123,7 @@ export function longestCommonSubsequence<T>(seqA: T[], seqB: T[]): number {
 export function lcsSimilarity<T>(seqA: T[], seqB: T[]): number {
   const lcs = longestCommonSubsequence(seqA, seqB)
   const maxLength = Math.max(seqA.length, seqB.length)
-  
+
   return maxLength > 0 ? lcs / maxLength : 1
 }
 
@@ -130,10 +132,10 @@ export function lcsSimilarity<T>(seqA: T[], seqB: T[]): number {
  */
 export function diceCoefficient<T>(setA: Set<T>, setB: Set<T>): number {
   if (setA.size === 0 && setB.size === 0) return 1
-  
-  const intersection = new Set([...setA].filter(x => setB.has(x)))
+
+  const intersection = new Set([...setA].filter((x) => setB.has(x)))
   const totalSize = setA.size + setB.size
-  
+
   return totalSize > 0 ? (2 * intersection.size) / totalSize : 0
 }
 
@@ -143,7 +145,7 @@ export function diceCoefficient<T>(setA: Set<T>, setB: Set<T>): number {
 export function ngramSimilarity(textA: string, textB: string, n: number = 2): number {
   const ngramsA = getNgrams(textA, n)
   const ngramsB = getNgrams(textB, n)
-  
+
   return jaccardSimilarity(ngramsA, ngramsB)
 }
 
@@ -152,16 +154,16 @@ export function ngramSimilarity(textA: string, textB: string, n: number = 2): nu
  */
 export function getNgrams(text: string, n: number): Set<string> {
   const ngrams = new Set<string>()
-  
+
   if (text.length < n) {
     ngrams.add(text)
     return ngrams
   }
-  
+
   for (let i = 0; i <= text.length - n; i++) {
     ngrams.add(text.substring(i, i + n))
   }
-  
+
   return ngrams
 }
 
@@ -169,9 +171,19 @@ export function getNgrams(text: string, n: number): Set<string> {
  * Calculate token-based similarity
  */
 export function tokenSimilarity(textA: string, textB: string): number {
-  const tokensA = new Set(textA.toLowerCase().split(/\s+/).filter(t => t))
-  const tokensB = new Set(textB.toLowerCase().split(/\s+/).filter(t => t))
-  
+  const tokensA = new Set(
+    textA
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t)
+  )
+  const tokensB = new Set(
+    textB
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t)
+  )
+
   return jaccardSimilarity(tokensA, tokensB)
 }
 
@@ -212,7 +224,7 @@ export function weightedSimilarity(
   }
 
   const finalWeights = { ...defaultWeights, ...weights }
-  
+
   let totalScore = 0
   let totalWeight = 0
 
@@ -264,7 +276,7 @@ export function findBestMatch<T>(
   for (const candidate of candidates) {
     const candidateStr = getStr(candidate)
     const score = levenshteinSimilarity(target, candidateStr)
-    
+
     if (score > bestScore) {
       bestScore = score
       bestMatch = { item: candidate, score }
@@ -277,10 +289,7 @@ export function findBestMatch<T>(
 /**
  * Cluster similar strings together
  */
-export function clusterSimilarStrings(
-  strings: string[],
-  threshold: number = 0.7
-): string[][] {
+export function clusterSimilarStrings(strings: string[], threshold: number = 0.7): string[][] {
   const clusters: string[][] = []
   const assigned = new Set<number>()
 

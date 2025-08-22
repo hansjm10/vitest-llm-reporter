@@ -1,14 +1,14 @@
 /**
  * Integration Test Fixtures
- * 
+ *
  * Shared test data and utilities for integration tests
  */
 
-import type { 
-  LLMReporterOutput, 
-  TestSummary, 
-  TestFailure, 
-  TestResult 
+import type {
+  LLMReporterOutput,
+  TestSummary,
+  TestFailure,
+  TestResult
 } from '../../src/types/schema'
 import type { StreamOperation, StreamPriority, ConsoleStreamData } from '../../src/streaming/types'
 import type { ConsoleMethod } from '../../src/types/console'
@@ -52,7 +52,7 @@ export const SAMPLE_TEST_DATA = {
 
   consoleError: {
     method: 'error' as ConsoleMethod,
-    testId: 'test-2', 
+    testId: 'test-2',
     args: ['Error occurred:', new Error('Test error')],
     timestamp: Date.now(),
     elapsed: 200
@@ -73,7 +73,7 @@ export const SAMPLE_TEST_DATA = {
     },
     {
       test: 'API endpoint /posts returns 200',
-      file: '/tests/api.test.ts', 
+      file: '/tests/api.test.ts',
       startLine: 25,
       endLine: 30,
       error: {
@@ -88,7 +88,7 @@ export const SAMPLE_TEST_DATA = {
       startLine: 40,
       endLine: 45,
       error: {
-        message: 'Request failed with status 500', 
+        message: 'Request failed with status 500',
         type: 'NetworkError',
         stack: 'NetworkError: Request failed with status 500\n    at /tests/api.test.ts:42:8'
       }
@@ -108,7 +108,7 @@ export const CONFIG_PRESETS = {
       patterns: { stackTrace: true, errorMessage: true, consoleOutput: false, assertion: true },
       compression: { enabled: false, minGroupSize: 2, maxTemplateVariables: 5, preserveExamples: 1 }
     } as DeduplicationConfig,
-    
+
     performance: {
       enabled: false,
       mode: 'balanced' as const,
@@ -126,7 +126,7 @@ export const CONFIG_PRESETS = {
       patterns: { stackTrace: true, errorMessage: true, consoleOutput: true, assertion: true },
       compression: { enabled: true, minGroupSize: 2, maxTemplateVariables: 15, preserveExamples: 5 }
     } as DeduplicationConfig,
-    
+
     performance: {
       enabled: true,
       mode: 'performance' as const,
@@ -142,7 +142,7 @@ export const CONFIG_PRESETS = {
  */
 export function createSampleOutput(
   passed: number = 5,
-  failed: number = 2, 
+  failed: number = 2,
   skipped: number = 1
 ): LLMReporterOutput {
   const summary: TestSummary = {
@@ -212,7 +212,7 @@ export function createStreamOperations(count: number): StreamOperation[] {
  */
 export function createConsoleStreamData(count: number): ConsoleStreamData[] {
   const methods: ConsoleMethod[] = ['log', 'error', 'warn', 'info']
-  
+
   return Array.from({ length: count }, (_, i) => ({
     method: methods[i % methods.length],
     testId: `test-${i + 1}`,
@@ -227,11 +227,12 @@ export function createConsoleStreamData(count: number): ConsoleStreamData[] {
  */
 export const PERFORMANCE_TEST_DATA = {
   // Large dataset for performance testing
-  largeTestSuite: (size: number) => createSampleOutput(
-    Math.floor(size * 0.8), // 80% pass
-    Math.floor(size * 0.15), // 15% fail  
-    Math.floor(size * 0.05)  // 5% skip
-  ),
+  largeTestSuite: (size: number) =>
+    createSampleOutput(
+      Math.floor(size * 0.8), // 80% pass
+      Math.floor(size * 0.15), // 15% fail
+      Math.floor(size * 0.05) // 5% skip
+    ),
 
   // Memory intensive data
   memoryIntensiveOutput: () => createSampleOutput(100, 50, 25),

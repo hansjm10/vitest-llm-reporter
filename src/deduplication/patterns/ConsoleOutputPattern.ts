@@ -1,13 +1,18 @@
 /**
  * Console Output Pattern Matcher
- * 
+ *
  * Identifies similar console output patterns by analyzing
  * log structure, sequences, and content patterns.
- * 
+ *
  * @module ConsoleOutputPattern
  */
 
-import type { IPatternMatcher, PatternType, SimilarityScore, SimilarityLevel } from '../../types/deduplication'
+import type {
+  IPatternMatcher,
+  PatternType,
+  SimilarityScore,
+  SimilarityLevel
+} from '../../types/deduplication'
 
 /**
  * Console line classification
@@ -31,7 +36,7 @@ interface ConsoleLine {
  */
 export class ConsoleOutputPattern implements IPatternMatcher {
   readonly type: PatternType = 'console-output'
-  
+
   // Patterns for identifying line types
   private readonly linePatterns = {
     timestamp: /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/,
@@ -45,10 +50,16 @@ export class ConsoleOutputPattern implements IPatternMatcher {
 
   // Normalization patterns
   private readonly normalizationPatterns = [
-    { pattern: /\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*(Z|[+-]\d{2}:\d{2})?/g, replacement: '<TIMESTAMP>' },
+    {
+      pattern: /\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*(Z|[+-]\d{2}:\d{2})?/g,
+      replacement: '<TIMESTAMP>'
+    },
     { pattern: /\b\d+\b/g, replacement: '<NUM>' },
     { pattern: /0x[0-9a-fA-F]+/g, replacement: '<HEX>' },
-    { pattern: /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, replacement: '<UUID>' },
+    {
+      pattern: /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi,
+      replacement: '<UUID>'
+    },
     { pattern: /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, replacement: '<IP>' },
     { pattern: /https?:\/\/[^\s]+/g, replacement: '<URL>' },
     { pattern: /[\w\-.]+@[\w\-.]+/g, replacement: '<EMAIL>' }
@@ -76,7 +87,7 @@ export class ConsoleOutputPattern implements IPatternMatcher {
     const patternSimilarity = this.calculatePatternSimilarity(linesA, linesB)
 
     // Weighted average
-    const score = 
+    const score =
       structuralSimilarity * 0.25 +
       contentSimilarity * 0.35 +
       sequenceSimilarity * 0.25 +
@@ -102,14 +113,14 @@ export class ConsoleOutputPattern implements IPatternMatcher {
   extractSignature(text: string): string {
     const lines = this.parseConsoleOutput(text)
     const significantLines = this.getSignificantLines(lines)
-    
+
     // If no significant lines found, extract from all non-empty lines
-    const linesToUse = significantLines.length > 0 ? significantLines : 
-      lines.filter(l => l.type !== 'empty' && l.normalized.length > 0)
-    
-    return linesToUse
-      .map(line => `${line.type}:${line.normalized.substring(0, 50)}`)
-      .join('|')
+    const linesToUse =
+      significantLines.length > 0
+        ? significantLines
+        : lines.filter((l) => l.type !== 'empty' && l.normalized.length > 0)
+
+    return linesToUse.map((line) => `${line.type}:${line.normalized.substring(0, 50)}`).join('|')
   }
 
   /**
@@ -173,7 +184,7 @@ export class ConsoleOutputPattern implements IPatternMatcher {
     if (this.linePatterns.info.test(trimmed)) return 'info'
     if (this.linePatterns.debug.test(trimmed)) return 'debug'
     if (this.linePatterns.json.test(trimmed)) return 'data'
-    
+
     return 'log'
   }
 
@@ -203,7 +214,9 @@ export class ConsoleOutputPattern implements IPatternMatcher {
    * Extract timestamp from a line
    */
   private extractTimestamp(line: string): string | undefined {
-    const timestampMatch = line.match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*(Z|[+-]\d{2}:\d{2})?/)
+    const timestampMatch = line.match(
+      /\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*(Z|[+-]\d{2}:\d{2})?/
+    )
     return timestampMatch ? timestampMatch[0] : undefined
   }
 
@@ -211,15 +224,15 @@ export class ConsoleOutputPattern implements IPatternMatcher {
    * Calculate structural similarity based on line types
    */
   private calculateStructuralSimilarity(linesA: ConsoleLine[], linesB: ConsoleLine[]): number {
-    const structureA = linesA.map(l => l.type).join('-')
-    const structureB = linesB.map(l => l.type).join('-')
+    const structureA = linesA.map((l) => l.type).join('-')
+    const structureB = linesB.map((l) => l.type).join('-')
 
     if (structureA === structureB) return 1
 
     // Count matching line types at same positions
     const minLength = Math.min(linesA.length, linesB.length)
     const maxLength = Math.max(linesA.length, linesB.length)
-    
+
     let matches = 0
     for (let i = 0; i < minLength; i++) {
       if (linesA[i].type === linesB[i].type) {
@@ -234,8 +247,14 @@ export class ConsoleOutputPattern implements IPatternMatcher {
    * Calculate content similarity
    */
   private calculateContentSimilarity(linesA: ConsoleLine[], linesB: ConsoleLine[]): number {
-    const contentA = linesA.map(l => l.normalized).filter(c => c).join('\n')
-    const contentB = linesB.map(l => l.normalized).filter(c => c).join('\n')
+    const contentA = linesA
+      .map((l) => l.normalized)
+      .filter((c) => c)
+      .join('\n')
+    const contentB = linesB
+      .map((l) => l.normalized)
+      .filter((c) => c)
+      .join('\n')
 
     if (contentA === contentB) return 1
 
@@ -243,7 +262,7 @@ export class ConsoleOutputPattern implements IPatternMatcher {
     const tokensA = new Set(contentA.split(/\s+/))
     const tokensB = new Set(contentB.split(/\s+/))
 
-    const intersection = new Set([...tokensA].filter(t => tokensB.has(t)))
+    const intersection = new Set([...tokensA].filter((t) => tokensB.has(t)))
     const union = new Set([...tokensA, ...tokensB])
 
     return union.size > 0 ? intersection.size / union.size : 0
@@ -253,8 +272,8 @@ export class ConsoleOutputPattern implements IPatternMatcher {
    * Calculate sequence similarity
    */
   private calculateSequenceSimilarity(linesA: ConsoleLine[], linesB: ConsoleLine[]): number {
-    const seqA = linesA.map(l => l.normalized)
-    const seqB = linesB.map(l => l.normalized)
+    const seqA = linesA.map((l) => l.normalized)
+    const seqB = linesB.map((l) => l.normalized)
 
     // Find longest common subsequence
     const lcs = this.longestCommonSubsequence(seqA, seqB)
@@ -281,12 +300,12 @@ export class ConsoleOutputPattern implements IPatternMatcher {
 
     let similarity = 0
     const allTypes = new Set([...Object.keys(distributionA), ...Object.keys(distributionB)])
-    
+
     for (const type of allTypes) {
       const countA = distributionA[type] || 0
       const countB = distributionB[type] || 0
       const maxCount = Math.max(countA, countB)
-      
+
       if (maxCount > 0) {
         similarity += Math.min(countA, countB) / maxCount
       }
@@ -300,20 +319,22 @@ export class ConsoleOutputPattern implements IPatternMatcher {
    */
   private extractPatterns(lines: ConsoleLine[]): Array<{ type: LineType; content: string }> {
     return lines
-      .filter(l => l.type !== 'empty' && l.type !== 'log')
-      .map(l => ({ type: l.type, content: l.normalized }))
+      .filter((l) => l.type !== 'empty' && l.type !== 'log')
+      .map((l) => ({ type: l.type, content: l.normalized }))
   }
 
   /**
    * Get pattern distribution
    */
-  private getPatternDistribution(patterns: Array<{ type: LineType; content: string }>): Record<string, number> {
+  private getPatternDistribution(
+    patterns: Array<{ type: LineType; content: string }>
+  ): Record<string, number> {
     const distribution: Record<string, number> = {}
-    
+
     for (const pattern of patterns) {
       distribution[pattern.type] = (distribution[pattern.type] || 0) + 1
     }
-    
+
     return distribution
   }
 
@@ -321,11 +342,14 @@ export class ConsoleOutputPattern implements IPatternMatcher {
    * Get significant lines (non-empty, non-trivial)
    */
   private getSignificantLines(lines: ConsoleLine[]): ConsoleLine[] {
-    return lines.filter(line => 
-      line.type !== 'empty' && 
-      line.normalized.length > 10 &&
-      (line.type === 'error' || line.type === 'warn' || line.normalized.includes('<'))
-    ).slice(0, 10) // Keep top 10 significant lines
+    return lines
+      .filter(
+        (line) =>
+          line.type !== 'empty' &&
+          line.normalized.length > 10 &&
+          (line.type === 'error' || line.type === 'warn' || line.normalized.includes('<'))
+      )
+      .slice(0, 10) // Keep top 10 significant lines
   }
 
   /**
@@ -333,10 +357,10 @@ export class ConsoleOutputPattern implements IPatternMatcher {
    */
   private calculateConfidence(linesA: ConsoleLine[], linesB: ConsoleLine[]): number {
     const avgLines = (linesA.length + linesB.length) / 2
-    const hasErrors = [...linesA, ...linesB].some(l => l.type === 'error')
-    const hasTimestamps = [...linesA, ...linesB].some(l => l.timestamp)
-    const hasStructure = [...linesA, ...linesB].some(l => l.type !== 'log')
-    
+    const hasErrors = [...linesA, ...linesB].some((l) => l.type === 'error')
+    const hasTimestamps = [...linesA, ...linesB].some((l) => l.timestamp)
+    const hasStructure = [...linesA, ...linesB].some((l) => l.type !== 'log')
+
     let confidence = 0.4
 
     if (avgLines >= 5) confidence += 0.2
@@ -353,7 +377,9 @@ export class ConsoleOutputPattern implements IPatternMatcher {
   private longestCommonSubsequence(a: string[], b: string[]): number {
     const m = a.length
     const n = b.length
-    const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0))
+    const dp: number[][] = Array(m + 1)
+      .fill(null)
+      .map(() => Array(n + 1).fill(0))
 
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {

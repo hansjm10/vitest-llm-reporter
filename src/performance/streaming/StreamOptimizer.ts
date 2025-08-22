@@ -7,11 +7,7 @@
  * @module StreamOptimizer
  */
 
-import type {
-  IStreamOptimizer,
-  PerformanceMetrics,
-  StreamingOptimizationConfig
-} from '../types'
+import type { IStreamOptimizer, PerformanceMetrics, StreamingOptimizationConfig } from '../types'
 import { AdaptiveBuffer } from './AdaptiveBuffer'
 import { BackgroundProcessor } from './BackgroundProcessor'
 import { PriorityQueue } from './PriorityQueue'
@@ -31,7 +27,9 @@ export class StreamOptimizer implements IStreamOptimizer {
     this.priorityQueue = new PriorityQueue(this.config.priorityQueue)
   }
 
-  private resolveConfig(config: StreamingOptimizationConfig): Required<StreamingOptimizationConfig> {
+  private resolveConfig(
+    config: StreamingOptimizationConfig
+  ): Required<StreamingOptimizationConfig> {
     return {
       enabled: config.enabled ?? true,
       enableAdaptiveBuffering: config.enableAdaptiveBuffering ?? true,

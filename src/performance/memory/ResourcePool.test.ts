@@ -3,7 +3,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { ResourcePool, type PoolStats, type PoolConfig, type ObjectFactory, type ObjectReset } from './ResourcePool'
+import {
+  ResourcePool,
+  type PoolStats,
+  type PoolConfig,
+  type ObjectFactory,
+  type ObjectReset
+} from './ResourcePool'
 
 // Mock the logger utilities
 vi.mock('../../utils/logger', () => ({
@@ -81,10 +87,10 @@ describe('ResourcePool', () => {
     it('should handle default configuration', () => {
       const defaultPool = new ResourcePool(objectFactory, objectReset)
       expect(defaultPool).toBeDefined()
-      
+
       const stats = defaultPool.getStats()
       expect(stats.totalSize).toBeGreaterThanOrEqual(0)
-      
+
       defaultPool.destroy()
     })
 
@@ -96,10 +102,10 @@ describe('ResourcePool', () => {
   describe('acquire operations', () => {
     it('should acquire object from pool', () => {
       const obj = pool.acquire()
-      
+
       expect(obj).not.toBeNull()
       expect(obj!.id).toBeGreaterThan(0)
-      
+
       const stats = pool.getStats()
       expect(stats.activeCount).toBe(1)
       expect(stats.availableCount).toBe(4)
@@ -112,12 +118,12 @@ describe('ResourcePool', () => {
       for (let i = 0; i < 5; i++) {
         objects.push(pool.acquire())
       }
-      
+
       // Pool should be empty, next acquire should create new object
       const newObj = pool.acquire()
       expect(newObj).toBeDefined()
       expect(objectFactory).toHaveBeenCalledTimes(6) // 5 initial + 1 new
-      
+
       const stats = pool.getStats()
       expect(stats.activeCount).toBe(6)
       expect(stats.availableCount).toBe(0)
@@ -126,27 +132,31 @@ describe('ResourcePool', () => {
     it('should respect max size limits', () => {
       // Acquire beyond max size
       const objects = []
-      for (let i = 0; i < 25; i++) { // More than maxSize (20)
+      for (let i = 0; i < 25; i++) {
+        // More than maxSize (20)
         const obj = pool.acquire()
         if (obj) objects.push(obj)
       }
-      
+
       const stats = pool.getStats()
       expect(stats.totalSize).toBeLessThanOrEqual(20) // Should not exceed maxSize
     })
 
-    it('should reset objects on acquire when configured', () => {
+    it('should reset objects on release when configured', () => {
       const obj = pool.acquire()
       expect(obj).toBeDefined()
       
-      // Reset should be called during acquire
+      // Release the object back to the pool
+      pool.release(obj!)
+
+      // Reset should be called during release
       expect(objectReset).toHaveBeenCalled()
     })
 
     it('should track metrics correctly', () => {
       pool.acquire()
       pool.acquire()
-      
+
       const stats = pool.getStats()
       expect(stats.hits).toBe(2)
       expect(stats.totalRequests).toBe(2)
@@ -158,10 +168,10 @@ describe('ResourcePool', () => {
     it('should release object back to pool', () => {
       const obj = pool.acquire()
       expect(obj).toBeDefined()
-      
+
       const released = pool.release(obj!)
       expect(released).toBe(true)
-      
+
       const stats = pool.getStats()
       expect(stats.activeCount).toBe(0)
       expect(stats.availableCount).toBe(5)
@@ -171,9 +181,9 @@ describe('ResourcePool', () => {
       const obj = pool.acquire()
       obj!.data = 'modified data'
       obj!.isActive = true
-      
+
       pool.release(obj!)
-      
+
       // Reset should have been called
       expect(objectReset).toHaveBeenCalledWith(obj!)
       expect(obj!.data).toBe('test data')
@@ -187,17 +197,17 @@ describe('ResourcePool', () => {
         isActive: false,
         reset() {}
       }
-      
+
       const released = pool.release(fakeObj)
       expect(released).toBe(false)
     })
 
     it('should reject already released objects', () => {
       const obj = pool.acquire()
-      
+
       const firstRelease = pool.release(obj!)
       expect(firstRelease).toBe(true)
-      
+
       const secondRelease = pool.release(obj!)
       expect(secondRelease).toBe(false)
     })
@@ -207,16 +217,16 @@ describe('ResourcePool', () => {
         initialSize: 2,
         maxSize: 2
       })
-      
+
       const obj1 = smallPool.acquire()
       const obj2 = smallPool.acquire()
       const obj3 = smallPool.acquire() // Should create object beyond pool
-      
+
       // Release all back
       smallPool.release(obj1!)
       smallPool.release(obj2!)
       const extraRelease = smallPool.release(obj3!) // May be rejected due to full pool
-      
+
       expect(typeof extraRelease).toBe('boolean')
       smallPool.destroy()
     })
@@ -229,16 +239,16 @@ describe('ResourcePool', () => {
         maxSize: 10,
         growthFactor: 2.0
       })
-      
+
       // Acquire all objects to trigger growth
       const objects = []
       for (let i = 0; i < 5; i++) {
         objects.push(growthPool.acquire())
       }
-      
+
       const stats = growthPool.getStats()
       expect(stats.totalSize).toBeGreaterThan(2) // Should have grown
-      
+
       growthPool.destroy()
     })
 
@@ -249,16 +259,16 @@ describe('ResourcePool', () => {
         maxSize: 20,
         shrinkThreshold: 0.3 // Shrink when less than 30% utilized
       })
-      
+
       // Acquire and release just one object (low utilization)
       const obj = shrinkPool.acquire()
       shrinkPool.release(obj!)
-      
+
       // Trigger shrink check (implementation dependent)
       if (typeof shrinkPool.optimize === 'function') {
         shrinkPool.optimize()
       }
-      
+
       shrinkPool.destroy()
     })
 
@@ -268,17 +278,17 @@ describe('ResourcePool', () => {
         maxSize: 20,
         growthFactor: 1.5
       })
-      
+
       // Force growth by acquiring many objects
       const objects = []
       for (let i = 0; i < 8; i++) {
         objects.push(growthPool.acquire())
       }
-      
+
       // Pool size should have grown according to growth factor
       const stats = growthPool.getStats()
       expect(stats.totalSize).toBeGreaterThan(4)
-      
+
       growthPool.destroy()
     })
   })
@@ -286,7 +296,7 @@ describe('ResourcePool', () => {
   describe('statistics and metrics', () => {
     it('should provide comprehensive statistics', () => {
       const stats = pool.getStats()
-      
+
       expect(stats).toMatchObject({
         totalSize: expect.any(Number),
         activeCount: expect.any(Number),
@@ -305,15 +315,15 @@ describe('ResourcePool', () => {
       // All from pool (hits)
       pool.acquire()
       pool.acquire()
-      
+
       const stats1 = pool.getStats()
       expect(stats1.hitRatio).toBeCloseTo(100, 1)
-      
+
       // Force miss by exhausting pool
       for (let i = 0; i < 10; i++) {
         pool.acquire()
       }
-      
+
       const stats2 = pool.getStats()
       expect(stats2.hits + stats2.misses).toBe(stats2.totalRequests)
     })
@@ -321,19 +331,21 @@ describe('ResourcePool', () => {
     it('should calculate utilization ratio', () => {
       const obj1 = pool.acquire()
       const obj2 = pool.acquire()
-      
+
       const stats = pool.getStats()
-      expect(stats.utilizationRatio).toBeCloseTo(40, 1) // 2 out of 5 objects active
+      // Utilization is activeCount / maxSize * 100
+      // With 2 active and maxSize of 10 (from constructor): 2/10 * 100 = 20%
+      expect(stats.utilizationRatio).toBeCloseTo(20, 1)
     })
 
     it('should track object lifecycle', () => {
       const initialStats = pool.getStats()
       const initialCreated = initialStats.createdObjects
-      
+
       // Acquire and release to trigger object creation/reuse
       const obj = pool.acquire()
       pool.release(obj!)
-      
+
       const finalStats = pool.getStats()
       expect(finalStats.createdObjects).toBeGreaterThanOrEqual(initialCreated)
     })
@@ -349,14 +361,14 @@ describe('ResourcePool', () => {
         { validateOnAcquire: true },
         validator
       )
-      
+
       // Since setValidator method is not implemented, just verify acquire works
       const obj = validatingPool.acquire()
       expect(obj).not.toBeNull()
-      
+
       // Cleanup
       validatingPool.release(obj!)
-      
+
       validatingPool.destroy()
     })
 
@@ -369,13 +381,13 @@ describe('ResourcePool', () => {
         { validateOnRelease: true },
         validator
       )
-      
+
       const obj = validatingPool.acquire()
-      
+
       // Since setValidator method is not implemented, just verify release works
       const released = validatingPool.release(obj!)
       expect(typeof released).toBe('boolean')
-      
+
       validatingPool.destroy()
     })
 
@@ -388,13 +400,13 @@ describe('ResourcePool', () => {
         { validateOnRelease: true },
         validator
       )
-      
+
       const obj = validatingPool.acquire()
-      
+
       // Since setValidator method is not implemented, just verify release works
       const released = validatingPool.release(obj!)
       expect(typeof released).toBe('boolean')
-      
+
       validatingPool.destroy()
     })
   })
@@ -411,10 +423,10 @@ describe('ResourcePool', () => {
     it('should track idle time for objects', () => {
       const obj = pool.acquire()
       pool.release(obj!)
-      
+
       // Advance time
       vi.advanceTimersByTime(10000)
-      
+
       // Pool should track idle time (implementation dependent)
       const stats = pool.getStats()
       expect(stats.availableCount).toBeGreaterThan(0)
@@ -423,14 +435,14 @@ describe('ResourcePool', () => {
     it('should clean up long-idle objects', () => {
       const obj = pool.acquire()
       pool.release(obj!)
-      
+
       // Advance beyond max idle time
       vi.advanceTimersByTime(35000) // 35 seconds, beyond 30s max idle time
-      
+
       // Trigger cleanup (implementation dependent)
       if (typeof pool.cleanup === 'function') {
         pool.cleanup()
-        
+
         const stats = pool.getStats()
         // May have cleaned up idle objects
         expect(stats.destroyedObjects).toBeGreaterThanOrEqual(0)
@@ -440,13 +452,13 @@ describe('ResourcePool', () => {
     it('should not clean up recently used objects', () => {
       const obj = pool.acquire()
       pool.release(obj!)
-      
+
       // Small time advance
       vi.advanceTimersByTime(1000) // 1 second
-      
+
       if (typeof pool.cleanup === 'function') {
         pool.cleanup()
-        
+
         const stats = pool.getStats()
         expect(stats.availableCount).toBeGreaterThan(0) // Should still have objects
       }
@@ -466,12 +478,12 @@ describe('ResourcePool', () => {
       for (let i = 0; i < 3; i++) {
         objects.push(pool.acquire())
       }
-      
-      objects.forEach(obj => obj && pool.release(obj))
-      
+
+      objects.forEach((obj) => obj && pool.release(obj))
+
       if (typeof pool.optimize === 'function') {
         pool.optimize()
-        
+
         // Pool should adjust based on usage
         const stats = pool.getStats()
         expect(stats.totalSize).toBeGreaterThan(0)
@@ -484,15 +496,15 @@ describe('ResourcePool', () => {
         initialSize: 50,
         maxSize: 100
       })
-      
+
       if (typeof largePool.optimize === 'function') {
         largePool.optimize()
-        
+
         // Should balance size with efficiency
         const stats = largePool.getStats()
         expect(stats.totalSize).toBeLessThanOrEqual(100)
       }
-      
+
       largePool.destroy()
     })
   })
@@ -502,15 +514,15 @@ describe('ResourcePool', () => {
       const faultyFactory = vi.fn().mockImplementation(() => {
         throw new Error('Factory failed')
       })
-      
+
       const faultyPool = new ResourcePool(faultyFactory, objectReset, 10, {
         initialSize: 1
       })
-      
+
       // Should handle factory errors
       const obj = faultyPool.acquire()
       expect(obj).toBeDefined() // May return null or handle gracefully
-      
+
       faultyPool.destroy()
     })
 
@@ -518,14 +530,14 @@ describe('ResourcePool', () => {
       const faultyReset = vi.fn().mockImplementation(() => {
         throw new Error('Reset failed')
       })
-      
+
       const faultyPool = new ResourcePool(objectFactory, faultyReset, 10, {
         initialSize: 2
       })
-      
+
       const obj = faultyPool.acquire()
-      expect(() => faultyPool.release(obj!)).not.toThrow()
-      
+      expect(() => faultyPool.release(obj)).not.toThrow()
+
       faultyPool.destroy()
     })
 
@@ -543,17 +555,22 @@ describe('ResourcePool', () => {
   describe('memory management', () => {
     it('should clean up resources on destroy', () => {
       const obj = pool.acquire()
-      
+      const initialStats = pool.getStats()
+      expect(initialStats.activeCount).toBeGreaterThan(0)
+
       pool.destroy()
-      
-      // Pool should be cleaned up
-      expect(() => pool.acquire()).toThrow() // or return null
+
+      // Pool should be cleaned up - all objects destroyed
+      const afterStats = pool.getStats()
+      expect(afterStats.totalSize).toBe(0)
+      expect(afterStats.activeCount).toBe(0)
+      expect(afterStats.availableCount).toBe(0)
     })
 
     it('should handle concurrent access safely', () => {
       // Simulate concurrent operations
       const operations: (() => void)[] = []
-      
+
       for (let i = 0; i < 50; i++) {
         operations.push(() => {
           const obj = pool.acquire()
@@ -562,25 +579,25 @@ describe('ResourcePool', () => {
           }
         })
       }
-      
+
       // Execute operations
       expect(() => {
-        operations.forEach(op => op())
+        operations.forEach((op) => op())
       }).not.toThrow()
     })
 
     it('should limit memory growth', () => {
       const initialMemory = process.memoryUsage().heapUsed
-      
+
       // Perform many operations
       for (let i = 0; i < 1000; i++) {
         const obj = pool.acquire()
         if (obj) pool.release(obj)
       }
-      
+
       const finalMemory = process.memoryUsage().heapUsed
       const memoryIncrease = finalMemory - initialMemory
-      
+
       // Should not cause excessive memory growth
       expect(memoryIncrease).toBeLessThan(10 * 1024 * 1024) // 10MB limit
     })

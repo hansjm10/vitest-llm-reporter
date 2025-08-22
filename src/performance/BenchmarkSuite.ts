@@ -132,7 +132,7 @@ export class BenchmarkSuite {
           const start = Date.now()
           await this.simulateTestProcessing(data)
           const duration = Date.now() - start
-          
+
           const maxLatency = this.config.thresholds?.maxLatency ?? 1000
           if (duration > maxLatency) {
             throw new Error(`Test processing too slow: ${duration}ms > ${maxLatency}ms`)
@@ -147,12 +147,12 @@ export class BenchmarkSuite {
           // Test cache hit/miss performance
           const cache = new Map<string, string>()
           const start = Date.now()
-          
+
           // Populate cache
           for (let i = 0; i < 1000; i++) {
             cache.set(`key_${i}`, `value_${i}`)
           }
-          
+
           // Test cache hits
           for (let i = 0; i < 1000; i++) {
             const value = cache.get(`key_${i}`)
@@ -160,10 +160,10 @@ export class BenchmarkSuite {
               throw new Error('Cache miss on existing key')
             }
           }
-          
+
           const duration = Date.now() - start
           const opsPerSecond = (2000 / duration) * 1000
-          
+
           const minThroughput = this.config.thresholds?.minThroughput ?? 100
           if (opsPerSecond < minThroughput) {
             throw new Error(`Cache performance too low: ${opsPerSecond} ops/sec`)
@@ -176,7 +176,7 @@ export class BenchmarkSuite {
         name: 'memory_usage',
         test: async () => {
           const beforeMemory = process.memoryUsage()
-          
+
           // Allocate memory
           const data = []
           for (let i = 0; i < 10000; i++) {
@@ -186,15 +186,15 @@ export class BenchmarkSuite {
               data: 'x'.repeat(100)
             })
           }
-          
+
           const afterMemory = process.memoryUsage()
           const memoryIncreaseMB = (afterMemory.heapUsed - beforeMemory.heapUsed) / (1024 * 1024)
-          
+
           const maxMemoryUsage = this.config.thresholds?.maxMemoryUsage ?? 512
           if (memoryIncreaseMB > maxMemoryUsage) {
             throw new Error(`Memory usage too high: ${memoryIncreaseMB}MB`)
           }
-          
+
           // Clean up
           data.length = 0
         },
@@ -215,15 +215,15 @@ export class BenchmarkSuite {
         test: async () => {
           const promises = []
           const start = Date.now()
-          
+
           for (let i = 0; i < 10; i++) {
             promises.push(this.simulateTestProcessing(this.createMockTestData()))
           }
-          
+
           await Promise.all(promises)
           const duration = Date.now() - start
           const opsPerSecond = (10 / duration) * 1000
-          
+
           if (opsPerSecond < 5) {
             throw new Error(`Concurrent processing too slow: ${opsPerSecond} ops/sec`)
           }
@@ -236,14 +236,15 @@ export class BenchmarkSuite {
         test: async () => {
           const largeData = this.createLargeMockData()
           const start = Date.now()
-          
+
           const output = JSON.stringify(largeData)
           const duration = Date.now() - start
-          
-          if (duration > 5000) { // 5 seconds max
+
+          if (duration > 5000) {
+            // 5 seconds max
             throw new Error(`Large output generation too slow: ${duration}ms`)
           }
-          
+
           if (output.length < 100000) {
             throw new Error('Generated output too small')
           }
@@ -256,14 +257,14 @@ export class BenchmarkSuite {
         test: async () => {
           const text = 'This is a test string for tokenization. '.repeat(1000)
           const start = Date.now()
-          
+
           // Simulate tokenization
           const tokens = text.split(/\s+/)
           const tokenCount = tokens.length
-          
+
           const duration = Date.now() - start
           const tokensPerSecond = (tokenCount / duration) * 1000
-          
+
           if (tokensPerSecond < 10000) {
             throw new Error(`Tokenization too slow: ${tokensPerSecond} tokens/sec`)
           }
@@ -285,7 +286,7 @@ export class BenchmarkSuite {
         test: async () => {
           const data = []
           const start = Date.now()
-          
+
           // Allocate large amounts of memory
           for (let i = 0; i < 100000; i++) {
             data.push({
@@ -298,24 +299,26 @@ export class BenchmarkSuite {
                 }
               }
             })
-            
+
             // Check memory periodically
             if (i % 10000 === 0) {
               const memory = process.memoryUsage()
               const memoryMB = memory.heapUsed / (1024 * 1024)
-              
-              if (memoryMB > 1000) { // 1GB limit
+
+              if (memoryMB > 1000) {
+                // 1GB limit
                 throw new Error(`Memory usage exceeded limit: ${memoryMB}MB`)
               }
             }
           }
-          
+
           const duration = Date.now() - start
-          
+
           // Clean up
           data.length = 0
-          
-          if (duration > 30000) { // 30 seconds max
+
+          if (duration > 30000) {
+            // 30 seconds max
             throw new Error(`Stress test took too long: ${duration}ms`)
           }
         },
@@ -329,15 +332,15 @@ export class BenchmarkSuite {
           const concurrency = 100
           const promises = []
           const start = Date.now()
-          
+
           for (let i = 0; i < concurrency; i++) {
             promises.push(this.simulateHighLoadOperation(i))
           }
-          
+
           await Promise.all(promises)
           const duration = Date.now() - start
           const opsPerSecond = (concurrency / duration) * 1000
-          
+
           if (opsPerSecond < 10) {
             throw new Error(`High concurrency performance too low: ${opsPerSecond} ops/sec`)
           }
@@ -425,7 +428,10 @@ export class BenchmarkSuite {
   /**
    * Run individual benchmark test
    */
-  private async runBenchmarkTest(test: BenchmarkTest, context: BenchmarkContext): Promise<BenchmarkResult> {
+  private async runBenchmarkTest(
+    test: BenchmarkTest,
+    context: BenchmarkContext
+  ): Promise<BenchmarkResult> {
     const { sampleSize, warmupIterations } = context
     const samples: number[] = []
     let memoryUsage = 0
@@ -501,7 +507,7 @@ export class BenchmarkSuite {
       }
     } catch (error) {
       this.debugError('Benchmark test failed: %s - %O', test.name, error)
-      
+
       return {
         suite: this.config.suite,
         testName: test.name,
@@ -525,7 +531,7 @@ export class BenchmarkSuite {
    */
   private async runSingleIteration(test: BenchmarkTest): Promise<void> {
     const timeout = test.timeout ?? 10000 // 10 second default timeout
-    
+
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`Test timeout: ${test.name}`))
@@ -557,9 +563,7 @@ export class BenchmarkSuite {
         state: 'passed',
         errors: []
       },
-      console: [
-        { type: 'log', output: 'test output' }
-      ]
+      console: [{ type: 'log', output: 'test output' }]
     }
   }
 
@@ -577,12 +581,15 @@ export class BenchmarkSuite {
         },
         result: {
           state: Math.random() > 0.1 ? 'passed' : 'failed',
-          errors: Math.random() > 0.9 ? [
-            {
-              message: `Error in test ${i}`,
-              stack: `Error stack trace for test ${i}\n`.repeat(10)
-            }
-          ] : []
+          errors:
+            Math.random() > 0.9
+              ? [
+                  {
+                    message: `Error in test ${i}`,
+                    stack: `Error stack trace for test ${i}\n`.repeat(10)
+                  }
+                ]
+              : []
         },
         console: Array.from({ length: Math.floor(Math.random() * 10) }, (_, j) => ({
           type: 'log',
@@ -590,12 +597,12 @@ export class BenchmarkSuite {
         }))
       })
     }
-    
+
     return {
       summary: {
         total: tests.length,
-        passed: tests.filter(t => t.result.state === 'passed').length,
-        failed: tests.filter(t => t.result.state === 'failed').length
+        passed: tests.filter((t) => t.result.state === 'passed').length,
+        failed: tests.filter((t) => t.result.state === 'failed').length
       },
       tests
     }
@@ -607,11 +614,11 @@ export class BenchmarkSuite {
   private async simulateTestProcessing(data: unknown): Promise<void> {
     // Simulate JSON serialization
     const serialized = JSON.stringify(data)
-    
+
     // Simulate some processing time
     const processingTime = Math.random() * 10 + 5 // 5-15ms
-    await new Promise(resolve => setTimeout(resolve, processingTime))
-    
+    await new Promise((resolve) => setTimeout(resolve, processingTime))
+
     // Simulate validation
     if (serialized.length === 0) {
       throw new Error('Empty serialization')
@@ -627,12 +634,12 @@ export class BenchmarkSuite {
       timestamp: Date.now(),
       data: 'x'.repeat(1000)
     }
-    
+
     // Simulate processing
     await this.simulateTestProcessing(data)
-    
+
     // Simulate additional work
     const work = Math.random() * 100 + 50 // 50-150ms
-    await new Promise(resolve => setTimeout(resolve, work))
+    await new Promise((resolve) => setTimeout(resolve, work))
   }
 }

@@ -26,16 +26,18 @@ export function createMockEntry(overrides?: Partial<DuplicateEntry>): DuplicateE
  */
 export function createSimilarEntries(count: number, pattern: string): DuplicateEntry[] {
   const entries: DuplicateEntry[] = []
-  
+
   for (let i = 0; i < count; i++) {
-    entries.push(createMockEntry({
-      testId: `test-${i}`,
-      testName: `Test Case ${i}`,
-      errorMessage: pattern.replace('{{num}}', i.toString()),
-      stackTrace: `Error: ${pattern.replace('{{num}}', i.toString())}\n  at test.spec.ts:${10 + i}:5`
-    }))
+    entries.push(
+      createMockEntry({
+        testId: `test-${i}`,
+        testName: `Test Case ${i}`,
+        errorMessage: pattern.replace('{{num}}', i.toString()),
+        stackTrace: `Error: ${pattern.replace('{{num}}', i.toString())}\n  at test.spec.ts:${10 + i}:5`
+      })
+    )
   }
-  
+
   return entries
 }
 
@@ -53,11 +55,7 @@ export const ERROR_PATTERNS = {
     'TypeError: y is not a function',
     'TypeError: z is not a function'
   ],
-  assertion: [
-    'Expected 5 but got 10',
-    'Expected 3 but got 7',
-    'Expected 1 but got 2'
-  ],
+  assertion: ['Expected 5 but got 10', 'Expected 3 but got 7', 'Expected 1 but got 2'],
   timeout: [
     'Timeout: Test exceeded 5000ms',
     'Timeout: Test exceeded 10000ms',
@@ -73,12 +71,12 @@ export const STACK_PATTERNS = {
   at Object.<anonymous> (/src/test.spec.ts:10:5)
   at Module._compile (module.js:653:30)
   at Object.Module._extensions..js (module.js:664:10)`,
-  
+
   withAsync: `Error: Async test failed
   at async Object.<anonymous> (/src/async.spec.ts:20:10)
   at async Promise.all (index 0)
   at async runTest (/node_modules/vitest/dist/index.js:100:5)`,
-  
+
   nested: `Error: Nested error
   at innerFunction (/src/utils.ts:50:15)
   at middleFunction (/src/helpers.ts:30:10)
@@ -91,7 +89,7 @@ export const STACK_PATTERNS = {
  */
 export function createMockGroup(overrides?: Partial<DeduplicationGroup>): DeduplicationGroup {
   const entries = createSimilarEntries(3, 'Error {{num}}')
-  
+
   return {
     id: 'group-1',
     signature: 'error-signature',
@@ -100,7 +98,7 @@ export function createMockGroup(overrides?: Partial<DeduplicationGroup>): Dedupl
     firstSeen: new Date('2024-01-01T00:00:00Z'),
     lastSeen: new Date('2024-01-01T01:00:00Z'),
     examples: entries,
-    references: entries.map(e => e.testId),
+    references: entries.map((e) => e.testId),
     ...overrides
   }
 }
@@ -207,17 +205,19 @@ export const TEST_SCENARIOS = {
   largeDataset: (size: number = 100): DuplicateEntry[] => {
     const entries: DuplicateEntry[] = []
     const patterns = Object.values(ERROR_PATTERNS).flat()
-    
+
     for (let i = 0; i < size; i++) {
       const patternIndex = i % patterns.length
-      entries.push(createMockEntry({
-        testId: `test-${i}`,
-        testName: `Test Case ${i}`,
-        errorMessage: patterns[patternIndex].replace(/\d+/, (i * 10).toString()),
-        stackTrace: STACK_PATTERNS.simple.replace('10', (i % 100).toString())
-      }))
+      entries.push(
+        createMockEntry({
+          testId: `test-${i}`,
+          testName: `Test Case ${i}`,
+          errorMessage: patterns[patternIndex].replace(/\d+/, (i * 10).toString()),
+          stackTrace: STACK_PATTERNS.simple.replace('10', (i % 100).toString())
+        })
+      )
     }
-    
+
     return entries
   }
 }
@@ -231,7 +231,7 @@ export const ASSERTIONS = {
    */
   areGrouped: (result: { groups: DeduplicationGroup[] }, ...testIds: string[]): boolean => {
     for (const group of result.groups) {
-      const hasAll = testIds.every(id => group.references.includes(id))
+      const hasAll = testIds.every((id) => group.references.includes(id))
       if (hasAll) return true
     }
     return false
@@ -251,8 +251,7 @@ export const ASSERTIONS = {
    * Count groups containing specific pattern
    */
   countGroupsWithPattern: (result: { groups: DeduplicationGroup[] }, pattern: string): number => {
-    return result.groups.filter(g => 
-      g.examples.some(e => e.errorMessage?.includes(pattern))
-    ).length
+    return result.groups.filter((g) => g.examples.some((e) => e.errorMessage?.includes(pattern)))
+      .length
   }
 }

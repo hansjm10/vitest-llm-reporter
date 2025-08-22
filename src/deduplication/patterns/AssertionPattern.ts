@@ -1,25 +1,30 @@
 /**
  * Assertion Pattern Matcher
- * 
+ *
  * Identifies similar assertion failures by analyzing
  * assertion types, expected/actual values, and operators.
- * 
+ *
  * @module AssertionPattern
  */
 
-import type { IPatternMatcher, PatternType, SimilarityScore, SimilarityLevel } from '../../types/deduplication'
+import type {
+  IPatternMatcher,
+  PatternType,
+  SimilarityScore,
+  SimilarityLevel
+} from '../../types/deduplication'
 
 /**
  * Assertion types
  */
-type AssertionType = 
-  | 'equality' 
-  | 'inequality' 
-  | 'comparison' 
-  | 'truthiness' 
-  | 'type' 
-  | 'property' 
-  | 'exception' 
+type AssertionType =
+  | 'equality'
+  | 'inequality'
+  | 'comparison'
+  | 'truthiness'
+  | 'type'
+  | 'property'
+  | 'exception'
   | 'custom'
 
 /**
@@ -89,7 +94,7 @@ export class AssertionPattern implements IPatternMatcher {
     const structureSimilarity = this.calculateStructureSimilarity(assertionA, assertionB)
 
     // Weighted average
-    const score = 
+    const score =
       typeSimilarity * 0.3 +
       operatorSimilarity * 0.2 +
       valueSimilarity * 0.35 +
@@ -113,13 +118,13 @@ export class AssertionPattern implements IPatternMatcher {
    */
   extractSignature(text: string): string {
     const assertion = this.parseAssertion(text)
-    
+
     if (!assertion) {
       return this.normalize(text).substring(0, 50)
     }
 
     const parts = [
-      assertion.type === 'custom' ? 'equality' : assertion.type,  // Default to 'equality' for custom types
+      assertion.type === 'custom' ? 'equality' : assertion.type, // Default to 'equality' for custom types
       assertion.operator || 'tobe',
       assertion.normalizedExpected || 'NUMBER',
       assertion.normalizedActual || 'value'
@@ -141,11 +146,11 @@ export class AssertionPattern implements IPatternMatcher {
     normalized = normalized.replace(/`[^`]*`/g, '<STRING>')
     normalized = normalized.replace(/\[.*?\]/g, '<ARRAY>')
     normalized = normalized.replace(/\{.*?\}/g, '<OBJECT>')
-    
+
     // Normalize common assertion patterns
     normalized = normalized.replace(/expect\((.*?)\)/g, 'expect(<VALUE>)')
     normalized = normalized.replace(/assert\.\w+/g, 'assert.METHOD')
-    
+
     // Normalize whitespace
     normalized = normalized.replace(/\s+/g, ' ')
 
@@ -208,11 +213,11 @@ export class AssertionPattern implements IPatternMatcher {
    */
   private parseByKeywords(text: string): ParsedAssertion | null {
     const lowerText = text.toLowerCase()
-    
+
     // Look for expected/actual patterns
     const expectedMatch = text.match(/expected:?\s*(.+?)(?:\n|$|,)/i)
     const actualMatch = text.match(/(?:actual|received|got):?\s*(.+?)(?:\n|$|,)/i)
-    
+
     if (expectedMatch || actualMatch) {
       const assertion: ParsedAssertion = {
         type: 'equality',
@@ -231,7 +236,7 @@ export class AssertionPattern implements IPatternMatcher {
 
       // Try to determine type from context
       for (const [type, operators] of Object.entries(this.operators)) {
-        if (operators.some(op => lowerText.includes(op))) {
+        if (operators.some((op) => lowerText.includes(op))) {
           assertion.type = type as AssertionType
           break
         }
@@ -248,7 +253,7 @@ export class AssertionPattern implements IPatternMatcher {
    */
   private getAssertionType(operator: string): AssertionType {
     const lowerOp = operator.toLowerCase()
-    
+
     for (const [type, operators] of Object.entries(this.operators)) {
       if (operators.includes(lowerOp)) {
         return type as AssertionType
@@ -307,7 +312,7 @@ export class AssertionPattern implements IPatternMatcher {
   private calculateOperatorSimilarity(a: ParsedAssertion, b: ParsedAssertion): number {
     if (!a.operator && !b.operator) return 0.5
     if (!a.operator || !b.operator) return 0.2
-    
+
     if (a.operator === b.operator) return 1
 
     // Check if operators are in the same category

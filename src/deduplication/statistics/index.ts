@@ -1,12 +1,12 @@
 /**
  * Statistics Module
- * 
+ *
  * Exports for deduplication statistics tracking
- * 
+ *
  * @module statistics
  */
 
-export { 
+export {
   DeduplicationStatsCollector,
   type PerformanceMetrics,
   type CompressionMetrics,

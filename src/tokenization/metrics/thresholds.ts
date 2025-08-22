@@ -400,9 +400,25 @@ export class ThresholdManager {
       const typedKey = key as keyof ThresholdSettings
       if (updates[typedKey] !== undefined) {
         if (typedKey === 'sectionPercentage') {
-          Object.assign(result.sectionPercentage, updates.sectionPercentage)
+          // Deep merge for sectionPercentage
+          const sectionUpdates = updates.sectionPercentage
+          if (sectionUpdates) {
+            Object.keys(sectionUpdates).forEach((section) => {
+              const sectionKey = section as MetricSection
+              if (sectionUpdates[sectionKey]) {
+                result.sectionPercentage[sectionKey] = {
+                  ...result.sectionPercentage[sectionKey],
+                  ...sectionUpdates[sectionKey]
+                }
+              }
+            })
+          }
         } else {
-          Object.assign(result[typedKey], updates[typedKey])
+          // Merge the config object properties
+          result[typedKey] = {
+            ...result[typedKey],
+            ...updates[typedKey]
+          } as any
         }
       }
     })

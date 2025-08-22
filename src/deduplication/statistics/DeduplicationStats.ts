@@ -1,9 +1,9 @@
 /**
  * Deduplication Statistics
- * 
+ *
  * Tracks and reports statistics for the deduplication process,
  * including performance metrics and compression effectiveness.
- * 
+ *
  * @module DeduplicationStats
  */
 
@@ -103,13 +103,13 @@ export class DeduplicationStatsCollector {
         'stack-trace': 0,
         'error-message': 0,
         'console-output': 0,
-        'assertion': 0
+        assertion: 0
       },
       similarityDistribution: {
-        'exact': 0,
-        'high': 0,
-        'medium': 0,
-        'low': 0
+        exact: 0,
+        high: 0,
+        medium: 0,
+        low: 0
       },
       processingTime: 0,
       memoryUsed: 0,
@@ -150,7 +150,7 @@ export class DeduplicationStatsCollector {
     return () => {
       const duration = Date.now() - startTime
       this.processingTimes.push(duration)
-      
+
       // Record time series data
       this.stats.timeSeries.processingTimes.push({
         timestamp: Date.now(),
@@ -175,11 +175,7 @@ export class DeduplicationStatsCollector {
   /**
    * Record a pattern match
    */
-  recordPatternMatch(
-    pattern: PatternType,
-    similarity: number,
-    processingTime: number
-  ): void {
+  recordPatternMatch(pattern: PatternType, similarity: number, processingTime: number): void {
     if (!this.patternMetrics.has(pattern)) {
       this.patternMetrics.set(pattern, {
         pattern,
@@ -192,11 +188,10 @@ export class DeduplicationStatsCollector {
 
     const metrics = this.patternMetrics.get(pattern)!
     const newCount = metrics.matchCount + 1
-    
+
     // Update running averages
-    metrics.avgSimilarity = 
-      (metrics.avgSimilarity * metrics.matchCount + similarity) / newCount
-    metrics.processingTime = 
+    metrics.avgSimilarity = (metrics.avgSimilarity * metrics.matchCount + similarity) / newCount
+    metrics.processingTime =
       (metrics.processingTime * metrics.matchCount + processingTime) / newCount
     metrics.matchCount = newCount
 
@@ -207,18 +202,14 @@ export class DeduplicationStatsCollector {
   /**
    * Update statistics with processing results
    */
-  updateStats(
-    totalFailures: number,
-    groups: DeduplicationGroup[],
-    compressionRatio: number
-  ): void {
+  updateStats(totalFailures: number, groups: DeduplicationGroup[], compressionRatio: number): void {
     this.stats.totalFailures = totalFailures
     this.stats.duplicateGroups = groups.length
-    
+
     // Calculate unique failures
     const duplicateCount = groups.reduce((sum, g) => sum + g.count, 0)
     this.stats.uniqueFailures = totalFailures - duplicateCount + groups.length
-    
+
     // Update compression ratio
     this.stats.compressionRatio = compressionRatio
     this.stats.timeSeries.compressionRatios.push({
@@ -231,26 +222,26 @@ export class DeduplicationStatsCollector {
       'stack-trace': 0,
       'error-message': 0,
       'console-output': 0,
-      'assertion': 0
+      assertion: 0
     }
     for (const group of groups) {
-      this.stats.patternDistribution[group.pattern] = 
+      this.stats.patternDistribution[group.pattern] =
         (this.stats.patternDistribution[group.pattern] || 0) + group.count
     }
 
     // Update similarity distribution
     this.stats.similarityDistribution = {
-      'exact': 0,
-      'high': 0,
-      'medium': 0,
-      'low': 0
+      exact: 0,
+      high: 0,
+      medium: 0,
+      low: 0
     }
     for (const group of groups) {
       // Count examples by similarity level
       for (const example of group.examples) {
         // Assuming we can determine similarity level from group
         const level: SimilarityLevel = 'high' // This would be determined from actual data
-        this.stats.similarityDistribution[level] = 
+        this.stats.similarityDistribution[level] =
           (this.stats.similarityDistribution[level] || 0) + 1
       }
     }
@@ -263,26 +254,24 @@ export class DeduplicationStatsCollector {
    * Update compression metrics
    */
   private updateCompressionMetrics(groups: DeduplicationGroup[]): void {
-    const groupSizes = groups.map(g => g.count)
-    
+    const groupSizes = groups.map((g) => g.count)
+
     this.stats.compression.groupCount = groups.length
-    this.stats.compression.avgGroupSize = 
-      groupSizes.length > 0
-        ? groupSizes.reduce((a, b) => a + b, 0) / groupSizes.length
-        : 0
+    this.stats.compression.avgGroupSize =
+      groupSizes.length > 0 ? groupSizes.reduce((a, b) => a + b, 0) / groupSizes.length : 0
 
     // Estimate sizes (would be calculated from actual data)
     const avgFailureSize = 1000 // bytes
     this.stats.compression.originalSize = this.stats.totalFailures * avgFailureSize
-    this.stats.compression.compressedSize = 
+    this.stats.compression.compressedSize =
       this.stats.uniqueFailures * avgFailureSize + groups.length * 100 // group overhead
-    
-    this.stats.compression.compressionRatio = 
+
+    this.stats.compression.compressionRatio =
       this.stats.compression.originalSize > 0
-        ? 1 - (this.stats.compression.compressedSize / this.stats.compression.originalSize)
+        ? 1 - this.stats.compression.compressedSize / this.stats.compression.originalSize
         : 0
-    
-    this.stats.compression.spaceSaved = 
+
+    this.stats.compression.spaceSaved =
       this.stats.compression.originalSize - this.stats.compression.compressedSize
   }
 
@@ -291,21 +280,21 @@ export class DeduplicationStatsCollector {
    */
   finalize(): ExtendedStats {
     const endTime = Date.now()
-    
+
     // Update performance metrics
     this.stats.performance.endTime = endTime
     this.stats.performance.duration = endTime - this.startTime
     this.stats.processingTime = this.stats.performance.duration
-    
+
     // Calculate throughput
     if (this.stats.performance.duration > 0) {
-      this.stats.performance.throughput = 
+      this.stats.performance.throughput =
         (this.stats.totalFailures / this.stats.performance.duration) * 1000
     }
 
     // Calculate average processing time
     if (this.processingTimes.length > 0) {
-      this.stats.performance.avgProcessingTime = 
+      this.stats.performance.avgProcessingTime =
         this.processingTimes.reduce((a, b) => a + b, 0) / this.processingTimes.length
     }
 
@@ -313,8 +302,9 @@ export class DeduplicationStatsCollector {
     this.stats.memoryUsed = this.stats.performance.peakMemoryUsage
 
     // Convert pattern metrics to array
-    this.stats.patternEffectiveness = Array.from(this.patternMetrics.values())
-      .sort((a, b) => b.effectiveness - a.effectiveness)
+    this.stats.patternEffectiveness = Array.from(this.patternMetrics.values()).sort(
+      (a, b) => b.effectiveness - a.effectiveness
+    )
 
     return this.stats
   }
@@ -347,7 +337,7 @@ export class DeduplicationStatsCollector {
    */
   generateSummary(): string {
     const stats = this.finalize()
-    
+
     const lines = [
       '=== Deduplication Statistics Summary ===',
       '',
@@ -385,8 +375,8 @@ export class DeduplicationStatsCollector {
       for (const pattern of stats.patternEffectiveness) {
         lines.push(
           `  ${pattern.pattern}: ${pattern.matchCount} matches, ` +
-          `${(pattern.avgSimilarity * 100).toFixed(1)}% avg similarity, ` +
-          `${(pattern.effectiveness * 100).toFixed(1)}% effective`
+            `${(pattern.avgSimilarity * 100).toFixed(1)}% avg similarity, ` +
+            `${(pattern.effectiveness * 100).toFixed(1)}% effective`
         )
       }
     }

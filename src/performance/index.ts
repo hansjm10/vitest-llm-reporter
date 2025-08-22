@@ -8,11 +8,7 @@
  */
 
 // Import types for internal use
-import type {
-  PerformanceConfig,
-  BenchmarkConfig,
-  PerformanceMode
-} from './types'
+import type { PerformanceConfig, BenchmarkConfig, PerformanceMode } from './types'
 
 // Re-export type definitions
 export type {
@@ -59,7 +55,7 @@ export { BenchmarkSuite } from './BenchmarkSuite'
 // Cache system exports
 export * from './cache'
 
-// Memory management exports  
+// Memory management exports
 export * from './memory'
 
 // Streaming optimization exports
@@ -67,7 +63,7 @@ export * from './streaming'
 
 /**
  * Create a performance manager with default configuration
- * 
+ *
  * @param config Optional performance configuration
  * @returns Configured PerformanceManager instance
  */
@@ -77,7 +73,7 @@ export function createPerformanceManager(config?: PerformanceConfig): Performanc
 
 /**
  * Create a metrics collector with default configuration
- * 
+ *
  * @param config Performance configuration
  * @returns Configured MetricsCollector instance
  */
@@ -87,7 +83,7 @@ export function createMetricsCollector(config: Required<PerformanceConfig>): Met
 
 /**
  * Create a benchmark suite with default configuration
- * 
+ *
  * @param config Optional benchmark configuration
  * @returns Configured BenchmarkSuite instance
  */
@@ -205,7 +201,7 @@ export const TEST_PERFORMANCE_CONFIG: PerformanceConfig = {
 
 /**
  * Get performance configuration for a specific mode
- * 
+ *
  * @param mode Performance mode
  * @returns Appropriate performance configuration
  */
@@ -234,7 +230,7 @@ export function getPerformanceConfigForMode(mode: PerformanceMode): PerformanceC
 
 /**
  * Validate performance configuration
- * 
+ *
  * @param config Performance configuration to validate
  * @throws Error if configuration is invalid
  */
@@ -242,15 +238,15 @@ export function validatePerformanceConfig(config: PerformanceConfig): void {
   if (config.maxOverheadPercent !== undefined && config.maxOverheadPercent < 0) {
     throw new Error('maxOverheadPercent must be non-negative')
   }
-  
+
   if (config.cache?.tokenCacheSize !== undefined && config.cache.tokenCacheSize < 0) {
     throw new Error('tokenCacheSize must be non-negative')
   }
-  
+
   if (config.memory?.pressureThreshold !== undefined && config.memory.pressureThreshold < 0) {
     throw new Error('pressureThreshold must be non-negative')
   }
-  
+
   if (config.benchmark?.sampleSize !== undefined && config.benchmark.sampleSize < 1) {
     throw new Error('sampleSize must be at least 1')
   }

@@ -19,7 +19,7 @@ describe('MemoryProfiler', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     defaultConfig = {
       enabled: true,
       pressureThreshold: 100,
@@ -68,7 +68,7 @@ describe('MemoryProfiler', () => {
   describe('snapshot recording', () => {
     it('should record memory snapshots when profiling enabled', () => {
       profiler.recordSnapshot(mockMemoryMetrics)
-      
+
       const snapshots = (profiler as any).snapshots
       expect(snapshots).toHaveLength(1)
       expect(snapshots[0]).toMatchObject({
@@ -87,34 +87,38 @@ describe('MemoryProfiler', () => {
         enableProfiling: false
       }
       const disabledProfiler = new MemoryProfiler(disabledConfig)
-      
+
       disabledProfiler.recordSnapshot(mockMemoryMetrics)
-      
+
       const snapshots = (disabledProfiler as any).snapshots
       expect(snapshots).toHaveLength(0)
     })
 
     it('should record multiple snapshots over time', () => {
-      profiler.recordSnapshot(mockMemoryMetrics)
+      vi.useFakeTimers()
       
+      profiler.recordSnapshot(mockMemoryMetrics)
+
       // Wait a bit and record another
       vi.advanceTimersByTime(100)
       profiler.recordSnapshot(mockMemoryMetrics)
-      
+
       const snapshots = (profiler as any).snapshots
       expect(snapshots).toHaveLength(2)
       expect(snapshots[1].timestamp).toBeGreaterThan(snapshots[0].timestamp)
+      
+      vi.useRealTimers()
     })
 
     it('should limit snapshot history size', () => {
-      // Record many snapshots
-      for (let i = 0; i < 1000; i++) {
+      // Record many snapshots - more than the limit (1001 to trigger trimming)
+      for (let i = 0; i < 1001; i++) {
         profiler.recordSnapshot(mockMemoryMetrics)
       }
-      
+
       const snapshots = (profiler as any).snapshots
-      // Should limit to prevent memory bloat (adjust based on implementation)
-      expect(snapshots.length).toBeLessThanOrEqual(500)
+      // Should limit to 500 after exceeding 1000
+      expect(snapshots.length).toBe(500)
     })
   })
 
@@ -130,56 +134,76 @@ describe('MemoryProfiler', () => {
     it('should analyze memory trends', () => {
       // Record snapshots with increasing memory usage
       const baseTime = Date.now()
-      
-      for (let i = 0; i < 5; i++) {
+      const originalMemoryUsage = process.memoryUsage
+
+      // Need at least 10 snapshots for trend analysis
+      for (let i = 0; i < 15; i++) {
         vi.setSystemTime(baseTime + i * 1000)
-        const metrics = {
-          ...mockMemoryMetrics,
-          currentUsage: mockMemoryMetrics.currentUsage + (i * 10 * 1024 * 1024) // Increasing by 10MB each time
-        }
-        profiler.recordSnapshot(metrics)
+        
+        // Mock process.memoryUsage to return increasing values
+        const currentUsage = 50 * 1024 * 1024 + i * 10 * 1024 * 1024 // Start at 50MB, increase by 10MB each time
+        process.memoryUsage = vi.fn().mockReturnValue({
+          heapUsed: currentUsage,
+          heapTotal: currentUsage * 1.5,
+          external: 1024 * 1024,
+          rss: currentUsage * 2,
+          arrayBuffers: 512 * 1024
+        }) as any
+        
+        profiler.recordSnapshot(mockMemoryMetrics)
       }
-      
+
       const trend = profiler.analyzeTrend()
-      
-      if (trend) {
-        expect(trend.trend).toBe('increasing')
-        expect(trend.rate).toBeGreaterThan(0)
-        expect(trend.confidence).toBeGreaterThan(0)
-        expect(trend.confidence).toBeLessThanOrEqual(1)
-      }
+
+      expect(trend.trend).toBe('increasing')
+      expect(trend.rate).toBeGreaterThan(1000) // More than 1000 bytes/sec threshold
+      expect(trend.confidence).toBeGreaterThan(0)
+      expect(trend.confidence).toBeLessThanOrEqual(1)
+
+      // Restore original
+      process.memoryUsage = originalMemoryUsage
     })
 
     it('should detect decreasing memory trend', () => {
       const baseTime = Date.now()
-      
-      for (let i = 0; i < 5; i++) {
+      const originalMemoryUsage = process.memoryUsage
+
+      // Need at least 10 snapshots for trend analysis
+      for (let i = 0; i < 15; i++) {
         vi.setSystemTime(baseTime + i * 1000)
-        const metrics = {
-          ...mockMemoryMetrics,
-          currentUsage: mockMemoryMetrics.currentUsage - (i * 5 * 1024 * 1024) // Decreasing by 5MB
-        }
-        profiler.recordSnapshot(metrics)
+        
+        // Mock process.memoryUsage to return decreasing values
+        const currentUsage = 100 * 1024 * 1024 - i * 5 * 1024 * 1024 // Start at 100MB, decrease by 5MB each time
+        process.memoryUsage = vi.fn().mockReturnValue({
+          heapUsed: currentUsage,
+          heapTotal: 150 * 1024 * 1024,
+          external: 1024 * 1024,
+          rss: currentUsage * 2,
+          arrayBuffers: 512 * 1024
+        }) as any
+        
+        profiler.recordSnapshot(mockMemoryMetrics)
       }
-      
+
       const trend = profiler.analyzeTrend()
-      
-      if (trend) {
-        expect(trend.trend).toBe('decreasing')
-        expect(trend.rate).toBeLessThan(0)
-      }
+
+      expect(trend.trend).toBe('decreasing')
+      expect(trend.rate).toBeLessThan(-1000) // Less than -1000 bytes/sec threshold
+
+      // Restore original
+      process.memoryUsage = originalMemoryUsage
     })
 
     it('should detect stable memory usage', () => {
       const baseTime = Date.now()
-      
+
       for (let i = 0; i < 5; i++) {
         vi.setSystemTime(baseTime + i * 1000)
         profiler.recordSnapshot(mockMemoryMetrics) // Same metrics each time
       }
-      
+
       const trend = profiler.analyzeTrend()
-      
+
       if (trend) {
         expect(trend.trend).toBe('stable')
         expect(Math.abs(trend.rate)).toBeLessThan(1024 * 1024) // Less than 1MB/sec change
@@ -188,9 +212,9 @@ describe('MemoryProfiler', () => {
 
     it('should return null for insufficient data', () => {
       profiler.recordSnapshot(mockMemoryMetrics)
-      
+
       const trend = profiler.analyzeTrend()
-      
+
       // May return null if insufficient data points
       if (trend === null) {
         expect(trend).toBeNull()
@@ -211,53 +235,53 @@ describe('MemoryProfiler', () => {
 
     it('should detect potential memory leaks', () => {
       const baseTime = Date.now()
-      
+
       // Simulate memory leak pattern: consistently increasing usage
       for (let i = 0; i < 10; i++) {
         vi.setSystemTime(baseTime + i * 5000) // 5 second intervals
         const metrics = {
           ...mockMemoryMetrics,
-          currentUsage: mockMemoryMetrics.currentUsage + (i * 20 * 1024 * 1024), // 20MB increases
+          currentUsage: mockMemoryMetrics.currentUsage + i * 20 * 1024 * 1024, // 20MB increases
           gcCount: mockMemoryMetrics.gcCount + Math.floor(i / 2) // Some GC activity
         }
         profiler.recordSnapshot(metrics)
       }
-      
+
       const trend = profiler.analyzeTrend()
-      
+
       expect(trend).toBeDefined()
       // May detect potential leaks based on trends
     })
 
     it('should not detect leaks with stable memory usage', () => {
       const baseTime = Date.now()
-      
+
       for (let i = 0; i < 10; i++) {
         vi.setSystemTime(baseTime + i * 5000)
         profiler.recordSnapshot(mockMemoryMetrics) // Stable usage
       }
-      
+
       const trend = profiler.analyzeTrend()
-      
+
       expect(trend).toBeDefined()
       // Should have few or no leak indicators
     })
 
     it('should consider GC activity in leak detection', () => {
       const baseTime = Date.now()
-      
+
       for (let i = 0; i < 10; i++) {
         vi.setSystemTime(baseTime + i * 5000)
         const metrics = {
           ...mockMemoryMetrics,
-          currentUsage: mockMemoryMetrics.currentUsage + (i * 10 * 1024 * 1024),
+          currentUsage: mockMemoryMetrics.currentUsage + i * 10 * 1024 * 1024,
           gcCount: mockMemoryMetrics.gcCount + i * 2 // Frequent GC
         }
         profiler.recordSnapshot(metrics)
       }
-      
+
       const trend = profiler.analyzeTrend()
-      
+
       expect(trend).toBeDefined()
       // Frequent GC with increasing memory might indicate issues
     })
@@ -269,9 +293,9 @@ describe('MemoryProfiler', () => {
       for (let i = 0; i < 5; i++) {
         profiler.recordSnapshot(mockMemoryMetrics)
       }
-      
+
       const trend = profiler.analyzeTrend()
-      
+
       expect(trend).toBeDefined()
       // Since suggestions functionality is not implemented, just verify trend is valid
       expect(trend.trend).toMatch(/increasing|decreasing|stable/)
@@ -285,11 +309,11 @@ describe('MemoryProfiler', () => {
         pressureLevel: 'high' as const,
         usagePercentage: 90
       }
-      
+
       profiler.recordSnapshot(highPressureMetrics)
-      
+
       const trend = profiler.analyzeTrend()
-      
+
       expect(trend).toBeDefined()
       // Since suggestions functionality is not implemented, just verify trend analysis
       expect(trend.trend).toMatch(/increasing|decreasing|stable/)
@@ -305,11 +329,11 @@ describe('MemoryProfiler', () => {
           poolHitRatio: 30 // Low hit ratio
         }
       }
-      
+
       profiler.recordSnapshot(lowPoolMetrics)
-      
+
       const trend = profiler.analyzeTrend()
-      
+
       expect(trend).toBeDefined()
       // May suggest pool optimization
     })
@@ -318,9 +342,9 @@ describe('MemoryProfiler', () => {
   describe('data management', () => {
     it('should provide snapshot access', () => {
       profiler.recordSnapshot(mockMemoryMetrics)
-      
+
       const snapshots = (profiler as any).snapshots
-      
+
       expect(Array.isArray(snapshots)).toBe(true)
       expect(snapshots).toHaveLength(1)
     })
@@ -329,17 +353,17 @@ describe('MemoryProfiler', () => {
       profiler.recordSnapshot(mockMemoryMetrics)
       profiler.recordSnapshot(mockMemoryMetrics)
       expect((profiler as any).snapshots).toHaveLength(2)
-      
+
       await profiler.cleanup()
-      
+
       expect((profiler as any).snapshots).toHaveLength(0)
     })
 
     it('should provide access to recorded snapshots', () => {
       profiler.recordSnapshot(mockMemoryMetrics)
-      
+
       const snapshots = (profiler as any).snapshots
-      
+
       expect(snapshots).toBeDefined()
       expect(Array.isArray(snapshots)).toBe(true)
       expect(snapshots).toHaveLength(1)
@@ -350,9 +374,9 @@ describe('MemoryProfiler', () => {
       for (let i = 0; i < 100; i++) {
         profiler.recordSnapshot(mockMemoryMetrics)
       }
-      
+
       profiler.cleanup()
-      
+
       // Cleanup should complete without throwing
       // Note: getSnapshots method is not implemented in MemoryProfiler
       expect(true).toBe(true) // Just verify cleanup doesn't throw
@@ -366,7 +390,7 @@ describe('MemoryProfiler', () => {
         currentUsage: NaN,
         peakUsage: -1
       }
-      
+
       expect(() => profiler.recordSnapshot(invalidMetrics)).not.toThrow()
     })
 
@@ -376,16 +400,16 @@ describe('MemoryProfiler', () => {
       process.memoryUsage = vi.fn().mockImplementation(() => {
         throw new Error('Memory usage access failed')
       }) as any
-      
+
       expect(() => profiler.recordSnapshot(mockMemoryMetrics)).not.toThrow()
-      
+
       // Restore original
       process.memoryUsage = originalMemoryUsage
     })
 
     it('should handle analysis with no snapshots', () => {
       const trend = profiler.analyzeTrend()
-      
+
       // Should handle gracefully with no snapshots
       expect(trend).toBeDefined()
       expect(trend.confidence).toBe(0)
@@ -396,26 +420,26 @@ describe('MemoryProfiler', () => {
   describe('performance characteristics', () => {
     it('should handle frequent snapshot recording efficiently', () => {
       const start = Date.now()
-      
+
       for (let i = 0; i < 1000; i++) {
         profiler.recordSnapshot(mockMemoryMetrics)
       }
-      
+
       const duration = Date.now() - start
       expect(duration).toBeLessThan(1000) // Should complete within 1 second
     })
 
     it('should limit memory usage of profiler itself', () => {
       const initialMemory = process.memoryUsage().heapUsed
-      
+
       // Record many snapshots
       for (let i = 0; i < 10000; i++) {
         profiler.recordSnapshot(mockMemoryMetrics)
       }
-      
+
       const finalMemory = process.memoryUsage().heapUsed
       const profilerMemoryUsage = finalMemory - initialMemory
-      
+
       // Profiler itself shouldn't use excessive memory (adjust threshold as needed)
       expect(profilerMemoryUsage).toBeLessThan(50 * 1024 * 1024) // 50MB
     })
@@ -425,13 +449,13 @@ describe('MemoryProfiler', () => {
       for (let i = 0; i < 100; i++) {
         profiler.recordSnapshot(mockMemoryMetrics)
       }
-      
+
       const start = Date.now()
-      
+
       profiler.analyzeTrend()
       // Note: detectLeaks and getOptimizationSuggestions methods are not implemented
       // Just test the methods that exist
-      
+
       const duration = Date.now() - start
       expect(duration).toBeLessThan(500) // Should complete analysis within 500ms
     })

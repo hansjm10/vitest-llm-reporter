@@ -52,12 +52,32 @@ export class PriorityQueue<T> {
     }
   }
 
-  dequeue(): QueueItem<T> | undefined {
-    return this.queue.shift()
+  dequeue(): QueueItem<T> | null {
+    const item = this.queue.shift()
+    return item ?? null
+  }
+
+  peek(): QueueItem<T> | null {
+    return this.queue[0] ?? null
+  }
+
+  dequeueBatch(count: number): QueueItem<T>[] {
+    if (count <= 0) {
+      return []
+    }
+    const batch: QueueItem<T>[] = []
+    const actualCount = Math.min(count, this.queue.length)
+    for (let i = 0; i < actualCount; i++) {
+      const item = this.dequeue()
+      if (item) {
+        batch.push(item)
+      }
+    }
+    return batch
   }
 
   adjustPriority(taskId: string, newPriority: number): void {
-    const index = this.queue.findIndex(item => item.id === taskId)
+    const index = this.queue.findIndex((item) => item.id === taskId)
     if (index >= 0) {
       const item = this.queue.splice(index, 1)[0]
       this.enqueue(item.id, item.task, newPriority)
@@ -73,6 +93,14 @@ export class PriorityQueue<T> {
       return this.config.batchSize! * 1.5
     }
     return this.config.batchSize!
+  }
+
+  isEmpty(): boolean {
+    return this.queue.length === 0
+  }
+
+  clear(): void {
+    this.queue = []
   }
 
   size(): number {

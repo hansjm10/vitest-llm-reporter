@@ -10,7 +10,7 @@ import type { DuplicateEntry, DeduplicationConfig } from '../types/deduplication
 
 describe('DeduplicationService', () => {
   let service: DeduplicationService
-  
+
   beforeEach(() => {
     service = new DeduplicationService()
   })
@@ -35,7 +35,7 @@ describe('DeduplicationService', () => {
           preserveExamples: 2
         }
       }
-      
+
       const customService = new DeduplicationService(config)
       expect(customService).toBeDefined()
     })
@@ -44,7 +44,7 @@ describe('DeduplicationService', () => {
   describe('process', () => {
     it('should return empty result for no failures', () => {
       const result = service.process([])
-      
+
       expect(result.groups).toHaveLength(0)
       expect(result.references.size).toBe(0)
       expect(result.stats.totalFailures).toBe(0)
@@ -69,7 +69,7 @@ describe('DeduplicationService', () => {
       ]
 
       const result = service.process(failures)
-      
+
       expect(result.groups).toHaveLength(0)
       expect(result.stats.totalFailures).toBe(2)
       expect(result.stats.uniqueFailures).toBe(2)
@@ -78,7 +78,7 @@ describe('DeduplicationService', () => {
     it('should group similar error messages', () => {
       // Add pattern matchers
       service.addPattern(new ErrorMessagePattern())
-      
+
       const failures: DuplicateEntry[] = [
         {
           testId: 'test1',
@@ -104,7 +104,7 @@ describe('DeduplicationService', () => {
       ]
 
       const result = service.process(failures)
-      
+
       // Should group the identical errors
       expect(result.groups.length).toBeGreaterThan(0)
       expect(result.stats.totalFailures).toBe(3)
@@ -113,12 +113,12 @@ describe('DeduplicationService', () => {
     it('should group similar stack traces', () => {
       // Add pattern matchers
       service.addPattern(new StackTracePattern())
-      
+
       const stackTrace1 = `Error: Test failed
         at Object.<anonymous> (/src/test.ts:10:5)
         at Module._compile (module.js:653:30)
         at Object.Module._extensions..js (module.js:664:10)`
-      
+
       const stackTrace2 = `Error: Test failed
         at Object.<anonymous> (/src/test.ts:10:5)
         at Module._compile (module.js:653:30)
@@ -142,7 +142,7 @@ describe('DeduplicationService', () => {
       ]
 
       const result = service.process(failures)
-      
+
       expect(result.groups.length).toBeGreaterThan(0)
       expect(result.groups[0].count).toBe(2)
     })
@@ -156,10 +156,10 @@ describe('DeduplicationService', () => {
           preserveExamples: 3
         }
       }
-      
+
       service.configure(config)
       service.addPattern(new ErrorMessagePattern())
-      
+
       const failures: DuplicateEntry[] = [
         {
           testId: 'test1',
@@ -178,7 +178,7 @@ describe('DeduplicationService', () => {
       ]
 
       const result = service.process(failures)
-      
+
       // Should not group because minGroupSize is 3
       expect(result.groups).toHaveLength(0)
     })
@@ -192,10 +192,10 @@ describe('DeduplicationService', () => {
           preserveExamples: 3
         }
       }
-      
+
       service.configure(config)
       service.addPattern(new ErrorMessagePattern())
-      
+
       const failures: DuplicateEntry[] = [
         {
           testId: 'test1',
@@ -214,7 +214,7 @@ describe('DeduplicationService', () => {
       ]
 
       const result = service.process(failures)
-      
+
       expect(result.compressedOutput).toBeDefined()
       expect(result.compressedOutput?.version).toBe('1.0.0')
       expect(result.compressedOutput?.groups).toBeDefined()
@@ -226,7 +226,7 @@ describe('DeduplicationService', () => {
     it('should add pattern matcher', () => {
       const pattern = new StackTracePattern()
       service.addPattern(pattern)
-      
+
       // Pattern should be used in processing
       const failures: DuplicateEntry[] = [
         {
@@ -237,7 +237,7 @@ describe('DeduplicationService', () => {
           stackTrace: 'at test.ts:10'
         }
       ]
-      
+
       const result = service.process(failures)
       expect(result).toBeDefined()
     })
@@ -246,7 +246,7 @@ describe('DeduplicationService', () => {
   describe('getStats', () => {
     it('should return current statistics', () => {
       const stats = service.getStats()
-      
+
       expect(stats).toHaveProperty('totalFailures')
       expect(stats).toHaveProperty('uniqueFailures')
       expect(stats).toHaveProperty('duplicateGroups')
@@ -257,7 +257,7 @@ describe('DeduplicationService', () => {
 
     it('should update stats after processing', () => {
       service.addPattern(new ErrorMessagePattern())
-      
+
       const failures: DuplicateEntry[] = [
         {
           testId: 'test1',
@@ -277,7 +277,7 @@ describe('DeduplicationService', () => {
 
       service.process(failures)
       const stats = service.getStats()
-      
+
       expect(stats.totalFailures).toBe(2)
       expect(stats.processingTime).toBeGreaterThan(0)
     })
@@ -286,7 +286,7 @@ describe('DeduplicationService', () => {
   describe('reset', () => {
     it('should reset service state', () => {
       service.addPattern(new ErrorMessagePattern())
-      
+
       const failures: DuplicateEntry[] = [
         {
           testId: 'test1',
@@ -299,7 +299,7 @@ describe('DeduplicationService', () => {
 
       service.process(failures)
       service.reset()
-      
+
       const stats = service.getStats()
       expect(stats.totalFailures).toBe(0)
       expect(stats.uniqueFailures).toBe(0)
@@ -312,10 +312,10 @@ describe('DeduplicationService', () => {
       const config: Partial<DeduplicationConfig> = {
         strategy: 'aggressive'
       }
-      
+
       const aggressiveService = new DeduplicationService(config)
       aggressiveService.addPattern(new ErrorMessagePattern())
-      
+
       const failures: DuplicateEntry[] = [
         {
           testId: 'test1',
@@ -342,10 +342,10 @@ describe('DeduplicationService', () => {
       const config: Partial<DeduplicationConfig> = {
         strategy: 'conservative'
       }
-      
+
       const conservativeService = new DeduplicationService(config)
       conservativeService.addPattern(new ErrorMessagePattern())
-      
+
       const failures: DuplicateEntry[] = [
         {
           testId: 'test1',

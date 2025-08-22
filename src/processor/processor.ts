@@ -15,7 +15,11 @@ import type { DeduplicationConfig } from '../types/deduplication'
 import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 import { createDeduplicationService, type IDeduplicationService } from '../deduplication'
 import type { DeduplicationResult, DuplicateEntry } from '../types/deduplication'
-import { PerformanceManager, createPerformanceManager, type PerformanceConfig } from '../performance'
+import {
+  PerformanceManager,
+  createPerformanceManager,
+  type PerformanceConfig
+} from '../performance'
 
 /**
  * Processing options
@@ -44,7 +48,11 @@ export interface ProcessingResult {
   sanitized?: boolean
   truncated?: boolean
   deduplicated?: boolean
-  truncationMetrics?: Array<{ originalTokens: number; truncatedTokens: number; wasTruncated: boolean }>
+  truncationMetrics?: Array<{
+    originalTokens: number
+    truncatedTokens: number
+    wasTruncated: boolean
+  }>
   deduplicationResult?: DeduplicationResult
 }
 
@@ -82,33 +90,35 @@ export class SchemaProcessor {
   private truncationEngine?: ITruncationEngine
   private deduplicationService?: IDeduplicationService
   private performanceManager?: PerformanceManager
-  private defaultOptions: Required<Pick<ProcessingOptions, 'validate' | 'sanitize' | 'truncate' | 'deduplicate'>>
+  private defaultOptions: Required<
+    Pick<ProcessingOptions, 'validate' | 'sanitize' | 'truncate' | 'deduplicate'>
+  >
 
   constructor(options: ProcessingOptions = {}) {
     this.validator = new SchemaValidator(options.validationConfig)
     this.sanitizer = new JsonSanitizer(options.sanitizationConfig)
-    
+
     // Initialize truncation engine if enabled
     if (options.truncationConfig?.enabled) {
       this.truncationEngine = createTruncationEngine(options.truncationConfig)
     }
-    
+
     // Initialize deduplication service if enabled
     if (options.deduplicationConfig?.enabled) {
       this.deduplicationService = createDeduplicationService(options.deduplicationConfig)
     }
-    
+
     // Initialize performance manager if enabled
     if (options.performanceConfig?.enabled) {
       this.performanceManager = createPerformanceManager(options.performanceConfig)
       this.initializePerformanceManager()
     }
-    
+
     this.defaultOptions = {
       validate: options.validate ?? true,
       sanitize: options.sanitize ?? true,
-      truncate: options.truncate ?? (options.truncationConfig?.enabled ?? false),
-      deduplicate: options.deduplicate ?? (options.deduplicationConfig?.enabled ?? false)
+      truncate: options.truncate ?? options.truncationConfig?.enabled ?? false,
+      deduplicate: options.deduplicate ?? options.deduplicationConfig?.enabled ?? false
     }
   }
 
@@ -148,7 +158,12 @@ export class SchemaProcessor {
     let deduplicationResult: ProcessingResult['deduplicationResult']
 
     // If nothing is requested, just pass through
-    if (!processOptions.validate && !processOptions.sanitize && !processOptions.truncate && !processOptions.deduplicate) {
+    if (
+      !processOptions.validate &&
+      !processOptions.sanitize &&
+      !processOptions.truncate &&
+      !processOptions.deduplicate
+    ) {
       return {
         success: true,
         data: output as LLMReporterOutput,
@@ -204,11 +219,13 @@ export class SchemaProcessor {
         if (this.truncationEngine.needsTruncation(serialized)) {
           const truncationResult = this.truncationEngine.truncate(serialized)
           output = JSON.parse(truncationResult.content)
-          truncationMetrics = [{
-            originalTokens: truncationResult.metrics.originalTokens,
-            truncatedTokens: truncationResult.metrics.truncatedTokens,
-            wasTruncated: true
-          }]
+          truncationMetrics = [
+            {
+              originalTokens: truncationResult.metrics.originalTokens,
+              truncatedTokens: truncationResult.metrics.truncatedTokens,
+              wasTruncated: true
+            }
+          ]
         }
       } catch (error) {
         return {
@@ -233,7 +250,7 @@ export class SchemaProcessor {
         const reporterOutput = output as LLMReporterOutput
         if (reporterOutput.failures && reporterOutput.failures.length > 0) {
           // Convert failures to DuplicateEntry format
-          const duplicateEntries: DuplicateEntry[] = reporterOutput.failures.map(failure => ({
+          const duplicateEntries: DuplicateEntry[] = reporterOutput.failures.map((failure) => ({
             testId: failure.test,
             testName: failure.test,
             filePath: failure.file || '',
@@ -245,7 +262,7 @@ export class SchemaProcessor {
 
           // Process deduplication
           deduplicationResult = this.deduplicationService.process(duplicateEntries)
-          
+
           // Optionally update the output with deduplication info
           // This could be extended to actually modify the output structure
         }

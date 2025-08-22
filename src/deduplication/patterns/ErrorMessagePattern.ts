@@ -1,13 +1,18 @@
 /**
  * Error Message Pattern Matcher
- * 
+ *
  * Identifies similar error messages by analyzing structure,
  * keywords, and variable parts.
- * 
+ *
  * @module ErrorMessagePattern
  */
 
-import type { IPatternMatcher, PatternType, SimilarityScore, SimilarityLevel } from '../../types/deduplication'
+import type {
+  IPatternMatcher,
+  PatternType,
+  SimilarityScore,
+  SimilarityLevel
+} from '../../types/deduplication'
 
 /**
  * Token types for error message analysis
@@ -29,27 +34,41 @@ interface Token {
  */
 export class ErrorMessagePattern implements IPatternMatcher {
   readonly type: PatternType = 'error-message'
-  
+
   // Common error keywords with higher weight
   private readonly errorKeywords = new Set([
-    'error', 'exception', 'fail', 'failed', 'failure',
-    'undefined', 'null', 'not', 'cannot', 'unable',
-    'invalid', 'missing', 'required', 'expected',
-    'unexpected', 'timeout', 'refused', 'denied'
+    'error',
+    'exception',
+    'fail',
+    'failed',
+    'failure',
+    'undefined',
+    'null',
+    'not',
+    'cannot',
+    'unable',
+    'invalid',
+    'missing',
+    'required',
+    'expected',
+    'unexpected',
+    'timeout',
+    'refused',
+    'denied'
   ])
 
   // Variable patterns that should be normalized
   private readonly variablePatterns = [
-    /\b\d+\b/g,                           // Numbers
-    /0x[0-9a-fA-F]+/g,                   // Hex numbers
+    /\b\d+\b/g, // Numbers
+    /0x[0-9a-fA-F]+/g, // Hex numbers
     /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, // UUIDs
-    /\/[\w\-./]+/g,                      // File paths
-    /\b[A-Z][a-zA-Z0-9_]*\b/g,          // Class names
-    /'[^']*'/g,                          // Single quoted strings
-    /"[^"]*"/g,                          // Double quoted strings
-    /`[^`]*`/g,                          // Template strings
-    /\[[^\]]*\]/g,                       // Array indices
-    /\([^)]*\)/g                         // Parenthesized content
+    /\/[\w\-./]+/g, // File paths
+    /\b[A-Z][a-zA-Z0-9_]*\b/g, // Class names
+    /'[^']*'/g, // Single quoted strings
+    /"[^"]*"/g, // Double quoted strings
+    /`[^`]*`/g, // Template strings
+    /\[[^\]]*\]/g, // Array indices
+    /\([^)]*\)/g // Parenthesized content
   ]
 
   /**
@@ -74,11 +93,11 @@ export class ErrorMessagePattern implements IPatternMatcher {
     const lengthSimilarity = this.calculateLengthSimilarity(a, b)
 
     // Weighted average
-    const score = 
+    const score =
       structuralSimilarity * 0.35 +
-      keywordSimilarity * 0.30 +
+      keywordSimilarity * 0.3 +
       sequenceSimilarity * 0.25 +
-      lengthSimilarity * 0.10
+      lengthSimilarity * 0.1
 
     return {
       score,
@@ -99,15 +118,14 @@ export class ErrorMessagePattern implements IPatternMatcher {
    */
   extractSignature(text: string): string {
     const tokens = this.tokenize(text)
-    const significantTokens = tokens.filter(t => 
-      t.type === 'keyword' || 
-      t.type === 'literal' ||
-      (t.type === 'identifier' && this.errorKeywords.has(t.normalized))
+    const significantTokens = tokens.filter(
+      (t) =>
+        t.type === 'keyword' ||
+        t.type === 'literal' ||
+        (t.type === 'identifier' && this.errorKeywords.has(t.normalized))
     )
 
-    return significantTokens
-      .map(t => t.normalized)
-      .join('_')
+    return significantTokens.map((t) => t.normalized).join('_')
   }
 
   /**
@@ -119,12 +137,15 @@ export class ErrorMessagePattern implements IPatternMatcher {
     // Replace variable parts with placeholders
     normalized = normalized.replace(/\b\d+\b/g, '<NUM>')
     normalized = normalized.replace(/0x[0-9a-fA-F]+/g, '<HEX>')
-    normalized = normalized.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '<UUID>')
+    normalized = normalized.replace(
+      /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi,
+      '<UUID>'
+    )
     normalized = normalized.replace(/\/[\w\-./]+/g, '<PATH>')
     normalized = normalized.replace(/'[^']*'/g, '<STRING>')
     normalized = normalized.replace(/"[^"]*"/g, '<STRING>')
     normalized = normalized.replace(/`[^`]*`/g, '<STRING>')
-    
+
     // Normalize whitespace
     normalized = normalized.replace(/\s+/g, ' ')
 
@@ -142,7 +163,11 @@ export class ErrorMessagePattern implements IPatternMatcher {
     // First, extract variable parts
     const variables: Array<{ pattern: RegExp; type: TokenType; placeholder: string }> = [
       { pattern: /0x[0-9a-fA-F]+/, type: 'number', placeholder: 'HEX' },
-      { pattern: /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i, type: 'identifier', placeholder: 'UUID' },
+      {
+        pattern: /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i,
+        type: 'identifier',
+        placeholder: 'UUID'
+      },
       { pattern: /\/[\w\-./]+/, type: 'path', placeholder: 'PATH' },
       { pattern: /'[^']*'/, type: 'variable', placeholder: 'STRING' },
       { pattern: /"[^"]*"/, type: 'variable', placeholder: 'STRING' },
@@ -152,7 +177,7 @@ export class ErrorMessagePattern implements IPatternMatcher {
 
     // Process the text to identify tokens
     const words = text.split(/\s+/)
-    
+
     for (const word of words) {
       if (!word) continue
 
@@ -163,7 +188,7 @@ export class ErrorMessagePattern implements IPatternMatcher {
       // Check if it's a keyword
       if (this.errorKeywords.has(lowerWord)) {
         tokenType = 'keyword'
-      } 
+      }
       // Check if it matches any variable pattern
       else {
         for (const { pattern, type, placeholder } of variables) {
@@ -201,34 +226,30 @@ export class ErrorMessagePattern implements IPatternMatcher {
    * Calculate structural similarity based on token types
    */
   private calculateStructuralSimilarity(tokensA: Token[], tokensB: Token[]): number {
-    const structureA = tokensA.map(t => t.type).join('-')
-    const structureB = tokensB.map(t => t.type).join('-')
+    const structureA = tokensA.map((t) => t.type).join('-')
+    const structureB = tokensB.map((t) => t.type).join('-')
 
     if (structureA === structureB) return 1
 
     // Use edit distance for structural comparison
     const distance = this.editDistance(structureA, structureB)
     const maxLength = Math.max(structureA.length, structureB.length)
-    
-    return maxLength > 0 ? 1 - (distance / maxLength) : 0
+
+    return maxLength > 0 ? 1 - distance / maxLength : 0
   }
 
   /**
    * Calculate keyword similarity
    */
   private calculateKeywordSimilarity(tokensA: Token[], tokensB: Token[]): number {
-    const keywordsA = new Set(
-      tokensA.filter(t => t.type === 'keyword').map(t => t.normalized)
-    )
-    const keywordsB = new Set(
-      tokensB.filter(t => t.type === 'keyword').map(t => t.normalized)
-    )
+    const keywordsA = new Set(tokensA.filter((t) => t.type === 'keyword').map((t) => t.normalized))
+    const keywordsB = new Set(tokensB.filter((t) => t.type === 'keyword').map((t) => t.normalized))
 
     if (keywordsA.size === 0 && keywordsB.size === 0) {
       return 0.5 // No keywords in either message
     }
 
-    const intersection = new Set([...keywordsA].filter(k => keywordsB.has(k)))
+    const intersection = new Set([...keywordsA].filter((k) => keywordsB.has(k)))
     const union = new Set([...keywordsA, ...keywordsB])
 
     return union.size > 0 ? intersection.size / union.size : 0
@@ -238,8 +259,8 @@ export class ErrorMessagePattern implements IPatternMatcher {
    * Calculate sequence similarity using normalized tokens
    */
   private calculateSequenceSimilarity(tokensA: Token[], tokensB: Token[]): number {
-    const seqA = tokensA.map(t => t.normalized)
-    const seqB = tokensB.map(t => t.normalized)
+    const seqA = tokensA.map((t) => t.normalized)
+    const seqB = tokensB.map((t) => t.normalized)
 
     // Find longest common subsequence
     const lcs = this.longestCommonSubsequence(seqA, seqB)
@@ -267,9 +288,9 @@ export class ErrorMessagePattern implements IPatternMatcher {
    */
   private calculateConfidence(tokensA: Token[], tokensB: Token[]): number {
     const avgTokens = (tokensA.length + tokensB.length) / 2
-    const hasKeywords = [...tokensA, ...tokensB].some(t => t.type === 'keyword')
-    const hasVariables = [...tokensA, ...tokensB].some(t => t.type === 'variable')
-    
+    const hasKeywords = [...tokensA, ...tokensB].some((t) => t.type === 'keyword')
+    const hasVariables = [...tokensA, ...tokensB].some((t) => t.type === 'variable')
+
     let confidence = 0.5
 
     if (avgTokens >= 5) confidence += 0.2
@@ -300,8 +321,8 @@ export class ErrorMessagePattern implements IPatternMatcher {
         } else {
           matrix[i][j] = Math.min(
             matrix[i - 1][j - 1] + 1, // substitution
-            matrix[i][j - 1] + 1,     // insertion
-            matrix[i - 1][j] + 1      // deletion
+            matrix[i][j - 1] + 1, // insertion
+            matrix[i - 1][j] + 1 // deletion
           )
         }
       }
@@ -316,7 +337,9 @@ export class ErrorMessagePattern implements IPatternMatcher {
   private longestCommonSubsequence(a: string[], b: string[]): number {
     const m = a.length
     const n = b.length
-    const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0))
+    const dp: number[][] = Array(m + 1)
+      .fill(null)
+      .map(() => Array(n + 1).fill(0))
 
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {

@@ -182,10 +182,9 @@ export class CacheManager implements ICacheManager {
 
     try {
       this.debug('Starting cache warmup')
-      
+
       // Get ordered cache instances by priority
-      const orderedCaches = Array.from(this.caches.values())
-        .sort((a, b) => a.priority - b.priority)
+      const orderedCaches = Array.from(this.caches.values()).sort((a, b) => a.priority - b.priority)
 
       // Warm up caches sequentially to avoid overwhelming the system
       for (const instance of orderedCaches) {
@@ -207,7 +206,7 @@ export class CacheManager implements ICacheManager {
         instance.cache.clear()
         this.recordOperation(name, 'clear', 0)
       }
-      
+
       this.debug('All caches cleared')
     } catch (error) {
       this.debugError('Failed to clear all caches: %O', error)
@@ -228,13 +227,13 @@ export class CacheManager implements ICacheManager {
 
       // Collect metrics from all caches
       const cacheMetrics: Record<string, CacheInstanceMetrics> = {}
-      
+
       for (const [name, instance] of this.caches) {
         const metrics = instance.cache.getMetrics()
         const stats = this.operationStats.get(name)!
-        
+
         cacheMetrics[name] = metrics
-        
+
         totalHits += stats.hits
         totalMisses += stats.misses
         totalSize += metrics.size
@@ -246,7 +245,7 @@ export class CacheManager implements ICacheManager {
       // Calculate aggregate metrics
       const totalOperations = totalHits + totalMisses
       const hitRatio = totalOperations > 0 ? (totalHits / totalOperations) * 100 : 0
-      const efficiency = Math.min(hitRatio / this.config.targetHitRatio * 100, 100)
+      const efficiency = Math.min((hitRatio / this.config.targetHitRatio) * 100, 100)
       const averageLookupTime = totalOperations > 0 ? totalLookupTime / totalOperations : 0
 
       return {
@@ -278,7 +277,7 @@ export class CacheManager implements ICacheManager {
 
     try {
       this.debug('Starting cache optimization')
-      
+
       const optimizationPromises: Promise<void>[] = []
 
       // Optimize each cache
@@ -302,18 +301,21 @@ export class CacheManager implements ICacheManager {
   /**
    * Get cache performance summary
    */
-  getPerformanceSummary(): Record<string, {
-    hitRatio: number
-    avgLookupTime: number
-    efficiency: number
-    utilization: number
-  }> {
+  getPerformanceSummary(): Record<
+    string,
+    {
+      hitRatio: number
+      avgLookupTime: number
+      efficiency: number
+      utilization: number
+    }
+  > {
     const summary: Record<string, any> = {}
 
     for (const [name, instance] of this.caches) {
       const metrics = instance.cache.getMetrics()
       const stats = this.operationStats.get(name)!
-      
+
       const operations = stats.hits + stats.misses
       const avgLookupTime = operations > 0 ? stats.totalTime / operations : 0
       const utilization = metrics.capacity > 0 ? (metrics.size / metrics.capacity) * 100 : 0
@@ -321,7 +323,7 @@ export class CacheManager implements ICacheManager {
       summary[name] = {
         hitRatio: metrics.hitRatio,
         avgLookupTime,
-        efficiency: Math.min(metrics.hitRatio / this.config.targetHitRatio * 100, 100),
+        efficiency: Math.min((metrics.hitRatio / this.config.targetHitRatio) * 100, 100),
         utilization
       }
     }
@@ -337,11 +339,14 @@ export class CacheManager implements ICacheManager {
 
     try {
       const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern
-      
+
       for (const [name, instance] of this.caches) {
         // This would require extending the ICache interface to support pattern invalidation
         // For now, we'll implement a simple approach
-        if ('invalidatePattern' in instance.cache && typeof instance.cache.invalidatePattern === 'function') {
+        if (
+          'invalidatePattern' in instance.cache &&
+          typeof instance.cache.invalidatePattern === 'function'
+        ) {
           const count = (instance.cache as any).invalidatePattern(regex)
           invalidatedCount += count
         }
@@ -360,18 +365,22 @@ export class CacheManager implements ICacheManager {
    */
   getStatistics(): Record<string, CacheOperationStats> {
     const stats: Record<string, CacheOperationStats> = {}
-    
+
     for (const [name, operationStats] of this.operationStats) {
       stats[name] = { ...operationStats }
     }
-    
+
     return stats
   }
 
   /**
    * Record cache operation for statistics
    */
-  recordOperation(cacheName: string, operation: 'hit' | 'miss' | 'set' | 'delete' | 'clear', duration: number): void {
+  recordOperation(
+    cacheName: string,
+    operation: 'hit' | 'miss' | 'set' | 'delete' | 'clear',
+    duration: number
+  ): void {
     const stats = this.operationStats.get(cacheName)
     if (!stats) return
 
@@ -430,7 +439,7 @@ export class CacheManager implements ICacheManager {
    */
   private async optimizeLRUCache(name: string, instance: CacheInstance): Promise<void> {
     const metrics = instance.cache.getMetrics()
-    
+
     // If hit ratio is significantly below target, consider warming
     if (metrics.hitRatio < this.config.targetHitRatio * 0.8) {
       await this.warmupService.warmupCache(name, instance.cache)
@@ -444,20 +453,19 @@ export class CacheManager implements ICacheManager {
     try {
       // Analyze usage patterns across caches
       const cacheUsage = new Map<string, number>()
-      
+
       for (const [name, stats] of this.operationStats) {
         const utilizationScore = stats.operations > 0 ? stats.hits / stats.operations : 0
         cacheUsage.set(name, utilizationScore)
       }
 
       // Sort caches by usage score
-      const sortedCaches = Array.from(cacheUsage.entries())
-        .sort((a, b) => b[1] - a[1])
+      const sortedCaches = Array.from(cacheUsage.entries()).sort((a, b) => b[1] - a[1])
 
       // This is a placeholder for dynamic cache rebalancing
       // In a real implementation, this would adjust cache sizes
       // based on usage patterns and available memory
-      
+
       this.debug('Cache usage analysis: %O', Object.fromEntries(sortedCaches))
     } catch (error) {
       this.debugError('Cache rebalancing failed: %O', error)
@@ -525,16 +533,16 @@ class LRUCacheWrapper implements ICache {
     const startTime = Date.now()
     const value = this.cache.get(key)
     const duration = Date.now() - startTime
-    
+
     this.metrics.operations++
     this.metrics.totalLookupTime += duration
-    
+
     if (value !== undefined) {
       this.metrics.hits++
     } else {
       this.metrics.misses++
     }
-    
+
     return value
   }
 
@@ -542,7 +550,7 @@ class LRUCacheWrapper implements ICache {
     const sizeBefore = this.cache.size()
     this.cache.set(key, value)
     const sizeAfter = this.cache.size()
-    
+
     // Estimate evictions (rough approximation)
     if (sizeBefore >= this.cache.capacity() && sizeAfter < sizeBefore + 1) {
       this.metrics.evictions++
@@ -580,8 +588,8 @@ class LRUCacheWrapper implements ICache {
   getMetrics(): CacheInstanceMetrics {
     const totalOperations = this.metrics.hits + this.metrics.misses
     const hitRatio = totalOperations > 0 ? (this.metrics.hits / totalOperations) * 100 : 0
-    const averageLookupTime = this.metrics.operations > 0 ? 
-      this.metrics.totalLookupTime / this.metrics.operations : 0
+    const averageLookupTime =
+      this.metrics.operations > 0 ? this.metrics.totalLookupTime / this.metrics.operations : 0
 
     return {
       hitRatio,

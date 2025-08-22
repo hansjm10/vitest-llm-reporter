@@ -1,8 +1,8 @@
 /**
  * Truncation Metrics Tracker
- * 
+ *
  * Centralized tracking of truncation metrics across all pipeline stages.
- * 
+ *
  * @module truncation/MetricsTracker
  */
 
@@ -101,7 +101,7 @@ export class TruncationMetricsTracker {
    * Get metrics for a specific stage
    */
   getMetricsByStage(stage: TruncationStage): StagedTruncationMetrics[] {
-    return this.metrics.filter(m => m.stage === stage)
+    return this.metrics.filter((m) => m.stage === stage)
   }
 
   /**
@@ -133,14 +133,15 @@ export class TruncationMetricsTracker {
       byStage[metric.stage]++
       if (metric.wasTruncated) {
         totalTruncated++
-        totalTokensSaved += (metric.originalTokens - metric.truncatedTokens)
+        totalTokensSaved += metric.originalTokens - metric.truncatedTokens
       }
       totalProcessingTime += metric.processingTime || 0
     }
 
     // Find most active stage
-    const mostActiveStage = (Object.entries(byStage) as [TruncationStage, number][])
-      .reduce((a, b) => a[1] > b[1] ? a : b)[0]
+    const mostActiveStage = (Object.entries(byStage) as [TruncationStage, number][]).reduce(
+      (a, b) => (a[1] > b[1] ? a : b)
+    )[0]
 
     return {
       totalTruncations: totalTruncated,
@@ -155,7 +156,7 @@ export class TruncationMetricsTracker {
    * Get metrics for a specific test
    */
   getTestMetrics(testId: string): StagedTruncationMetrics[] {
-    return this.metrics.filter(m => m.testContext?.testId === testId)
+    return this.metrics.filter((m) => m.testContext?.testId === testId)
   }
 
   /**

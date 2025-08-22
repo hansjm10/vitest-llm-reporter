@@ -11,7 +11,4 @@ export { BackgroundProcessor } from './BackgroundProcessor'
 export { PriorityQueue } from './PriorityQueue'
 export { AdaptiveBuffer } from './AdaptiveBuffer'
 
-export type {
-  StreamingOptimizationConfig,
-  IStreamOptimizer
-} from '../types'
+export type { StreamingOptimizationConfig, IStreamOptimizer } from '../types'

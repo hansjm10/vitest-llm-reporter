@@ -218,7 +218,7 @@ export class TokenMetricsCollector {
         status: 'error' in testData ? 'failed' : testData.status,
         sections: sectionMetrics,
         totalTokens,
-        duration: 'duration' in testData ? (testData.duration || 0) : 0,
+        duration: 'duration' in testData ? testData.duration || 0 : 0,
         collectedAt: Date.now()
       }
 

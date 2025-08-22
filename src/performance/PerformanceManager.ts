@@ -54,7 +54,7 @@ export class PerformanceManager implements IPerformanceManager {
    */
   private resolveConfig(config: PerformanceConfig): Required<PerformanceConfig> {
     const mode = config.mode ?? 'production'
-    
+
     return {
       mode,
       enabled: config.enabled ?? true,
@@ -83,7 +83,7 @@ export class PerformanceManager implements IPerformanceManager {
           errors: config.memory?.poolSizes?.errors ?? 500,
           consoleOutputs: config.memory?.poolSizes?.consoleOutputs ?? 2000
         },
-        enableProfiling: config.memory?.enableProfiling ?? (mode === 'development'),
+        enableProfiling: config.memory?.enableProfiling ?? mode === 'development',
         monitoringInterval: config.memory?.monitoringInterval ?? 10000
       },
       streaming: {
@@ -107,7 +107,8 @@ export class PerformanceManager implements IPerformanceManager {
         thresholds: {
           maxLatency: config.benchmark?.thresholds?.maxLatency ?? 1000,
           maxMemoryUsage: config.benchmark?.thresholds?.maxMemoryUsage ?? 512,
-          maxOverhead: config.benchmark?.thresholds?.maxOverhead ?? this.config?.maxOverheadPercent ?? 5,
+          maxOverhead:
+            config.benchmark?.thresholds?.maxOverhead ?? this.config?.maxOverheadPercent ?? 5,
           minThroughput: config.benchmark?.thresholds?.minThroughput ?? 100
         },
         sampleSize: config.benchmark?.sampleSize ?? 100,
@@ -331,7 +332,7 @@ export class PerformanceManager implements IPerformanceManager {
     try {
       const metrics = this.getMetrics()
       const overheadLimit = this.config.maxOverheadPercent
-      
+
       return metrics.overhead.totalOverhead <= overheadLimit
     } catch (error) {
       this.debugError('Failed to check performance limits: %O', error)
@@ -356,7 +357,9 @@ export class PerformanceManager implements IPerformanceManager {
   /**
    * Optimize cache performance
    */
-  private async optimizeCache(beforeMetrics: PerformanceMetrics): Promise<OptimizationResult | null> {
+  private async optimizeCache(
+    beforeMetrics: PerformanceMetrics
+  ): Promise<OptimizationResult | null> {
     if (!this.cacheManager) {
       return null
     }
@@ -365,9 +368,9 @@ export class PerformanceManager implements IPerformanceManager {
     const cacheMetrics = beforeMetrics.cache
 
     // Check if cache hit ratio is below target
-    if (cacheMetrics.hitRatio < this.config.cache!.targetHitRatio!) {
+    if (cacheMetrics.hitRatio < this.config.cache.targetHitRatio!) {
       await this.cacheManager.optimize()
-      
+
       const afterMetrics = this.getMetrics()
       const improvement = afterMetrics.cache.hitRatio - beforeMetrics.cache.hitRatio
 
@@ -390,7 +393,9 @@ export class PerformanceManager implements IPerformanceManager {
   /**
    * Optimize memory usage
    */
-  private async optimizeMemory(beforeMetrics: PerformanceMetrics): Promise<OptimizationResult | null> {
+  private async optimizeMemory(
+    beforeMetrics: PerformanceMetrics
+  ): Promise<OptimizationResult | null> {
     if (!this.memoryManager) {
       return null
     }
@@ -401,7 +406,7 @@ export class PerformanceManager implements IPerformanceManager {
     // Check if memory pressure is high
     if (memoryMetrics.pressureLevel === 'high' || memoryMetrics.pressureLevel === 'critical') {
       await this.memoryManager.cleanup()
-      
+
       const afterMetrics = this.getMetrics()
       const beforeUsage = beforeMetrics.memory.usagePercentage
       const afterUsage = afterMetrics.memory.usagePercentage
@@ -426,7 +431,9 @@ export class PerformanceManager implements IPerformanceManager {
   /**
    * Optimize streaming performance
    */
-  private async optimizeStreaming(beforeMetrics: PerformanceMetrics): Promise<OptimizationResult | null> {
+  private async optimizeStreaming(
+    beforeMetrics: PerformanceMetrics
+  ): Promise<OptimizationResult | null> {
     if (!this.streamOptimizer) {
       return null
     }
@@ -436,7 +443,7 @@ export class PerformanceManager implements IPerformanceManager {
     // This is a placeholder for streaming optimization
     // In a real implementation, this would analyze current streaming metrics
     // and apply optimizations like buffer size adjustments, priority reordering, etc.
-    
+
     // For now, we'll simulate a modest improvement
     const afterMetrics = this.getMetrics()
     const improvement = 1.0 // Placeholder 1% improvement
@@ -457,7 +464,7 @@ export class PerformanceManager implements IPerformanceManager {
    */
   private createEmptyMetrics(): PerformanceMetrics {
     const now = Date.now()
-    
+
     return {
       timing: {
         totalTime: 0,

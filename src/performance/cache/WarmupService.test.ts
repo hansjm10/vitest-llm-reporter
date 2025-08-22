@@ -19,7 +19,7 @@ describe('WarmupService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Create mock cache
     mockCache = {
       get: vi.fn(),
@@ -93,7 +93,7 @@ describe('WarmupService', () => {
   describe('warmupCache method', () => {
     it('should warm up cache successfully', async () => {
       const result = await warmupService.warmupCache('test-cache', mockCache)
-      
+
       expect(result).toBeDefined()
       expect(typeof result.success).toBe('boolean')
       expect(typeof result.entriesWarmed).toBe('number')
@@ -113,9 +113,9 @@ describe('WarmupService', () => {
         evictionStrategy: 'lru',
         enableMultiTier: true
       } as Required<CacheConfig>)
-      
+
       const result = await disabledService.warmupCache('test-cache', mockCache)
-      
+
       expect(result.success).toBe(true)
       expect(result.entriesWarmed).toBe(0)
     })
@@ -129,9 +129,9 @@ describe('WarmupService', () => {
           throw new Error('Metrics failed')
         })
       }
-      
+
       const result = await warmupService.warmupCache('error-cache', errorCache)
-      
+
       expect(result).toBeDefined()
       expect(result.errors.length).toBeGreaterThanOrEqual(0)
     })
@@ -140,14 +140,14 @@ describe('WarmupService', () => {
       const start = Date.now()
       const result = await warmupService.warmupCache('test-cache', mockCache)
       const expectedMinDuration = Date.now() - start
-      
+
       expect(result.duration).toBeGreaterThanOrEqual(0)
       expect(result.duration).toBeLessThan(expectedMinDuration + 100) // Allow some tolerance
     })
 
     it('should limit number of entries warmed up', async () => {
       const result = await warmupService.warmupCache('test-cache', mockCache)
-      
+
       // Should not warm up an unreasonable number of entries
       expect(result.entriesWarmed).toBeLessThanOrEqual(1000)
       expect(result.entriesWarmed).toBeGreaterThanOrEqual(0)
@@ -165,7 +165,7 @@ describe('WarmupService', () => {
       // Warm up cache multiple times to establish patterns
       await warmupService.warmupCache('pattern-cache', mockCache)
       await warmupService.warmupCache('pattern-cache', mockCache)
-      
+
       expect(warmupService).toBeDefined() // Service should handle pattern learning
     })
 
@@ -178,9 +178,9 @@ describe('WarmupService', () => {
         evictions: 2,
         averageLookupTime: 1
       })
-      
+
       const result = await warmupService.warmupCache('high-freq-cache', mockCache)
-      
+
       expect(result.success).toBe(true)
     })
 
@@ -193,9 +193,9 @@ describe('WarmupService', () => {
         evictions: 50,
         averageLookupTime: 10
       })
-      
+
       const result = await warmupService.warmupCache('poor-perf-cache', mockCache)
-      
+
       expect(result).toBeDefined()
       // Service should adapt warmup strategy based on poor performance
     })
@@ -205,13 +205,13 @@ describe('WarmupService', () => {
     it('should handle different warmup strategies', async () => {
       // Test multiple warmup calls with different cache states
       const results = []
-      
+
       for (let i = 0; i < 3; i++) {
         const result = await warmupService.warmupCache(`cache-${i}`, mockCache)
         results.push(result)
       }
-      
-      results.forEach(result => {
+
+      results.forEach((result) => {
         expect(result).toBeDefined()
         expect(typeof result.success).toBe('boolean')
       })
@@ -219,13 +219,13 @@ describe('WarmupService', () => {
 
     it('should respect warmup time windows', async () => {
       const start = Date.now()
-      
+
       // Perform multiple warmups in quick succession
       const result1 = await warmupService.warmupCache('time-window-cache', mockCache)
       const result2 = await warmupService.warmupCache('time-window-cache', mockCache)
-      
+
       const duration = Date.now() - start
-      
+
       expect(result1).toBeDefined()
       expect(result2).toBeDefined()
       expect(duration).toBeLessThan(1000) // Should complete quickly
@@ -238,10 +238,10 @@ describe('WarmupService', () => {
         warmupService.warmupCache('concurrent-2', mockCache),
         warmupService.warmupCache('concurrent-3', mockCache)
       ]
-      
+
       const results = await Promise.all(promises)
-      
-      results.forEach(result => {
+
+      results.forEach((result) => {
         expect(result).toBeDefined()
         expect(typeof result.success).toBe('boolean')
       })
@@ -258,9 +258,9 @@ describe('WarmupService', () => {
         evictions: 10,
         averageLookupTime: 3
       })
-      
+
       const result = await warmupService.warmupCache('optimized-cache', mockCache)
-      
+
       expect(result.success).toBe(true)
       expect(result.entriesWarmed).toBeGreaterThanOrEqual(0)
     })
@@ -274,9 +274,9 @@ describe('WarmupService', () => {
         evictions: 1,
         averageLookupTime: 0.5
       })
-      
+
       const result = await warmupService.warmupCache('hot-cache', mockCache)
-      
+
       expect(result.success).toBe(true)
       // Should warm up fewer entries for already hot cache
       expect(result.entriesWarmed).toBeGreaterThanOrEqual(0)
@@ -292,9 +292,9 @@ describe('WarmupService', () => {
         evictions: 100,
         averageLookupTime: 5
       })
-      
+
       const result = await warmupService.warmupCache('full-cache', mockCache)
-      
+
       expect(result.success).toBe(true)
       // Should handle full cache gracefully
     })
@@ -307,9 +307,9 @@ describe('WarmupService', () => {
         set: vi.fn().mockRejectedValue(new Error('Set operation failed')),
         get: vi.fn().mockRejectedValue(new Error('Get operation failed'))
       }
-      
+
       const result = await warmupService.warmupCache('faulty-cache', faultyCache)
-      
+
       expect(result).toBeDefined()
       expect(Array.isArray(result.errors)).toBe(true)
       // Should record errors but not throw
@@ -317,9 +317,9 @@ describe('WarmupService', () => {
 
     it('should handle invalid cache references', async () => {
       const nullCache = null as any
-      
+
       const result = await warmupService.warmupCache('null-cache', nullCache)
-      
+
       expect(result).toBeDefined()
       expect(result.success).toBe(false)
       expect(result.errors.length).toBeGreaterThan(0)
@@ -331,9 +331,9 @@ describe('WarmupService', () => {
         set: vi.fn()
         // Missing other required methods
       } as any
-      
+
       const result = await warmupService.warmupCache('incomplete-cache', incompleteCache)
-      
+
       expect(result).toBeDefined()
       // Should handle missing methods gracefully
     })
@@ -352,9 +352,9 @@ describe('WarmupService', () => {
         evictionStrategy: 'lru',
         enableMultiTier: true
       } as Required<CacheConfig>)
-      
+
       const result = await disabledService.warmupCache('disabled-cache', mockCache)
-      
+
       expect(result.success).toBe(true)
       expect(result.entriesWarmed).toBe(0)
     })
@@ -372,7 +372,7 @@ describe('WarmupService', () => {
         enableMultiTier: true
       } as Required<CacheConfig>)
       const result = await minimalService.warmupCache('minimal-cache', mockCache)
-      
+
       expect(result).toBeDefined()
       expect(typeof result.success).toBe('boolean')
     })
@@ -389,10 +389,10 @@ describe('WarmupService', () => {
         evictionStrategy: 'lru',
         enableMultiTier: true
       }
-      
+
       const largeService = new WarmupService(largeConfig)
       const result = await largeService.warmupCache('large-cache', mockCache)
-      
+
       expect(result).toBeDefined()
       expect(result.success).toBe(true)
     })
@@ -401,9 +401,9 @@ describe('WarmupService', () => {
   describe('memory and performance', () => {
     it('should complete warmup within reasonable time', async () => {
       const start = Date.now()
-      
+
       const result = await warmupService.warmupCache('perf-cache', mockCache)
-      
+
       const duration = Date.now() - start
       expect(duration).toBeLessThan(5000) // Should complete within 5 seconds
       expect(result).toBeDefined()
@@ -412,27 +412,27 @@ describe('WarmupService', () => {
     it('should not consume excessive memory during warmup', async () => {
       // This test is more conceptual - in real scenarios you'd monitor memory usage
       const initialMemory = process.memoryUsage().heapUsed
-      
+
       await warmupService.warmupCache('memory-cache', mockCache)
-      
+
       const finalMemory = process.memoryUsage().heapUsed
       const memoryIncrease = finalMemory - initialMemory
-      
+
       // Should not increase memory by more than 10MB (adjust as needed)
       expect(memoryIncrease).toBeLessThan(10 * 1024 * 1024)
     })
 
     it('should handle repeated warmup calls efficiently', async () => {
       const results = []
-      
+
       for (let i = 0; i < 5; i++) {
         const start = Date.now()
         const result = await warmupService.warmupCache('repeat-cache', mockCache)
         const duration = Date.now() - start
-        
+
         results.push({ result, duration })
       }
-      
+
       // All should succeed and have reasonable performance
       results.forEach(({ result, duration }) => {
         expect(result.success).toBe(true)

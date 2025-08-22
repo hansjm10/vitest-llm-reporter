@@ -50,7 +50,7 @@ export type { StreamIntegrationConfig, StreamEvent } from './streaming/ReporterS
 
 // Export deduplication module
 export { DeduplicationService, createDeduplicationService } from './deduplication'
-export type { 
+export type {
   DeduplicationConfig,
   DeduplicationResult,
   DeduplicationStats,

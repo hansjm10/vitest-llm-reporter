@@ -1,9 +1,9 @@
 /**
  * Template Extractor
- * 
+ *
  * Extracts templates from similar failures to enable compression
  * by identifying common patterns and variable parts.
- * 
+ *
  * @module TemplateExtractor
  */
 
@@ -65,7 +65,7 @@ export class TemplateExtractor {
 
     // Combine templates
     const template = this.combineTemplates(errorTemplate, stackTemplate, consoleTemplate)
-    
+
     if (!template) {
       return null
     }
@@ -83,9 +83,7 @@ export class TemplateExtractor {
    * Extract template from error messages
    */
   private extractFromErrorMessages(failures: DuplicateEntry[]): FailureTemplate | null {
-    const messages = failures
-      .map(f => f.errorMessage)
-      .filter((m): m is string => !!m)
+    const messages = failures.map((f) => f.errorMessage).filter((m): m is string => !!m)
 
     if (messages.length < 2) {
       return null
@@ -99,18 +97,16 @@ export class TemplateExtractor {
    * Extract template from stack traces
    */
   private extractFromStackTraces(failures: DuplicateEntry[]): FailureTemplate | null {
-    const traces = failures
-      .map(f => f.stackTrace)
-      .filter((t): t is string => !!t)
+    const traces = failures.map((f) => f.stackTrace).filter((t): t is string => !!t)
 
     if (traces.length < 2) {
       return null
     }
 
     // Process stack traces line by line
-    const lineArrays = traces.map(t => t.split('\n'))
+    const lineArrays = traces.map((t) => t.split('\n'))
     const commonLines = this.findCommonLines(lineArrays)
-    
+
     return this.buildStackTemplate(commonLines, lineArrays)
   }
 
@@ -119,7 +115,7 @@ export class TemplateExtractor {
    */
   private extractFromConsoleOutput(failures: DuplicateEntry[]): FailureTemplate | null {
     const outputs = failures
-      .map(f => f.consoleOutput)
+      .map((f) => f.consoleOutput)
       .filter((o): o is string[] => !!o && o.length > 0)
 
     if (outputs.length < 2) {
@@ -127,9 +123,9 @@ export class TemplateExtractor {
     }
 
     // Flatten console output
-    const flatOutputs = outputs.map(o => o.join('\n'))
+    const flatOutputs = outputs.map((o) => o.join('\n'))
     const segments = this.findCommonSegments(flatOutputs)
-    
+
     return this.buildTemplate(segments, 'console')
   }
 
@@ -144,7 +140,7 @@ export class TemplateExtractor {
     // Use the first string as reference
     const reference = strings[0]
     const segments: TemplateSegment[] = []
-    
+
     // Find common prefixes and suffixes
     const commonPrefix = this.findCommonPrefix(strings)
     const commonSuffix = this.findCommonSuffix(strings)
@@ -164,13 +160,13 @@ export class TemplateExtractor {
     }
 
     // Find variable parts in the middle
-    const middleParts = strings.map(s => {
+    const middleParts = strings.map((s) => {
       const start = commonPrefix.length
       const end = s.length - commonSuffix.length
       return s.substring(start, end)
     })
 
-    if (middleParts.some(p => p.length > 0)) {
+    if (middleParts.some((p) => p.length > 0)) {
       // Analyze middle parts for patterns
       const variableSegments = this.analyzeVariableParts(middleParts)
       segments.push(...variableSegments)
@@ -194,13 +190,13 @@ export class TemplateExtractor {
    */
   private findCommonPrefix(strings: string[]): string {
     if (strings.length === 0) return ''
-    
+
     let prefix = ''
-    const minLength = Math.min(...strings.map(s => s.length))
+    const minLength = Math.min(...strings.map((s) => s.length))
 
     for (let i = 0; i < minLength; i++) {
       const char = strings[0][i]
-      if (strings.every(s => s[i] === char)) {
+      if (strings.every((s) => s[i] === char)) {
         prefix += char
       } else {
         break
@@ -229,8 +225,8 @@ export class TemplateExtractor {
    */
   private findCommonSuffix(strings: string[]): string {
     if (strings.length === 0) return ''
-    
-    const reversed = strings.map(s => s.split('').reverse().join(''))
+
+    const reversed = strings.map((s) => s.split('').reverse().join(''))
     const commonPrefix = this.findCommonPrefix(reversed)
     return commonPrefix.split('').reverse().join('')
   }
@@ -250,7 +246,7 @@ export class TemplateExtractor {
     ]
 
     for (const pattern of patterns) {
-      if (parts.every(p => pattern.regex.test(p))) {
+      if (parts.every((p) => pattern.regex.test(p))) {
         segments.push({
           type: 'variable',
           content: `<${pattern.name.toUpperCase()}>`,
@@ -279,17 +275,19 @@ export class TemplateExtractor {
    */
   private findCommonLines(lineArrays: string[][]): string[] {
     if (lineArrays.length === 0) return []
-    
+
     const commonLines: string[] = []
-    const minLength = Math.min(...lineArrays.map(a => a.length))
+    const minLength = Math.min(...lineArrays.map((a) => a.length))
 
     for (let i = 0; i < minLength; i++) {
       const referenceLine = this.normalizeStackLine(lineArrays[0][i])
-      
-      if (lineArrays.every(lines => {
-        const normalizedLine = this.normalizeStackLine(lines[i])
-        return this.areStackLinesSimilar(referenceLine, normalizedLine)
-      })) {
+
+      if (
+        lineArrays.every((lines) => {
+          const normalizedLine = this.normalizeStackLine(lines[i])
+          return this.areStackLinesSimilar(referenceLine, normalizedLine)
+        })
+      ) {
         commonLines.push(referenceLine)
       }
     }
@@ -304,7 +302,7 @@ export class TemplateExtractor {
     return line
       .replace(/:\d+:\d+/g, ':<LINE>:<COL>') // Line and column numbers
       .replace(/\b\d+\b/g, '<NUM>') // Other numbers
-      .replace(/\/[^/\s]+/g, match => {
+      .replace(/\/[^/\s]+/g, (match) => {
         // Keep file name, replace path
         const parts = match.split('/')
         return `<PATH>/${parts[parts.length - 1]}`
@@ -316,12 +314,12 @@ export class TemplateExtractor {
    */
   private areStackLinesSimilar(a: string, b: string): boolean {
     if (a === b) return true
-    
+
     // Calculate similarity
     const distance = levenshteinDistance(a, b)
     const maxLength = Math.max(a.length, b.length)
-    const similarity = 1 - (distance / maxLength)
-    
+    const similarity = 1 - distance / maxLength
+
     return similarity >= 0.7
   }
 
@@ -349,14 +347,14 @@ export class TemplateExtractor {
       } else {
         const varName = `var${varIndex++}`
         pattern += `{{${varName}}}`
-        
+
         variables.push({
           name: varName,
           type: this.detectVariableType(segment.examples),
           examples: segment.examples.slice(0, 3),
           position: pattern.length
         })
-        
+
         differingElements.push(...segment.examples)
       }
     }
@@ -378,25 +376,28 @@ export class TemplateExtractor {
   /**
    * Build a template from stack trace lines
    */
-  private buildStackTemplate(commonLines: string[], lineArrays: string[][]): FailureTemplate | null {
+  private buildStackTemplate(
+    commonLines: string[],
+    lineArrays: string[][]
+  ): FailureTemplate | null {
     if (commonLines.length === 0) {
       return null
     }
 
     const pattern = commonLines.join('\n')
     const variables: TemplateVariable[] = []
-    
+
     // Find variable lines (lines that differ)
     const variableLineIndices: number[] = []
-    const minLength = Math.min(...lineArrays.map(a => a.length))
-    
+    const minLength = Math.min(...lineArrays.map((a) => a.length))
+
     for (let i = 0; i < minLength; i++) {
-      const lines = lineArrays.map(arr => arr[i])
-      const normalized = lines.map(l => this.normalizeStackLine(l))
-      
-      if (!normalized.every(l => l === normalized[0])) {
+      const lines = lineArrays.map((arr) => arr[i])
+      const normalized = lines.map((l) => this.normalizeStackLine(l))
+
+      if (!normalized.every((l) => l === normalized[0])) {
         variableLineIndices.push(i)
-        
+
         variables.push({
           name: `line${i}`,
           type: 'string',
@@ -411,7 +412,7 @@ export class TemplateExtractor {
       pattern,
       variables,
       commonElements: commonLines,
-      differingElements: variableLineIndices.map(i => `Line ${i}`)
+      differingElements: variableLineIndices.map((i) => `Line ${i}`)
     }
   }
 
@@ -419,16 +420,16 @@ export class TemplateExtractor {
    * Detect the type of a variable from examples
    */
   private detectVariableType(examples: string[]): TemplateVariable['type'] {
-    if (examples.every(e => /^\d+$/.test(e))) {
+    if (examples.every((e) => /^\d+$/.test(e))) {
       return 'number'
     }
-    if (examples.every(e => /^[\/\\].+/.test(e))) {
+    if (examples.every((e) => /^[\/\\].+/.test(e))) {
       return 'path'
     }
-    if (examples.every(e => /^\d+$/.test(e))) {
+    if (examples.every((e) => /^\d+$/.test(e))) {
       return 'line-number'
     }
-    if (examples.every(e => /^[a-zA-Z_]\w*$/.test(e))) {
+    if (examples.every((e) => /^[a-zA-Z_]\w*$/.test(e))) {
       return 'variable-name'
     }
     return 'string'
@@ -443,7 +444,7 @@ export class TemplateExtractor {
     console: FailureTemplate | null
   ): FailureTemplate | null {
     const templates = [error, stack, console].filter((t): t is FailureTemplate => t !== null)
-    
+
     if (templates.length === 0) {
       return null
     }
@@ -456,10 +457,10 @@ export class TemplateExtractor {
     // Combine multiple templates
     const combined: FailureTemplate = {
       id: `combined-${Date.now()}`,
-      pattern: templates.map(t => t.pattern).join('\n---\n'),
-      variables: templates.flatMap(t => t.variables),
-      commonElements: templates.flatMap(t => t.commonElements),
-      differingElements: [...new Set(templates.flatMap(t => t.differingElements))]
+      pattern: templates.map((t) => t.pattern).join('\n---\n'),
+      variables: templates.flatMap((t) => t.variables),
+      commonElements: templates.flatMap((t) => t.commonElements),
+      differingElements: [...new Set(templates.flatMap((t) => t.differingElements))]
     }
 
     // Limit variables
@@ -485,7 +486,7 @@ export class TemplateExtractor {
     let hash = 0
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
+      hash = (hash << 5) - hash + char
       hash = hash & hash // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(36)

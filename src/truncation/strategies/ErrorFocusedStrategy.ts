@@ -23,17 +23,42 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
   public readonly priority = 5
 
   private readonly errorPatterns = [
-    'Error:', 'AssertionError:', 'TypeError:', 'ReferenceError:',
-    'SyntaxError:', 'RangeError:', 'EvalError:', 'URIError:',
-    'Failed:', 'Expected:', 'Actual:', 'Received:', 'Diff:',
-    '✗', '❌', '×', 'FAIL', 'FAILED'
+    'Error:',
+    'AssertionError:',
+    'TypeError:',
+    'ReferenceError:',
+    'SyntaxError:',
+    'RangeError:',
+    'EvalError:',
+    'URIError:',
+    'Failed:',
+    'Expected:',
+    'Actual:',
+    'Received:',
+    'Diff:',
+    '✗',
+    '❌',
+    '×',
+    'FAIL',
+    'FAILED'
   ]
 
   private readonly assertionPatterns = [
-    'expect(', 'expect.', 'assert(', 'assert.',
-    'should', 'toBe', 'toEqual', 'toMatch', 'toContain',
-    'toHaveBeenCalled', 'toThrow', 'toReject',
-    'not.toBe', 'not.toEqual', 'not.toMatch'
+    'expect(',
+    'expect.',
+    'assert(',
+    'assert.',
+    'should',
+    'toBe',
+    'toEqual',
+    'toMatch',
+    'toContain',
+    'toHaveBeenCalled',
+    'toThrow',
+    'toReject',
+    'not.toBe',
+    'not.toEqual',
+    'not.toMatch'
   ]
 
   /**
@@ -85,7 +110,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
       const lines = content.split('\n')
       const maxLines = Math.min(15, lines.length)
       const fallbackContent = lines.slice(0, maxLines).join('\n')
-      
+
       const fallbackTokens = await tokenCounter.count(fallbackContent, context.model)
 
       return {
@@ -125,14 +150,14 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
     // Estimate based on error content density
     const lines = content.split('\n')
     const errorLines = this.identifyErrorLines(lines)
-    
+
     // Estimate that we preserve error lines + context (typically 40-60% of content)
     const errorRatio = errorLines.length / lines.length
     const estimatedPreservedRatio = Math.min(0.7, errorRatio * 2 + 0.3)
-    
+
     const estimatedPreserved = Math.floor(originalTokens * estimatedPreservedRatio)
     const estimatedFinal = Math.min(estimatedPreserved, maxTokens)
-    
+
     return Math.max(0, originalTokens - estimatedFinal)
   }
 
@@ -149,7 +174,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
 
     // Identify error-related lines
     const errorLines = this.identifyErrorLines(lines)
-    
+
     // Build error sections with context
     const errorSections = this.buildErrorSections(lines, errorLines)
 
@@ -169,9 +194,11 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      if (this.matchesErrorPatterns(line) || 
-          this.matchesAssertionPatterns(line) ||
-          this.containsImportantKeywords(line)) {
+      if (
+        this.matchesErrorPatterns(line) ||
+        this.matchesAssertionPatterns(line) ||
+        this.containsImportantKeywords(line)
+      ) {
         errorLines.push(i)
       }
     }
@@ -192,7 +219,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
 
       const sectionLines = lines.slice(startLine, endLine + 1)
       const content = sectionLines.join('\n')
-      
+
       // Calculate priority based on error type
       let priority = 1.0
 
@@ -239,7 +266,11 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
 
       if (next.startLine <= current.endLine + 1) {
         // Merge sections
-        const mergedContent = this.mergeSectionContent(current, next, current.endLine - current.startLine + 1)
+        const mergedContent = this.mergeSectionContent(
+          current,
+          next,
+          current.endLine - current.startLine + 1
+        )
         current = {
           startLine: current.startLine,
           endLine: Math.max(current.endLine, next.endLine),
@@ -261,12 +292,16 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
   /**
    * Merge content from two overlapping sections
    */
-  private mergeSectionContent(section1: ErrorSection, section2: ErrorSection, section1Length: number): string {
+  private mergeSectionContent(
+    section1: ErrorSection,
+    section2: ErrorSection,
+    section1Length: number
+  ): string {
     const lines1 = section1.content.split('\n')
     const lines2 = section2.content.split('\n')
 
     const overlapStart = Math.max(0, section2.startLine - section1.startLine)
-    
+
     if (overlapStart < section1Length) {
       // There is overlap
       const beforeOverlap = lines1.slice(0, overlapStart)
@@ -292,17 +327,18 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
 
     for (const section of sortedSections) {
       const sectionTokens = await tokenCounter.count(section.content, context.model)
-      
+
       if (currentTokens + sectionTokens <= maxTokens) {
         selected.push(section)
         currentTokens += sectionTokens
       } else {
         // Try to fit a truncated version
         const remainingTokens = maxTokens - currentTokens
-        if (remainingTokens > 50) { // Only if there's meaningful space
+        if (remainingTokens > 50) {
+          // Only if there's meaningful space
           const truncatedContent = section.content.substring(0, remainingTokens * 4 - 10) + '...'
           const truncatedTokens = await tokenCounter.count(truncatedContent, context.model)
-          
+
           if (truncatedTokens <= remainingTokens) {
             selected.push({
               ...section,
@@ -349,16 +385,14 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
    * Check if line matches error patterns
    */
   private matchesErrorPatterns(line: string): boolean {
-    return this.errorPatterns.some(pattern => 
-      line.toLowerCase().includes(pattern.toLowerCase())
-    )
+    return this.errorPatterns.some((pattern) => line.toLowerCase().includes(pattern.toLowerCase()))
   }
 
   /**
    * Check if line matches assertion patterns
    */
   private matchesAssertionPatterns(line: string): boolean {
-    return this.assertionPatterns.some(pattern => line.includes(pattern))
+    return this.assertionPatterns.some((pattern) => line.includes(pattern))
   }
 
   /**
@@ -367,7 +401,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
   private containsImportantKeywords(line: string): boolean {
     const keywords = ['fail', 'error', 'exception', 'timeout', 'undefined', 'null']
     const lowerLine = line.toLowerCase()
-    return keywords.some(keyword => lowerLine.includes(keyword))
+    return keywords.some((keyword) => lowerLine.includes(keyword))
   }
 
   /**
@@ -375,7 +409,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
    */
   private containsUserCode(line: string): boolean {
     const userPatterns = ['src/', 'test/', 'spec/']
-    return userPatterns.some(pattern => line.includes(pattern)) && !line.includes('node_modules')
+    return userPatterns.some((pattern) => line.includes(pattern)) && !line.includes('node_modules')
   }
 }
 

@@ -1,6 +1,6 @@
 /**
  * Context window management for different LLM models
- * 
+ *
  * This module provides context window size information and utilities
  * for managing token limits across different language models.
  */
@@ -11,29 +11,29 @@ import { ContentPriority } from './types.js'
 
 /**
  * Context window sizes for supported models (in tokens)
- * 
+ *
  * These values represent the maximum context window size for each model.
  * We use conservative estimates to account for model variations and safety margins.
  */
 export const MODEL_CONTEXT_WINDOWS: Record<SupportedModel, number> = {
   // GPT-4 series
-  'gpt-4': 128_000,        // GPT-4 Turbo and newer
-  'gpt-4-turbo': 128_000,  // Explicit GPT-4 Turbo
-  'gpt-4o': 128_000,       // GPT-4o
-  'gpt-4o-mini': 128_000,  // GPT-4o Mini
+  'gpt-4': 128_000, // GPT-4 Turbo and newer
+  'gpt-4-turbo': 128_000, // Explicit GPT-4 Turbo
+  'gpt-4o': 128_000, // GPT-4o
+  'gpt-4o-mini': 128_000, // GPT-4o Mini
   'gpt-3.5-turbo': 16_385, // GPT-3.5 Turbo
-  
+
   // Claude 3 series
-  'claude-3-opus': 200_000,    // Claude 3 Opus
-  'claude-3-sonnet': 200_000,  // Claude 3 Sonnet  
-  'claude-3-haiku': 200_000,   // Claude 3 Haiku
+  'claude-3-opus': 200_000, // Claude 3 Opus
+  'claude-3-sonnet': 200_000, // Claude 3 Sonnet
+  'claude-3-haiku': 200_000, // Claude 3 Haiku
   'claude-3-5-sonnet': 200_000, // Claude 3.5 Sonnet
-  'claude-3-5-haiku': 200_000   // Claude 3.5 Haiku
+  'claude-3-5-haiku': 200_000 // Claude 3.5 Haiku
 }
 
 /**
  * Recommended safety margins for each model (percentage of context window to reserve)
- * 
+ *
  * These margins account for:
  * - Model response tokens
  * - System prompts and instructions
@@ -45,14 +45,14 @@ export const MODEL_SAFETY_MARGINS: Record<SupportedModel, number> = {
   'gpt-4-turbo': 0.15,
   'gpt-4o': 0.15,
   'gpt-4o-mini': 0.15,
-  'gpt-3.5-turbo': 0.20, // Smaller context window, larger margin needed
-  
+  'gpt-3.5-turbo': 0.2, // Smaller context window, larger margin needed
+
   // Claude models - generally more efficient with context usage
-  'claude-3-opus': 0.10,
-  'claude-3-sonnet': 0.10,
-  'claude-3-haiku': 0.10,
-  'claude-3-5-sonnet': 0.10,
-  'claude-3-5-haiku': 0.10
+  'claude-3-opus': 0.1,
+  'claude-3-sonnet': 0.1,
+  'claude-3-haiku': 0.1,
+  'claude-3-5-sonnet': 0.1,
+  'claude-3-5-haiku': 0.1
 }
 
 /**
@@ -77,10 +77,10 @@ export function getEffectiveMaxTokens(model: SupportedModel, customMaxTokens?: n
   const contextWindow = getContextWindowSize(model)
   const safetyMargin = getSafetyMargin(model)
   const maxTokens = customMaxTokens || contextWindow
-  
+
   // Use the smaller of context window and custom limit
   const effectiveLimit = Math.min(maxTokens, contextWindow)
-  
+
   // Apply safety margin
   return Math.floor(effectiveLimit * (1 - safetyMargin))
 }
@@ -89,8 +89,8 @@ export function getEffectiveMaxTokens(model: SupportedModel, customMaxTokens?: n
  * Check if content would exceed the context window for a model
  */
 export function wouldExceedContext(
-  tokenCount: number, 
-  model: SupportedModel, 
+  tokenCount: number,
+  model: SupportedModel,
   customMaxTokens?: number
 ): boolean {
   const effectiveMax = getEffectiveMaxTokens(model, customMaxTokens)
@@ -111,7 +111,7 @@ export function createTruncationContext(
   } = {}
 ): TruncationContext {
   const effectiveMaxTokens = options.maxTokens || getEffectiveMaxTokens(model)
-  
+
   return {
     model,
     maxTokens: effectiveMaxTokens,
@@ -133,33 +133,33 @@ export function calculateTruncationTarget(
   if (currentTokens <= maxTokens) {
     return currentTokens // No truncation needed
   }
-  
+
   // Calculate reduction factor based on priority
   let reductionFactor: number
-  
+
   switch (priority) {
     case ContentPriority.CRITICAL:
       // Try to preserve 95% if possible, minimum 90%
-      reductionFactor = Math.max(0.90, maxTokens / currentTokens)
+      reductionFactor = Math.max(0.9, maxTokens / currentTokens)
       break
     case ContentPriority.HIGH:
       // Try to preserve 85% if possible, minimum 70%
-      reductionFactor = Math.max(0.70, (maxTokens * 0.85) / currentTokens)
+      reductionFactor = Math.max(0.7, (maxTokens * 0.85) / currentTokens)
       break
     case ContentPriority.MEDIUM:
       // Target 60-80% preservation based on constraint
-      reductionFactor = Math.max(0.60, (maxTokens * 0.80) / currentTokens)
+      reductionFactor = Math.max(0.6, (maxTokens * 0.8) / currentTokens)
       break
     case ContentPriority.LOW:
       // Target 40-60% preservation
-      reductionFactor = Math.max(0.40, (maxTokens * 0.60) / currentTokens)
+      reductionFactor = Math.max(0.4, (maxTokens * 0.6) / currentTokens)
       break
     case ContentPriority.DISPOSABLE:
       // Aggressive truncation, just fit within limits
       reductionFactor = maxTokens / currentTokens
       break
   }
-  
+
   return Math.floor(currentTokens * reductionFactor)
 }
 
@@ -177,27 +177,30 @@ export interface ModelContextInfo {
   effectiveMaxTokens: number
   /** Recommended truncation thresholds */
   truncationThresholds: {
-    warning: number   // Warn when approaching this limit
-    required: number  // Must truncate beyond this point
+    warning: number // Warn when approaching this limit
+    required: number // Must truncate beyond this point
   }
 }
 
 /**
  * Get comprehensive context information for a model
  */
-export function getModelContextInfo(model: SupportedModel, customMaxTokens?: number): ModelContextInfo {
+export function getModelContextInfo(
+  model: SupportedModel,
+  customMaxTokens?: number
+): ModelContextInfo {
   const contextWindow = getContextWindowSize(model)
   const safetyMargin = getSafetyMargin(model)
   const effectiveMaxTokens = getEffectiveMaxTokens(model, customMaxTokens)
-  
+
   return {
     model,
     contextWindow,
     safetyMargin,
     effectiveMaxTokens,
     truncationThresholds: {
-      warning: Math.floor(effectiveMaxTokens * 0.8),      // 80% of effective limit
-      required: Math.floor(effectiveMaxTokens * 0.95)     // 95% of effective limit
+      warning: Math.floor(effectiveMaxTokens * 0.8), // 80% of effective limit
+      required: Math.floor(effectiveMaxTokens * 0.95) // 95% of effective limit
     }
   }
 }
@@ -213,7 +216,7 @@ export function isModelSupported(model: string): model is SupportedModel {
  * Get all supported models with their context information
  */
 export function getAllModelContextInfo(): ModelContextInfo[] {
-  return Object.keys(MODEL_CONTEXT_WINDOWS).map(model => 
+  return Object.keys(MODEL_CONTEXT_WINDOWS).map((model) =>
     getModelContextInfo(model as SupportedModel)
   )
 }

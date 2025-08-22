@@ -6,12 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import {
-  HeadTailStrategy,
-  SmartStrategy,
-  ErrorFocusedStrategy,
-  StackTraceStrategy
-} from './index'
+import { HeadTailStrategy, SmartStrategy, ErrorFocusedStrategy, StackTraceStrategy } from './index'
 import type { TruncationContext, ITruncationStrategy } from '../types'
 import { ContentType, ContentPriority } from '../types'
 
@@ -71,11 +66,13 @@ Line 10: This is the end`
 
     it('should handle content types correctly', () => {
       expect(strategy.canTruncate(sampleContent, basicContext)).toBe(true)
-      expect(strategy.canTruncate(sampleContent, { 
-        ...basicContext, 
-        contentType: 'json',
-        preserveStructure: true 
-      })).toBe(false)
+      expect(
+        strategy.canTruncate(sampleContent, {
+          ...basicContext,
+          contentType: 'json',
+          preserveStructure: true
+        })
+      ).toBe(false)
     })
 
     it('should provide reasonable estimates', async () => {
@@ -94,7 +91,7 @@ Line 10: This is the end`
           separator: '\n--- TRUNCATED ---\n'
         }
       }
-      
+
       const result = await strategy.truncate(sampleContent, 30, contextWithConfig)
 
       expect(result.content.includes('--- TRUNCATED ---')).toBe(true)
@@ -132,13 +129,19 @@ Line 10: This is the end`
     })
 
     it('should support relevant content types', () => {
-      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'error' })).toBe(true)
-      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'code' })).toBe(true)
-      expect(strategy.canTruncate('{}', { 
-        ...basicContext, 
-        contentType: 'json',
-        preserveStructure: true 
-      })).toBe(false)
+      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'error' })).toBe(
+        true
+      )
+      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'code' })).toBe(
+        true
+      )
+      expect(
+        strategy.canTruncate('{}', {
+          ...basicContext,
+          contentType: 'json',
+          preserveStructure: true
+        })
+      ).toBe(false)
     })
   })
 
@@ -169,7 +172,7 @@ Line 10: This is the end`
         AssertionError: Expected true but received false
         at test.js:5:10
       `
-      
+
       const testContext = { ...basicContext, contentType: 'test' }
       const result = await strategy.truncate(assertionContent, 30, testContext)
 
@@ -178,10 +181,18 @@ Line 10: This is the end`
     })
 
     it('should support error-related content types', () => {
-      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'error' })).toBe(true)
-      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'test' })).toBe(true)
-      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'log' })).toBe(true)
-      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'text' })).toBe(false)
+      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'error' })).toBe(
+        true
+      )
+      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'test' })).toBe(
+        true
+      )
+      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'log' })).toBe(
+        true
+      )
+      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'text' })).toBe(
+        false
+      )
     })
   })
 
@@ -218,16 +229,18 @@ Line 10: This is the end`
     it('should only support error content with stack traces', () => {
       const stackTrace = `Error: Test
     at test.js:1:1`
-      
+
       expect(strategy.canTruncate(stackTrace, { ...basicContext, contentType: 'error' })).toBe(true)
-      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'error' })).toBe(false)
+      expect(strategy.canTruncate(sampleContent, { ...basicContext, contentType: 'error' })).toBe(
+        false
+      )
       expect(strategy.canTruncate(stackTrace, { ...basicContext, contentType: 'text' })).toBe(false)
     })
 
     it('should handle malformed stack traces gracefully', async () => {
       const malformedStack = 'Not a real stack trace\nJust some text'
       const errorContext = { ...basicContext, contentType: 'error' as ContentType }
-      
+
       const result = await strategy.truncate(malformedStack, 20, errorContext)
 
       // The strategy should still work even with malformed stack traces
@@ -239,9 +252,10 @@ Line 10: This is the end`
   })
 
   describe('Performance Requirements', () => {
-    const largeContent = Array(1000).fill(0).map((_, i) => 
-      `Line ${i + 1}: This is line ${i + 1} with some content that makes it longer`
-    ).join('\n')
+    const largeContent = Array(1000)
+      .fill(0)
+      .map((_, i) => `Line ${i + 1}: This is line ${i + 1} with some content that makes it longer`)
+      .join('\n')
 
     const strategies: ITruncationStrategy[] = [
       new HeadTailStrategy(),
@@ -250,24 +264,27 @@ Line 10: This is the end`
       new StackTraceStrategy()
     ]
 
-    it.each(strategies)('should complete truncation within performance threshold for %s', async (strategy) => {
-      const context: TruncationContext = {
-        model: 'gpt-4',
-        maxTokens: 100,
-        contentType: 'text',
-        priority: ContentPriority.MEDIUM,
-        preserveStructure: false
+    it.each(strategies)(
+      'should complete truncation within performance threshold for %s',
+      async (strategy) => {
+        const context: TruncationContext = {
+          model: 'gpt-4',
+          maxTokens: 100,
+          contentType: 'text',
+          priority: ContentPriority.MEDIUM,
+          preserveStructure: false
+        }
+
+        const startTime = Date.now()
+        const result = await strategy.truncate(largeContent, 100, context)
+        const duration = Date.now() - startTime
+
+        // Should complete in reasonable time (< 2% overhead means < 100ms for large content)
+        expect(duration).toBeLessThan(500)
+        expect(result.tokenCount).toBeDefined()
+        expect(result.tokensSaved).toBeGreaterThanOrEqual(0)
       }
-
-      const startTime = Date.now()
-      const result = await strategy.truncate(largeContent, 100, context)
-      const duration = Date.now() - startTime
-
-      // Should complete in reasonable time (< 2% overhead means < 100ms for large content)
-      expect(duration).toBeLessThan(500)
-      expect(result.tokenCount).toBeDefined()
-      expect(result.tokensSaved).toBeGreaterThanOrEqual(0)
-    })
+    )
 
     it.each(strategies)('should provide fast estimates for %s', async (strategy) => {
       const context: TruncationContext = {

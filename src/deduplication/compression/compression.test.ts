@@ -41,12 +41,12 @@ describe('Compression System', () => {
       ]
 
       const template = extractor.extractTemplate(failures)
-      
+
       expect(template).toBeDefined()
       expect(template?.pattern).toContain('Cannot read property')
       expect(template?.variables.length).toBeGreaterThan(0)
       // The common element includes the quote
-      expect(template?.commonElements.some(el => el.includes('Cannot read property'))).toBe(true)
+      expect(template?.commonElements.some((el) => el.includes('Cannot read property'))).toBe(true)
     })
 
     it('should extract template from similar stack traces', () => {
@@ -72,7 +72,7 @@ describe('Compression System', () => {
       ]
 
       const template = extractor.extractTemplate(failures)
-      
+
       expect(template).toBeDefined()
       expect(template?.pattern).toContain('Error: Test failed')
       expect(template?.variables.length).toBeGreaterThanOrEqual(0)
@@ -90,7 +90,7 @@ describe('Compression System', () => {
       ]
 
       const template = extractor.extractTemplate(failures)
-      
+
       expect(template).toBeNull()
     })
 
@@ -121,7 +121,7 @@ describe('Compression System', () => {
       ]
 
       const template = extractor.extractTemplate(failures)
-      
+
       expect(template).toBeDefined()
       expect(template?.commonElements.length).toBeGreaterThan(0)
     })
@@ -149,7 +149,7 @@ describe('Compression System', () => {
       ]
 
       const template = extractorWithLimit.extractTemplate(failures)
-      
+
       if (template) {
         expect(template.variables.length).toBeLessThanOrEqual(2)
       }
@@ -164,38 +164,22 @@ describe('Compression System', () => {
     })
 
     it('should add and retrieve references', () => {
-      manager.addReference(
-        'test1',
-        'group1',
-        { score: 0.9, level: 'high', confidence: 0.8 }
-      )
+      manager.addReference('test1', 'group1', { score: 0.9, level: 'high', confidence: 0.8 })
 
       const ref = manager.getReference('test1')
-      
+
       expect(ref).toBeDefined()
       expect(ref?.groupId).toBe('group1')
       expect(ref?.similarity.score).toBe(0.9)
     })
 
     it('should get references by group', () => {
-      manager.addReference(
-        'test1',
-        'group1',
-        { score: 0.9, level: 'high', confidence: 0.8 }
-      )
-      manager.addReference(
-        'test2',
-        'group1',
-        { score: 0.85, level: 'high', confidence: 0.7 }
-      )
-      manager.addReference(
-        'test3',
-        'group2',
-        { score: 0.95, level: 'exact', confidence: 0.9 }
-      )
+      manager.addReference('test1', 'group1', { score: 0.9, level: 'high', confidence: 0.8 })
+      manager.addReference('test2', 'group1', { score: 0.85, level: 'high', confidence: 0.7 })
+      manager.addReference('test3', 'group2', { score: 0.95, level: 'exact', confidence: 0.9 })
 
       const groupRefs = manager.getGroupReferences('group1')
-      
+
       expect(groupRefs).toHaveLength(2)
       expect(groupRefs[0].groupId).toBe('group1')
       expect(groupRefs[1].groupId).toBe('group1')
@@ -214,14 +198,10 @@ describe('Compression System', () => {
       }
 
       manager.registerGroup(group)
-      manager.addReference(
-        'test1',
-        'group1',
-        { score: 0.9, level: 'high', confidence: 0.8 }
-      )
+      manager.addReference('test1', 'group1', { score: 0.9, level: 'high', confidence: 0.8 })
 
       const lookup = manager.lookup('test1')
-      
+
       expect(lookup).toBeDefined()
       expect(lookup?.group?.id).toBe('group1')
       expect(lookup?.reference.groupId).toBe('group1')
@@ -245,76 +225,48 @@ describe('Compression System', () => {
       )
 
       const lookup = manager.lookup('test1')
-      
+
       expect(lookup?.template?.id).toBe('template1')
     })
 
     it('should remove references', () => {
-      manager.addReference(
-        'test1',
-        'group1',
-        { score: 0.9, level: 'high', confidence: 0.8 }
-      )
+      manager.addReference('test1', 'group1', { score: 0.9, level: 'high', confidence: 0.8 })
 
       const removed = manager.removeReference('test1')
       const ref = manager.getReference('test1')
-      
+
       expect(removed).toBe(true)
       expect(ref).toBeNull()
     })
 
     it('should remove group and its references', () => {
-      manager.addReference(
-        'test1',
-        'group1',
-        { score: 0.9, level: 'high', confidence: 0.8 }
-      )
-      manager.addReference(
-        'test2',
-        'group1',
-        { score: 0.85, level: 'high', confidence: 0.7 }
-      )
+      manager.addReference('test1', 'group1', { score: 0.9, level: 'high', confidence: 0.8 })
+      manager.addReference('test2', 'group1', { score: 0.85, level: 'high', confidence: 0.7 })
 
       const removed = manager.removeGroup('group1')
-      
+
       expect(removed).toBe(2)
       expect(manager.getReference('test1')).toBeNull()
       expect(manager.getReference('test2')).toBeNull()
     })
 
     it('should get compressed references', () => {
-      manager.addReference(
-        'test1',
-        'group1',
-        { score: 0.9, level: 'high', confidence: 0.8 }
-      )
-      manager.addReference(
-        'test2',
-        'group1',
-        { score: 0.85, level: 'high', confidence: 0.7 }
-      )
+      manager.addReference('test1', 'group1', { score: 0.9, level: 'high', confidence: 0.8 })
+      manager.addReference('test2', 'group1', { score: 0.85, level: 'high', confidence: 0.7 })
 
       const compressed = manager.getCompressedReferences()
-      
+
       expect(compressed).toHaveLength(2)
       expect(compressed[0].testId).toBe('test1')
       expect(compressed[0].groupId).toBe('group1')
     })
 
     it('should calculate statistics', () => {
-      manager.addReference(
-        'test1',
-        'group1',
-        { score: 0.9, level: 'high', confidence: 0.8 }
-      )
-      manager.addReference(
-        'test2',
-        'group1',
-        { score: 0.7, level: 'medium', confidence: 0.6 }
-      )
+      manager.addReference('test1', 'group1', { score: 0.9, level: 'high', confidence: 0.8 })
+      manager.addReference('test2', 'group1', { score: 0.7, level: 'medium', confidence: 0.6 })
 
       const stats = manager.getStats()
-      
+
       expect(stats.totalReferences).toBe(2)
       expect(stats.uniqueGroups).toBe(1)
       expect(stats.averageSimilarity).toBe(0.8)
@@ -323,30 +275,22 @@ describe('Compression System', () => {
     })
 
     it('should export and import references', () => {
-      manager.addReference(
-        'test1',
-        'group1',
-        { score: 0.9, level: 'high', confidence: 0.8 }
-      )
+      manager.addReference('test1', 'group1', { score: 0.9, level: 'high', confidence: 0.8 })
 
       const exported = manager.exportReferences()
-      
+
       const newManager = new ReferenceManager()
       newManager.importReferences(exported)
-      
+
       const ref = newManager.getReference('test1')
       expect(ref?.groupId).toBe('group1')
     })
 
     it('should clear all references', () => {
-      manager.addReference(
-        'test1',
-        'group1',
-        { score: 0.9, level: 'high', confidence: 0.8 }
-      )
+      manager.addReference('test1', 'group1', { score: 0.9, level: 'high', confidence: 0.8 })
 
       manager.clear()
-      
+
       expect(manager.getReference('test1')).toBeNull()
       expect(manager.getStats().totalReferences).toBe(0)
     })

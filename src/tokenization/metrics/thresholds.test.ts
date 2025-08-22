@@ -28,7 +28,7 @@ describe('ThresholdManager', () => {
   describe('constructor', () => {
     it('should create manager with default settings', () => {
       expect(manager).toBeDefined()
-      
+
       const settings = manager.getSettings()
       expect(settings.totalTokens.enabled).toBe(true)
       expect(settings.totalTokens.warning).toBe(25000)
@@ -43,10 +43,10 @@ describe('ThresholdManager', () => {
           enabled: true
         }
       }
-      
+
       const customManager = new ThresholdManager(customSettings)
       const settings = customManager.getSettings()
-      
+
       expect(settings.totalTokens.warning).toBe(30000)
       expect(settings.totalTokens.critical).toBe(60000)
       expect(settings.totalTokens.info).toBe(10000) // Default preserved
@@ -54,7 +54,7 @@ describe('ThresholdManager', () => {
 
     it('should preserve all default section configurations', () => {
       const settings = manager.getSettings()
-      
+
       expect(settings.sectionPercentage.summary).toBeDefined()
       expect(settings.sectionPercentage.testCases).toBeDefined()
       expect(settings.sectionPercentage.failures).toBeDefined()
@@ -71,16 +71,17 @@ describe('ThresholdManager', () => {
         totalTokens: { enabled: false, warning: 1000, critical: 2000 }
       }
       const disabledManager = new ThresholdManager(disabledSettings)
-      
+
       const result = disabledManager.checkThreshold('totalTokens', 1500)
       expect(result).toBeNull()
     })
 
     it('should return correct threshold levels for ascending metrics', () => {
       // Test total tokens (higher is worse)
-      expect(manager.checkThreshold('totalTokens', 5000)).toBe('info')
-      expect(manager.checkThreshold('totalTokens', 30000)).toBe('warning')
-      expect(manager.checkThreshold('totalTokens', 60000)).toBe('critical')
+      // Default thresholds: info=10000, warning=25000, critical=50000
+      expect(manager.checkThreshold('totalTokens', 12000)).toBe('info')  // Above 10000
+      expect(manager.checkThreshold('totalTokens', 30000)).toBe('warning')  // Above 25000
+      expect(manager.checkThreshold('totalTokens', 60000)).toBe('critical')  // Above 50000
       expect(manager.checkThreshold('totalTokens', 8000)).toBeNull() // Below info threshold
     })
 
@@ -113,7 +114,7 @@ describe('ThresholdManager', () => {
       const mb50 = 50 * 1024 * 1024
       const mb120 = 120 * 1024 * 1024
       const mb300 = 300 * 1024 * 1024
-      
+
       expect(manager.checkThreshold('memoryUsage', mb50 + 1)).toBe('info')
       expect(manager.checkThreshold('memoryUsage', mb120)).toBe('warning')
       expect(manager.checkThreshold('memoryUsage', mb300)).toBe('critical')
@@ -124,7 +125,7 @@ describe('ThresholdManager', () => {
         totalTokens: { enabled: true, warning: 1000 } // No critical or info
       }
       const partialManager = new ThresholdManager(partialSettings)
-      
+
       expect(partialManager.checkThreshold('totalTokens', 1500)).toBe('warning')
       expect(partialManager.checkThreshold('totalTokens', 2500)).toBe('warning') // No critical defined
     })
@@ -143,7 +144,7 @@ describe('ThresholdManager', () => {
       expect(manager.checkSectionThreshold('testCases', 45)).toBe('info')
       expect(manager.checkSectionThreshold('testCases', 65)).toBe('warning')
       expect(manager.checkSectionThreshold('testCases', 85)).toBe('critical')
-      
+
       // Console has lower thresholds
       expect(manager.checkSectionThreshold('console', 15)).toBe('info')
       expect(manager.checkSectionThreshold('console', 25)).toBe('warning')
@@ -153,18 +154,25 @@ describe('ThresholdManager', () => {
     it('should return null for disabled sections', () => {
       const settings = manager.getSettings()
       settings.sectionPercentage.total.enabled = false
-      
+
       const disabledManager = new ThresholdManager(settings)
       expect(disabledManager.checkSectionThreshold('total', 100)).toBeNull()
     })
 
     it('should handle all metric sections', () => {
       const sections = [
-        'summary', 'testCases', 'failures', 'context', 'console', 'metadata', 'total'
+        'summary',
+        'testCases',
+        'failures',
+        'context',
+        'console',
+        'metadata',
+        'total'
       ] as const
-      
-      sections.forEach(section => {
-        if (section !== 'total') { // Total is disabled by default
+
+      sections.forEach((section) => {
+        if (section !== 'total') {
+          // Total is disabled by default
           const result = manager.checkSectionThreshold(section, 50)
           expect(result).not.toBeNull()
         }
@@ -175,11 +183,19 @@ describe('ThresholdManager', () => {
   describe('model limits', () => {
     it('should return correct model limits for all supported models', () => {
       const models: SupportedModel[] = [
-        'gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo',
-        'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'claude-3-5-haiku'
+        'gpt-4',
+        'gpt-4-turbo',
+        'gpt-4o',
+        'gpt-4o-mini',
+        'gpt-3.5-turbo',
+        'claude-3-opus',
+        'claude-3-sonnet',
+        'claude-3-haiku',
+        'claude-3-5-sonnet',
+        'claude-3-5-haiku'
       ]
-      
-      models.forEach(model => {
+
+      models.forEach((model) => {
         const limits = manager.getModelLimits(model)
         expect(limits).toBeDefined()
         expect(limits.contextWindow).toBeGreaterThan(0)
@@ -195,11 +211,11 @@ describe('ThresholdManager', () => {
       expect(gpt4Limits.contextWindow).toBe(8192)
       expect(gpt4Limits.recommendedMax).toBe(6000)
       expect(gpt4Limits.conservativeThreshold).toBe(4000)
-      
+
       const gpt4TurboLimits = manager.getModelLimits('gpt-4-turbo')
       expect(gpt4TurboLimits.contextWindow).toBe(128000)
       expect(gpt4TurboLimits.recommendedMax).toBe(100000)
-      
+
       const gpt35Limits = manager.getModelLimits('gpt-3.5-turbo')
       expect(gpt35Limits.contextWindow).toBe(4096)
       expect(gpt35Limits.recommendedMax).toBe(3000)
@@ -207,10 +223,14 @@ describe('ThresholdManager', () => {
 
     it('should have correct limits for Claude models', () => {
       const claudeModels: SupportedModel[] = [
-        'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'claude-3-5-haiku'
+        'claude-3-opus',
+        'claude-3-sonnet',
+        'claude-3-haiku',
+        'claude-3-5-sonnet',
+        'claude-3-5-haiku'
       ]
-      
-      claudeModels.forEach(model => {
+
+      claudeModels.forEach((model) => {
         const limits = manager.getModelLimits(model)
         expect(limits.contextWindow).toBe(200000)
         expect(limits.recommendedMax).toBe(150000)
@@ -233,7 +253,7 @@ describe('ThresholdManager', () => {
       expect(manager.checkModelLimit('claude-3-opus', 125000)).toBe('info')
       expect(manager.checkModelLimit('claude-3-opus', 160000)).toBe('warning')
       expect(manager.checkModelLimit('claude-3-opus', 210000)).toBe('critical')
-      
+
       // Test with GPT-3.5 (lower limits)
       expect(manager.checkModelLimit('gpt-3.5-turbo', 2200)).toBe('info')
       expect(manager.checkModelLimit('gpt-3.5-turbo', 3200)).toBe('warning')
@@ -245,10 +265,10 @@ describe('ThresholdManager', () => {
     it('should return deep copy of settings', () => {
       const settings1 = manager.getSettings()
       const settings2 = manager.getSettings()
-      
+
       expect(settings1).not.toBe(settings2) // Different objects
       expect(settings1).toEqual(settings2) // Same content
-      
+
       // Modifying one shouldn't affect the other
       settings1.totalTokens.warning = 99999
       expect(settings2.totalTokens.warning).not.toBe(99999)
@@ -266,10 +286,10 @@ describe('ThresholdManager', () => {
           enabled: true
         }
       }
-      
+
       manager.updateSettings(updates)
       const settings = manager.getSettings()
-      
+
       expect(settings.totalTokens.warning).toBe(35000)
       expect(settings.totalTokens.critical).toBe(70000)
       expect(settings.totalTokens.info).toBe(10000) // Unchanged
@@ -287,10 +307,10 @@ describe('ThresholdManager', () => {
           }
         }
       }
-      
+
       manager.updateSettings(updates)
       const settings = manager.getSettings()
-      
+
       expect(settings.sectionPercentage.failures.warning).toBe(50)
       expect(settings.sectionPercentage.failures.critical).toBe(75)
       expect(settings.sectionPercentage.failures.info).toBe(20) // Unchanged
@@ -301,13 +321,13 @@ describe('ThresholdManager', () => {
       manager.updateSettings({
         totalTokens: { warning: 99999, enabled: true }
       })
-      
+
       // Verify change
       expect(manager.getSettings().totalTokens.warning).toBe(99999)
-      
+
       // Reset
       manager.resetToDefaults()
-      
+
       // Verify reset
       expect(manager.getSettings().totalTokens.warning).toBe(25000)
     })
@@ -330,16 +350,16 @@ describe('ThresholdManager', () => {
           sectionPercentage: 40
         }
       }
-      
+
       const settings = ThresholdManager.fromReporterConfig(config)
-      
+
       expect(settings.totalTokens.warning).toBe(30000)
       expect(settings.totalTokens.critical).toBe(60000) // Double
       expect(settings.perTestTokens.warning).toBe(1500)
       expect(settings.perTestTokens.critical).toBe(3000)
       expect(settings.perFileTokens.warning).toBe(8000)
       expect(settings.perFileTokens.critical).toBe(16000)
-      
+
       // Section percentages should be applied to all enabled sections
       expect(settings.sectionPercentage.failures.warning).toBe(40)
       expect(settings.sectionPercentage.failures.critical).toBe(60) // 1.5x
@@ -361,9 +381,9 @@ describe('ThresholdManager', () => {
           // Only total tokens specified
         }
       }
-      
+
       const settings = ThresholdManager.fromReporterConfig(config)
-      
+
       expect(settings.totalTokens.warning).toBe(20000)
       expect(settings.totalTokens.critical).toBe(40000)
       expect(settings.perTestTokens.warning).toBe(1000) // Default
@@ -381,9 +401,9 @@ describe('ThresholdManager', () => {
         enableBatching: true
         // No thresholds property
       }
-      
+
       const settings = ThresholdManager.fromReporterConfig(config)
-      
+
       // Should use all defaults
       expect(settings.totalTokens.warning).toBe(25000)
       expect(settings.perTestTokens.warning).toBe(1000)
@@ -393,17 +413,29 @@ describe('ThresholdManager', () => {
 
   describe('getThresholdDescription', () => {
     it('should return descriptions for standard metrics', () => {
-      expect(manager.getThresholdDescription('totalTokens')).toBe('Total tokens across all test results')
+      expect(manager.getThresholdDescription('totalTokens')).toBe(
+        'Total tokens across all test results'
+      )
       expect(manager.getThresholdDescription('perTestTokens')).toBe('Tokens per individual test')
-      expect(manager.getThresholdDescription('processingTime')).toBe('Processing time per test in milliseconds')
+      expect(manager.getThresholdDescription('processingTime')).toBe(
+        'Processing time per test in milliseconds'
+      )
       expect(manager.getThresholdDescription('memoryUsage')).toBe('Memory usage in bytes')
-      expect(manager.getThresholdDescription('cacheHitRate')).toBe('Cache hit rate percentage (lower is worse)')
+      expect(manager.getThresholdDescription('cacheHitRate')).toBe(
+        'Cache hit rate percentage (lower is worse)'
+      )
     })
 
     it('should return descriptions for section percentages', () => {
-      expect(manager.getThresholdDescription('sectionPercentage', 'failures')).toBe('Failures section as percentage of total')
-      expect(manager.getThresholdDescription('sectionPercentage', 'context')).toBe('Context section as percentage of total')
-      expect(manager.getThresholdDescription('sectionPercentage', 'console')).toBe('Console output section as percentage of total')
+      expect(manager.getThresholdDescription('sectionPercentage', 'failures')).toBe(
+        'Failures section as percentage of total'
+      )
+      expect(manager.getThresholdDescription('sectionPercentage', 'context')).toBe(
+        'Context section as percentage of total'
+      )
+      expect(manager.getThresholdDescription('sectionPercentage', 'console')).toBe(
+        'Console output section as percentage of total'
+      )
     })
 
     it('should handle missing descriptions', () => {
@@ -411,8 +443,9 @@ describe('ThresholdManager', () => {
         totalTokens: { enabled: true, warning: 1000 } // No description
       }
       const noDescManager = new ThresholdManager(noDescSettings)
-      
-      expect(noDescManager.getThresholdDescription('totalTokens')).toBe('totalTokens')
+
+      // When merged with defaults, it should have the default description
+      expect(noDescManager.getThresholdDescription('totalTokens')).toBe('Total tokens across all test results')
     })
   })
 
@@ -431,9 +464,9 @@ describe('ThresholdManager', () => {
           }
         }
       }
-      
+
       const merged = manager.mergeSettings(base, updates)
-      
+
       expect(merged.totalTokens.warning).toBe(30000)
       expect(merged.totalTokens.critical).toBe(50000) // Preserved from base
       expect(merged.sectionPercentage.failures.warning).toBe(45)
@@ -444,7 +477,7 @@ describe('ThresholdManager', () => {
     it('should handle undefined updates', () => {
       const base = manager.getSettings()
       const merged = manager.mergeSettings(base, undefined)
-      
+
       expect(merged).toEqual(base)
     })
 
@@ -453,9 +486,9 @@ describe('ThresholdManager', () => {
       const updates = {
         totalTokens: { warning: 30000, enabled: true }
       }
-      
+
       const merged = manager.mergeSettings(base, updates)
-      
+
       expect(merged).not.toBe(base)
       expect(merged.totalTokens).not.toBe(base.totalTokens)
     })
@@ -471,7 +504,7 @@ describe('threshold manager factory functions', () => {
     it('should return singleton instance', () => {
       const manager1 = getThresholdManager()
       const manager2 = getThresholdManager()
-      
+
       expect(manager1).toBe(manager2)
     })
 
@@ -479,7 +512,7 @@ describe('threshold manager factory functions', () => {
       const customSettings = {
         totalTokens: { warning: 35000, enabled: true }
       }
-      
+
       const manager = getThresholdManager(customSettings)
       expect(manager.getSettings().totalTokens.warning).toBe(35000)
     })
@@ -487,7 +520,7 @@ describe('threshold manager factory functions', () => {
     it('should ignore settings on subsequent calls', () => {
       getThresholdManager({ totalTokens: { warning: 30000, enabled: true } })
       const manager = getThresholdManager({ totalTokens: { warning: 40000, enabled: true } })
-      
+
       expect(manager.getSettings().totalTokens.warning).toBe(30000) // First call wins
     })
   })
@@ -497,7 +530,7 @@ describe('threshold manager factory functions', () => {
       const manager1 = getThresholdManager()
       resetThresholdManager()
       const manager2 = getThresholdManager()
-      
+
       expect(manager1).not.toBe(manager2)
     })
   })
@@ -506,12 +539,12 @@ describe('threshold manager factory functions', () => {
 describe('createModelAwareThresholds', () => {
   it('should create thresholds based on model limits', () => {
     const gpt4Thresholds = createModelAwareThresholds('gpt-4')
-    
+
     // GPT-4 conservative threshold is 4000
     expect(gpt4Thresholds.totalTokens.info).toBe(1000) // 25% of 4000
     expect(gpt4Thresholds.totalTokens.warning).toBe(2000) // 50% of 4000
     expect(gpt4Thresholds.totalTokens.critical).toBe(4000) // 100% of 4000
-    
+
     expect(gpt4Thresholds.perTestTokens.info).toBe(200) // 5% of 4000
     expect(gpt4Thresholds.perTestTokens.warning).toBe(400) // 10% of 4000
     expect(gpt4Thresholds.perTestTokens.critical).toBe(800) // 20% of 4000
@@ -520,23 +553,27 @@ describe('createModelAwareThresholds', () => {
   it('should create different thresholds for different models', () => {
     const gpt4Thresholds = createModelAwareThresholds('gpt-4')
     const claudeThresholds = createModelAwareThresholds('claude-3-opus')
-    
+
     // Claude has much higher limits (120000 conservative)
     expect(claudeThresholds.totalTokens.critical).toBe(120000)
-    expect(claudeThresholds.totalTokens.critical).toBeGreaterThan(gpt4Thresholds.totalTokens.critical)
-    
+    expect(claudeThresholds.totalTokens.critical).toBeGreaterThan(
+      gpt4Thresholds.totalTokens.critical
+    )
+
     expect(claudeThresholds.perTestTokens.critical).toBe(24000)
-    expect(claudeThresholds.perTestTokens.critical).toBeGreaterThan(gpt4Thresholds.perTestTokens.critical)
+    expect(claudeThresholds.perTestTokens.critical).toBeGreaterThan(
+      gpt4Thresholds.perTestTokens.critical
+    )
   })
 
   it('should handle small model limits correctly', () => {
     const gpt35Thresholds = createModelAwareThresholds('gpt-3.5-turbo')
-    
+
     // GPT-3.5 conservative threshold is 2000
     expect(gpt35Thresholds.totalTokens.info).toBe(500)
     expect(gpt35Thresholds.totalTokens.warning).toBe(1000)
     expect(gpt35Thresholds.totalTokens.critical).toBe(2000)
-    
+
     expect(gpt35Thresholds.perTestTokens.info).toBe(100)
     expect(gpt35Thresholds.perTestTokens.warning).toBe(200)
     expect(gpt35Thresholds.perTestTokens.critical).toBe(400)
@@ -550,12 +587,12 @@ describe('createModelAwareThresholds', () => {
         enabled: true
       }
     }
-    
+
     const thresholds = createModelAwareThresholds('gpt-4', baseSettings)
-    
+
     // Model-aware settings should be applied
     expect(thresholds.totalTokens.critical).toBe(4000)
-    
+
     // Base settings should be merged
     expect(thresholds.processingTime.warning).toBe(8000)
     expect(thresholds.processingTime.critical).toBe(20000)
@@ -563,17 +600,25 @@ describe('createModelAwareThresholds', () => {
 
   it('should handle all supported models', () => {
     const models: SupportedModel[] = [
-      'gpt-4', 'gpt-4-turbo', 'gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo',
-      'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'claude-3-5-haiku'
+      'gpt-4',
+      'gpt-4-turbo',
+      'gpt-4o',
+      'gpt-4o-mini',
+      'gpt-3.5-turbo',
+      'claude-3-opus',
+      'claude-3-sonnet',
+      'claude-3-haiku',
+      'claude-3-5-sonnet',
+      'claude-3-5-haiku'
     ]
-    
-    models.forEach(model => {
+
+    models.forEach((model) => {
       const thresholds = createModelAwareThresholds(model)
-      
+
       expect(thresholds.totalTokens.info).toBeGreaterThan(0)
       expect(thresholds.totalTokens.warning).toBeGreaterThan(thresholds.totalTokens.info!)
       expect(thresholds.totalTokens.critical).toBeGreaterThan(thresholds.totalTokens.warning!)
-      
+
       expect(thresholds.perTestTokens.critical).toBeGreaterThan(0)
       expect(thresholds.perFileTokens.critical).toBeGreaterThan(0)
     })
@@ -581,16 +626,16 @@ describe('createModelAwareThresholds', () => {
 
   it('should calculate percentages correctly', () => {
     const thresholds = createModelAwareThresholds('gpt-4') // Conservative: 4000
-    
+
     // Verify percentage calculations
     expect(thresholds.totalTokens.info).toBe(Math.floor(4000 * 0.25))
     expect(thresholds.totalTokens.warning).toBe(Math.floor(4000 * 0.5))
     expect(thresholds.totalTokens.critical).toBe(4000)
-    
+
     expect(thresholds.perTestTokens.info).toBe(Math.floor(4000 * 0.05))
     expect(thresholds.perTestTokens.warning).toBe(Math.floor(4000 * 0.1))
     expect(thresholds.perTestTokens.critical).toBe(Math.floor(4000 * 0.2))
-    
+
     expect(thresholds.perFileTokens.info).toBe(Math.floor(4000 * 0.15))
     expect(thresholds.perFileTokens.warning).toBe(Math.floor(4000 * 0.3))
     expect(thresholds.perFileTokens.critical).toBe(Math.floor(4000 * 0.6))

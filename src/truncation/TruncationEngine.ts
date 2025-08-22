@@ -1,15 +1,15 @@
 /**
  * TruncationEngine - Main engine implementing the strategy pattern
- * 
+ *
  * This is the core orchestrator for content truncation, managing multiple
  * truncation strategies and applying them based on content type, priority,
  * and context requirements.
  */
 
-import type { 
-  ITruncationStrategy, 
-  TruncationContext, 
-  TruncationResult, 
+import type {
+  ITruncationStrategy,
+  TruncationContext,
+  TruncationResult,
   TruncationEngineConfig,
   TruncationStats
 } from './types.js'
@@ -17,17 +17,13 @@ import { ContentType } from './types.js'
 import type { SupportedModel } from '../tokenization/types.js'
 import type { TruncationConfig } from '../types/reporter.js'
 import { TokenCounter, getTokenCounter } from '../tokenization/TokenCounter.js'
-import { 
+import {
   createTruncationContext,
   getEffectiveMaxTokens,
   wouldExceedContext,
   calculateTruncationTarget
 } from './context.js'
-import { 
-  PriorityManager, 
-  defaultPriorityManager,
-  getContentPriority
-} from './priorities.js'
+import { PriorityManager, defaultPriorityManager, getContentPriority } from './priorities.js'
 
 /**
  * Main truncation engine implementing strategy pattern
@@ -51,10 +47,12 @@ export class TruncationEngine {
       strategyConfigs: config.strategyConfigs || {}
     }
 
-    this.tokenCounter = tokenCounter || getTokenCounter({
-      defaultModel: this.config.defaultModel
-    })
-    
+    this.tokenCounter =
+      tokenCounter ||
+      getTokenCounter({
+        defaultModel: this.config.defaultModel
+      })
+
     this.priorityManager = priorityManager || defaultPriorityManager
 
     this.stats = {
@@ -140,7 +138,11 @@ export class TruncationEngine {
     })
 
     // Find applicable strategies
-    const applicableStrategies = this.findApplicableStrategies(content, context, options.preferredStrategies)
+    const applicableStrategies = this.findApplicableStrategies(
+      content,
+      context,
+      options.preferredStrategies
+    )
 
     if (applicableStrategies.length === 0) {
       // No strategies available - return aggressive fallback if enabled
@@ -162,10 +164,10 @@ export class TruncationEngine {
 
       try {
         const result = await strategy.truncate(content, effectiveMaxTokens, context)
-        
+
         // Validate result
         const actualTokens = await this.tokenCounter.count(result.content, model)
-        
+
         if (actualTokens <= effectiveMaxTokens) {
           // Success! Update result with actual token count
           const finalResult: TruncationResult = {
@@ -178,7 +180,7 @@ export class TruncationEngine {
 
           // Update statistics
           this.updateStats(finalResult, contentType)
-          
+
           return finalResult
         } else {
           // Strategy didn't achieve target, but might be our best attempt
@@ -249,7 +251,11 @@ export class TruncationEngine {
       priority
     })
 
-    const applicableStrategies = this.findApplicableStrategies(content, context, options.preferredStrategies)
+    const applicableStrategies = this.findApplicableStrategies(
+      content,
+      context,
+      options.preferredStrategies
+    )
 
     if (applicableStrategies.length === 0) {
       // Fallback to simple estimation
@@ -258,10 +264,14 @@ export class TruncationEngine {
 
     // Get estimates from all applicable strategies and return the best (highest savings)
     let bestSavings = 0
-    
+
     for (const strategy of applicableStrategies) {
       try {
-        const estimatedSavings = await strategy.estimateSavings(content, effectiveMaxTokens, context)
+        const estimatedSavings = await strategy.estimateSavings(
+          content,
+          effectiveMaxTokens,
+          context
+        )
         bestSavings = Math.max(bestSavings, estimatedSavings)
       } catch (error) {
         // Skip failed estimates
@@ -319,21 +329,24 @@ export class TruncationEngine {
     preferredStrategies?: string[]
   ): ITruncationStrategy[] {
     let strategies = Array.from(this.strategies.values())
-    
+
     // Filter to strategies that can handle this content
-    strategies = strategies.filter(strategy => 
-      strategy.canTruncate(content, context)
-    )
+    strategies = strategies.filter((strategy) => strategy.canTruncate(content, context))
 
     // If preferred strategies are specified, prioritize them
     if (preferredStrategies && preferredStrategies.length > 0) {
-      const preferred = strategies.filter(s => preferredStrategies.includes(s.name))
-      const others = strategies.filter(s => !preferredStrategies.includes(s.name))
+      const preferred = strategies.filter((s) => preferredStrategies.includes(s.name))
+      const others = strategies.filter((s) => !preferredStrategies.includes(s.name))
+      
+      // Sort each group by priority, but keep preferred strategies first
+      preferred.sort((a, b) => b.priority - a.priority)
+      others.sort((a, b) => b.priority - a.priority)
+      
       strategies = [...preferred, ...others]
+    } else {
+      // Sort by strategy priority (higher priority first) only if no preferred strategies
+      strategies.sort((a, b) => b.priority - a.priority)
     }
-
-    // Sort by strategy priority (higher priority first)
-    strategies.sort((a, b) => b.priority - a.priority)
 
     return strategies
   }
@@ -353,16 +366,17 @@ export class TruncationEngine {
     // Simple character-based truncation as last resort
     const tokenRatio = targetTokens / initialTokens
     const targetLength = Math.floor(content.length * tokenRatio * 0.9) // 10% safety margin
-    
+
     let truncated = content.substring(0, targetLength)
-    
+
     // Try to end at a reasonable boundary
     const lastSpace = truncated.lastIndexOf(' ')
     const lastNewline = truncated.lastIndexOf('\n')
     const lastSentence = truncated.lastIndexOf('.')
-    
+
     const boundary = Math.max(lastSpace, lastNewline, lastSentence)
-    if (boundary > targetLength * 0.8) { // Don't cut too much
+    if (boundary > targetLength * 0.8) {
+      // Don't cut too much
       truncated = truncated.substring(0, boundary + 1)
     }
 
@@ -385,7 +399,8 @@ export class TruncationEngine {
       tokenCount: 0,
       tokensSaved: 0,
       wasTruncated: false,
-      strategyUsed: strategy
+      strategyUsed: strategy,
+      warnings: []
     }
   }
 
@@ -410,11 +425,11 @@ export class TruncationEngine {
     this.stats.averageTokensSaved = this.stats.totalTokensSaved / this.stats.totalTruncations
 
     // Update strategy usage
-    this.stats.strategyUsage[result.strategyUsed] = 
+    this.stats.strategyUsage[result.strategyUsed] =
       (this.stats.strategyUsage[result.strategyUsed] || 0) + 1
 
     // Update content type breakdown
-    this.stats.contentTypeBreakdown[contentType] = 
+    this.stats.contentTypeBreakdown[contentType] =
       (this.stats.contentTypeBreakdown[contentType] || 0) + 1
   }
 }
@@ -492,7 +507,7 @@ class LegacyTruncationEngineAdapter implements ITruncationEngine {
       maxAttempts: 3,
       enableAggressiveFallback: true
     }
-    
+
     this.engine = new TruncationEngine(engineConfig)
     this.model = model
     this.maxTokens = config.maxTokens
@@ -517,7 +532,7 @@ class LegacyTruncationEngineAdapter implements ITruncationEngine {
     // This is a simplified version that uses character-based truncation
     const estimatedTokens = this.engine['tokenCounter'].estimate(content)
     const effectiveMax = this.maxTokens || getEffectiveMaxTokens(this.model)
-    
+
     if (estimatedTokens <= effectiveMax) {
       return {
         content,
@@ -532,21 +547,21 @@ class LegacyTruncationEngineAdapter implements ITruncationEngine {
     // Simple character-based truncation for compatibility
     const ratio = effectiveMax / estimatedTokens
     const targetLength = Math.floor(content.length * ratio * 0.9) // 10% safety margin
-    
+
     let truncated = content.substring(0, targetLength)
-    
+
     // Try to end at a reasonable boundary
     const lastSpace = truncated.lastIndexOf(' ')
     const lastNewline = truncated.lastIndexOf('\n')
     const boundary = Math.max(lastSpace, lastNewline)
-    
+
     if (boundary > targetLength * 0.8) {
       truncated = truncated.substring(0, boundary)
     }
-    
+
     const truncatedTokens = this.engine['tokenCounter'].estimate(truncated)
     const tokensRemoved = estimatedTokens - truncatedTokens
-    
+
     // Record metrics
     const metric = {
       originalTokens: estimatedTokens,
@@ -556,7 +571,7 @@ class LegacyTruncationEngineAdapter implements ITruncationEngine {
       timestamp: Date.now()
     }
     this.metrics.push(metric)
-    
+
     // Keep only last 100 metrics to prevent memory leaks
     if (this.metrics.length > 100) {
       this.metrics = this.metrics.slice(-100)

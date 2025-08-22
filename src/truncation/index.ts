@@ -26,7 +26,7 @@ import type { ITruncationStrategy } from './types'
  */
 export const TRUNCATION_STRATEGIES = {
   'head-tail': HeadTailStrategy,
-  'smart': SmartStrategy,
+  smart: SmartStrategy,
   'error-focused': ErrorFocusedStrategy,
   'stack-trace': StackTraceStrategy
 } as const

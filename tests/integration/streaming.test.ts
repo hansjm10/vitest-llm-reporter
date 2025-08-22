@@ -1,26 +1,26 @@
 /**
  * Streaming Workflow Integration Tests
- * 
+ *
  * Tests the integration between StreamManager, ConsoleStreamAdapter,
  * and the overall streaming infrastructure.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { 
-  MockStreamManager, 
+import {
+  MockStreamManager,
   MockConsoleStreamAdapter,
-  createIntegratedMockServices 
+  createIntegratedMockServices
 } from '../fixtures/mock-implementations'
-import { 
-  createStreamOperations, 
+import {
+  createStreamOperations,
   createConsoleStreamData,
-  SAMPLE_TEST_DATA 
+  SAMPLE_TEST_DATA
 } from '../fixtures/test-data'
 import type { StreamConfig, StreamOperation, StreamEvent } from '../../src/streaming/types'
 
 describe('Streaming Workflow Integration', () => {
   let services: ReturnType<typeof createIntegratedMockServices>
-  
+
   beforeEach(() => {
     services = createIntegratedMockServices()
   })
@@ -42,7 +42,7 @@ describe('Streaming Workflow Integration', () => {
       }
 
       await services.streamManager.initialize(config)
-      
+
       expect(services.streamManager.isReady()).toBe(true)
       expect(services.streamManager.getConfig()).toEqual(config)
     })
@@ -56,7 +56,7 @@ describe('Streaming Workflow Integration', () => {
       }
 
       await services.streamManager.initialize(config)
-      
+
       expect(services.streamManager.isReady()).toBe(false)
     })
 
@@ -72,7 +72,7 @@ describe('Streaming Workflow Integration', () => {
       }
 
       await services.streamManager.initialize(config)
-      
+
       expect(events).toHaveLength(1)
       expect(events[0].type).toBe('stream_start')
     })
@@ -90,7 +90,7 @@ describe('Streaming Workflow Integration', () => {
 
     it('should write and track stream operations', async () => {
       const operations = createStreamOperations(5)
-      
+
       for (const operation of operations) {
         await services.streamManager.write(operation)
       }
@@ -105,7 +105,7 @@ describe('Streaming Workflow Integration', () => {
       services.streamManager.on('stream_data', (event) => events.push(event))
 
       const operations = createStreamOperations(3)
-      
+
       for (const operation of operations) {
         await services.streamManager.write(operation)
       }
@@ -127,7 +127,7 @@ describe('Streaming Workflow Integration', () => {
       }
 
       await services.streamManager.write(criticalOperation)
-      
+
       const operations = services.streamManager.getOperations()
       expect(operations[0]).toEqual(criticalOperation)
     })
@@ -150,9 +150,9 @@ describe('Streaming Workflow Integration', () => {
 
     it('should reject operations when not ready', async () => {
       await services.streamManager.close()
-      
+
       const operation = createStreamOperations(1)[0]
-      
+
       await expect(services.streamManager.write(operation)).rejects.toThrow(
         'StreamManager not initialized or not ready'
       )
@@ -176,7 +176,7 @@ describe('Streaming Workflow Integration', () => {
 
     it('should stream console data through stream manager', async () => {
       const consoleData = createConsoleStreamData(3)
-      
+
       for (const data of consoleData) {
         await services.consoleAdapter.streamConsoleData(data)
       }
@@ -197,14 +197,14 @@ describe('Streaming Workflow Integration', () => {
       await services.consoleAdapter.streamConsoleData(errorData)
 
       const operations = services.streamManager.getOperations()
-      
+
       expect(operations).toHaveLength(2)
-      
+
       // Log operation should go to stdout with normal priority
       expect(operations[0].stream).toBe('stdout')
       expect(operations[0].priority).toBe(2)
       expect(operations[0].testId).toBe(logData.testId)
-      
+
       // Error operation should go to stderr with high priority
       expect(operations[1].stream).toBe('stderr')
       expect(operations[1].priority).toBe(1)
@@ -213,16 +213,16 @@ describe('Streaming Workflow Integration', () => {
 
     it('should handle adapter destruction', () => {
       services.consoleAdapter.destroy()
-      
+
       expect(services.consoleAdapter.isReady()).toBe(false)
       expect(services.consoleAdapter.getStreamedData()).toHaveLength(0)
     })
 
     it('should reject operations when adapter not ready', async () => {
       services.consoleAdapter.destroy()
-      
+
       const consoleData = createConsoleStreamData(1)[0]
-      
+
       await expect(services.consoleAdapter.streamConsoleData(consoleData)).rejects.toThrow(
         'Adapter not initialized or not ready'
       )
@@ -258,12 +258,12 @@ describe('Streaming Workflow Integration', () => {
       const listener = (event: StreamEvent) => events.push(event)
 
       services.streamManager.on('stream_data', listener)
-      
+
       const operation1 = createStreamOperations(1)[0]
       await services.streamManager.write(operation1)
-      
+
       services.streamManager.off('stream_data', listener)
-      
+
       const operation2 = createStreamOperations(1)[0]
       await services.streamManager.write(operation2)
 
@@ -287,7 +287,7 @@ describe('Streaming Workflow Integration', () => {
       const invalidConfig = {
         enabled: true,
         maxBufferSize: -1, // Invalid buffer size
-        flushInterval: 0,   // Invalid interval
+        flushInterval: 0, // Invalid interval
         enableBackpressure: true
       }
 
@@ -349,7 +349,7 @@ describe('Streaming Workflow Integration', () => {
     it('should handle rapid operation writes', async () => {
       const startTime = Date.now()
       const operations = createStreamOperations(100)
-      
+
       for (const operation of operations) {
         await services.streamManager.write(operation)
       }
@@ -363,11 +363,9 @@ describe('Streaming Workflow Integration', () => {
 
     it('should handle concurrent console streaming', async () => {
       services.consoleAdapter.initialize(services.streamManager)
-      
+
       const consoleData = createConsoleStreamData(50)
-      const promises = consoleData.map(data => 
-        services.consoleAdapter.streamConsoleData(data)
-      )
+      const promises = consoleData.map((data) => services.consoleAdapter.streamConsoleData(data))
 
       await Promise.all(promises)
 
@@ -387,7 +385,7 @@ describe('Streaming Workflow Integration', () => {
       }
 
       const writtenOperations = services.streamManager.getOperations()
-      
+
       for (let i = 0; i < orderedOperations.length; i++) {
         expect(writtenOperations[i].content).toBe(`Operation ${i}`)
       }

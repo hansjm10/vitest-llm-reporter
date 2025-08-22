@@ -386,20 +386,16 @@ export class OutputSynchronizer {
         if (this._truncationEngine.needsTruncation(content)) {
           const result = this._truncationEngine.truncate(content)
           dataToWrite = result.content
-          
+
           // Log truncation for diagnostics
-          this._diagnostics?.trackOperationComplete(
-            `truncation-${Date.now()}`,
-            true,
-            {
-              originalTokens: result.metrics.originalTokens,
-              truncatedTokens: result.metrics.truncatedTokens,
-              wasTruncated: true
-            }
-          )
+          this._diagnostics?.trackOperationComplete(`truncation-${Date.now()}`, true, {
+            originalTokens: result.metrics.originalTokens,
+            truncatedTokens: result.metrics.truncatedTokens,
+            wasTruncated: true
+          })
         }
       }
-      
+
       // Write to appropriate stream
       if (operation.stream === 'stdout') {
         process.stdout.write(dataToWrite)

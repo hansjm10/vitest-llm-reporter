@@ -23,13 +23,28 @@ export class StackTraceStrategy implements ITruncationStrategy {
   public readonly priority = 6
 
   private readonly userCodePatterns = [
-    'src/', 'test/', 'spec/', 'lib/', 'app/',
-    '/src/', '/test/', '/spec/', '/lib/', '/app/'
+    'src/',
+    'test/',
+    'spec/',
+    'lib/',
+    'app/',
+    '/src/',
+    '/test/',
+    '/spec/',
+    '/lib/',
+    '/app/'
   ]
 
   private readonly priorityKeywords = [
-    'test', 'spec', 'describe', 'it', 'expect',
-    'assert', 'should', 'error', 'fail'
+    'test',
+    'spec',
+    'describe',
+    'it',
+    'expect',
+    'assert',
+    'should',
+    'error',
+    'fail'
   ]
 
   /**
@@ -81,7 +96,7 @@ export class StackTraceStrategy implements ITruncationStrategy {
       const lines = content.split('\n')
       const maxLines = Math.min(25, lines.length)
       const fallbackContent = lines.slice(0, maxLines).join('\n')
-      
+
       const fallbackTokens = await tokenCounter.count(fallbackContent, context.model)
 
       return {
@@ -120,16 +135,16 @@ export class StackTraceStrategy implements ITruncationStrategy {
 
     // Estimate based on stack frame analysis
     const lines = content.split('\n')
-    const stackFrameLines = lines.filter(line => this.isStackFrameLine(line))
-    const userFrameCount = stackFrameLines.filter(line => this.isUserCodeFrame(line)).length
-    
+    const stackFrameLines = lines.filter((line) => this.isStackFrameLine(line))
+    const userFrameCount = stackFrameLines.filter((line) => this.isUserCodeFrame(line)).length
+
     // Estimate that we keep error message + user frames + some library frames
     const estimatedKeptFrames = Math.min(userFrameCount + 5, 15)
     const estimatedKeptRatio = estimatedKeptFrames / Math.max(stackFrameLines.length, 1)
-    
+
     const estimatedPreserved = Math.floor(originalTokens * Math.max(0.4, estimatedKeptRatio))
     const estimatedFinal = Math.min(estimatedPreserved, maxTokens)
-    
+
     return Math.max(0, originalTokens - estimatedFinal)
   }
 
@@ -247,11 +262,11 @@ export class StackTraceStrategy implements ITruncationStrategy {
     context: TruncationContext
   ): Promise<StackFrame[]> {
     const tokenCounter = getTokenCounter()
-    
+
     // Separate error messages, user code, and library code
-    const errorFrames = frames.filter(f => f.type === 'error-message')
-    const userFrames = frames.filter(f => f.type === 'stack-frame' && f.isUserCode)
-    const libraryFrames = frames.filter(f => f.type === 'stack-frame' && !f.isUserCode)
+    const errorFrames = frames.filter((f) => f.type === 'error-message')
+    const userFrames = frames.filter((f) => f.type === 'stack-frame' && f.isUserCode)
+    const libraryFrames = frames.filter((f) => f.type === 'stack-frame' && !f.isUserCode)
 
     // Always include error messages
     const selected: StackFrame[] = [...errorFrames]
@@ -339,9 +354,9 @@ export class StackTraceStrategy implements ITruncationStrategy {
    */
   private isErrorMessageLine(line: string): boolean {
     const trimmed = line.trim()
-    return /^[A-Z]\w*Error:/.test(trimmed) || 
-           /^Error:/.test(trimmed) ||
-           /^AssertionError:/.test(trimmed)
+    return (
+      /^[A-Z]\w*Error:/.test(trimmed) || /^Error:/.test(trimmed) || /^AssertionError:/.test(trimmed)
+    )
   }
 
   /**
@@ -361,7 +376,7 @@ export class StackTraceStrategy implements ITruncationStrategy {
     if (filePath.includes('node_modules')) return false
 
     // Check user code patterns
-    return this.userCodePatterns.some(pattern => filePath.includes(pattern))
+    return this.userCodePatterns.some((pattern) => filePath.includes(pattern))
   }
 
   /**

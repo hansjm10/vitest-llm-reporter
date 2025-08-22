@@ -22,9 +22,21 @@ export class SmartStrategy implements ITruncationStrategy {
   public readonly priority = 4
 
   private readonly priorityKeywords = [
-    'error', 'fail', 'expect', 'assert', 'throw', 'reject',
-    'timeout', 'missing', 'undefined', 'null', 'cannot',
-    'invalid', 'TypeError', 'ReferenceError', 'SyntaxError'
+    'error',
+    'fail',
+    'expect',
+    'assert',
+    'throw',
+    'reject',
+    'timeout',
+    'missing',
+    'undefined',
+    'null',
+    'cannot',
+    'invalid',
+    'TypeError',
+    'ReferenceError',
+    'SyntaxError'
   ]
 
   private readonly priorityMarkers = {
@@ -96,7 +108,7 @@ export class SmartStrategy implements ITruncationStrategy {
       const lines = content.split('\n')
       const maxLines = Math.min(20, lines.length)
       const fallbackContent = lines.slice(0, maxLines).join('\n')
-      
+
       const fallbackTokens = await tokenCounter.count(fallbackContent, context.model)
       const wasTruncated = lines.length > maxLines || fallbackTokens < originalTokens
 
@@ -137,14 +149,14 @@ export class SmartStrategy implements ITruncationStrategy {
     // Quick analysis to estimate important content percentage
     const lines = content.split('\n')
     const importantLines = this.analyzeContentImportance(content, context)
-    
+
     // Estimate that we can preserve most important content plus some context
     const importantRatio = importantLines.length / lines.length
     const estimatedPreservedRatio = Math.min(0.8, importantRatio + 0.3)
-    
+
     const estimatedPreserved = Math.floor(originalTokens * estimatedPreservedRatio)
     const estimatedFinal = Math.min(estimatedPreserved, maxTokens)
-    
+
     return Math.max(0, originalTokens - estimatedFinal)
   }
 
@@ -158,8 +170,9 @@ export class SmartStrategy implements ITruncationStrategy {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       const importance = this.calculateLineImportance(line, context)
-      
-      if (importance >= 0.3) { // Threshold for important content
+
+      if (importance >= 0.3) {
+        // Threshold for important content
         importantLines.push(i)
       }
     }
@@ -229,7 +242,7 @@ export class SmartStrategy implements ITruncationStrategy {
   ): Promise<string> {
     const lines = content.split('\n')
     const tokenCounter = getTokenCounter()
-    
+
     // Start with just the most important lines
     let selectedLines: number[] = []
     const contextLines = 1 // Lines of context around important lines
@@ -239,7 +252,7 @@ export class SmartStrategy implements ITruncationStrategy {
     for (const lineIndex of importantLines) {
       const start = Math.max(0, lineIndex - contextLines)
       const end = Math.min(lines.length - 1, lineIndex + contextLines)
-      
+
       for (let i = start; i <= end; i++) {
         expandedLines.add(i)
       }
@@ -254,10 +267,10 @@ export class SmartStrategy implements ITruncationStrategy {
     // If still too large, reduce by removing less important lines
     while (currentTokens > maxTokens && selectedLines.length > 1) {
       // Remove lines that are not in the original important lines
-      const lessImportant = selectedLines.find(lineIndex => !importantLines.includes(lineIndex))
-      
+      const lessImportant = selectedLines.find((lineIndex) => !importantLines.includes(lineIndex))
+
       if (lessImportant !== undefined) {
-        selectedLines = selectedLines.filter(i => i !== lessImportant)
+        selectedLines = selectedLines.filter((i) => i !== lessImportant)
       } else {
         // Remove the last important line if necessary
         selectedLines.pop()
@@ -300,17 +313,19 @@ export class SmartStrategy implements ITruncationStrategy {
    */
   private isErrorLine(line: string): boolean {
     const lowerLine = line.toLowerCase()
-    return this.priorityMarkers.error.some(marker => 
-      lowerLine.includes(marker.toLowerCase())
-    ) || /\b(error|fail|exception|throw)\b/i.test(line)
+    return (
+      this.priorityMarkers.error.some((marker) => lowerLine.includes(marker.toLowerCase())) ||
+      /\b(error|fail|exception|throw)\b/i.test(line)
+    )
   }
 
   /**
    * Check if line contains user code reference
    */
   private isUserCodeLine(line: string): boolean {
-    return this.priorityMarkers.userCode.some(pattern => 
-      line.includes(pattern)
-    ) && !line.includes('node_modules')
+    return (
+      this.priorityMarkers.userCode.some((pattern) => line.includes(pattern)) &&
+      !line.includes('node_modules')
+    )
   }
 }

@@ -88,7 +88,7 @@ export class OutputBuilder {
 
   constructor(config: OutputBuilderConfig = {}) {
     this.config = { ...DEFAULT_OUTPUT_CONFIG, ...config }
-    
+
     // Initialize truncation engine for late-stage truncation if enabled
     if (this.config.truncation.enabled && this.config.truncation.enableLateTruncation) {
       this.truncationEngine = createTruncationEngine(this.config.truncation)
@@ -329,17 +329,17 @@ export class OutputBuilder {
 
     // Serialize output to check total size
     const serialized = JSON.stringify(output, null, 2)
-    
+
     if (!this.truncationEngine.needsTruncation(serialized)) {
       return output
     }
 
     // Apply progressive truncation strategy
     const truncatedOutput = { ...output }
-    
+
     // Strategy 1: Truncate failure details first (keeping errors but reducing context)
     if (truncatedOutput.failures) {
-      truncatedOutput.failures = truncatedOutput.failures.map(failure => {
+      truncatedOutput.failures = truncatedOutput.failures.map((failure) => {
         const failureJson = JSON.stringify(failure)
         if (this.truncationEngine!.needsTruncation(failureJson)) {
           // Truncate console output first
@@ -353,7 +353,7 @@ export class OutputBuilder {
               failure.console = { logs: ['[Console output truncated]'] }
             }
           }
-          
+
           // Truncate error stack if still too large
           if (failure.error && this.truncationEngine!.needsTruncation(JSON.stringify(failure))) {
             // Limit stack trace lines
@@ -401,14 +401,18 @@ export class OutputBuilder {
    */
   public updateConfig(config: OutputBuilderConfig): void {
     this.config = { ...this.config, ...config }
-    
+
     // Update truncation engine config
     if (this.truncationEngine && config.truncation) {
       this.truncationEngine.updateConfig(config.truncation)
     }
-    
+
     // Initialize or destroy truncation engine based on config changes
-    if (config.truncation?.enabled && config.truncation?.enableLateTruncation && !this.truncationEngine) {
+    if (
+      config.truncation?.enabled &&
+      config.truncation?.enableLateTruncation &&
+      !this.truncationEngine
+    ) {
       this.truncationEngine = createTruncationEngine(this.config.truncation)
     } else if (!config.truncation?.enabled && this.truncationEngine) {
       this.truncationEngine = undefined

@@ -1,9 +1,9 @@
 /**
  * Reference Manager
- * 
+ *
  * Manages references between test failures and deduplication groups,
  * enabling efficient lookup and retrieval of deduplicated data.
- * 
+ *
  * @module ReferenceManager
  */
 
@@ -183,16 +183,12 @@ export class ReferenceManager {
    */
   registerGroup(group: DeduplicationGroup): void {
     this.groups.set(group.id, group)
-    
+
     // Register all test references in the group
     for (const testId of group.references) {
       if (!this.references.has(testId)) {
         // Auto-create reference if not exists
-        this.addReference(
-          testId,
-          group.id,
-          { score: 1, level: 'exact', confidence: 1 }
-        )
+        this.addReference(testId, group.id, { score: 1, level: 'exact', confidence: 1 })
       }
     }
   }
@@ -298,7 +294,10 @@ export class ReferenceManager {
   /**
    * Extract variables from an entry based on a template
    */
-  private extractVariables(entry: DuplicateEntry, template: FailureTemplate): Record<string, unknown> {
+  private extractVariables(
+    entry: DuplicateEntry,
+    template: FailureTemplate
+  ): Record<string, unknown> {
     const vars: Record<string, unknown> = {}
 
     // Extract from error message
@@ -328,21 +327,21 @@ export class ReferenceManager {
    */
   private extractFromPattern(text: string, pattern: string): Record<string, unknown> {
     const vars: Record<string, unknown> = {}
-    
+
     // Simple extraction by finding variable placeholders
     const varPattern = /{{(\w+)}}/g
     let match
     let lastIndex = 0
-    
+
     while ((match = varPattern.exec(pattern)) !== null) {
       const varName = match[1]
       const beforeVar = pattern.substring(lastIndex, match.index)
       const textIndex = text.indexOf(beforeVar, lastIndex)
-      
+
       if (textIndex !== -1) {
         const startIndex = textIndex + beforeVar.length
         const nextStaticPart = pattern.substring(match.index + match[0].length).match(/^[^{]+/)
-        
+
         if (nextStaticPart) {
           const endIndex = text.indexOf(nextStaticPart[0], startIndex)
           if (endIndex !== -1) {
@@ -353,7 +352,7 @@ export class ReferenceManager {
           vars[varName] = text.substring(startIndex)
         }
       }
-      
+
       lastIndex = match.index + match[0].length
     }
 
@@ -364,8 +363,8 @@ export class ReferenceManager {
    * Get statistics
    */
   getStats(): ReferenceStats {
-    const similarities = Array.from(this.references.values()).map(r => r.similarity)
-    
+    const similarities = Array.from(this.references.values()).map((r) => r.similarity)
+
     const similarityDistribution: Record<string, number> = {
       exact: 0,
       high: 0,
@@ -377,28 +376,25 @@ export class ReferenceManager {
       similarityDistribution[sim.level]++
     }
 
-    const totalOriginalSize = Array.from(this.originals.values())
-      .reduce((sum, entry) => {
-        const size = JSON.stringify(entry).length
-        return sum + size
-      }, 0)
+    const totalOriginalSize = Array.from(this.originals.values()).reduce((sum, entry) => {
+      const size = JSON.stringify(entry).length
+      return sum + size
+    }, 0)
 
-    const compressedSize = this.getCompressedReferences()
-      .reduce((sum, ref) => {
-        const size = JSON.stringify(ref).length
-        return sum + size
-      }, 0)
+    const compressedSize = this.getCompressedReferences().reduce((sum, ref) => {
+      const size = JSON.stringify(ref).length
+      return sum + size
+    }, 0)
 
     return {
       totalReferences: this.references.size,
       uniqueGroups: this.groupIndex.size,
-      averageSimilarity: similarities.length > 0
-        ? similarities.reduce((sum, s) => sum + s.score, 0) / similarities.length
-        : 0,
+      averageSimilarity:
+        similarities.length > 0
+          ? similarities.reduce((sum, s) => sum + s.score, 0) / similarities.length
+          : 0,
       similarityDistribution,
-      compressionRatio: totalOriginalSize > 0
-        ? 1 - (compressedSize / totalOriginalSize)
-        : 0
+      compressionRatio: totalOriginalSize > 0 ? 1 - compressedSize / totalOriginalSize : 0
     }
   }
 
@@ -419,7 +415,7 @@ export class ReferenceManager {
    */
   exportReferences(): Map<string, DeduplicationReference> {
     const exported = new Map<string, DeduplicationReference>()
-    
+
     for (const [testId, index] of this.references) {
       exported.set(testId, {
         groupId: index.groupId,
@@ -436,13 +432,7 @@ export class ReferenceManager {
    */
   importReferences(references: Map<string, DeduplicationReference>): void {
     for (const [testId, ref] of references) {
-      this.addReference(
-        testId,
-        ref.groupId,
-        ref.similarity,
-        ref.templateId,
-        ref.variables
-      )
+      this.addReference(testId, ref.groupId, ref.similarity, ref.templateId, ref.variables)
     }
   }
 }

@@ -45,7 +45,11 @@ import { OutputWriter } from '../output/OutputWriter'
 import { EventOrchestrator } from '../events/EventOrchestrator'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { detectEnvironment, hasTTY } from '../utils/environment'
-import { PerformanceManager, createPerformanceManager, type PerformanceConfig } from '../performance'
+import {
+  PerformanceManager,
+  createPerformanceManager,
+  type PerformanceConfig
+} from '../performance'
 
 export class LLMReporter implements Reporter {
   private config: ResolvedLLMReporterConfig
@@ -150,11 +154,13 @@ export class LLMReporter implements Reporter {
             max: config.performance?.streaming?.bufferLimits?.max ?? 1048576,
             initial: config.performance?.streaming?.bufferLimits?.initial ?? 8192
           },
-          enableBackgroundProcessing: config.performance?.streaming?.enableBackgroundProcessing ?? true,
+          enableBackgroundProcessing:
+            config.performance?.streaming?.enableBackgroundProcessing ?? true,
           priorityQueue: {
             maxSize: config.performance?.streaming?.priorityQueue?.maxSize ?? 10000,
             batchSize: config.performance?.streaming?.priorityQueue?.batchSize ?? 100,
-            processingInterval: config.performance?.streaming?.priorityQueue?.processingInterval ?? 100
+            processingInterval:
+              config.performance?.streaming?.priorityQueue?.processingInterval ?? 100
           }
         },
         benchmark: {
@@ -258,7 +264,7 @@ export class LLMReporter implements Reporter {
   private cleanup(): void {
     this.orchestrator.reset()
     this.isTestRunActive = false
-    
+
     // Stop performance monitoring
     if (this.performanceManager) {
       this.performanceManager.stop()
@@ -273,7 +279,7 @@ export class LLMReporter implements Reporter {
     this.stateManager.reset()
     this.orchestrator.reset()
     this.output = undefined
-    
+
     // Reset performance state
     if (this.performanceManager) {
       this.performanceManager.reset()
@@ -380,7 +386,7 @@ export class LLMReporter implements Reporter {
       if (this.performanceManager) {
         this.performanceManager.start()
       }
-      
+
       this.orchestrator.handleTestRunStart(specifications)
     } catch (error) {
       this.debugError('Error in onTestRunStart: %O', error)
@@ -509,14 +515,17 @@ export class LLMReporter implements Reporter {
           if (optimizations.length > 0) {
             this.debug('Applied %d performance optimizations', optimizations.length)
           }
-          
+
           // Check if we're within performance limits
           if (!this.performanceManager.isWithinLimits()) {
             this.debugError('Performance overhead exceeded limits')
           }
-          
+
           // Log performance metrics in debug mode
-          if (this.config.performance.mode === 'development' || this.config.performance.mode === 'debug') {
+          if (
+            this.config.performance.mode === 'development' ||
+            this.config.performance.mode === 'debug'
+          ) {
             const metrics = this.performanceManager.getMetrics()
             this.debug('Performance metrics: %O', {
               overhead: metrics.overhead.totalOverhead,

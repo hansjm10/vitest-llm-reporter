@@ -21,7 +21,7 @@ export class BackgroundProcessor {
     const batchSize = this.config.priorityQueue?.batchSize || 10
     const batches = this.createBatches(tasks, batchSize)
 
-    const promises = batches.map(batch => this.processBatch(batch, processor))
+    const promises = batches.map((batch) => this.processBatch(batch, processor))
     this.activeJobs.add(Promise.all(promises).then(() => {}))
 
     await Promise.all(promises)
@@ -36,7 +36,7 @@ export class BackgroundProcessor {
   }
 
   private async processBatch<T>(batch: T[], processor: (task: T) => Promise<void>): Promise<void> {
-    const promises = batch.map(task => processor(task))
+    const promises = batch.map((task) => processor(task))
     await Promise.all(promises)
   }
 }

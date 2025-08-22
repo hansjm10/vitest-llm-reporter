@@ -1,8 +1,8 @@
 /**
  * Pattern Matchers Module
- * 
+ *
  * Exports for all pattern matching implementations
- * 
+ *
  * @module patterns
  */
 

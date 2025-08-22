@@ -51,7 +51,7 @@ describe('TruncationMetricsTracker', () => {
 
     it('should record truncation when enabled', () => {
       tracker.recordTruncation(sampleMetrics, 'early')
-      
+
       const metrics = tracker.getAllMetrics()
       expect(metrics).toHaveLength(1)
       expect(metrics[0].tokensRemoved).toBe(500)
@@ -62,7 +62,7 @@ describe('TruncationMetricsTracker', () => {
     it('should not record truncation when disabled', () => {
       tracker.setEnabled(false)
       tracker.recordTruncation(sampleMetrics, 'early')
-      
+
       expect(tracker.getAllMetrics()).toHaveLength(0)
     })
 
@@ -72,9 +72,9 @@ describe('TruncationMetricsTracker', () => {
         testName: 'sample test',
         testId: 'test-123'
       }
-      
+
       tracker.recordTruncation(sampleMetrics, 'streaming', testContext)
-      
+
       const metrics = tracker.getAllMetrics()
       expect(metrics[0].testContext).toEqual(testContext)
     })
@@ -83,7 +83,7 @@ describe('TruncationMetricsTracker', () => {
       tracker.recordTruncation(sampleMetrics, 'early')
       tracker.recordTruncation(sampleMetrics, 'late')
       tracker.recordTruncation(sampleMetrics, 'processing')
-      
+
       expect(tracker.getAllMetrics()).toHaveLength(3)
     })
 
@@ -95,9 +95,9 @@ describe('TruncationMetricsTracker', () => {
         truncatedTokens: 600
         // No processingTime
       }
-      
+
       tracker.recordTruncation(metricsWithoutTime, 'early')
-      
+
       const metrics = tracker.getAllMetrics()
       expect(metrics[0].processingTime).toBeUndefined()
     })
@@ -110,9 +110,9 @@ describe('TruncationMetricsTracker', () => {
         truncatedTokens: 900,
         processingTime: 250
       }
-      
+
       tracker.recordTruncation(complexMetrics, 'late')
-      
+
       const recorded = tracker.getAllMetrics()[0]
       expect(recorded.tokensRemoved).toBe(300)
       expect(recorded.wasTruncated).toBe(true)
@@ -135,17 +135,17 @@ describe('TruncationMetricsTracker', () => {
         originalTokens: 500,
         truncatedTokens: 400
       }
-      
+
       const metrics2: TruncationMetrics = {
         tokensRemoved: 200,
         wasTruncated: true,
         originalTokens: 800,
         truncatedTokens: 600
       }
-      
+
       tracker.recordTruncation(metrics1, 'early')
       tracker.recordTruncation(metrics2, 'late')
-      
+
       const allMetrics = tracker.getAllMetrics()
       expect(allMetrics).toHaveLength(2)
       expect(allMetrics[0].tokensRemoved).toBe(100)
@@ -159,12 +159,12 @@ describe('TruncationMetricsTracker', () => {
         originalTokens: 500,
         truncatedTokens: 400
       }
-      
+
       tracker.recordTruncation(metrics, 'early')
-      
+
       const copy1 = tracker.getAllMetrics()
       const copy2 = tracker.getAllMetrics()
-      
+
       expect(copy1).not.toBe(copy2) // Different arrays
       expect(copy1).toEqual(copy2) // Same content
     })
@@ -178,7 +178,7 @@ describe('TruncationMetricsTracker', () => {
         originalTokens: 500,
         truncatedTokens: 400
       }
-      
+
       tracker.recordTruncation(baseMetrics, 'early')
       tracker.recordTruncation(baseMetrics, 'early')
       tracker.recordTruncation(baseMetrics, 'streaming')
@@ -189,8 +189,8 @@ describe('TruncationMetricsTracker', () => {
     it('should filter metrics by stage', () => {
       const earlyMetrics = tracker.getMetricsByStage('early')
       expect(earlyMetrics).toHaveLength(2)
-      expect(earlyMetrics.every(m => m.stage === 'early')).toBe(true)
-      
+      expect(earlyMetrics.every((m) => m.stage === 'early')).toBe(true)
+
       const streamingMetrics = tracker.getMetricsByStage('streaming')
       expect(streamingMetrics).toHaveLength(1)
       expect(streamingMetrics[0].stage).toBe('streaming')
@@ -203,8 +203,8 @@ describe('TruncationMetricsTracker', () => {
 
     it('should handle all stage types', () => {
       const stages: TruncationStage[] = ['early', 'streaming', 'late', 'processing']
-      
-      stages.forEach(stage => {
+
+      stages.forEach((stage) => {
         const stageMetrics = tracker.getMetricsByStage(stage)
         expect(Array.isArray(stageMetrics)).toBe(true)
       })
@@ -214,7 +214,7 @@ describe('TruncationMetricsTracker', () => {
   describe('getSummary', () => {
     it('should return empty summary when no metrics recorded', () => {
       const summary = tracker.getSummary()
-      
+
       expect(summary.totalTruncations).toBe(0)
       expect(summary.byStage).toEqual({
         early: 0,
@@ -235,9 +235,9 @@ describe('TruncationMetricsTracker', () => {
         truncatedTokens: 700,
         processingTime: 150
       }
-      
+
       tracker.recordTruncation(metrics, 'streaming')
-      
+
       const summary = tracker.getSummary()
       expect(summary.totalTruncations).toBe(1)
       expect(summary.byStage.streaming).toBe(1)
@@ -248,30 +248,39 @@ describe('TruncationMetricsTracker', () => {
 
     it('should calculate summary correctly with multiple metrics', () => {
       // Record multiple truncations
-      tracker.recordTruncation({
-        tokensRemoved: 200,
-        wasTruncated: true,
-        originalTokens: 800,
-        truncatedTokens: 600,
-        processingTime: 100
-      }, 'early')
-      
-      tracker.recordTruncation({
-        tokensRemoved: 300,
-        wasTruncated: true,
-        originalTokens: 1000,
-        truncatedTokens: 700,
-        processingTime: 200
-      }, 'early')
-      
-      tracker.recordTruncation({
-        tokensRemoved: 150,
-        wasTruncated: true,
-        originalTokens: 600,
-        truncatedTokens: 450,
-        processingTime: 75
-      }, 'late')
-      
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 200,
+          wasTruncated: true,
+          originalTokens: 800,
+          truncatedTokens: 600,
+          processingTime: 100
+        },
+        'early'
+      )
+
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 300,
+          wasTruncated: true,
+          originalTokens: 1000,
+          truncatedTokens: 700,
+          processingTime: 200
+        },
+        'early'
+      )
+
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 150,
+          wasTruncated: true,
+          originalTokens: 600,
+          truncatedTokens: 450,
+          processingTime: 75
+        },
+        'late'
+      )
+
       const summary = tracker.getSummary()
       expect(summary.totalTruncations).toBe(3)
       expect(summary.byStage.early).toBe(2)
@@ -282,14 +291,17 @@ describe('TruncationMetricsTracker', () => {
     })
 
     it('should handle metrics without truncation', () => {
-      tracker.recordTruncation({
-        tokensRemoved: 0,
-        wasTruncated: false,
-        originalTokens: 500,
-        truncatedTokens: 500,
-        processingTime: 50
-      }, 'early')
-      
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 0,
+          wasTruncated: false,
+          originalTokens: 500,
+          truncatedTokens: 500,
+          processingTime: 50
+        },
+        'early'
+      )
+
       const summary = tracker.getSummary()
       expect(summary.totalTruncations).toBe(0) // No actual truncations
       expect(summary.byStage.early).toBe(1) // But still counted in stage breakdown
@@ -297,14 +309,17 @@ describe('TruncationMetricsTracker', () => {
     })
 
     it('should handle metrics without processing time', () => {
-      tracker.recordTruncation({
-        tokensRemoved: 100,
-        wasTruncated: true,
-        originalTokens: 500,
-        truncatedTokens: 400
-        // No processingTime
-      }, 'early')
-      
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 100,
+          wasTruncated: true,
+          originalTokens: 500,
+          truncatedTokens: 400
+          // No processingTime
+        },
+        'early'
+      )
+
       const summary = tracker.getSummary()
       expect(summary.avgProcessingTime).toBe(0)
     })
@@ -316,14 +331,14 @@ describe('TruncationMetricsTracker', () => {
         originalTokens: 500,
         truncatedTokens: 400
       }
-      
+
       // Make 'streaming' the most active
       tracker.recordTruncation(metrics, 'early')
       tracker.recordTruncation(metrics, 'streaming')
       tracker.recordTruncation(metrics, 'streaming')
       tracker.recordTruncation(metrics, 'streaming')
       tracker.recordTruncation(metrics, 'late')
-      
+
       const summary = tracker.getSummary()
       expect(summary.mostActiveStage).toBe('streaming')
     })
@@ -335,13 +350,13 @@ describe('TruncationMetricsTracker', () => {
         originalTokens: 500,
         truncatedTokens: 400
       }
-      
+
       // Create tie between early and late
       tracker.recordTruncation(metrics, 'early')
       tracker.recordTruncation(metrics, 'early')
       tracker.recordTruncation(metrics, 'late')
       tracker.recordTruncation(metrics, 'late')
-      
+
       const summary = tracker.getSummary()
       // Should return one of the tied stages
       expect(['early', 'late']).toContain(summary.mostActiveStage)
@@ -356,19 +371,19 @@ describe('TruncationMetricsTracker', () => {
         originalTokens: 500,
         truncatedTokens: 400
       }
-      
+
       tracker.recordTruncation(baseMetrics, 'early', {
         testId: 'test-1',
         testName: 'First test',
         testFile: 'test1.js'
       })
-      
+
       tracker.recordTruncation(baseMetrics, 'late', {
         testId: 'test-1',
         testName: 'First test',
         testFile: 'test1.js'
       })
-      
+
       tracker.recordTruncation(baseMetrics, 'streaming', {
         testId: 'test-2',
         testName: 'Second test',
@@ -379,8 +394,8 @@ describe('TruncationMetricsTracker', () => {
     it('should return metrics for specific test', () => {
       const test1Metrics = tracker.getTestMetrics('test-1')
       expect(test1Metrics).toHaveLength(2)
-      expect(test1Metrics.every(m => m.testContext?.testId === 'test-1')).toBe(true)
-      
+      expect(test1Metrics.every((m) => m.testContext?.testId === 'test-1')).toBe(true)
+
       const test2Metrics = tracker.getTestMetrics('test-2')
       expect(test2Metrics).toHaveLength(1)
       expect(test2Metrics[0].testContext?.testId).toBe('test-2')
@@ -398,9 +413,9 @@ describe('TruncationMetricsTracker', () => {
         originalTokens: 500,
         truncatedTokens: 400
       }
-      
+
       tracker.recordTruncation(baseMetrics, 'early') // No test context
-      
+
       const metrics = tracker.getTestMetrics('any-test')
       expect(metrics).toEqual([])
     })
@@ -414,32 +429,35 @@ describe('TruncationMetricsTracker', () => {
         originalTokens: 500,
         truncatedTokens: 400
       }
-      
+
       tracker.recordTruncation(metrics, 'early')
       tracker.recordTruncation(metrics, 'late')
-      
+
       expect(tracker.getAllMetrics()).toHaveLength(2)
-      
+
       tracker.clear()
-      
+
       expect(tracker.getAllMetrics()).toHaveLength(0)
-      
+
       const summary = tracker.getSummary()
       expect(summary.totalTruncations).toBe(0)
     })
 
     it('should not affect enabled state', () => {
-      tracker.recordTruncation({
-        tokensRemoved: 100,
-        wasTruncated: true,
-        originalTokens: 500,
-        truncatedTokens: 400
-      }, 'early')
-      
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 100,
+          wasTruncated: true,
+          originalTokens: 500,
+          truncatedTokens: 400
+        },
+        'early'
+      )
+
       expect(tracker.isEnabled()).toBe(true)
-      
+
       tracker.clear()
-      
+
       expect(tracker.isEnabled()).toBe(true)
     })
   })
@@ -447,10 +465,10 @@ describe('TruncationMetricsTracker', () => {
   describe('setEnabled and isEnabled', () => {
     it('should enable and disable metrics collection', () => {
       expect(tracker.isEnabled()).toBe(true)
-      
+
       tracker.setEnabled(false)
       expect(tracker.isEnabled()).toBe(false)
-      
+
       tracker.setEnabled(true)
       expect(tracker.isEnabled()).toBe(true)
     })
@@ -462,10 +480,10 @@ describe('TruncationMetricsTracker', () => {
         originalTokens: 500,
         truncatedTokens: 400
       }
-      
+
       tracker.recordTruncation(metrics, 'early')
       expect(tracker.getAllMetrics()).toHaveLength(1)
-      
+
       tracker.setEnabled(false)
       expect(tracker.getAllMetrics()).toHaveLength(0)
     })
@@ -473,18 +491,21 @@ describe('TruncationMetricsTracker', () => {
     it('should not clear metrics when enabled again', () => {
       tracker.setEnabled(false)
       tracker.setEnabled(true)
-      
+
       // Should be empty because we cleared when disabling, not because we re-enabled
       expect(tracker.getAllMetrics()).toHaveLength(0)
-      
+
       // Should be able to record after re-enabling
-      tracker.recordTruncation({
-        tokensRemoved: 100,
-        wasTruncated: true,
-        originalTokens: 500,
-        truncatedTokens: 400
-      }, 'early')
-      
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 100,
+          wasTruncated: true,
+          originalTokens: 500,
+          truncatedTokens: 400
+        },
+        'early'
+      )
+
       expect(tracker.getAllMetrics()).toHaveLength(1)
     })
   })
@@ -498,18 +519,18 @@ describe('TruncationMetricsTracker', () => {
         truncatedTokens: 600,
         processingTime: 100
       }
-      
+
       tracker.recordTruncation(baseMetrics, 'early')
       tracker.recordTruncation(baseMetrics, 'streaming')
     })
 
     it('should export summary and details', () => {
       const exported = tracker.export()
-      
+
       expect(exported.summary).toBeDefined()
       expect(exported.details).toBeDefined()
       expect(exported.exportTime).toBeGreaterThan(0)
-      
+
       expect(exported.summary.totalTruncations).toBe(2)
       expect(exported.details).toHaveLength(2)
     })
@@ -518,16 +539,16 @@ describe('TruncationMetricsTracker', () => {
       const beforeExport = Date.now()
       const exported = tracker.export()
       const afterExport = Date.now()
-      
+
       expect(exported.exportTime).toBeGreaterThanOrEqual(beforeExport)
       expect(exported.exportTime).toBeLessThanOrEqual(afterExport)
     })
 
     it('should export empty data when no metrics', () => {
       tracker.clear()
-      
+
       const exported = tracker.export()
-      
+
       expect(exported.summary.totalTruncations).toBe(0)
       expect(exported.details).toHaveLength(0)
       expect(exported.exportTime).toBeGreaterThan(0)
@@ -536,7 +557,7 @@ describe('TruncationMetricsTracker', () => {
     it('should return independent copies', () => {
       const export1 = tracker.export()
       const export2 = tracker.export()
-      
+
       expect(export1.details).not.toBe(export2.details)
       expect(export1.summary).not.toBe(export2.summary)
       expect(export1.details).toEqual(export2.details)
@@ -546,59 +567,74 @@ describe('TruncationMetricsTracker', () => {
 
   describe('edge cases and error handling', () => {
     it('should handle zero tokens removed', () => {
-      tracker.recordTruncation({
-        tokensRemoved: 0,
-        wasTruncated: true, // Contradictory but possible
-        originalTokens: 500,
-        truncatedTokens: 500
-      }, 'early')
-      
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 0,
+          wasTruncated: true, // Contradictory but possible
+          originalTokens: 500,
+          truncatedTokens: 500
+        },
+        'early'
+      )
+
       const summary = tracker.getSummary()
       expect(summary.tokensSaved).toBe(0)
     })
 
     it('should handle negative processing time', () => {
-      tracker.recordTruncation({
-        tokensRemoved: 100,
-        wasTruncated: true,
-        originalTokens: 500,
-        truncatedTokens: 400,
-        processingTime: -50 // Invalid but possible
-      }, 'early')
-      
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 100,
+          wasTruncated: true,
+          originalTokens: 500,
+          truncatedTokens: 400,
+          processingTime: -50 // Invalid but possible
+        },
+        'early'
+      )
+
       const summary = tracker.getSummary()
       expect(summary.avgProcessingTime).toBe(-50)
     })
 
     it('should handle very large numbers', () => {
-      tracker.recordTruncation({
-        tokensRemoved: 1000000,
-        wasTruncated: true,
-        originalTokens: 2000000,
-        truncatedTokens: 1000000,
-        processingTime: 5000
-      }, 'processing')
-      
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 1000000,
+          wasTruncated: true,
+          originalTokens: 2000000,
+          truncatedTokens: 1000000,
+          processingTime: 5000
+        },
+        'processing'
+      )
+
       const summary = tracker.getSummary()
       expect(summary.tokensSaved).toBe(1000000)
       expect(summary.totalTruncations).toBe(1)
     })
 
     it('should handle mixed truncated and non-truncated metrics', () => {
-      tracker.recordTruncation({
-        tokensRemoved: 100,
-        wasTruncated: true,
-        originalTokens: 500,
-        truncatedTokens: 400
-      }, 'early')
-      
-      tracker.recordTruncation({
-        tokensRemoved: 0,
-        wasTruncated: false,
-        originalTokens: 300,
-        truncatedTokens: 300
-      }, 'early')
-      
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 100,
+          wasTruncated: true,
+          originalTokens: 500,
+          truncatedTokens: 400
+        },
+        'early'
+      )
+
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 0,
+          wasTruncated: false,
+          originalTokens: 300,
+          truncatedTokens: 300
+        },
+        'early'
+      )
+
       const summary = tracker.getSummary()
       expect(summary.totalTruncations).toBe(1) // Only truncated ones count
       expect(summary.byStage.early).toBe(2) // But both recorded
@@ -609,17 +645,20 @@ describe('TruncationMetricsTracker', () => {
   describe('timestamp handling', () => {
     it('should record current timestamp', () => {
       const beforeRecord = Date.now()
-      
-      tracker.recordTruncation({
-        tokensRemoved: 100,
-        wasTruncated: true,
-        originalTokens: 500,
-        truncatedTokens: 400
-      }, 'early')
-      
+
+      tracker.recordTruncation(
+        {
+          tokensRemoved: 100,
+          wasTruncated: true,
+          originalTokens: 500,
+          truncatedTokens: 400
+        },
+        'early'
+      )
+
       const afterRecord = Date.now()
       const metrics = tracker.getAllMetrics()
-      
+
       expect(metrics[0].timestamp).toBeGreaterThanOrEqual(beforeRecord)
       expect(metrics[0].timestamp).toBeLessThanOrEqual(afterRecord)
     })
@@ -631,10 +670,10 @@ describe('TruncationMetricsTracker', () => {
         originalTokens: 500,
         truncatedTokens: 400
       }
-      
+
       tracker.recordTruncation(metrics, 'early')
       tracker.recordTruncation(metrics, 'late')
-      
+
       const allMetrics = tracker.getAllMetrics()
       expect(allMetrics[0].timestamp).toBeLessThanOrEqual(allMetrics[1].timestamp)
     })
@@ -653,28 +692,34 @@ describe('globalTruncationMetrics', () => {
   })
 
   it('should not record when disabled', () => {
-    globalTruncationMetrics.recordTruncation({
-      tokensRemoved: 100,
-      wasTruncated: true,
-      originalTokens: 500,
-      truncatedTokens: 400
-    }, 'early')
-    
+    globalTruncationMetrics.recordTruncation(
+      {
+        tokensRemoved: 100,
+        wasTruncated: true,
+        originalTokens: 500,
+        truncatedTokens: 400
+      },
+      'early'
+    )
+
     expect(globalTruncationMetrics.getAllMetrics()).toHaveLength(0)
   })
 
   it('should record when enabled', () => {
     globalTruncationMetrics.setEnabled(true)
-    
-    globalTruncationMetrics.recordTruncation({
-      tokensRemoved: 100,
-      wasTruncated: true,
-      originalTokens: 500,
-      truncatedTokens: 400
-    }, 'early')
-    
+
+    globalTruncationMetrics.recordTruncation(
+      {
+        tokensRemoved: 100,
+        wasTruncated: true,
+        originalTokens: 500,
+        truncatedTokens: 400
+      },
+      'early'
+    )
+
     expect(globalTruncationMetrics.getAllMetrics()).toHaveLength(1)
-    
+
     // Clean up
     globalTruncationMetrics.setEnabled(false)
   })

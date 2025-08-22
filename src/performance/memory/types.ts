@@ -7,12 +7,7 @@
  */
 
 // Re-export main types from parent module
-export type {
-  MemoryMetrics,
-  MemoryPressureLevel,
-  MemoryConfig,
-  IMemoryManager
-} from '../types'
+export type { MemoryMetrics, MemoryPressureLevel, MemoryConfig, IMemoryManager } from '../types'
 
 // Memory profiler specific types
 export interface MemorySnapshot {

@@ -34,9 +34,12 @@ export class AdaptiveBuffer {
 
     // Calculate optimal size based on performance
     const optimalSize = this.calculateOptimalSize(metrics)
-    
+
     // Ensure within limits
-    return Math.max(this.bufferLimits.min || 100, Math.min(this.bufferLimits.max || 10000, optimalSize))
+    return Math.max(
+      this.bufferLimits.min || 100,
+      Math.min(this.bufferLimits.max || 10000, optimalSize)
+    )
   }
 
   private calculateOptimalSize(metrics: PerformanceMetrics): number {
@@ -44,12 +47,12 @@ export class AdaptiveBuffer {
     if (metrics.timing.averageLatency > 100) {
       return Math.min(this.currentSize * 1.5, this.bufferLimits.max || 10000)
     }
-    
+
     // Low throughput with high memory usage suggests buffer too large
     if (metrics.throughput.bytesPerSecond < 1000 && metrics.memory.usagePercentage > 80) {
       return Math.max(this.currentSize * 0.8, this.bufferLimits.min || 100)
     }
-    
+
     return this.currentSize
   }
 }

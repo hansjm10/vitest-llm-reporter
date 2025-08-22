@@ -1,13 +1,18 @@
 /**
  * Stack Trace Pattern Matcher
- * 
+ *
  * Identifies similar stack traces by analyzing frame patterns,
  * error locations, and call sequences.
- * 
+ *
  * @module StackTracePattern
  */
 
-import type { IPatternMatcher, PatternType, SimilarityScore, SimilarityLevel } from '../../types/deduplication'
+import type {
+  IPatternMatcher,
+  PatternType,
+  SimilarityScore,
+  SimilarityLevel
+} from '../../types/deduplication'
 
 /**
  * Stack frame representation
@@ -25,7 +30,7 @@ interface StackFrame {
  */
 export class StackTracePattern implements IPatternMatcher {
   readonly type: PatternType = 'stack-trace'
-  
+
   private readonly lineNumberWeight = 0.1
   private readonly filePathWeight = 0.3
   private readonly functionNameWeight = 0.4
@@ -52,10 +57,8 @@ export class StackTracePattern implements IPatternMatcher {
     const errorLocationSimilarity = this.calculateErrorLocationSimilarity(framesA, framesB)
 
     // Weighted average
-    const score = 
-      structuralSimilarity * 0.4 +
-      sequenceSimilarity * 0.3 +
-      errorLocationSimilarity * 0.3
+    const score =
+      structuralSimilarity * 0.4 + sequenceSimilarity * 0.3 + errorLocationSimilarity * 0.3
 
     return {
       score,
@@ -76,9 +79,9 @@ export class StackTracePattern implements IPatternMatcher {
   extractSignature(text: string): string {
     const frames = this.parseStackTrace(text)
     const significantFrames = this.getSignificantFrames(frames)
-    
+
     return significantFrames
-      .map(frame => {
+      .map((frame) => {
         const parts = []
         if (frame.function) parts.push(frame.function)
         if (frame.file) {
@@ -96,9 +99,7 @@ export class StackTracePattern implements IPatternMatcher {
    */
   normalize(text: string): string {
     const frames = this.parseStackTrace(text)
-    return frames
-      .map(frame => this.normalizeFrame(frame))
-      .join('\n')
+    return frames.map((frame) => this.normalizeFrame(frame)).join('\n')
   }
 
   /**
@@ -180,7 +181,7 @@ export class StackTracePattern implements IPatternMatcher {
     if (maxLength === 0) return 0
 
     let matchingFrames = 0
-    
+
     for (let i = 0; i < minLength; i++) {
       const similarity = this.compareFrames(framesA[i], framesB[i])
       matchingFrames += similarity
@@ -193,8 +194,8 @@ export class StackTracePattern implements IPatternMatcher {
    * Calculate sequence similarity using LCS approach
    */
   private calculateSequenceSimilarity(framesA: StackFrame[], framesB: StackFrame[]): number {
-    const sigA = framesA.map(f => this.getFrameSignature(f))
-    const sigB = framesB.map(f => this.getFrameSignature(f))
+    const sigA = framesA.map((f) => this.getFrameSignature(f))
+    const sigB = framesB.map((f) => this.getFrameSignature(f))
 
     const lcs = this.longestCommonSubsequence(sigA, sigB)
     const maxLength = Math.max(sigA.length, sigB.length)
@@ -269,11 +270,13 @@ export class StackTracePattern implements IPatternMatcher {
    * Get significant frames (non-native, non-node_modules)
    */
   private getSignificantFrames(frames: StackFrame[]): StackFrame[] {
-    return frames.filter(frame => {
-      if (frame.native) return false
-      if (frame.file && frame.file.includes('node_modules')) return false
-      return true
-    }).slice(0, 10) // Keep top 10 significant frames
+    return frames
+      .filter((frame) => {
+        if (frame.native) return false
+        if (frame.file && frame.file.includes('node_modules')) return false
+        return true
+      })
+      .slice(0, 10) // Keep top 10 significant frames
   }
 
   /**
@@ -281,13 +284,13 @@ export class StackTracePattern implements IPatternMatcher {
    */
   private normalizeFrame(frame: StackFrame): string {
     const parts = []
-    
+
     if (frame.function) {
       parts.push(`at ${frame.function}`)
     } else {
       parts.push('at')
     }
-    
+
     if (frame.file) {
       const location = [`${this.normalizeFilePath(frame.file)}`]
       if (frame.line) location.push(`:${frame.line}`)
@@ -319,12 +322,12 @@ export class StackTracePattern implements IPatternMatcher {
    */
   private stringSimilarity(a: string, b: string): number {
     if (a === b) return 1
-    
+
     const maxLen = Math.max(a.length, b.length)
     if (maxLen === 0) return 1
-    
+
     const distance = this.levenshteinDistance(a, b)
-    return 1 - (distance / maxLen)
+    return 1 - distance / maxLen
   }
 
   /**
@@ -333,13 +336,13 @@ export class StackTracePattern implements IPatternMatcher {
   private filePathSimilarity(a: string, b: string): number {
     const normalizedA = this.normalizeFilePath(a)
     const normalizedB = this.normalizeFilePath(b)
-    
+
     if (normalizedA === normalizedB) return 1
 
     // Check if they're in the same directory
     const dirA = normalizedA.substring(0, normalizedA.lastIndexOf('/'))
     const dirB = normalizedB.substring(0, normalizedB.lastIndexOf('/'))
-    
+
     if (dirA === dirB) {
       // Same directory, compare filenames
       const fileA = normalizedA.substring(normalizedA.lastIndexOf('/') + 1)
@@ -371,8 +374,8 @@ export class StackTracePattern implements IPatternMatcher {
         } else {
           matrix[i][j] = Math.min(
             matrix[i - 1][j - 1] + 1, // substitution
-            matrix[i][j - 1] + 1,     // insertion
-            matrix[i - 1][j] + 1      // deletion
+            matrix[i][j - 1] + 1, // insertion
+            matrix[i - 1][j] + 1 // deletion
           )
         }
       }
@@ -387,7 +390,9 @@ export class StackTracePattern implements IPatternMatcher {
   private longestCommonSubsequence(a: string[], b: string[]): number {
     const m = a.length
     const n = b.length
-    const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0))
+    const dp: number[][] = Array(m + 1)
+      .fill(null)
+      .map(() => Array(n + 1).fill(0))
 
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {
@@ -407,9 +412,9 @@ export class StackTracePattern implements IPatternMatcher {
    */
   private calculateConfidence(framesA: StackFrame[], framesB: StackFrame[]): number {
     const avgFrames = (framesA.length + framesB.length) / 2
-    const hasFileInfo = [...framesA, ...framesB].some(f => f.file)
-    const hasFunctionInfo = [...framesA, ...framesB].some(f => f.function)
-    
+    const hasFileInfo = [...framesA, ...framesB].some((f) => f.file)
+    const hasFunctionInfo = [...framesA, ...framesB].some((f) => f.function)
+
     let confidence = 0.5
 
     if (avgFrames >= 5) confidence += 0.2

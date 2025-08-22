@@ -142,11 +142,11 @@ export class MetricsCollector implements IMetricsCollector {
           ...metrics,
           id: `metrics_${timestamp}_${Math.random().toString(36).substr(2, 9)}`
         }
-        
+
         this.metricsHistory.push(dataPoint)
-        
-        // Limit history size to prevent memory leaks
-        if (this.metricsHistory.length > 1000) {
+
+        // Limit history size to prevent memory leaks - maintain rolling window of 500
+        if (this.metricsHistory.length > 500) {
           this.metricsHistory = this.metricsHistory.slice(-500)
         }
       }
@@ -187,7 +187,7 @@ export class MetricsCollector implements IMetricsCollector {
       startTime: Date.now(),
       operation
     }
-    
+
     this.timingContexts.set(id, context)
     return id
   }
@@ -204,29 +204,33 @@ export class MetricsCollector implements IMetricsCollector {
 
     const duration = Date.now() - context.startTime
     this.timingContexts.delete(timingId)
-    
+
     // Update overhead tracking based on operation type
     this.updateOverheadTracking(context.operation, duration)
-    
+
     return duration
   }
 
   /**
    * Record cache operation
    */
-  recordCacheOperation(cache: string, operation: 'hit' | 'miss' | 'set' | 'evict', duration: number): void {
+  recordCacheOperation(
+    cache: string,
+    operation: 'hit' | 'miss' | 'set' | 'evict',
+    duration: number
+  ): void {
     const cacheOp: CacheOperation = {
       timestamp: Date.now(),
       operation,
       cache,
       duration
     }
-    
+
     this.cacheOperations.push(cacheOp)
     this.throughputCounters.cacheOperations++
-    
-    // Limit cache operations history
-    if (this.cacheOperations.length > 10000) {
+
+    // Limit cache operations history - maintain a rolling window of 5000
+    if (this.cacheOperations.length > 5000) {
       this.cacheOperations = this.cacheOperations.slice(-5000)
     }
   }
@@ -254,13 +258,13 @@ export class MetricsCollector implements IMetricsCollector {
   private collectTimingMetrics(): TimingMetrics {
     // Calculate metrics from recent timing data
     const recentWindow = Date.now() - 60000 // Last minute
-    const recentOperations = this.cacheOperations.filter(op => op.timestamp > recentWindow)
-    
+    const recentOperations = this.cacheOperations.filter((op) => op.timestamp > recentWindow)
+
     let totalTime = 0
     let cacheLookupTime = 0
     const latencies: number[] = []
 
-    recentOperations.forEach(op => {
+    recentOperations.forEach((op) => {
       totalTime += op.duration
       if (op.operation === 'hit' || op.operation === 'miss') {
         cacheLookupTime += op.duration
@@ -270,7 +274,7 @@ export class MetricsCollector implements IMetricsCollector {
 
     // Sort latencies for percentile calculations
     latencies.sort((a, b) => a - b)
-    
+
     const p95Index = Math.floor(latencies.length * 0.95)
     const p99Index = Math.floor(latencies.length * 0.99)
 
@@ -279,7 +283,8 @@ export class MetricsCollector implements IMetricsCollector {
       testProcessingTime: this.overheadTracker.baselineTime,
       outputGenerationTime: this.overheadTracker.totalTime - this.overheadTracker.baselineTime,
       cacheLookupTime,
-      averageLatency: latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0,
+      averageLatency:
+        latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0,
       p95Latency: latencies[p95Index] || 0,
       p99Latency: latencies[p99Index] || 0
     }
@@ -292,7 +297,7 @@ export class MetricsCollector implements IMetricsCollector {
     try {
       const memUsage = process.memoryUsage()
       const currentUsage = memUsage.heapUsed
-      
+
       // Take memory snapshot
       const snapshot: MemorySnapshot = {
         timestamp: Date.now(),
@@ -301,20 +306,20 @@ export class MetricsCollector implements IMetricsCollector {
         heapTotal: memUsage.heapTotal,
         external: memUsage.external
       }
-      
+
       this.memorySnapshots.push(snapshot)
-      
+
       // Calculate peak usage from recent snapshots
       const recentSnapshots = this.memorySnapshots.slice(-100) // Keep last 100 snapshots
-      const peakUsage = Math.max(...recentSnapshots.map(s => s.usage))
-      
+      const peakUsage = Math.max(...recentSnapshots.map((s) => s.usage))
+
       // Estimate memory pressure
       const usagePercentage = (currentUsage / memUsage.heapTotal) * 100
       const pressureLevel = this.calculateMemoryPressure(usagePercentage)
-      
+
       // Estimate GC count (simplified)
       const gcCount = Math.floor(peakUsage / (50 * 1024 * 1024)) // Rough estimate
-      
+
       return {
         currentUsage,
         peakUsage,
@@ -338,41 +343,44 @@ export class MetricsCollector implements IMetricsCollector {
    */
   private collectCacheMetrics(): CacheMetrics {
     const recentWindow = Date.now() - 300000 // Last 5 minutes
-    const recentOps = this.cacheOperations.filter(op => op.timestamp > recentWindow)
-    
+    const recentOps = this.cacheOperations.filter((op) => op.timestamp > recentWindow)
+
     // Aggregate by cache type
-    const cacheStats = new Map<string, { hits: number; misses: number; operations: number; totalTime: number }>()
-    
-    recentOps.forEach(op => {
+    const cacheStats = new Map<
+      string,
+      { hits: number; misses: number; operations: number; totalTime: number }
+    >()
+
+    recentOps.forEach((op) => {
       if (!cacheStats.has(op.cache)) {
         cacheStats.set(op.cache, { hits: 0, misses: 0, operations: 0, totalTime: 0 })
       }
-      
+
       const stats = cacheStats.get(op.cache)!
       stats.operations++
       stats.totalTime += op.duration
-      
+
       if (op.operation === 'hit') {
         stats.hits++
       } else if (op.operation === 'miss') {
         stats.misses++
       }
     })
-    
+
     // Calculate overall metrics
     let totalHits = 0
     let totalMisses = 0
     let totalOps = 0
-    
-    cacheStats.forEach(stats => {
+
+    cacheStats.forEach((stats) => {
       totalHits += stats.hits
       totalMisses += stats.misses
       totalOps += stats.operations
     })
-    
+
     const hitRatio = totalOps > 0 ? (totalHits / (totalHits + totalMisses)) * 100 : 0
-    const efficiency = Math.min(hitRatio / 80 * 100, 100) // Target 80% hit ratio
-    
+    const efficiency = Math.min((hitRatio / 80) * 100, 100) // Target 80% hit ratio
+
     // Create individual cache metrics
     const createCacheInstanceMetrics = (cacheName: string): CacheInstanceMetrics => {
       const stats = cacheStats.get(cacheName)
@@ -385,10 +393,10 @@ export class MetricsCollector implements IMetricsCollector {
           averageLookupTime: 0
         }
       }
-      
-      const cacheHitRatio = stats.hits + stats.misses > 0 ? 
-        (stats.hits / (stats.hits + stats.misses)) * 100 : 0
-      
+
+      const cacheHitRatio =
+        stats.hits + stats.misses > 0 ? (stats.hits / (stats.hits + stats.misses)) * 100 : 0
+
       return {
         hitRatio: cacheHitRatio,
         size: stats.operations, // Approximation
@@ -397,13 +405,16 @@ export class MetricsCollector implements IMetricsCollector {
         averageLookupTime: stats.operations > 0 ? stats.totalTime / stats.operations : 0
       }
     }
-    
+
     return {
       hitRatio,
       hits: totalHits,
       misses: totalMisses,
       size: totalOps,
-      capacity: this.config.cache!.tokenCacheSize! + this.config.cache!.resultCacheSize! + this.config.cache!.templateCacheSize!,
+      capacity:
+        this.config.cache.tokenCacheSize! +
+        this.config.cache.resultCacheSize! +
+        this.config.cache.templateCacheSize!,
       efficiency,
       caches: {
         tokenCache: createCacheInstanceMetrics('token'),
@@ -418,7 +429,7 @@ export class MetricsCollector implements IMetricsCollector {
    */
   private collectThroughputMetrics(): ThroughputMetrics {
     const elapsedTime = (Date.now() - this.throughputCounters.startTime) / 1000 // seconds
-    
+
     if (elapsedTime === 0) {
       return {
         testsPerSecond: 0,
@@ -428,7 +439,7 @@ export class MetricsCollector implements IMetricsCollector {
         averageBatchSize: 0
       }
     }
-    
+
     return {
       testsPerSecond: this.throughputCounters.testsProcessed / elapsedTime,
       operationsPerSecond: this.throughputCounters.operationsExecuted / elapsedTime,
@@ -444,7 +455,7 @@ export class MetricsCollector implements IMetricsCollector {
   private collectOverheadMetrics(): OverheadMetrics {
     const totalTime = this.overheadTracker.totalTime
     const baselineTime = this.overheadTracker.baselineTime
-    
+
     if (baselineTime === 0) {
       return {
         performanceOverhead: 0,
@@ -454,13 +465,13 @@ export class MetricsCollector implements IMetricsCollector {
         totalOverhead: 0
       }
     }
-    
+
     const performanceOverhead = (this.overheadTracker.performanceTime / baselineTime) * 100
     const streamingOverhead = (this.overheadTracker.streamingTime / baselineTime) * 100
     const cacheOverhead = (this.overheadTracker.cacheTime / baselineTime) * 100
     const memoryOverhead = (this.overheadTracker.memoryTime / baselineTime) * 100
     const totalOverhead = ((totalTime - baselineTime) / baselineTime) * 100
-    
+
     return {
       performanceOverhead: Math.max(0, performanceOverhead),
       streamingOverhead: Math.max(0, streamingOverhead),
@@ -485,10 +496,14 @@ export class MetricsCollector implements IMetricsCollector {
    */
   private getCacheCapacity(cacheName: string): number {
     switch (cacheName) {
-      case 'token': return this.config.cache?.tokenCacheSize || 1000
-      case 'result': return this.config.cache?.resultCacheSize || 1000
-      case 'template': return this.config.cache?.templateCacheSize || 1000
-      default: return 1000
+      case 'token':
+        return this.config.cache?.tokenCacheSize || 1000
+      case 'result':
+        return this.config.cache?.resultCacheSize || 1000
+      case 'template':
+        return this.config.cache?.templateCacheSize || 1000
+      default:
+        return 1000
     }
   }
 
@@ -497,7 +512,7 @@ export class MetricsCollector implements IMetricsCollector {
    */
   private updateOverheadTracking(operation: string, duration: number): void {
     this.overheadTracker.totalTime += duration
-    
+
     if (operation.includes('performance')) {
       this.overheadTracker.performanceTime += duration
     } else if (operation.includes('streaming')) {
@@ -516,12 +531,12 @@ export class MetricsCollector implements IMetricsCollector {
    */
   private startMemoryMonitoring(): void {
     const interval = this.config.memory.monitoringInterval
-    
+
     const monitor = () => {
       if (!this.isCollecting) {
         return
       }
-      
+
       try {
         const memUsage = process.memoryUsage()
         const snapshot: MemorySnapshot = {
@@ -531,20 +546,20 @@ export class MetricsCollector implements IMetricsCollector {
           heapTotal: memUsage.heapTotal,
           external: memUsage.external
         }
-        
+
         this.memorySnapshots.push(snapshot)
-        
-        // Limit snapshots to prevent memory leaks
-        if (this.memorySnapshots.length > 1000) {
+
+        // Limit snapshots to prevent memory leaks - maintain rolling window of 500
+        if (this.memorySnapshots.length > 500) {
           this.memorySnapshots = this.memorySnapshots.slice(-500)
         }
       } catch (error) {
         this.debugError('Memory monitoring error: %O', error)
       }
-      
+
       setTimeout(monitor, interval)
     }
-    
+
     setTimeout(monitor, interval)
   }
 
@@ -559,7 +574,7 @@ export class MetricsCollector implements IMetricsCollector {
       cacheOperations: 0,
       startTime: Date.now()
     }
-    
+
     this.overheadTracker = {
       performanceTime: 0,
       streamingTime: 0,

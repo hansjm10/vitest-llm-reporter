@@ -58,7 +58,7 @@ export type {
 
 /**
  * Create a new cache manager with default configuration
- * 
+ *
  * @param config Cache configuration
  * @returns Configured CacheManager instance
  */
@@ -68,21 +68,25 @@ export function createCacheManager(config?: Partial<import('../types').CacheConf
 
 /**
  * Create an intelligent cache instance
- * 
+ *
  * @param config Cache configuration
  * @returns Configured IntelligentCache instance
  */
-export function createIntelligentCache(config?: Partial<import('../types').CacheConfig>): IntelligentCache {
+export function createIntelligentCache(
+  config?: Partial<import('../types').CacheConfig>
+): IntelligentCache {
   return new IntelligentCache(config || {})
 }
 
 /**
  * Create a warmup service
- * 
+ *
  * @param config Cache configuration
  * @returns Configured WarmupService instance
  */
-export function createWarmupService(config: Required<import('../types').CacheConfig>): WarmupService {
+export function createWarmupService(
+  config: Required<import('../types').CacheConfig>
+): WarmupService {
   return new WarmupService(config)
 }
 
@@ -148,7 +152,7 @@ export const DEVELOPMENT_CACHE_CONFIG: import('../types').CacheConfig = {
 
 /**
  * Get cache configuration for specific environment
- * 
+ *
  * @param environment Target environment
  * @returns Appropriate cache configuration
  */
@@ -171,7 +175,7 @@ export function getCacheConfigForEnvironment(
 
 /**
  * Validate cache configuration
- * 
+ *
  * @param config Cache configuration to validate
  * @throws Error if configuration is invalid
  */
@@ -179,23 +183,26 @@ export function validateCacheConfig(config: import('../types').CacheConfig): voi
   if (config.tokenCacheSize !== undefined && config.tokenCacheSize < 0) {
     throw new Error('tokenCacheSize must be non-negative')
   }
-  
+
   if (config.resultCacheSize !== undefined && config.resultCacheSize < 0) {
     throw new Error('resultCacheSize must be non-negative')
   }
-  
+
   if (config.templateCacheSize !== undefined && config.templateCacheSize < 0) {
     throw new Error('templateCacheSize must be non-negative')
   }
-  
+
   if (config.ttl !== undefined && config.ttl < 0) {
     throw new Error('ttl must be non-negative')
   }
-  
-  if (config.targetHitRatio !== undefined && (config.targetHitRatio < 0 || config.targetHitRatio > 100)) {
+
+  if (
+    config.targetHitRatio !== undefined &&
+    (config.targetHitRatio < 0 || config.targetHitRatio > 100)
+  ) {
     throw new Error('targetHitRatio must be between 0 and 100')
   }
-  
+
   if (config.evictionStrategy !== undefined) {
     const validStrategies = EvictionStrategyFactory.getAvailableStrategies()
     if (!validStrategies.includes(config.evictionStrategy)) {
@@ -215,7 +222,7 @@ export const CacheUtils = {
     const tokenCache = (config.tokenCacheSize || 0) * 1024 // Assume 1KB per token entry
     const resultCache = (config.resultCacheSize || 0) * 5120 // Assume 5KB per result entry
     const templateCache = (config.templateCacheSize || 0) * 512 // Assume 512B per template entry
-    
+
     return tokenCache + resultCache + templateCache
   },
 
@@ -229,12 +236,12 @@ export const CacheUtils = {
   } {
     const availableBytes = availableMemoryMB * 1024 * 1024
     const cacheAllocation = availableBytes * 0.1 // Use 10% of available memory
-    
+
     // Distribute cache memory: 50% token, 35% result, 15% template
     const tokenCacheBytes = cacheAllocation * 0.5
     const resultCacheBytes = cacheAllocation * 0.35
     const templateCacheBytes = cacheAllocation * 0.15
-    
+
     return {
       tokenCacheSize: Math.floor(tokenCacheBytes / 1024), // 1KB per entry
       resultCacheSize: Math.floor(resultCacheBytes / 5120), // 5KB per entry

@@ -98,7 +98,7 @@ export class ResourcePool<T> {
     this.validator = validator
     this.available = []
     this.active = new Set()
-    
+
     this.config = {
       initialSize: config.initialSize ?? Math.min(10, maxSize),
       maxSize,
@@ -120,7 +120,7 @@ export class ResourcePool<T> {
 
     // Pre-populate pool
     this.prewarm()
-    
+
     // Start maintenance
     this.startMaintenance()
   }
@@ -134,15 +134,14 @@ export class ResourcePool<T> {
     try {
       // Try to get from available pool
       let pooledObject = this.getAvailableObject()
-      
+
       if (pooledObject) {
         this.stats.hits++
       } else {
         // Create new object if possible
         pooledObject = this.createNewObject()
-        if (pooledObject) {
-          this.stats.misses++
-        } else {
+        this.stats.misses++ // Count as miss whether we can create or not
+        if (!pooledObject) {
           this.debugError('Failed to acquire object: pool exhausted')
           return null
         }
@@ -154,8 +153,11 @@ export class ResourcePool<T> {
       pooledObject.useCount++
       this.active.add(pooledObject)
 
-      this.debug('Object acquired (active: %d, available: %d)', 
-        this.active.size, this.available.length)
+      this.debug(
+        'Object acquired (active: %d, available: %d)',
+        this.active.size,
+        this.available.length
+      )
 
       return pooledObject.obj
     } catch (error) {
@@ -198,8 +200,11 @@ export class ResourcePool<T> {
       this.active.delete(pooledObject)
       this.available.push(pooledObject)
 
-      this.debug('Object released (active: %d, available: %d)', 
-        this.active.size, this.available.length)
+      this.debug(
+        'Object released (active: %d, available: %d)',
+        this.active.size,
+        this.available.length
+      )
 
       return true
     } catch (error) {
@@ -213,10 +218,10 @@ export class ResourcePool<T> {
    */
   getStats(): PoolStats {
     const totalSize = this.active.size + this.available.length
-    const hitRatio = this.stats.totalRequests > 0 ? 
-      (this.stats.hits / this.stats.totalRequests) * 100 : 0
-    const utilizationRatio = this.config.maxSize > 0 ? 
-      (this.active.size / this.config.maxSize) * 100 : 0
+    const hitRatio =
+      this.stats.totalRequests > 0 ? (this.stats.hits / this.stats.totalRequests) * 100 : 0
+    const utilizationRatio =
+      this.config.maxSize > 0 ? (this.active.size / this.config.maxSize) * 100 : 0
 
     return {
       totalSize,
@@ -238,7 +243,7 @@ export class ResourcePool<T> {
   clear(): void {
     try {
       // Destroy all objects
-      [...this.available, ...this.active].forEach(pooledObject => {
+      ;[...this.available, ...this.active].forEach((pooledObject) => {
         this.destroyObject(pooledObject)
       })
 
@@ -264,13 +269,13 @@ export class ResourcePool<T> {
   optimize(): void {
     try {
       this.debug('Starting pool optimization')
-      
+
       // Remove idle objects
       this.removeIdleObjects()
-      
+
       // Adjust pool size based on usage
       this.adjustPoolSize()
-      
+
       this.debug('Pool optimization completed')
     } catch (error) {
       this.debugError('Pool optimization failed: %O', error)
@@ -283,18 +288,15 @@ export class ResourcePool<T> {
   cleanup(): void {
     try {
       const beforeSize = this.available.length
-      
+
       // Remove expired objects
       this.removeIdleObjects()
-      
+
       // Shrink pool if underutilized
       const utilizationRatio = this.active.size / this.config.maxSize
       if (utilizationRatio < this.config.shrinkThreshold) {
-        const targetSize = Math.max(
-          this.config.initialSize,
-          Math.ceil(this.active.size * 1.2)
-        )
-        
+        const targetSize = Math.max(this.config.initialSize, Math.ceil(this.active.size * 1.2))
+
         while (this.available.length > targetSize) {
           const pooledObject = this.available.pop()
           if (pooledObject) {
@@ -302,10 +304,10 @@ export class ResourcePool<T> {
           }
         }
       }
-      
+
       const afterSize = this.available.length
       const cleaned = beforeSize - afterSize
-      
+
       if (cleaned > 0) {
         this.debug('Pool cleanup removed %d objects', cleaned)
       }
@@ -327,7 +329,7 @@ export class ResourcePool<T> {
 
       // Clear all objects
       this.clear()
-      
+
       this.debug('Pool destroyed')
     } catch (error) {
       this.debugError('Failed to destroy pool: %O', error)
@@ -345,7 +347,7 @@ export class ResourcePool<T> {
           this.available.push(pooledObject)
         }
       }
-      
+
       this.debug('Pool prewarmed with %d objects', this.available.length)
     } catch (error) {
       this.debugError('Failed to prewarm pool: %O', error)
@@ -358,7 +360,7 @@ export class ResourcePool<T> {
   private getAvailableObject(): PooledObject<T> | null {
     while (this.available.length > 0) {
       const pooledObject = this.available.pop()!
-      
+
       // Validate if required
       if (this.config.validateOnAcquire && this.validator) {
         if (!this.validator(pooledObject.obj)) {
@@ -366,10 +368,10 @@ export class ResourcePool<T> {
           continue
         }
       }
-      
+
       return pooledObject
     }
-    
+
     return null
   }
 
@@ -390,7 +392,7 @@ export class ResourcePool<T> {
         useCount: 0,
         isActive: false
       }
-      
+
       this.stats.createdObjects++
       return pooledObject
     } catch (error) {
@@ -416,13 +418,13 @@ export class ResourcePool<T> {
    */
   private destroyObject(pooledObject: PooledObject<T>): void {
     this.active.delete(pooledObject)
-    
+
     // Remove from available if present
     const index = this.available.indexOf(pooledObject)
     if (index >= 0) {
       this.available.splice(index, 1)
     }
-    
+
     this.stats.destroyedObjects++
   }
 
@@ -432,23 +434,23 @@ export class ResourcePool<T> {
   private removeIdleObjects(): void {
     const now = Date.now()
     const maxIdleTime = this.config.maxIdleTime
-    
+
     const toRemove: number[] = []
-    
+
     for (let i = 0; i < this.available.length; i++) {
       const pooledObject = this.available[i]
       if (now - pooledObject.lastUsed > maxIdleTime) {
         toRemove.push(i)
       }
     }
-    
+
     // Remove in reverse order to maintain indices
     for (let i = toRemove.length - 1; i >= 0; i--) {
       const index = toRemove[i]
       const pooledObject = this.available.splice(index, 1)[0]
       this.destroyObject(pooledObject)
     }
-    
+
     if (toRemove.length > 0) {
       this.debug('Removed %d idle objects', toRemove.length)
     }
@@ -459,14 +461,14 @@ export class ResourcePool<T> {
    */
   private adjustPoolSize(): void {
     const stats = this.getStats()
-    
+
     // If utilization is high and we have requests, consider growing
     if (stats.utilizationRatio > 80 && stats.totalRequests > 0) {
       const targetSize = Math.min(
         this.config.maxSize,
         Math.ceil(this.getTotalSize() * this.config.growthFactor)
       )
-      
+
       const toCreate = targetSize - this.getTotalSize()
       for (let i = 0; i < toCreate; i++) {
         const pooledObject = this.createNewObject()
@@ -474,7 +476,7 @@ export class ResourcePool<T> {
           this.available.push(pooledObject)
         }
       }
-      
+
       if (toCreate > 0) {
         this.debug('Grew pool by %d objects to %d total', toCreate, this.getTotalSize())
       }
@@ -493,7 +495,7 @@ export class ResourcePool<T> {
    */
   private startMaintenance(): void {
     const maintenanceInterval = 60000 // 1 minute
-    
+
     this.maintenanceInterval = setInterval(() => {
       try {
         this.removeIdleObjects()
@@ -515,7 +517,10 @@ export class StringPool extends ResourcePool<{ value: string }> {
   constructor(maxSize = 1000) {
     super(
       () => ({ value: '' }),
-      (obj) => { obj.value = ''; return obj },
+      (obj) => {
+        obj.value = ''
+        return obj
+      },
       maxSize
     )
   }
@@ -536,7 +541,10 @@ export class ArrayPool<T> extends ResourcePool<T[]> {
   constructor(maxSize = 1000) {
     super(
       () => [],
-      (arr) => { arr.length = 0; return arr },
+      (arr) => {
+        arr.length = 0
+        return arr
+      },
       maxSize
     )
   }
@@ -549,7 +557,10 @@ export class BufferPool extends ResourcePool<Buffer> {
   constructor(bufferSize: number, maxSize = 100) {
     super(
       () => Buffer.allocUnsafe(bufferSize),
-      (buffer) => { buffer.fill(0); return buffer },
+      (buffer) => {
+        buffer.fill(0)
+        return buffer
+      },
       maxSize,
       { validateOnAcquire: true },
       (buffer) => buffer.length === bufferSize
@@ -574,12 +585,12 @@ export class PoolFactory {
     config?: PoolConfig
   ): ResourcePool<T> {
     let pool = this.pools.get(name)
-    
+
     if (!pool) {
       pool = new ResourcePool(factory, reset, maxSize, config)
       this.pools.set(name, pool)
     }
-    
+
     return pool as ResourcePool<T>
   }
 
@@ -611,11 +622,11 @@ export class PoolFactory {
    */
   static getAllStats(): Record<string, PoolStats> {
     const stats: Record<string, PoolStats> = {}
-    
+
     for (const [name, pool] of this.pools) {
       stats[name] = pool.getStats()
     }
-    
+
     return stats
   }
 }

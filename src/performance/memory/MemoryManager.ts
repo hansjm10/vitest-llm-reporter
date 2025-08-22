@@ -7,12 +7,7 @@
  * @module MemoryManager
  */
 
-import type {
-  IMemoryManager,
-  MemoryMetrics,
-  MemoryPressureLevel,
-  MemoryConfig
-} from '../types'
+import type { IMemoryManager, MemoryMetrics, MemoryPressureLevel, MemoryConfig } from '../types'
 import { ResourcePool } from './ResourcePool'
 import { MemoryProfiler } from './MemoryProfiler'
 import { coreLogger, errorLogger } from '../../utils/logger'
@@ -21,9 +16,9 @@ import { coreLogger, errorLogger } from '../../utils/logger'
  * Memory pressure thresholds
  */
 interface MemoryThresholds {
-  readonly low: number      // < 50% usage
+  readonly low: number // < 50% usage
   readonly moderate: number // 50-75% usage
-  readonly high: number     // 75-90% usage
+  readonly high: number // 75-90% usage
   readonly critical: number // > 90% usage
 }
 
@@ -104,10 +99,10 @@ export class MemoryManager implements IMemoryManager {
     // Get available memory information
     const totalMemory = this.getTotalSystemMemory()
     const processMemoryLimit = this.getProcessMemoryLimit()
-    
+
     // Use the smaller of system memory and process limit
     const effectiveLimit = Math.min(totalMemory, processMemoryLimit)
-    
+
     return {
       low: effectiveLimit * 0.5,
       moderate: effectiveLimit * 0.75,
@@ -126,59 +121,68 @@ export class MemoryManager implements IMemoryManager {
 
     try {
       // Test result pool
-      this.pools.set('testResults', new ResourcePool<any>(
-        () => ({
-          test: { name: '', file: '', duration: 0 },
-          result: { state: 'pending', errors: [] },
-          console: []
-        }),
-        (obj) => {
-          obj.test.name = ''
-          obj.test.file = ''
-          obj.test.duration = 0
-          obj.result.state = 'pending'
-          obj.result.errors.length = 0
-          obj.console.length = 0
-          return obj
-        },
-        this.config.poolSizes.testResults
-      ))
+      this.pools.set(
+        'testResults',
+        new ResourcePool<any>(
+          () => ({
+            test: { name: '', file: '', duration: 0 },
+            result: { state: 'pending', errors: [] },
+            console: []
+          }),
+          (obj) => {
+            obj.test.name = ''
+            obj.test.file = ''
+            obj.test.duration = 0
+            obj.result.state = 'pending'
+            obj.result.errors.length = 0
+            obj.console.length = 0
+            return obj
+          },
+          this.config.poolSizes.testResults
+        )
+      )
 
       // Error pool
-      this.pools.set('errors', new ResourcePool<any>(
-        () => ({
-          message: '',
-          stack: '',
-          name: '',
-          cause: undefined
-        }),
-        (obj) => {
-          obj.message = ''
-          obj.stack = ''
-          obj.name = ''
-          obj.cause = undefined
-          return obj
-        },
-        this.config.poolSizes.errors
-      ))
+      this.pools.set(
+        'errors',
+        new ResourcePool<any>(
+          () => ({
+            message: '',
+            stack: '',
+            name: '',
+            cause: undefined
+          }),
+          (obj) => {
+            obj.message = ''
+            obj.stack = ''
+            obj.name = ''
+            obj.cause = undefined
+            return obj
+          },
+          this.config.poolSizes.errors
+        )
+      )
 
       // Console output pool
-      this.pools.set('consoleOutputs', new ResourcePool<any>(
-        () => ({
-          type: 'log',
-          output: '',
-          timestamp: 0,
-          source: ''
-        }),
-        (obj) => {
-          obj.type = 'log'
-          obj.output = ''
-          obj.timestamp = 0
-          obj.source = ''
-          return obj
-        },
-        this.config.poolSizes.consoleOutputs
-      ))
+      this.pools.set(
+        'consoleOutputs',
+        new ResourcePool<any>(
+          () => ({
+            type: 'log',
+            output: '',
+            timestamp: 0,
+            source: ''
+          }),
+          (obj) => {
+            obj.type = 'log'
+            obj.output = ''
+            obj.timestamp = 0
+            obj.source = ''
+            return obj
+          },
+          this.config.poolSizes.consoleOutputs
+        )
+      )
 
       this.debug('Initialized %d object pools', this.pools.size)
     } catch (error) {
@@ -256,19 +260,19 @@ export class MemoryManager implements IMemoryManager {
       const memUsage = process.memoryUsage()
       const currentUsage = memUsage.heapUsed
       const totalMemory = this.getTotalSystemMemory()
-      
+
       // Update peak tracking
       this.allocationTracker.peakAllocated = Math.max(
         this.allocationTracker.peakAllocated,
         currentUsage
       )
-      
+
       const usagePercentage = (currentUsage / totalMemory) * 100
       const pressureLevel = this.calculatePressureLevel(currentUsage)
-      
+
       // Get pool statistics
       const poolStats = this.getPoolStatistics()
-      
+
       return {
         currentUsage,
         peakUsage: this.allocationTracker.peakAllocated,
@@ -302,10 +306,10 @@ export class MemoryManager implements IMemoryManager {
     try {
       this.debug('Starting memory cleanup')
       const pressureLevel = this.checkPressure()
-      
+
       // Select cleanup tasks based on pressure level
       const tasksToRun = this.selectCleanupTasks(pressureLevel)
-      
+
       let totalSaved = 0
       for (const task of tasksToRun) {
         try {
@@ -316,7 +320,7 @@ export class MemoryManager implements IMemoryManager {
           this.debugError('Cleanup task %s failed: %O', task.name, error)
         }
       }
-      
+
       this.debug('Memory cleanup completed, saved %d bytes', totalSaved)
     } catch (error) {
       this.debugError('Memory cleanup failed: %O', error)
@@ -339,7 +343,7 @@ export class MemoryManager implements IMemoryManager {
         return obj as T
       }
     }
-    
+
     return undefined
   }
 
@@ -368,23 +372,23 @@ export class MemoryManager implements IMemoryManager {
 
     try {
       this.debug('Starting memory optimization')
-      
+
       // Run profiling if enabled
       if (this.config.enableProfiling) {
         await this.profiler.profile()
       }
-      
+
       // Optimize pools
       for (const [type, pool] of this.pools) {
         pool.optimize()
       }
-      
+
       // Cleanup if under pressure
       const pressureLevel = this.checkPressure()
       if (pressureLevel === 'high' || pressureLevel === 'critical') {
         await this.cleanup()
       }
-      
+
       this.debug('Memory optimization completed')
     } catch (error) {
       this.debugError('Memory optimization failed: %O', error)
@@ -396,18 +400,21 @@ export class MemoryManager implements IMemoryManager {
    */
   private performMonitoringCycle(): void {
     const usage = this.getUsage()
-    
+
     // Check if we need to take action
     if (usage.pressureLevel === 'high' || usage.pressureLevel === 'critical') {
-      this.debug('High memory pressure detected: %s (%d%% usage)', 
-        usage.pressureLevel, usage.usagePercentage.toFixed(1))
-      
+      this.debug(
+        'High memory pressure detected: %s (%d%% usage)',
+        usage.pressureLevel,
+        usage.usagePercentage.toFixed(1)
+      )
+
       // Trigger async cleanup
-      this.cleanup().catch(error => {
+      this.cleanup().catch((error) => {
         this.debugError('Async cleanup failed: %O', error)
       })
     }
-    
+
     // Update profiler if enabled
     if (this.config.enableProfiling) {
       this.profiler.recordSnapshot(usage)
@@ -434,7 +441,7 @@ export class MemoryManager implements IMemoryManager {
    */
   private selectCleanupTasks(pressureLevel: MemoryPressureLevel): CleanupTask[] {
     const tasks = [...this.cleanupTasks].sort((a, b) => a.priority - b.priority)
-    
+
     switch (pressureLevel) {
       case 'critical':
         return tasks // Run all tasks
@@ -452,18 +459,18 @@ export class MemoryManager implements IMemoryManager {
    */
   private async cleanupPools(): Promise<number> {
     let totalSaved = 0
-    
+
     for (const [type, pool] of this.pools) {
       const beforeSize = pool.getStats().totalSize
       pool.cleanup()
       const afterSize = pool.getStats().totalSize
-      
+
       const saved = beforeSize - afterSize
       totalSaved += saved
-      
+
       this.debug('Pool %s cleanup saved %d bytes', type, saved)
     }
-    
+
     return totalSaved
   }
 
@@ -474,14 +481,14 @@ export class MemoryManager implements IMemoryManager {
     const now = Date.now()
     const maxAge = 60 * 60 * 1000 // 1 hour
     let cleaned = 0
-    
+
     for (const [key, allocation] of this.allocationTracker.allocations) {
       if (now - allocation.timestamp > maxAge) {
         cleaned += allocation.size
         this.allocationTracker.allocations.delete(key)
       }
     }
-    
+
     this.allocationTracker.totalAllocated -= cleaned
     return cleaned
   }
@@ -491,15 +498,15 @@ export class MemoryManager implements IMemoryManager {
    */
   private async forceGarbageCollection(): Promise<number> {
     const beforeUsage = process.memoryUsage().heapUsed
-    
+
     if (global.gc) {
       global.gc()
       this.gcCount++
       this.lastGCTime = Date.now()
-      
+
       const afterUsage = process.memoryUsage().heapUsed
       const saved = beforeUsage - afterUsage
-      
+
       this.debug('Forced GC saved %d bytes', saved)
       return Math.max(0, saved)
     } else {
@@ -513,12 +520,12 @@ export class MemoryManager implements IMemoryManager {
    */
   private trackAllocation(type: string, size: number): void {
     const key = `${type}_${Date.now()}_${Math.random()}`
-    
+
     this.allocationTracker.allocations.set(key, {
       size,
       timestamp: Date.now()
     })
-    
+
     this.allocationTracker.totalAllocated += size
   }
 
@@ -555,7 +562,7 @@ export class MemoryManager implements IMemoryManager {
     let activeObjects = 0
     let totalHits = 0
     let totalRequests = 0
-    
+
     for (const pool of this.pools.values()) {
       const stats = pool.getStats()
       totalPooled += stats.totalSize
@@ -563,9 +570,9 @@ export class MemoryManager implements IMemoryManager {
       totalHits += stats.hits
       totalRequests += stats.totalRequests
     }
-    
+
     const poolHitRatio = totalRequests > 0 ? (totalHits / totalRequests) * 100 : 0
-    
+
     return {
       totalPooled,
       activeObjects,
@@ -620,14 +627,14 @@ export class MemoryManager implements IMemoryManager {
    */
   destroy(): void {
     this.stopMonitoring()
-    
+
     for (const pool of this.pools.values()) {
       pool.destroy()
     }
-    
+
     this.pools.clear()
     this.allocationTracker.allocations.clear()
-    
+
     this.debug('Memory manager destroyed')
   }
 }
