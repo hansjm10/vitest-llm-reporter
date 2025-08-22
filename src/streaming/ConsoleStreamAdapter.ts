@@ -133,10 +133,10 @@ export class ConsoleStreamAdapter implements IConsoleStreamAdapter {
               return '[Complex Object]'
             }
           }
-          return String(arg)
+          return String(arg as Record<string, unknown>)
         })
         .join(' ')
-    } catch (error) {
+    } catch (_error) {
       return '[Failed to serialize console arguments]'
     }
   }

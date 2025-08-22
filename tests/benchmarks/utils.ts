@@ -119,7 +119,7 @@ export class BenchmarkRunner {
    * Run a benchmark
    */
   async run(name: string, fn: () => Promise<void> | void): Promise<BenchmarkResult> {
-    console.log(`🔄 Running benchmark: ${name}`)
+    console.warn(`🔄 Running benchmark: ${name}`)
 
     // Setup GC monitoring
     this.setupGCMonitoring()
@@ -143,7 +143,7 @@ export class BenchmarkRunner {
 
         iterations.push(endTime - startTime)
         successCount++
-      } catch (error) {
+      } catch (_error) {
         // Record failure but continue
         iterations.push(Number.MAX_SAFE_INTEGER)
       }
@@ -218,7 +218,7 @@ export class BenchmarkRunner {
         })
         .catch((error) => {
           clearTimeout(timeout)
-          reject(error)
+          reject(error as Error)
         })
     })
   }
@@ -234,11 +234,11 @@ export class BenchmarkRunner {
       // Simple GC counting - we'll just increment on manual calls
       // Note: This is a simplified approach for benchmarking
       const originalGC = global.gc
-      global.gc = () => {
+      global.gc = (): void => {
         this.gcCount++
         return originalGC()
       }
-      this.originalGCCallback = originalGC
+      this.originalGCCallback = originalGC as (() => void)
     }
   }
 
@@ -247,7 +247,7 @@ export class BenchmarkRunner {
    */
   private cleanupGCMonitoring(): void {
     if (this.originalGCCallback && global.gc) {
-      global.gc = this.originalGCCallback as any
+      global.gc = this.originalGCCallback
     }
   }
 
@@ -269,16 +269,16 @@ export class BenchmarkRunner {
    * Log benchmark result
    */
   private logResult(result: BenchmarkResult): void {
-    console.log(`✅ ${result.name}:`)
-    console.log(`   Average: ${result.averageTime.toFixed(2)}ms`)
-    console.log(`   Min/Max: ${result.minTime.toFixed(2)}ms / ${result.maxTime.toFixed(2)}ms`)
-    console.log(`   Ops/sec: ${result.operationsPerSecond.toFixed(2)}`)
-    console.log(`   Success rate: ${result.successRate.toFixed(1)}%`)
+    console.warn(`✅ ${result.name}:`)
+    console.warn(`   Average: ${result.averageTime.toFixed(2)}ms`)
+    console.warn(`   Min/Max: ${result.minTime.toFixed(2)}ms / ${result.maxTime.toFixed(2)}ms`)
+    console.warn(`   Ops/sec: ${result.operationsPerSecond.toFixed(2)}`)
+    console.warn(`   Success rate: ${result.successRate.toFixed(1)}%`)
     if (this.config.collectMemory) {
-      console.log(`   Memory delta: ${(result.memoryDelta / 1024 / 1024).toFixed(2)}MB`)
+      console.warn(`   Memory delta: ${(result.memoryDelta / 1024 / 1024).toFixed(2)}MB`)
     }
     if (this.config.collectGC) {
-      console.log(`   GC count: ${result.gcCount}`)
+      console.warn(`   GC count: ${result.gcCount}`)
     }
   }
 }
@@ -371,7 +371,7 @@ export class TestDataGenerator {
 
     // Add custom field to simulate console capture
     // Note: This would normally be handled by the console capture system
-    ;(task as any).consoleOutput = consoleData
+    ;(task as Record<string, unknown>).consoleOutput = consoleData
 
     return task
   }

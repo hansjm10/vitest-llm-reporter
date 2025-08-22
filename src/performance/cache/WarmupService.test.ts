@@ -2,7 +2,7 @@
  * Tests for WarmupService
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { WarmupService } from './WarmupService'
 import type { CacheConfig, ICache } from '../types'
 
@@ -157,7 +157,8 @@ describe('WarmupService', () => {
   describe('pattern detection', () => {
     it('should learn from cache access patterns', async () => {
       // Simulate cache accesses to establish patterns
-      vi.mocked(mockCache.get)
+      const mockedGet = vi.mocked(mockCache.get)
+      mockedGet
         .mockReturnValueOnce('value1')
         .mockReturnValueOnce('value2')
         .mockReturnValueOnce(undefined)
@@ -171,7 +172,8 @@ describe('WarmupService', () => {
 
     it('should prioritize frequently accessed items', async () => {
       // Mock high-frequency access patterns
-      vi.mocked(mockCache.getMetrics).mockReturnValue({
+      const mockedGetMetrics = vi.mocked(mockCache.getMetrics)
+      mockedGetMetrics.mockReturnValue({
         hitRatio: 90,
         size: 500,
         capacity: 1000,
@@ -186,7 +188,8 @@ describe('WarmupService', () => {
 
     it('should adapt to cache performance metrics', async () => {
       // Mock cache with poor performance
-      vi.mocked(mockCache.getMetrics).mockReturnValue({
+      const mockedGetMetrics2 = vi.mocked(mockCache.getMetrics)
+      mockedGetMetrics2.mockReturnValue({
         hitRatio: 30,
         size: 100,
         capacity: 1000,
@@ -251,7 +254,8 @@ describe('WarmupService', () => {
   describe('performance optimization', () => {
     it('should optimize warmup based on cache metrics', async () => {
       // Mock cache with specific metrics
-      vi.mocked(mockCache.getMetrics).mockReturnValue({
+      const mockedGetMetrics3 = vi.mocked(mockCache.getMetrics)
+      mockedGetMetrics3.mockReturnValue({
         hitRatio: 85,
         size: 200,
         capacity: 1000,
@@ -267,7 +271,8 @@ describe('WarmupService', () => {
 
     it('should avoid warming up already hot cache', async () => {
       // Mock cache with very high hit ratio
-      vi.mocked(mockCache.getMetrics).mockReturnValue({
+      const mockedGetMetrics4 = vi.mocked(mockCache.getMetrics)
+      mockedGetMetrics4.mockReturnValue({
         hitRatio: 98,
         size: 500,
         capacity: 1000,
@@ -284,8 +289,10 @@ describe('WarmupService', () => {
 
     it('should handle cache at capacity', async () => {
       // Mock full cache
-      vi.mocked(mockCache.size).mockReturnValue(1000)
-      vi.mocked(mockCache.getMetrics).mockReturnValue({
+      const mockedSize = vi.mocked(mockCache.size)
+      mockedSize.mockReturnValue(1000)
+      const mockedGetMetrics5 = vi.mocked(mockCache.getMetrics)
+      mockedGetMetrics5.mockReturnValue({
         hitRatio: 75,
         size: 1000,
         capacity: 1000,

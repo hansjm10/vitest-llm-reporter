@@ -9,10 +9,10 @@ import { createLogger } from '../../utils/logger.js'
 import type {
   MetricsWarning,
   MetricsError,
-  MetricSection,
-  TestTokenMetrics,
-  FileTokenMetrics,
-  TokenMetricsSummary
+  MetricSection
+  // TestTokenMetrics,
+  // FileTokenMetrics,
+  // TokenMetricsSummary
 } from './types.js'
 import type { ThresholdLevel } from './thresholds.js'
 import type { SupportedModel } from '../types.js'

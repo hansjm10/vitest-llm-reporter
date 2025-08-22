@@ -39,7 +39,7 @@ describe('LLMReporter Line Number Extraction', () => {
     reporter.onTestCaseResult(mockTestCase)
 
     // Get the output
-    reporter.onTestRunEnd([], [], 'passed')
+    void reporter.onTestRunEnd([], [], 'passed')
     const output = reporter.getOutput()
 
     expect(output).toBeDefined()
@@ -64,7 +64,7 @@ describe('LLMReporter Line Number Extraction', () => {
     } as unknown as TestCase
 
     reporter.onTestCaseResult(mockTestCase)
-    reporter.onTestRunEnd([], [], 'passed')
+    void reporter.onTestRunEnd([], [], 'passed')
     const output = reporter.getOutput()
 
     const testResult = output?.passed?.[0]

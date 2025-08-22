@@ -14,15 +14,11 @@ import { OutputSource, OutputPriority } from './queue'
 import { OutputBuilder } from '../output/OutputBuilder'
 import { OutputWriter } from '../output/OutputWriter'
 import { coreLogger, errorLogger } from '../utils/logger'
-import { detectEnvironment, hasTTY } from '../utils/environment'
-import {
-  detectTerminalCapabilities,
-  supportsColor,
-  type TerminalCapabilities
-} from '../utils/terminal'
+import { detectEnvironment } from '../utils/environment'
+import { detectTerminalCapabilities, type TerminalCapabilities } from '../utils/terminal'
 import { StreamErrorHandler, StreamErrorType, RecoveryStrategy } from './ErrorHandler'
-import { StreamRecovery, StreamHealth, RecoveryMode } from './StreamRecovery'
-import { StreamingDiagnostics, DiagnosticLevel } from './diagnostics'
+import { StreamRecovery, StreamHealth } from './StreamRecovery'
+import { StreamingDiagnostics } from './diagnostics'
 
 /**
  * Stream integration configuration

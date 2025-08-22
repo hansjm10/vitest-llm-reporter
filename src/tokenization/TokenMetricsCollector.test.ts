@@ -8,11 +8,9 @@ import type {
   TokenMetricsConfig,
   TokenMetrics,
   TestTokenMetrics,
-  FileTokenMetrics,
-  TokenMetricsSummary,
-  MetricsUpdateEvent
+  FileTokenMetrics
 } from './metrics/types'
-import type { LLMReporterOutput, TestFailure, TestResult } from '../types/schema'
+import type { LLMReporterOutput, TestFailure } from '../types/schema'
 import type { LLMReporterConfig } from '../types/reporter'
 
 // Mock logger
@@ -147,14 +145,16 @@ mockMetricsAggregator.getStats.mockReturnValue({
 })
 
 mockBatchAggregator.aggregateInBatches.mockResolvedValue({
-  files: [{
-    filePath: 'test.js',
-    testCount: 1,
-    totalTokens: 100,
-    averageTokensPerTest: 100,
-    status: 'processed',
-    tests: []
-  }],
+  files: [
+    {
+      filePath: 'test.js',
+      testCount: 1,
+      totalTokens: 100,
+      averageTokensPerTest: 100,
+      status: 'processed',
+      tests: []
+    }
+  ],
   summary: {
     totalTokens: 100,
     testCounts: { total: 1, failed: 1, passed: 0, skipped: 0 },
@@ -194,14 +194,16 @@ mockStreamingAggregator.getCurrentSummary.mockReturnValue({
   collectedAt: Date.now()
 })
 
-mockStreamingAggregator.getCurrentFiles.mockReturnValue([{
-  filePath: 'test.js',
-  testCount: 1,
-  totalTokens: 100,
-  averageTokensPerTest: 100,
-  status: 'processed',
-  tests: []
-}])
+mockStreamingAggregator.getCurrentFiles.mockReturnValue([
+  {
+    filePath: 'test.js',
+    testCount: 1,
+    totalTokens: 100,
+    averageTokensPerTest: 100,
+    status: 'processed',
+    tests: []
+  }
+])
 
 vi.mock('./metrics/aggregator.js', () => ({
   MetricsAggregator: vi.fn(() => mockMetricsAggregator),
@@ -216,7 +218,7 @@ describe('TokenMetricsCollector', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Reset mock return values to defaults
     mockTokenCounter.countWithDetails.mockResolvedValue({
       tokenCount: 100,
@@ -247,7 +249,7 @@ describe('TokenMetricsCollector', () => {
 
     collector = new TokenMetricsCollector(defaultConfig, mockEvents)
   })
-  
+
   afterEach(() => {
     // Reset mocks to prevent cross-test contamination
     mockTokenCounter.countWithDetails.mockResolvedValue({
@@ -297,14 +299,14 @@ describe('TokenMetricsCollector', () => {
 
   describe('initialize', () => {
     it('should initialize collector for collection', async () => {
-      await collector.initialize()
+      collector.initialize()
 
       const context = collector.getContext()
       expect(context.state).toBe('collecting')
     })
 
     it('should setup aggregators based on configuration', async () => {
-      await collector.initialize()
+      collector.initialize()
 
       expect(collector['aggregator']).toBeDefined()
       expect(collector['streamingAggregator']).toBeDefined()
@@ -447,12 +449,12 @@ describe('TokenMetricsCollector', () => {
 
       // The collector should handle tokenization errors gracefully and continue
       const result = await collector.collectFromOutput(mockOutput)
-      
+
       // Should return results even with tokenization errors
       expect(result).toBeDefined()
       expect(result.summary).toBeDefined()
       expect(result.files).toBeDefined()
-      
+
       // Should record warnings for tokenization failures
       expect(mockWarningSystem.warnTokenizationFailed).toHaveBeenCalled()
     })
@@ -540,18 +542,18 @@ describe('TokenMetricsCollector', () => {
 
       // The collector should handle tokenization errors gracefully and continue
       const result = await collector.processTest(testFailure)
-      
+
       // Should return results even with tokenization errors (with 0 token counts)
       expect(result).toBeDefined()
       expect(result.testName).toBe(testFailure.test)
       expect(result.totalTokens).toBe(0) // Should be 0 due to tokenization failure
-      
+
       // Should record warnings for tokenization failures
       expect(mockWarningSystem.warnTokenizationFailed).toHaveBeenCalled()
     })
 
     it('should update streaming aggregator', async () => {
-      await collector.initialize()
+      collector.initialize()
       await collector.processTest(testFailure)
 
       expect(mockStreamingAggregator.addTest).toHaveBeenCalled()
@@ -571,7 +573,7 @@ describe('TokenMetricsCollector', () => {
 
   describe('finalize', () => {
     beforeEach(async () => {
-      await collector.initialize()
+      collector.initialize()
       // Add some test data
       await collector.processTest({
         test: 'test',
@@ -650,7 +652,7 @@ describe('TokenMetricsCollector', () => {
   describe('getCurrentMetrics', () => {
     it('should return current metrics snapshot', async () => {
       // Initialize to set up streamingAggregator
-      await collector.initialize()
+      collector.initialize()
       const current = collector.getCurrentMetrics()
 
       expect(current).toBeDefined()
@@ -659,7 +661,7 @@ describe('TokenMetricsCollector', () => {
     })
 
     it('should use streaming aggregator when available', async () => {
-      await collector.initialize()
+      collector.initialize()
 
       const current = collector.getCurrentMetrics()
 
@@ -831,7 +833,7 @@ describe('TokenMetricsCollector', () => {
     })
 
     it('should use aggregator stats when available', async () => {
-      await collector.initialize()
+      collector.initialize()
 
       const stats = collector.getCollectionStats()
 
@@ -864,7 +866,7 @@ describe('TokenMetricsCollector', () => {
 
   describe('reset', () => {
     it('should reset collector state', async () => {
-      await collector.initialize()
+      collector.initialize()
       await collector.processTest({
         test: 'test',
         file: 'test.js',
@@ -983,7 +985,7 @@ describe('TokenMetricsCollector', () => {
           metadata: { warning: 50, error: 75 }
         }
       })
-      
+
       mockThresholdManager.checkSectionThreshold.mockReturnValueOnce({
         type: 'warning',
         threshold: 'sectionPercentage',

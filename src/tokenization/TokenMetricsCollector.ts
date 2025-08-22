@@ -91,7 +91,7 @@ export class TokenMetricsCollector {
   /**
    * Initialize collection for test run
    */
-  async initialize(): Promise<void> {
+  initialize(): void {
     this.collectionStartTime = Date.now()
     this.context.state = 'collecting'
 
@@ -374,7 +374,7 @@ export class TokenMetricsCollector {
       prettyPrint: false
     }
   ): string {
-    const exportData: any = {}
+    const exportData: Record<string, unknown> = {}
 
     if (options.includeSummary) {
       exportData.summary = metrics.summary

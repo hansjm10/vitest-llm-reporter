@@ -166,7 +166,7 @@ export class WarmupService {
       }
 
       // Generate warmup candidates using all enabled strategies
-      const candidates = this.generateWarmupCandidates(patterns)
+      const candidates = this.generateWarmupCandidates(patterns as Map<string, WarmupPattern>)
 
       // Sort candidates by priority
       candidates.sort((a, b) => b.priority - a.priority)
@@ -337,18 +337,19 @@ export class WarmupService {
           adjustedPriority = pattern.frequency * 2
           break
 
-        case 'recency':
+        case 'recency': {
           const recencyScore = Math.max(0, 24 - (now - pattern.lastAccessed) / (60 * 60 * 1000))
           include = recencyScore >= 12 // Last 12 hours
           adjustedPriority = recencyScore
           break
+        }
 
         case 'size-optimized':
           include = pattern.averageSize <= 10240 // Prefer entries <= 10KB
           adjustedPriority = Math.max(1, 10 - Math.log10(pattern.averageSize))
           break
 
-        case 'predictive':
+        case 'predictive': {
           // Simple predictive logic based on access time patterns
           const hourOfDay = new Date(pattern.lastAccessed).getHours()
           const currentHour = new Date().getHours()
@@ -357,6 +358,7 @@ export class WarmupService {
           include = hourDiff <= 2 // Similar time of day
           adjustedPriority = pattern.frequency + (4 - Math.min(4, hourDiff))
           break
+        }
 
         default:
           include = true
@@ -478,7 +480,16 @@ export class WarmupService {
       newestPattern: number
     }
   > {
-    const stats: Record<string, any> = {}
+    const stats: Record<
+      string,
+      {
+        patternCount: number
+        totalAccesses: number
+        averagePriority: number
+        oldestPattern: number
+        newestPattern: number
+      }
+    > = {}
 
     for (const [cacheName, patterns] of this.accessPatterns) {
       let totalAccesses = 0
@@ -535,7 +546,9 @@ export class WarmupService {
    */
   importPatterns(data: string): boolean {
     try {
-      const parsed = JSON.parse(data)
+      const parsed = JSON.parse(data) as {
+        patterns?: Record<string, Record<string, WarmupPattern>>
+      }
 
       if (parsed.patterns) {
         this.accessPatterns.clear()
@@ -543,7 +556,7 @@ export class WarmupService {
         for (const [cacheName, patterns] of Object.entries(parsed.patterns)) {
           const cachePatterns = new Map<string, WarmupPattern>()
 
-          for (const [key, pattern] of Object.entries(patterns as Record<string, WarmupPattern>)) {
+          for (const [key, pattern] of Object.entries(patterns)) {
             cachePatterns.set(key, pattern)
           }
 

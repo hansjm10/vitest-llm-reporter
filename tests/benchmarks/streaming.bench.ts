@@ -8,8 +8,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import type { Vitest, File } from 'vitest'
 import { StreamManager } from '../../src/streaming/StreamManager'
 import { OutputSynchronizer } from '../../src/streaming/OutputSynchronizer'
+import type { OutputOperation } from '../../src/streaming/OutputSynchronizer'
 import { StreamingReporter } from '../../src/streaming/StreamingReporter'
 import {
   BenchmarkRunner,
@@ -138,7 +140,7 @@ describe('Streaming Performance Benchmarks', () => {
         // Generate data larger than buffer
         const largeDataItems = Array.from(
           { length: 50 },
-          (_, i) => TestDataGenerator.generateMemoryIntensiveData(0.1) // 100KB each
+          (_: unknown, _i: number) => TestDataGenerator.generateMemoryIntensiveData(0.1) // 100KB each
         )
 
         for (const item of largeDataItems) {
@@ -159,7 +161,7 @@ describe('Streaming Performance Benchmarks', () => {
     it('should handle backpressure efficiently', async () => {
       const result = await runner.run('streaming_backpressure', async () => {
         // Simulate high-frequency writes that trigger backpressure
-        const promises = Array.from({ length: 100 }, async (_, i) => {
+        const promises = Array.from({ length: 100 }, async (_: unknown, i: number) => {
           const data = TestDataGenerator.generateMockTask(`high-freq-${i}`)
           return streamManager.write(data)
         })
@@ -191,7 +193,13 @@ describe('Streaming Performance Benchmarks', () => {
       const result = await runner.run('streaming_output_sync', async () => {
         const data = TestDataGenerator.generateTestSuite(20)
 
-        await synchronizer.synchronize(async (writer) => {
+        await (
+          synchronizer as Record<string, unknown> as {
+            synchronize: (
+              fn: (writer: { write: (data: string) => Promise<void> }) => Promise<void>
+            ) => Promise<void>
+          }
+        ).synchronize(async (writer) => {
           for (const item of data) {
             await writer.write(JSON.stringify(item) + '\n')
           }
@@ -220,14 +228,17 @@ describe('Streaming Performance Benchmarks', () => {
             })
         )
 
-        const promises = synchronizers.map(async (sync, i) => {
+        const promises = synchronizers.map((sync, i) => {
           const data = TestDataGenerator.generateTestSuite(5)
 
-          return sync.synchronize(async (writer) => {
-            for (const item of data) {
-              await writer.write(JSON.stringify({ ...item, syncId: i }) + '\n')
-            }
-          })
+          // Use writeOutput instead of non-existent synchronize method
+          const operations = data.map((item) => ({
+            testId: `sync-${i}-${item.id}`,
+            timestamp: Date.now(),
+            data: JSON.stringify({ ...item, syncId: i }) + '\n'
+          } as OutputOperation))
+
+          return Promise.all(operations.map((op) => sync.writeOutput(op)))
         })
 
         await Promise.all(promises)

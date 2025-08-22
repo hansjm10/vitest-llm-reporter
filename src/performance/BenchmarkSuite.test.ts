@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { BenchmarkSuite } from './BenchmarkSuite'
 import type {
   BenchmarkConfig,
-  BenchmarkResult,
+  // BenchmarkResult,
   BenchmarkSuite as BenchmarkSuiteType
 } from './types'
 
@@ -275,7 +275,7 @@ describe('BenchmarkSuite', () => {
       vi.spyOn(failingSuite as any, 'getBasicTests').mockReturnValue([
         {
           name: 'failing_test',
-          test: async () => {
+          test: () => {
             throw new Error('Test failure')
           }
         }
@@ -299,7 +299,7 @@ describe('BenchmarkSuite', () => {
       vi.spyOn(timeoutSuite as any, 'getBasicTests').mockReturnValue([
         {
           name: 'timeout_test',
-          test: async () => {
+          test: () => {
             return new Promise(() => {}) // Never resolves
           },
           timeout: 100
@@ -553,10 +553,10 @@ describe('BenchmarkSuite', () => {
       vi.spyOn(errorSuite as any, 'getBasicTests').mockReturnValue([
         {
           name: 'setup_error_test',
-          setup: async () => {
+          setup: () => {
             throw new Error('Setup failed')
           },
-          test: async () => {}
+          test: () => Promise.resolve()
         }
       ])
 
@@ -575,8 +575,8 @@ describe('BenchmarkSuite', () => {
       vi.spyOn(errorSuite as any, 'getBasicTests').mockReturnValue([
         {
           name: 'teardown_error_test',
-          test: async () => {},
-          teardown: async () => {
+          test: () => {},
+          teardown: () => {
             throw new Error('Teardown failed')
           }
         }
@@ -610,7 +610,7 @@ describe('BenchmarkSuite', () => {
       vi.spyOn(failingSuite as any, 'getBasicTests').mockReturnValue([
         {
           name: 'failing_test',
-          test: async () => {
+          test: () => {
             throw new Error('Test error')
           }
         }

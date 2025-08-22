@@ -6,11 +6,7 @@
  * @module DeduplicationConfigSchema
  */
 
-import type {
-  DeduplicationConfig,
-  DeduplicationStrategy,
-  PatternType
-} from '../../types/deduplication'
+import type { DeduplicationConfig, DeduplicationStrategy } from '../../types/deduplication'
 
 /**
  * Default deduplication configuration
@@ -147,15 +143,15 @@ export class DeduplicationConfigValidator {
   /**
    * Get nested value from object
    */
-  private getNestedValue(obj: any, path: string): unknown {
+  private getNestedValue(obj: unknown, path: string): unknown {
     const keys = path.split('.')
-    let value = obj
+    let value = obj as Record<string, unknown>
 
     for (const key of keys) {
       if (value === undefined || value === null) {
         return undefined
       }
-      value = value[key]
+      value = value[key] as Record<string, unknown>
     }
 
     return value

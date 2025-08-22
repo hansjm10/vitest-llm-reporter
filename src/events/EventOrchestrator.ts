@@ -270,9 +270,14 @@ export class EventOrchestrator {
 
       // Register test in streaming synchronizer if enabled
       if (this.outputSynchronizer) {
+        const testCaseWithFile = testCase as {
+          file?: { filepath?: string }
+          name?: string
+          id: string
+        }
         const testContext = OutputSynchronizer.createTestContext(
-          (testCase as any).file?.filepath || 'unknown',
-          (testCase as any).name || testCase.id
+          testCaseWithFile.file?.filepath || 'unknown',
+          testCaseWithFile.name || testCaseWithFile.id
         )
         this.activeTests.set(testCase.id, testContext)
         this.outputSynchronizer.registerTest(testContext).catch((error) => {
@@ -343,7 +348,7 @@ export class EventOrchestrator {
     let consoleOutput = consoleMerger.merge(consoleFromTask, consoleFromCapture)
 
     // Apply early truncation to console output if enabled
-    consoleOutput = this.applyEarlyTruncation(consoleOutput)
+    consoleOutput = this.applyEarlyTruncation(consoleOutput as Record<string, unknown>)
 
     // Extract and normalize error with full context including code snippets
     const normalizedError = this.errorExtractor.extractWithContext(extracted.error)
@@ -522,13 +527,13 @@ export class EventOrchestrator {
   /**
    * Applies early truncation to console output if enabled
    */
-  private applyEarlyTruncation(consoleOutput: any): any {
+  private applyEarlyTruncation(consoleOutput: Record<string, unknown>): Record<string, unknown> {
     if (!this.truncationEngine || !consoleOutput) {
       return consoleOutput
     }
 
     // Apply truncation to each console output category
-    const truncatedOutput = { ...consoleOutput }
+    const truncatedOutput: Record<string, unknown> = { ...consoleOutput }
 
     for (const [key, logs] of Object.entries(consoleOutput)) {
       if (Array.isArray(logs) && logs.length > 0) {
@@ -562,14 +567,14 @@ export class EventOrchestrator {
   /**
    * Gets truncation metrics if available
    */
-  public getTruncationMetrics() {
+  public getTruncationMetrics(): unknown[] {
     return this.truncationEngine?.getMetrics() || []
   }
 
   /**
    * Gets global truncation metrics summary
    */
-  public getGlobalTruncationMetrics() {
+  public getGlobalTruncationMetrics(): unknown {
     return globalTruncationMetrics.getSummary()
   }
 

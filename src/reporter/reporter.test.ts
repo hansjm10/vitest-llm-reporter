@@ -608,7 +608,7 @@ describe('LLMReporter', () => {
   })
 
   describe('Configuration Options', () => {
-    it('should respect outputFile configuration', async () => {
+    it('should respect outputFile configuration', () => {
       const reporter = new LLMReporter({ outputFile: 'custom-output.json' })
       expect(reporter.getConfig().outputFile).toBe('custom-output.json')
     })

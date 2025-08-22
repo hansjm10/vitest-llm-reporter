@@ -8,7 +8,7 @@
  * @module formatters/MarkdownStreamFormatter
  */
 
-import type { LLMReporterOutput } from '../types/schema'
+import type { LLMReporterOutput, TestSummary } from '../types/schema'
 import {
   BaseStreamingFormatter,
   type StreamingEvent,
@@ -16,7 +16,6 @@ import {
   StreamingEventType,
   type TestCompleteData,
   type TestFailureData,
-  type RunCompleteData,
   type ProgressData,
   type RunStartData,
   type SuiteCompleteData,
@@ -108,7 +107,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     this.markdownConfig = mergedConfig
   }
 
-  protected async doInitialize(): Promise<void> {
+  protected doInitialize(): void {
     this.sections = []
     this.state.custom = {
       ...this.state.custom,
@@ -117,25 +116,25 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     }
   }
 
-  async formatEvent(event: StreamingEvent): Promise<string> {
+  formatEvent(event: StreamingEvent): string {
     if (!this.state.initialized) {
       throw new Error('MarkdownStreamFormatter must be initialized before use')
     }
 
     this.updateCounters(event)
 
-    const output = await this.formatEventToMarkdown(event)
+    const output = this.formatEventToMarkdown(event)
 
     // Track sections created
     if (output.trim()) {
-      const custom = this.state.custom as any
+      const custom = this.state.custom as { sectionsCreated?: number }
       custom.sectionsCreated = (custom.sectionsCreated || 0) + 1
     }
 
     return output
   }
 
-  async formatFinal(output: LLMReporterOutput): Promise<string> {
+  formatFinal(output: LLMReporterOutput): string {
     if (!this.state.initialized) {
       throw new Error('MarkdownStreamFormatter must be initialized before use')
     }
@@ -219,18 +218,19 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
   /**
    * Format individual streaming event to Markdown
    */
-  private async formatEventToMarkdown(event: StreamingEvent): Promise<string> {
+  private formatEventToMarkdown(event: StreamingEvent): string {
     const timestamp = this.markdownConfig.includeTimestamps
       ? this.formatTimestamp(event.timestamp)
       : ''
 
     switch (event.type) {
-      case StreamingEventType.RUN_START:
+      case StreamingEventType.RUN_START: {
         const runStart = event.data as RunStartData
         return (
           `# ${this.getEmoji('start')} Test Run Started\n\n` +
           `${timestamp}**Total Tests:** ${runStart.totalTests}\n\n`
         )
+      }
 
       case StreamingEventType.TEST_START:
         return '' // Don't output for test start to avoid clutter
@@ -247,9 +247,10 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
         }
         break
 
-      case StreamingEventType.SUITE_COMPLETE:
+      case StreamingEventType.SUITE_COMPLETE: {
         const suiteData = event.data as SuiteCompleteData
         return this.formatSuiteComplete(suiteData, timestamp)
+      }
 
       case StreamingEventType.RUN_COMPLETE:
         if (isRunCompleteData(event.data)) {
@@ -400,7 +401,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
    */
   private formatProgressUpdate(data: ProgressData, timestamp: string): string {
     // Only show progress updates occasionally to avoid spam
-    const custom = this.state.custom as any
+    const custom = this.state.custom as { lastProgressUpdate?: number }
     const now = Date.now()
     if (now - (custom.lastProgressUpdate || 0) < 1000) {
       return '' // Skip if less than 1 second since last update
@@ -425,7 +426,21 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
   /**
    * Format failure detail for final summary
    */
-  private formatFailureDetail(failure: any, index: number): string {
+  private formatFailureDetail(
+    failure: {
+      test: string
+      file: string
+      startLine: number
+      endLine: number
+      error: {
+        message: string
+        assertion?: { expected: unknown; actual: unknown }
+        stack?: string[]
+      }
+      console?: Record<string, string[]>
+    },
+    index: number
+  ): string {
     let output = `### ${index}. ${this.getEmoji('failure')} \`${failure.test}\`\n\n`
     output += `**File:** \`${failure.file}:${failure.startLine}-${failure.endLine}\`\n`
     output += `**Error:** ${failure.error.message}\n`
@@ -449,7 +464,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
   /**
    * Create summary table
    */
-  private createSummaryTable(summary: any): string {
+  private createSummaryTable(summary: TestSummary): string {
     const { total, passed, failed, skipped, duration } = summary
 
     return `| Metric | Value |
@@ -495,7 +510,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
   /**
    * Create progress visualization for summary
    */
-  private createProgressVisualization(summary: any): string {
+  private createProgressVisualization(summary: TestSummary): string {
     const { total, passed, failed, skipped } = summary
 
     if (total === 0) {
@@ -539,10 +554,15 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
   /**
    * Get Markdown-specific statistics
    */
-  getMarkdownStats() {
-    const custom = this.state.custom as any
+  getMarkdownStats(): {
+    sectionsCreated: number
+    useEmoji: boolean
+    showProgressBars: boolean
+    headerLevel: number
+  } {
+    const custom = this.state.custom as { sectionsCreated?: number }
     return {
-      sectionsCreated: custom.sectionsCreated || 0,
+      sectionsCreated: custom?.sectionsCreated || 0,
       useEmoji: this.markdownConfig.useEmoji,
       showProgressBars: this.markdownConfig.showProgressBars,
       headerLevel: this.markdownConfig.headerLevel

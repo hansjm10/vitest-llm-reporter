@@ -240,8 +240,8 @@ export class BufferStreamBridge {
       return // Timer already scheduled
     }
 
-    this.batchTimer = setTimeout(async () => {
-      await this.flushBatch()
+    this.batchTimer = setTimeout(() => {
+      void this.flushBatch()
     }, this.config.batchTimeout)
   }
 

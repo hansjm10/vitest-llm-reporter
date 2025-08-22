@@ -207,10 +207,10 @@ export class FileOutputStrategy implements OutputStrategy {
   /**
    * Closes the strategy and performs cleanup
    */
-  public async close(): Promise<void> {
+  public close(): Promise<void> {
     if (!this.initialized) {
       logger('FileOutputStrategy not initialized, nothing to close')
-      return
+      return Promise.resolve()
     }
 
     logger('Closing FileOutputStrategy')
@@ -222,6 +222,7 @@ export class FileOutputStrategy implements OutputStrategy {
     this.resolvedPath = undefined
 
     logger('FileOutputStrategy closed')
+    return Promise.resolve()
   }
 
   /**

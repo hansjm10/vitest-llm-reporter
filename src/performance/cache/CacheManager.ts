@@ -222,7 +222,6 @@ export class CacheManager implements ICacheManager {
       let totalMisses = 0
       let totalSize = 0
       let totalCapacity = 0
-      let totalEvictions = 0
       let totalLookupTime = 0
 
       // Collect metrics from all caches
@@ -238,7 +237,6 @@ export class CacheManager implements ICacheManager {
         totalMisses += stats.misses
         totalSize += metrics.size
         totalCapacity += metrics.capacity
-        totalEvictions += metrics.evictions
         totalLookupTime += stats.totalTime
       }
 
@@ -246,7 +244,7 @@ export class CacheManager implements ICacheManager {
       const totalOperations = totalHits + totalMisses
       const hitRatio = totalOperations > 0 ? (totalHits / totalOperations) * 100 : 0
       const efficiency = Math.min((hitRatio / this.config.targetHitRatio) * 100, 100)
-      const averageLookupTime = totalOperations > 0 ? totalLookupTime / totalOperations : 0
+      const _averageLookupTime = totalOperations > 0 ? totalLookupTime / totalOperations : 0
 
       return {
         hitRatio,
@@ -310,7 +308,15 @@ export class CacheManager implements ICacheManager {
       utilization: number
     }
   > {
-    const summary: Record<string, any> = {}
+    const summary: Record<
+      string,
+      {
+        hitRatio: number
+        avgLookupTime: number
+        efficiency: number
+        utilization: number
+      }
+    > = {}
 
     for (const [name, instance] of this.caches) {
       const metrics = instance.cache.getMetrics()
@@ -340,14 +346,16 @@ export class CacheManager implements ICacheManager {
     try {
       const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern
 
-      for (const [name, instance] of this.caches) {
+      for (const [_name, instance] of this.caches) {
         // This would require extending the ICache interface to support pattern invalidation
         // For now, we'll implement a simple approach
         if (
           'invalidatePattern' in instance.cache &&
           typeof instance.cache.invalidatePattern === 'function'
         ) {
-          const count = (instance.cache as any).invalidatePattern(regex)
+          const count = (
+            instance.cache as { invalidatePattern: (regex: RegExp) => number }
+          ).invalidatePattern(regex)
           invalidatedCount += count
         }
       }
@@ -413,7 +421,7 @@ export class CacheManager implements ICacheManager {
     try {
       // Call cache-specific optimization if available
       if ('optimize' in instance.cache && typeof instance.cache.optimize === 'function') {
-        await (instance.cache as any).optimize()
+        await (instance.cache as { optimize: () => Promise<void> }).optimize()
       }
 
       // Additional optimizations based on cache type
@@ -450,6 +458,7 @@ export class CacheManager implements ICacheManager {
    * Rebalance cache sizes based on usage patterns
    */
   private async rebalanceCacheSizes(): Promise<void> {
+    await Promise.resolve()
     try {
       // Analyze usage patterns across caches
       const cacheUsage = new Map<string, number>()
@@ -546,7 +555,7 @@ class LRUCacheWrapper implements ICache {
     return value
   }
 
-  set(key: string, value: unknown, ttl?: number): void {
+  set(key: string, value: unknown, _ttl?: number): void {
     const sizeBefore = this.cache.size()
     this.cache.set(key, value)
     const sizeAfter = this.cache.size()

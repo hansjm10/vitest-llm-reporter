@@ -72,10 +72,10 @@ export class IntelligentCache implements ICache {
   constructor(config: CacheConfig) {
     this.config = this.resolveConfig(config)
     this.tiers = new Map([
-      ['hot', new Map()],
-      ['warm', new Map()],
-      ['cold', new Map()]
-    ])
+      ['hot', new Map<string, CacheEntryMetadata>()],
+      ['warm', new Map<string, CacheEntryMetadata>()],
+      ['cold', new Map<string, CacheEntryMetadata>()]
+    ]) as Map<CacheTier, Map<string, CacheEntryMetadata>>
 
     this.tierConfigs = new Map([
       [
@@ -465,7 +465,7 @@ export class IntelligentCache implements ICache {
   /**
    * Ensure capacity in tier by evicting if necessary
    */
-  private ensureCapacity(tier: CacheTier, requiredSize: number): void {
+  private ensureCapacity(tier: CacheTier, _requiredSize: number): void {
     const tierConfig = this.tierConfigs.get(tier)!
     const currentTier = this.tiers.get(tier)!
 
@@ -554,10 +554,10 @@ export class IntelligentCache implements ICache {
    * Clean up expired entries from all tiers
    */
   private cleanupExpiredEntries(): void {
-    const now = Date.now()
+    const _now = Date.now()
     let cleanedCount = 0
 
-    for (const [tierName, tier] of this.tiers) {
+    for (const [_tierName, tier] of this.tiers) {
       for (const [key, entry] of tier) {
         if (this.isExpired(entry)) {
           tier.delete(key)
@@ -643,7 +643,7 @@ export class IntelligentCache implements ICache {
   private startMaintenance(): void {
     const maintenanceInterval = 60000 // 1 minute
 
-    const runMaintenance = () => {
+    const runMaintenance = (): void => {
       try {
         this.cleanupExpiredEntries()
 

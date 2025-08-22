@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { PerformanceManager } from './PerformanceManager'
 import type {
   PerformanceConfig,
-  PerformanceMetrics,
+  // PerformanceMetrics,
   BenchmarkResult,
   OptimizationResult,
   PerformanceMode
@@ -386,7 +386,7 @@ describe('PerformanceManager', () => {
 
     it('should throttle optimization calls', async () => {
       // First call should proceed
-      const results1 = await manager.optimize()
+      const _results1 = await manager.optimize()
 
       // Immediate second call should be throttled
       const results2 = await manager.optimize()
@@ -404,7 +404,7 @@ describe('PerformanceManager', () => {
       // Wait for throttling period to pass
       vi.advanceTimersByTime(31000)
 
-      const results = await lowHitRatioManager.optimize()
+      const _results = await lowHitRatioManager.optimize()
 
       expect(mockCacheManager.optimize).toHaveBeenCalled()
     })
@@ -412,7 +412,7 @@ describe('PerformanceManager', () => {
     it('should perform memory optimization when pressure is high', async () => {
       // Create a new manager with high memory pressure metrics
       const highPressureManager = new PerformanceManager()
-      
+
       // Mock the MetricsCollector to return high memory pressure
       const mockCollect = vi.fn().mockReturnValue({
         timing: {
@@ -444,9 +444,27 @@ describe('PerformanceManager', () => {
           capacity: 1000,
           efficiency: 80,
           caches: {
-            tokenCache: { hitRatio: 80, size: 200, capacity: 400, evictions: 10, averageLookupTime: 2 },
-            resultCache: { hitRatio: 70, size: 150, capacity: 300, evictions: 5, averageLookupTime: 3 },
-            templateCache: { hitRatio: 90, size: 150, capacity: 300, evictions: 2, averageLookupTime: 1 }
+            tokenCache: {
+              hitRatio: 80,
+              size: 200,
+              capacity: 400,
+              evictions: 10,
+              averageLookupTime: 2
+            },
+            resultCache: {
+              hitRatio: 70,
+              size: 150,
+              capacity: 300,
+              evictions: 5,
+              averageLookupTime: 3
+            },
+            templateCache: {
+              hitRatio: 90,
+              size: 150,
+              capacity: 300,
+              evictions: 2,
+              averageLookupTime: 1
+            }
           }
         },
         throughput: {
@@ -465,14 +483,14 @@ describe('PerformanceManager', () => {
         },
         timestamp: Date.now()
       })
-      
+
       highPressureManager['metricsCollector'].collect = mockCollect
       await highPressureManager.initialize()
 
       // Wait for throttling period
       vi.advanceTimersByTime(31000)
 
-      const results = await highPressureManager.optimize()
+      const _results = await highPressureManager.optimize()
 
       expect(mockMemoryManager.cleanup).toHaveBeenCalled()
     })

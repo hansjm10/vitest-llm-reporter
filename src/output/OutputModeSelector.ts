@@ -104,7 +104,7 @@ export class OutputModeSelector {
   /**
    * Selects the appropriate output mode based on configuration and environment
    */
-  public async selectOutputMode(): Promise<OutputModeSelection> {
+  public selectOutputMode(): OutputModeSelection {
     if (this.selection) {
       logger('Using cached output mode selection: %s', this.selection.mode)
       return this.selection
@@ -114,7 +114,7 @@ export class OutputModeSelector {
 
     // Priority 1: Use forced/configured mode if specified
     if (this.config.forcedMode) {
-      const selection = await this.tryConfiguredMode(this.config.forcedMode)
+      const selection = this.tryConfiguredMode(this.config.forcedMode)
       if (selection) {
         this.selection = selection
         return selection
@@ -123,14 +123,14 @@ export class OutputModeSelector {
 
     // Priority 2: Environment-based selection
     const environmentMode = this.determineEnvironmentMode()
-    const environmentSelection = await this.tryConfiguredMode(environmentMode)
+    const environmentSelection = this.tryConfiguredMode(environmentMode)
     if (environmentSelection) {
       this.selection = environmentSelection
       return environmentSelection
     }
 
     // Priority 3: Fallback chain
-    const fallbackSelection = await this.tryFallbackChain()
+    const fallbackSelection = this.tryFallbackChain()
     this.selection = fallbackSelection
     return fallbackSelection
   }
@@ -138,9 +138,9 @@ export class OutputModeSelector {
   /**
    * Creates and returns the selected output strategy
    */
-  public async getOutputStrategy(): Promise<OutputStrategy> {
+  public getOutputStrategy(): OutputStrategy {
     if (!this.selectedStrategy) {
-      const selection = await this.selectOutputMode()
+      const selection = this.selectOutputMode()
       this.selectedStrategy = this.createStrategy(selection.mode, selection.config)
     }
 
@@ -205,7 +205,7 @@ export class OutputModeSelector {
   /**
    * Tries to configure and validate a specific output mode
    */
-  private async tryConfiguredMode(mode: OutputMode): Promise<OutputModeSelection | null> {
+  private tryConfiguredMode(mode: OutputMode): OutputModeSelection | null {
     logger('Trying to configure output mode: %s', mode)
 
     const config = this.createModeConfig(mode)
@@ -234,7 +234,7 @@ export class OutputModeSelector {
   /**
    * Attempts fallback chain to ensure at least one mode works
    */
-  private async tryFallbackChain(): Promise<OutputModeSelection> {
+  private tryFallbackChain(): OutputModeSelection {
     logger('Starting fallback chain')
 
     const fallbackOrder: OutputMode[] = ['console', 'file', 'dual', 'stream']
@@ -331,7 +331,7 @@ export class OutputModeSelector {
         }
 
       default:
-        throw new Error(`Unsupported output mode: ${mode}`)
+        throw new Error(`Unsupported output mode: ${mode as string}`)
     }
   }
 

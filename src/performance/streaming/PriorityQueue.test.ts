@@ -65,8 +65,7 @@ describe('PriorityQueue', () => {
 
     it('should handle same priority items (FIFO for same priority)', () => {
       vi.useFakeTimers()
-      
-      const timestamp1 = Date.now()
+
       queue.enqueue('first', 'First Same Priority', 50)
 
       // Small delay to ensure different timestamps
@@ -79,7 +78,7 @@ describe('PriorityQueue', () => {
 
       expect(first?.task).toBe('First Same Priority')
       expect(second?.task).toBe('Second Same Priority')
-      
+
       vi.useRealTimers()
     })
 
@@ -377,7 +376,7 @@ describe('PriorityQueue', () => {
     })
 
     it('should handle priority levels configuration', () => {
-      const item = queue.peek()
+      queue.peek()
 
       // Priority levels are not in the config
       expect(defaultConfig.maxSize).toBe(100)

@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { MetricsCollector } from './MetricsCollector'
-import type { PerformanceConfig, PerformanceMetrics, MemoryPressureLevel } from './types'
+import type { PerformanceConfig } from './types'
 
 // Mock the logger utilities
 vi.mock('../utils/logger', () => ({
@@ -187,7 +187,7 @@ describe('MetricsCollector', () => {
     it('should limit history size to prevent memory leaks', () => {
       // Start collecting to actually add to history
       collector.start()
-      
+
       // Mock a large number of collections
       for (let i = 0; i < 1200; i++) {
         collector.collect()
@@ -244,7 +244,7 @@ describe('MetricsCollector', () => {
       const baselineId = collector.startTiming('test_processing')
       vi.advanceTimersByTime(50)
       collector.endTiming(baselineId)
-      
+
       // Now track overhead operations
       const performanceId = collector.startTiming('performance_test')
       const cacheId = collector.startTiming('cache_operation')
@@ -306,7 +306,7 @@ describe('MetricsCollector', () => {
     it('should record test processing', () => {
       // Advance time so throughput calculation works
       vi.advanceTimersByTime(1000)
-      
+
       collector.recordTestProcessed(1024)
 
       const metrics = collector.collect()
@@ -317,7 +317,7 @@ describe('MetricsCollector', () => {
     it('should record general operations', () => {
       // Advance time so throughput calculation works
       vi.advanceTimersByTime(1000)
-      
+
       collector.recordOperation(2048)
 
       const metrics = collector.collect()

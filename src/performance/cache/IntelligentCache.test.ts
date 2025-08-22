@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { IntelligentCache } from './IntelligentCache'
-import type { CacheConfig, CacheInstanceMetrics } from '../types'
+import type { CacheConfig } from '../types'
 
 // Mock the logger utilities
 vi.mock('../../utils/logger', () => ({
@@ -145,7 +145,7 @@ describe('IntelligentCache', () => {
       // With multi-tier, total capacity is distributed across tiers
       const metrics = smallCache.getMetrics()
       expect(metrics.evictions).toBeGreaterThan(0)
-      
+
       // Cache size should not exceed the configured limit significantly
       expect(smallCache.size()).toBeLessThanOrEqual(10)
     })

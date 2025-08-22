@@ -7,11 +7,11 @@ import type { SupportedModel, ITokenizer } from '../types.js'
  * Uses GPT-4 tokenization as a reasonable approximation
  */
 class ClaudeTokenizer implements ITokenizer {
-  private encoding: any
+  private encoding: ReturnType<typeof getEncoding>
 
   constructor(
     private model: SupportedModel,
-    encoding: any
+    encoding: ReturnType<typeof getEncoding>
   ) {
     this.encoding = encoding
   }

@@ -181,10 +181,10 @@ export class DualOutputStrategy implements OutputStrategy {
   /**
    * Handles initialization results from parallel execution
    */
-  private async handleInitializationResults(
+  private handleInitializationResults(
     results: PromiseSettledResult<void>[],
     fileCanExecute: boolean,
-    consoleCanExecute: boolean
+    _consoleCanExecute: boolean
   ): Promise<void> {
     const failures: string[] = []
 
@@ -234,7 +234,7 @@ export class DualOutputStrategy implements OutputStrategy {
     )
 
     // Handle results based on fallback mode
-    await this.handleWriteResult(result)
+    this.handleWriteResult(result)
   }
 
   /**
@@ -356,7 +356,7 @@ export class DualOutputStrategy implements OutputStrategy {
   /**
    * Handles the result of write operations based on fallback mode
    */
-  private async handleWriteResult(result: DualOperationResult): Promise<void> {
+  private handleWriteResult(result: DualOperationResult): void {
     const { fileSuccess, consoleSuccess, fileError, consoleError } = result
 
     switch (this.config.fallbackMode) {

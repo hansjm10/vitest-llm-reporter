@@ -11,8 +11,7 @@ import type {
   BenchmarkConfig,
   BenchmarkResult,
   BenchmarkSuite as BenchmarkSuiteType,
-  BenchmarkThresholds,
-  PerformanceMetrics
+  BenchmarkThresholds
 } from './types'
 import { MetricsCollector } from './MetricsCollector'
 import { coreLogger, errorLogger } from '../utils/logger'
@@ -126,7 +125,7 @@ export class BenchmarkSuite {
     return [
       {
         name: 'test_processing_latency',
-        test: async () => {
+        test: async (): Promise<void> => {
           // Simulate test processing
           const data = this.createMockTestData()
           const start = Date.now()
@@ -143,7 +142,7 @@ export class BenchmarkSuite {
       },
       {
         name: 'cache_performance',
-        test: async () => {
+        test: (): void => {
           // Test cache hit/miss performance
           const cache = new Map<string, string>()
           const start = Date.now()
@@ -174,7 +173,7 @@ export class BenchmarkSuite {
       },
       {
         name: 'memory_usage',
-        test: async () => {
+        test: (): void => {
           const beforeMemory = process.memoryUsage()
 
           // Allocate memory
@@ -212,7 +211,7 @@ export class BenchmarkSuite {
       ...this.getBasicTests(),
       {
         name: 'concurrent_processing',
-        test: async () => {
+        test: async (): Promise<void> => {
           const promises = []
           const start = Date.now()
 
@@ -233,7 +232,7 @@ export class BenchmarkSuite {
       },
       {
         name: 'large_output_generation',
-        test: async () => {
+        test: (): void => {
           const largeData = this.createLargeMockData()
           const start = Date.now()
 
@@ -254,7 +253,7 @@ export class BenchmarkSuite {
       },
       {
         name: 'tokenization_performance',
-        test: async () => {
+        test: (): void => {
           const text = 'This is a test string for tokenization. '.repeat(1000)
           const start = Date.now()
 
@@ -283,7 +282,7 @@ export class BenchmarkSuite {
       ...this.getComprehensiveTests(),
       {
         name: 'memory_pressure_test',
-        test: async () => {
+        test: (): void => {
           const data = []
           const start = Date.now()
 
@@ -328,7 +327,7 @@ export class BenchmarkSuite {
       },
       {
         name: 'high_concurrency_test',
-        test: async () => {
+        test: async (): Promise<void> => {
           const concurrency = 100
           const promises = []
           const start = Date.now()
@@ -447,20 +446,20 @@ export class BenchmarkSuite {
       for (let i = 0; i < warmupIterations; i++) {
         try {
           await this.runSingleIteration(test)
-        } catch (error) {
+        } catch (_error) {
           // Ignore warmup failures
         }
       }
 
       // Actual benchmark iterations
       for (let i = 0; i < sampleSize; i++) {
-        const beforeMemory = process.memoryUsage()
+        const _beforeMemory = process.memoryUsage()
         const start = process.hrtime.bigint()
 
         try {
           await this.runSingleIteration(test)
           successCount++
-        } catch (error) {
+        } catch (_error) {
           // Record failure but continue
         }
 
@@ -544,7 +543,7 @@ export class BenchmarkSuite {
         })
         .catch((error) => {
           clearTimeout(timer)
-          reject(error)
+          reject(error instanceof Error ? error : new Error(String(error)))
         })
     })
   }

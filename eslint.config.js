@@ -22,7 +22,16 @@ export default [
         process: 'readonly',
         Buffer: 'readonly',
         __dirname: 'readonly',
-        __filename: 'readonly'
+        __filename: 'readonly',
+        NodeJS: 'readonly',
+        BufferEncoding: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        setImmediate: 'readonly',
+        clearImmediate: 'readonly',
+        global: 'readonly'
       }
     },
     plugins: {
@@ -94,6 +103,7 @@ export default [
       'examples/',
       'coverage/',
       'vitest.config.ts',
+      'vitest.bench.config.ts',
       'custom-reporter.ts',
       'debug-reporter.ts',
       '**/*.d.ts'

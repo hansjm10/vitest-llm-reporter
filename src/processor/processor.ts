@@ -111,7 +111,7 @@ export class SchemaProcessor {
     // Initialize performance manager if enabled
     if (options.performanceConfig?.enabled) {
       this.performanceManager = createPerformanceManager(options.performanceConfig)
-      this.initializePerformanceManager()
+      void this.initializePerformanceManager()
     }
 
     this.defaultOptions = {
@@ -133,7 +133,7 @@ export class SchemaProcessor {
     try {
       await this.performanceManager.initialize()
       this.performanceManager.start()
-    } catch (error) {
+    } catch {
       // Don't fail the processor if performance manager fails
       this.performanceManager = undefined
     }
@@ -287,7 +287,7 @@ export class SchemaProcessor {
     if (this.performanceManager) {
       try {
         await this.performanceManager.optimize()
-      } catch (error) {
+      } catch {
         // Performance optimization failure shouldn't fail the entire process
         // Just log the error and continue
       }
@@ -336,7 +336,10 @@ export class SchemaProcessor {
    *
    * @warning This assumes the input is already processed!
    */
-  public truncate(output: LLMReporterOutput): { output: LLMReporterOutput; metrics?: any } {
+  public truncate(output: LLMReporterOutput): {
+    output: LLMReporterOutput
+    metrics?: Record<string, unknown>
+  } {
     if (!this.truncationEngine) {
       return { output }
     }
@@ -348,7 +351,7 @@ export class SchemaProcessor {
 
     const result = this.truncationEngine.truncate(serialized)
     return {
-      output: JSON.parse(result.content),
+      output: JSON.parse(result.content) as LLMReporterOutput,
       metrics: result.metrics
     }
   }
@@ -356,7 +359,7 @@ export class SchemaProcessor {
   /**
    * Gets truncation metrics if available
    */
-  public getTruncationMetrics() {
+  public getTruncationMetrics(): unknown[] {
     return this.truncationEngine?.getMetrics() || []
   }
 

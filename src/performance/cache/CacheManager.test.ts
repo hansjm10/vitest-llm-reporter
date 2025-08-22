@@ -2,9 +2,9 @@
  * Tests for CacheManager
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { CacheManager } from './CacheManager'
-import type { CacheConfig, CacheMetrics, CacheInstanceMetrics, ICache } from '../types'
+import type { CacheConfig, ICache } from '../types'
 
 // Mock the logger utilities
 vi.mock('../../utils/logger', () => ({
@@ -277,7 +277,7 @@ describe('CacheManager', () => {
       if (tokenCache) {
         vi.mocked(tokenCache.clear).mockImplementationOnce(() => {
           throw new Error('Clear failed')
-        })
+        }) as unknown
       }
 
       expect(() => cacheManager.clearAll()).not.toThrow()

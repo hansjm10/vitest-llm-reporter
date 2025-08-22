@@ -15,8 +15,13 @@ import {
   OutputSource,
   QueueConfig
 } from './queue.js'
-import { StreamErrorHandler, type StreamErrorContext, RecoveryStrategy } from './ErrorHandler'
-import { StreamingDiagnostics, DiagnosticEvent, DiagnosticLevel } from './diagnostics'
+import {
+  StreamErrorHandler,
+  RecoveryStrategy,
+  StreamErrorType,
+  StreamErrorSeverity
+} from './ErrorHandler'
+import { StreamingDiagnostics } from './diagnostics'
 import type { TruncationConfig } from '../types/reporter'
 import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 
@@ -226,7 +231,7 @@ export class OutputSynchronizer {
   async registerTest(context: TestContext): Promise<void> {
     const testKey = this._getTestKey(context)
 
-    await this._testRegistryLock.withWriteLock(async () => {
+    await this._testRegistryLock.withWriteLock(() => {
       if (this._activeTests.has(testKey)) {
         throw new Error(`Test already registered: ${testKey}`)
       }
@@ -249,7 +254,7 @@ export class OutputSynchronizer {
     // Wait for any pending output for this test
     await this._outputQueue.completeTest(context.file, context.name)
 
-    await this._testRegistryLock.withWriteLock(async () => {
+    await this._testRegistryLock.withWriteLock(() => {
       this._activeTests.delete(testKey)
       this._testOutputOrder.delete(testKey)
     }, `unregister-${context.id}`)
@@ -276,8 +281,8 @@ export class OutputSynchronizer {
       this._diagnostics?.trackOperationComplete(operationId || '', true)
     } catch (error) {
       this._diagnostics?.trackOperationError(operationId || '', {
-        type: 'output' as any,
-        severity: 'normal' as any,
+        type: 'output' as unknown as StreamErrorType,
+        severity: 'normal' as unknown as StreamErrorSeverity,
         source: {
           operation: 'writeOutput',
           priority: operation.priority,
@@ -307,7 +312,7 @@ export class OutputSynchronizer {
         const testKey = this._getTestKey(operation.context)
 
         // Ensure test is registered
-        const isRegistered = await this._testRegistryLock.withReadLock(async () => {
+        const isRegistered = await this._testRegistryLock.withReadLock(() => {
           return this._activeTests.has(testKey)
         }, `check-${operation.context.id}`)
 
@@ -352,10 +357,13 @@ export class OutputSynchronizer {
         if (recoveryResult.success) {
           if (
             recoveryResult.strategy === RecoveryStrategy.RETRY &&
-            recoveryResult.output?.nextAttempt
+            (recoveryResult.output as { nextAttempt?: number })?.nextAttempt
           ) {
             // Retry the operation
-            return this._writeOutputWithRetry(operation, recoveryResult.output.nextAttempt)
+            return this._writeOutputWithRetry(
+              operation,
+              (recoveryResult.output as { nextAttempt: number }).nextAttempt
+            )
           } else if (recoveryResult.strategy === RecoveryStrategy.FALLBACK_CONSOLE) {
             // Already handled by error handler, operation completed via fallback
             return
@@ -378,7 +386,7 @@ export class OutputSynchronizer {
    * Execute the actual write operation
    */
   private async _executeWrite(operation: OutputOperation): Promise<void> {
-    await this._outputMutex.withLock(async () => {
+    await this._outputMutex.withLock(() => {
       // Apply streaming truncation if enabled
       let dataToWrite = operation.data
       if (this._truncationEngine) {
@@ -408,7 +416,7 @@ export class OutputSynchronizer {
   /**
    * Execute write operation in degraded mode (without locking)
    */
-  private async _executeWriteDegraded(operation: OutputOperation): Promise<void> {
+  private _executeWriteDegraded(operation: OutputOperation): void {
     try {
       // Direct write without synchronization
       if (operation.stream === 'stdout') {
@@ -416,7 +424,7 @@ export class OutputSynchronizer {
       } else {
         process.stderr.write(operation.data)
       }
-    } catch (error) {
+    } catch (_error) {
       // Even degraded mode failed, try console fallback
       const message =
         typeof operation.data === 'string' ? operation.data : operation.data.toString()
@@ -472,21 +480,18 @@ export class OutputSynchronizer {
    * Detect deadlock conditions
    */
   private _detectDeadlockConditions(
-    outputStats: any,
-    registryStats: any,
-    queueStats: any
+    outputStats: Record<string, unknown>,
+    registryStats: Record<string, unknown>,
+    queueStats: Record<string, unknown>
   ): boolean {
     // Check for long-running locks
-    const lockTimeout = this._config.locks.timeout ?? 5000
-    const now = Date.now()
-
     // Output mutex held too long
-    if (outputStats.locked && outputStats.waiters > 0) {
+    if (outputStats.locked && (outputStats.waiters as number) > 0) {
       return true
     }
 
     // Registry lock with many waiters
-    if (registryStats.writeWaiters > 3 && registryStats.readWaiters > 5) {
+    if ((registryStats.writeWaiters as number) > 3 && (registryStats.readWaiters as number) > 5) {
       return true
     }
 

@@ -8,7 +8,7 @@
  */
 
 import type { MemoryMetrics, MemoryConfig } from '../types'
-import { coreLogger, errorLogger } from '../../utils/logger'
+import { coreLogger } from '../../utils/logger'
 
 export interface MemorySnapshot {
   readonly timestamp: number
@@ -34,7 +34,7 @@ export class MemoryProfiler {
     this.config = config
   }
 
-  recordSnapshot(metrics: MemoryMetrics): void {
+  recordSnapshot(_metrics: MemoryMetrics): void {
     if (!this.config.enableProfiling) return
 
     try {
@@ -60,7 +60,7 @@ export class MemoryProfiler {
     }
   }
 
-  async profile(): Promise<void> {
+  profile(): void {
     if (!this.config.enableProfiling) return
 
     try {

@@ -8,9 +8,8 @@
  */
 
 import type { Vitest, TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
-import type { SerializedError, UserConsoleLog } from 'vitest'
+import type { SerializedError } from 'vitest'
 import type { LLMReporterConfig } from '../types/reporter'
-import type { LLMReporterOutput } from '../types/schema'
 import { LLMReporter } from '../reporter/reporter'
 import {
   ReporterStreamIntegration,

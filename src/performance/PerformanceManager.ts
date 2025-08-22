@@ -18,9 +18,9 @@ import type {
   IMetricsCollector,
   ICacheManager,
   IMemoryManager,
-  IStreamOptimizer,
-  PerformanceMode,
-  OverheadMetrics
+  IStreamOptimizer
+  // PerformanceMode,
+  // OverheadMetrics
 } from './types'
 import { MetricsCollector } from './MetricsCollector'
 import { BenchmarkSuite as BenchmarkSuiteImpl } from './BenchmarkSuite'
@@ -431,11 +431,9 @@ export class PerformanceManager implements IPerformanceManager {
   /**
    * Optimize streaming performance
    */
-  private async optimizeStreaming(
-    beforeMetrics: PerformanceMetrics
-  ): Promise<OptimizationResult | null> {
+  private optimizeStreaming(beforeMetrics: PerformanceMetrics): Promise<OptimizationResult | null> {
     if (!this.streamOptimizer) {
-      return null
+      return Promise.resolve(null)
     }
 
     const startTime = Date.now()
@@ -448,7 +446,7 @@ export class PerformanceManager implements IPerformanceManager {
     const afterMetrics = this.getMetrics()
     const improvement = 1.0 // Placeholder 1% improvement
 
-    return {
+    const result: OptimizationResult = {
       applied: true,
       improvement,
       type: 'adaptive_tuning',
@@ -457,6 +455,8 @@ export class PerformanceManager implements IPerformanceManager {
       after: afterMetrics,
       duration: Date.now() - startTime
     }
+
+    return Promise.resolve(result)
   }
 
   /**

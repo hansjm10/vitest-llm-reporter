@@ -44,7 +44,7 @@ export class ConsoleOutputPattern implements IPatternMatcher {
     warn: /^(warn|warning)/i,
     info: /^(info|information)/i,
     debug: /^(debug|trace|verbose)/i,
-    json: /^[{\[].+[}\]]$/,
+    json: /^[{[]].+[}]]$/,
     stackTrace: /^\s*at\s+/
   }
 
@@ -379,7 +379,7 @@ export class ConsoleOutputPattern implements IPatternMatcher {
     const n = b.length
     const dp: number[][] = Array(m + 1)
       .fill(null)
-      .map(() => Array(n + 1).fill(0))
+      .map(() => Array(n + 1).fill(0) as number[])
 
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {

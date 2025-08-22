@@ -77,7 +77,7 @@ export class ReferenceManager {
     groupId: string,
     similarity: SimilarityScore,
     templateId?: string,
-    variables?: Record<string, unknown>
+    _variables?: Record<string, unknown>
   ): void {
     // Create reference index entry
     const index: ReferenceIndex = {

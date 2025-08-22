@@ -273,7 +273,7 @@ export class TruncationEngine {
           context
         )
         bestSavings = Math.max(bestSavings, estimatedSavings)
-      } catch (error) {
+      } catch (_error) {
         // Skip failed estimates
         continue
       }
@@ -337,11 +337,11 @@ export class TruncationEngine {
     if (preferredStrategies && preferredStrategies.length > 0) {
       const preferred = strategies.filter((s) => preferredStrategies.includes(s.name))
       const others = strategies.filter((s) => !preferredStrategies.includes(s.name))
-      
+
       // Sort each group by priority, but keep preferred strategies first
       preferred.sort((a, b) => b.priority - a.priority)
       others.sort((a, b) => b.priority - a.priority)
-      
+
       strategies = [...preferred, ...others]
     } else {
       // Sort by strategy priority (higher priority first) only if no preferred strategies

@@ -79,9 +79,9 @@ describe('ThresholdManager', () => {
     it('should return correct threshold levels for ascending metrics', () => {
       // Test total tokens (higher is worse)
       // Default thresholds: info=10000, warning=25000, critical=50000
-      expect(manager.checkThreshold('totalTokens', 12000)).toBe('info')  // Above 10000
-      expect(manager.checkThreshold('totalTokens', 30000)).toBe('warning')  // Above 25000
-      expect(manager.checkThreshold('totalTokens', 60000)).toBe('critical')  // Above 50000
+      expect(manager.checkThreshold('totalTokens', 12000)).toBe('info') // Above 10000
+      expect(manager.checkThreshold('totalTokens', 30000)).toBe('warning') // Above 25000
+      expect(manager.checkThreshold('totalTokens', 60000)).toBe('critical') // Above 50000
       expect(manager.checkThreshold('totalTokens', 8000)).toBeNull() // Below info threshold
     })
 
@@ -445,7 +445,9 @@ describe('ThresholdManager', () => {
       const noDescManager = new ThresholdManager(noDescSettings)
 
       // When merged with defaults, it should have the default description
-      expect(noDescManager.getThresholdDescription('totalTokens')).toBe('Total tokens across all test results')
+      expect(noDescManager.getThresholdDescription('totalTokens')).toBe(
+        'Total tokens across all test results'
+      )
     })
   })
 

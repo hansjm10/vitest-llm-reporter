@@ -7,7 +7,8 @@
  * @module LargeSuiteBenchmarks
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
+import type { Vitest, File } from 'vitest'
 import { LLMReporter } from '../../src/reporter/reporter'
 import { DeduplicationService } from '../../src/deduplication/DeduplicationService'
 import { StreamManager } from '../../src/streaming/StreamManager'
@@ -17,9 +18,9 @@ import {
   PerformanceAssertions,
   BASELINE_METRICS
 } from './utils'
-import type { Task } from 'vitest'
+// import type { Task } from 'vitest' // Unused
 import type { DeduplicationConfig } from '../../src/types/deduplication'
-import type { StreamConfig } from '../../src/streaming/types'
+import type { StreamConfig, StreamOperation } from '../../src/streaming/types'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { unlink } from 'node:fs/promises'
@@ -58,8 +59,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tests)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tests as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(
@@ -90,8 +91,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
           maxTokens: 10000 // Enable truncation for large suites
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tests)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tests as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 10000, '2000 test suite processing')
@@ -116,8 +117,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
           maxTokens: 15000
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tests)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tests as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 25000, '5000 test suite processing')
@@ -142,8 +143,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tests)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tests as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 7000, '1000 tests with failures')
@@ -174,8 +175,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
           maxTokens: 20000
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tests)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tests as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 12000, '1500 tests with complex errors')
@@ -207,8 +208,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
           maxConsoleLines: 50 // Limit console output per test
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tests)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tests as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 8000, '1000 tests with console output')
@@ -252,7 +253,7 @@ describe('Large Test Suite Performance Benchmarks', () => {
         const deduplicationService = new DeduplicationService(deduplicationConfig)
         await deduplicationService.initialize()
 
-        const deduplicated = await deduplicationService.deduplicate(tests)
+        const deduplicated = await deduplicationService.deduplicate(tests as unknown as File[])
 
         const reporter = new LLMReporter({
           outputFile,
@@ -260,8 +261,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(deduplicated)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(deduplicated as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 15000, '1500 tests with deduplication')
@@ -316,7 +317,7 @@ describe('Large Test Suite Performance Benchmarks', () => {
         const task = TestDataGenerator.generateMockTask(`memory-test-${i}`)
         // Add some large data to increase memory pressure
         if (i % 100 === 0) {
-          ;(task as any).largeData = TestDataGenerator.generateMemoryIntensiveData(0.1) // 100KB
+          ;(task as Record<string, unknown>).largeData = TestDataGenerator.generateMemoryIntensiveData(0.1) // 100KB
         }
         return task
       })
@@ -333,8 +334,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
           maxTokens: 8000
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tests)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tests as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 20000, '3000 tests under memory pressure')
@@ -358,13 +359,13 @@ describe('Large Test Suite Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit({} as any)
+        reporter.onInit?.({} as unknown as Vitest)
 
         // Process in batches to trigger GC
         const batchSize = 250
         for (let i = 0; i < tests.length; i += batchSize) {
           const batch = tests.slice(i, i + batchSize)
-          await reporter.onFinished(batch)
+          await reporter.onFinished?.(batch as unknown as File[], [])
 
           // Force GC to test efficiency
           if (global.gc) {
@@ -402,8 +403,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
             maxTokens: size > 1000 ? 10000 : undefined
           })
 
-          reporter.onInit({} as any)
-          await reporter.onFinished(tests)
+          reporter.onInit?.({} as unknown as Vitest)
+          await reporter.onFinished?.(tests as unknown as File[], [])
         })
 
         results.push({ size, time: result.averageTime, memory: result.memoryUsage })
@@ -475,10 +476,10 @@ describe('Large Test Suite Performance Benchmarks', () => {
 
         try {
           // Process through full pipeline
-          const deduplicated = await deduplicationService.deduplicate(tests)
+          const deduplicated = await deduplicationService.deduplicate(tests as unknown as File[])
 
           for (const test of deduplicated) {
-            await streamManager.write(test)
+            await streamManager.write(test as unknown as StreamOperation)
           }
 
           await streamManager.flush()
@@ -491,8 +492,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
             maxTokens: 15000
           })
 
-          reporter.onInit({} as any)
-          await reporter.onFinished(deduplicated)
+          reporter.onInit?.({} as unknown as Vitest)
+          await reporter.onFinished?.(deduplicated as unknown as File[], [])
         } finally {
           await streamManager.close()
         }
@@ -523,8 +524,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
             includePassedTests: true
           })
 
-          reporter.onInit({} as any)
-          await reporter.onFinished(baselineTests)
+          reporter.onInit?.({} as unknown as Vitest)
+          await reporter.onFinished?.(baselineTests as unknown as File[], [])
         })
 
         runs.push(result)

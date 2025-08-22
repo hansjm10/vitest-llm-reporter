@@ -347,7 +347,7 @@ export class OutputBuilder {
             const consoleStr = JSON.stringify(failure.console)
             const truncated = this.truncationEngine!.truncate(consoleStr)
             try {
-              failure.console = JSON.parse(truncated.content)
+              failure.console = JSON.parse(truncated.content) as Record<string, unknown>
             } catch {
               // If parsing fails, create simplified console output
               failure.console = { logs: ['[Console output truncated]'] }
@@ -385,7 +385,7 @@ export class OutputBuilder {
   /**
    * Gets truncation metrics if available
    */
-  public getTruncationMetrics() {
+  public getTruncationMetrics(): unknown[] {
     return this.truncationEngine?.getMetrics() || []
   }
 

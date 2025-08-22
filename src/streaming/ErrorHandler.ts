@@ -87,7 +87,7 @@ export interface StreamErrorContext {
   /** Timestamp when error occurred */
   timestamp: number
   /** Additional context data */
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
   /** Attempt number (for retries) */
   attempt: number
   /** Stack trace of the error */
@@ -105,7 +105,7 @@ export interface RecoveryResult {
   /** Time taken for recovery attempt */
   duration: number
   /** Any output from recovery attempt */
-  output?: any
+  output?: unknown
   /** Error if recovery failed */
   error?: Error
 }
@@ -212,7 +212,7 @@ export class StreamErrorHandler {
       source: OutputSource
       testFile?: string
       testName?: string
-      metadata?: Record<string, any>
+      metadata?: Record<string, unknown>
       attempt?: number
     }
   ): Promise<RecoveryResult> {
@@ -286,7 +286,7 @@ export class StreamErrorHandler {
       source: OutputSource
       testFile?: string
       testName?: string
-      metadata?: Record<string, any>
+      metadata?: Record<string, unknown>
       attempt?: number
     }
   ): StreamErrorContext {
@@ -504,10 +504,10 @@ export class StreamErrorHandler {
       const fallbackPath = path.resolve(this.config.fallbackFilePath)
 
       // Read existing fallback data or create new
-      let existingData: any[] = []
+      let existingData: unknown[] = []
       try {
         const existingContent = await fs.readFile(fallbackPath, 'utf-8')
-        existingData = JSON.parse(existingContent)
+        existingData = JSON.parse(existingContent) as unknown[]
       } catch {
         // File doesn't exist or is invalid, start fresh
       }
@@ -537,10 +537,10 @@ export class StreamErrorHandler {
   /**
    * Execute fallback to console output
    */
-  private async executeFallbackConsole(
+  private executeFallbackConsole(
     errorContext: StreamErrorContext,
     startTime: number
-  ): Promise<RecoveryResult> {
+  ): RecoveryResult {
     try {
       const message = `[STREAM-FALLBACK] ${errorContext.source.operation}: ${errorContext.error.message}`
 
@@ -573,10 +573,7 @@ export class StreamErrorHandler {
   /**
    * Execute skip strategy
    */
-  private async executeSkip(
-    errorContext: StreamErrorContext,
-    startTime: number
-  ): Promise<RecoveryResult> {
+  private executeSkip(errorContext: StreamErrorContext, startTime: number): RecoveryResult {
     this.debug('Skipping operation due to error: %s', errorContext.source.operation)
 
     return {
@@ -590,10 +587,7 @@ export class StreamErrorHandler {
   /**
    * Execute degrade strategy
    */
-  private async executeDegrade(
-    errorContext: StreamErrorContext,
-    startTime: number
-  ): Promise<RecoveryResult> {
+  private executeDegrade(errorContext: StreamErrorContext, startTime: number): RecoveryResult {
     this.debug('Degrading operation due to error: %s', errorContext.source.operation)
 
     // Signal that the operation should continue with reduced functionality
@@ -608,10 +602,7 @@ export class StreamErrorHandler {
   /**
    * Execute abort strategy
    */
-  private async executeAbort(
-    errorContext: StreamErrorContext,
-    startTime: number
-  ): Promise<RecoveryResult> {
+  private executeAbort(errorContext: StreamErrorContext, startTime: number): RecoveryResult {
     this.debugError('Aborting due to critical error: %s', errorContext.error.message)
 
     return {
@@ -665,7 +656,7 @@ export class StreamErrorHandler {
   /**
    * Get error and recovery statistics
    */
-  getStats() {
+  getStats(): Record<string, unknown> {
     return {
       ...this.stats,
       errorsByType: Object.fromEntries(this.stats.errorsByType),

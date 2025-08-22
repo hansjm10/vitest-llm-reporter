@@ -11,13 +11,13 @@ import type { IStreamOptimizer, PerformanceMetrics, StreamingOptimizationConfig 
 import { AdaptiveBuffer } from './AdaptiveBuffer'
 import { BackgroundProcessor } from './BackgroundProcessor'
 import { PriorityQueue } from './PriorityQueue'
-import { coreLogger, errorLogger } from '../../utils/logger'
+import { coreLogger } from '../../utils/logger'
 
 export class StreamOptimizer implements IStreamOptimizer {
   private config: Required<StreamingOptimizationConfig>
   private adaptiveBuffer: AdaptiveBuffer
   private backgroundProcessor: BackgroundProcessor
-  private priorityQueue: PriorityQueue<any>
+  private priorityQueue: PriorityQueue<unknown>
   private debug = coreLogger()
 
   constructor(config: StreamingOptimizationConfig) {

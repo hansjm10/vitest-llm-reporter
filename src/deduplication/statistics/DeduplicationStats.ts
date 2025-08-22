@@ -145,7 +145,7 @@ export class DeduplicationStatsCollector {
    */
   startProcessing(): () => void {
     const startTime = Date.now()
-    const startMemory = this.getMemoryUsage()
+    // Removed unused variable 'startMemory'
 
     return () => {
       const duration = Date.now() - startTime
@@ -238,7 +238,7 @@ export class DeduplicationStatsCollector {
     }
     for (const group of groups) {
       // Count examples by similarity level
-      for (const example of group.examples) {
+      for (const _example of group.examples) {
         // Assuming we can determine similarity level from group
         const level: SimilarityLevel = 'high' // This would be determined from actual data
         this.stats.similarityDistribution[level] =

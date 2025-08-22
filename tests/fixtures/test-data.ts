@@ -4,13 +4,9 @@
  * Shared test data and utilities for integration tests
  */
 
-import type {
-  LLMReporterOutput,
-  TestSummary,
-  TestFailure,
-  TestResult
-} from '../../src/types/schema'
+import type { LLMReporterOutput, TestSummary } from '../../src/types/schema'
 import type { StreamOperation, StreamPriority, ConsoleStreamData } from '../../src/streaming/types'
+import type { OutputOperation } from '../../src/streaming/OutputSynchronizer'
 import type { ConsoleMethod } from '../../src/types/console'
 import type { DeduplicationConfig } from '../../src/types/deduplication'
 import type { PerformanceConfig } from '../../src/performance/types'
@@ -227,7 +223,7 @@ export function createConsoleStreamData(count: number): ConsoleStreamData[] {
  */
 export const PERFORMANCE_TEST_DATA = {
   // Large dataset for performance testing
-  largeTestSuite: (size: number) =>
+  largeTestSuite: (size: number): LLMReporterOutput =>
     createSampleOutput(
       Math.floor(size * 0.8), // 80% pass
       Math.floor(size * 0.15), // 15% fail
@@ -235,13 +231,13 @@ export const PERFORMANCE_TEST_DATA = {
     ),
 
   // Memory intensive data
-  memoryIntensiveOutput: () => createSampleOutput(100, 50, 25),
+  memoryIntensiveOutput: (): LLMReporterOutput => createSampleOutput(100, 50, 25),
 
   // High frequency streaming data
-  highFrequencyStreams: (count: number) => createStreamOperations(count),
+  highFrequencyStreams: (count: number): OutputOperation[] => createStreamOperations(count),
 
   // Console heavy data
-  consoleHeavyData: (count: number) => createConsoleStreamData(count)
+  consoleHeavyData: (count: number): ConsoleStreamData[] => createConsoleStreamData(count)
 }
 
 /**

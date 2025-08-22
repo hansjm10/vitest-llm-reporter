@@ -12,7 +12,7 @@ import {
 } from './TruncationEngine'
 import type {
   ITruncationStrategy,
-  TruncationContext,
+  // TruncationContext,
   TruncationResult,
   TruncationEngineConfig,
   TruncationStats
@@ -328,7 +328,7 @@ describe('TruncationEngine', () => {
         tokensSaved: 1000,
         wasTruncated: true,
         strategyUsed: 'test-strategy',
-        warnings: []  // Include warnings array in mock result
+        warnings: [] // Include warnings array in mock result
       })
 
       mockTokenCounter.count.mockResolvedValueOnce(10000).mockResolvedValueOnce(9000) // Still exceeds 8000 limit
@@ -735,14 +735,14 @@ describe('legacy compatibility layer', () => {
     it('should maintain metrics history', () => {
       // Reset mock to clear any previous setup
       mockTokenCounter.estimate.mockReset()
-      
+
       // Mock first truncation (content 1) - needs truncation
       mockTokenCounter.estimate
-        .mockReturnValueOnce(10000)  // Initial estimate for content 1 (over limit)
-        .mockReturnValueOnce(7000)   // After truncation estimate for content 1
+        .mockReturnValueOnce(10000) // Initial estimate for content 1 (over limit)
+        .mockReturnValueOnce(7000) // After truncation estimate for content 1
         // Mock second truncation (content 2) - needs truncation
-        .mockReturnValueOnce(8001)   // Initial estimate for content 2 (over limit, needs truncation)
-        .mockReturnValueOnce(6000)   // After truncation estimate for content 2
+        .mockReturnValueOnce(8001) // Initial estimate for content 2 (over limit, needs truncation)
+        .mockReturnValueOnce(6000) // After truncation estimate for content 2
 
       legacyEngine.truncate('content 1 that is very long and needs truncation')
       legacyEngine.truncate('content 2 also long')
@@ -759,21 +759,23 @@ describe('legacy compatibility layer', () => {
     it('should limit metrics history size', () => {
       // Reset mock to clear any previous setup
       mockTokenCounter.estimate.mockReset()
-      
+
       // Mock many truncations - each truncate call needs 2 estimate calls
       const mockValues: number[] = []
       for (let i = 0; i < 150; i++) {
         mockValues.push(10000, 8000) // Each truncation needs 2 values, both showing truncation happened
       }
-      
+
       // Apply all mock values at once
-      mockValues.forEach(value => {
+      mockValues.forEach((value) => {
         mockTokenCounter.estimate.mockReturnValueOnce(value)
       })
-      
+
       // Perform 150 truncations with long content to ensure truncation happens
       for (let i = 0; i < 150; i++) {
-        legacyEngine.truncate(`This is a very long content string number ${i} that needs to be truncated`)
+        legacyEngine.truncate(
+          `This is a very long content string number ${i} that needs to be truncated`
+        )
       }
 
       const metrics = legacyEngine.getMetrics()
@@ -783,7 +785,7 @@ describe('legacy compatibility layer', () => {
     it('should update configuration', () => {
       // Clear any previous mock setups
       mockTokenCounter.estimate.mockReset()
-      
+
       legacyEngine.updateConfig({
         maxTokens: 4000,
         model: 'gpt-3.5-turbo'

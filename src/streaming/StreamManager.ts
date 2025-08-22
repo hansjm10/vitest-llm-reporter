@@ -13,8 +13,7 @@ import type {
   StreamOperation,
   StreamConfig,
   StreamEvent,
-  StreamEventType,
-  StreamingMode
+  StreamEventType
 } from './types'
 import { createLogger } from '../utils/logger'
 

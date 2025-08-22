@@ -4,7 +4,7 @@
  * @module streaming/locks.test
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { Mutex, Semaphore, ReadWriteLock } from './locks.js'
 
 describe('Mutex', () => {

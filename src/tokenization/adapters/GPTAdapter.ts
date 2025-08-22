@@ -17,11 +17,11 @@ const GPT_MODEL_ENCODING_MAP: Record<string, TiktokenEncoding> = {
  * TikToken-based tokenizer implementation for GPT models
  */
 class GPTTokenizer implements ITokenizer {
-  private encoding: any
+  private encoding: ReturnType<typeof getEncoding>
 
   constructor(
     private model: SupportedModel,
-    encoding: any
+    encoding: ReturnType<typeof getEncoding>
   ) {
     this.encoding = encoding
   }

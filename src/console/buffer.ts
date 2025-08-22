@@ -253,7 +253,7 @@ export class ConsoleBuffer {
     if (bufferStreamBridge.isReady()) {
       try {
         await bufferStreamBridge.streamBufferFlush(this, testId)
-      } catch (error) {
+      } catch (_error) {
         // Silently handle streaming errors - don't affect buffer operations
       }
     }

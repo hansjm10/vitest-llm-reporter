@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest'
+import type { Vitest, File } from 'vitest'
 import { LLMReporter } from '../../src/reporter/reporter'
 import {
   BenchmarkRunner,
@@ -15,7 +16,7 @@ import {
   PerformanceAssertions,
   BASELINE_METRICS
 } from './utils'
-import type { Task } from 'vitest'
+// import type { Task } from 'vitest' // Unused
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { unlink } from 'node:fs/promises'
@@ -56,8 +57,8 @@ describe('Reporter Performance Benchmarks', () => {
         })
 
         // Simulate reporter lifecycle
-        reporter.onInit({} as any)
-        await reporter.onFinished([task])
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.([task] as unknown as File[], [])
       })
 
       // Assertions
@@ -86,8 +87,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 200, 'Small suite processing')
@@ -110,8 +111,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 1000, 'Medium suite processing')
@@ -137,8 +138,8 @@ describe('Reporter Performance Benchmarks', () => {
           includeSkippedTests: true
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
       })
 
       const simpleResult = await runner.run('reporter_simple_mode', async () => {
@@ -151,8 +152,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: false
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
       })
 
       // Verbose mode should be slower but not dramatically
@@ -177,8 +178,8 @@ describe('Reporter Performance Benchmarks', () => {
           maxTokens: 5000
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
       })
 
       const noTruncationResult = await runner.run('reporter_no_truncation', async () => {
@@ -191,8 +192,8 @@ describe('Reporter Performance Benchmarks', () => {
           truncationEnabled: false
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
       })
 
       // Truncation should be faster due to reduced processing
@@ -217,8 +218,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
       })
 
       // Should handle failures without significant performance impact
@@ -242,8 +243,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 800, 'Complex errors processing')
@@ -271,8 +272,8 @@ describe('Reporter Performance Benchmarks', () => {
           maxConsoleLines: 100 // Limit console output
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 1000, 'Console heavy processing')
@@ -297,8 +298,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
 
         // Ensure file was written by checking existence
         const fs = await import('node:fs/promises')
@@ -326,8 +327,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit({} as any)
-        await reporter.onFinished(tasks)
+        reporter.onInit?.({} as unknown as Vitest)
+        await reporter.onFinished?.(tasks as unknown as File[], [])
       })
 
       PerformanceAssertions.assertMemoryWithinLimits(result, 200)
@@ -354,8 +355,8 @@ describe('Reporter Performance Benchmarks', () => {
             includePassedTests: true
           })
 
-          reporter.onInit({} as any)
-          await reporter.onFinished(tasks)
+          reporter.onInit?.({} as unknown as Vitest)
+          await reporter.onFinished?.(tasks as unknown as File[], [])
         })
 
         await Promise.all(promises)
@@ -386,8 +387,8 @@ describe('Reporter Performance Benchmarks', () => {
             includePassedTests: true
           })
 
-          reporter.onInit({} as any)
-          await reporter.onFinished(tasks)
+          reporter.onInit?.({} as unknown as Vitest)
+          await reporter.onFinished?.(tasks as unknown as File[], [])
         })
 
         results.push(result)

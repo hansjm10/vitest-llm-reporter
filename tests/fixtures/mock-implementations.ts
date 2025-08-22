@@ -38,6 +38,7 @@ export class MockStreamManager implements IStreamManager {
     this.config = config
     this.ready = config.enabled
     this.emit('stream_start', {})
+    await Promise.resolve()
   }
 
   async write(operation: StreamOperation): Promise<void> {
@@ -47,6 +48,7 @@ export class MockStreamManager implements IStreamManager {
 
     this.operations.push(operation)
     this.emit('stream_data', { operation })
+    await Promise.resolve()
   }
 
   async flush(): Promise<void> {
@@ -66,6 +68,7 @@ export class MockStreamManager implements IStreamManager {
     this.ready = false
     this.operations = []
     this.eventListeners.clear()
+    await Promise.resolve()
   }
 
   on(event: StreamEventType, listener: (event: StreamEvent) => void): void {
@@ -94,7 +97,7 @@ export class MockStreamManager implements IStreamManager {
     return this.config
   }
 
-  private emit(type: StreamEventType, data: any): void {
+  private emit(type: StreamEventType, data: unknown): void {
     const event: StreamEvent = {
       type,
       timestamp: Date.now(),
@@ -166,6 +169,7 @@ export class MockDeduplicationService implements IDeduplicationService {
   }
 
   async processOutput(output: LLMReporterOutput): Promise<DeduplicationResult> {
+    await Promise.resolve()
     this.processedCount++
 
     if (!this.config.enabled) {
@@ -261,12 +265,22 @@ export class MockDeduplicationService implements IDeduplicationService {
   }
 }
 
+// Simplified metrics type for mock
+interface MockMetrics {
+  totalOperations: number
+  averageLatency: number
+  peakMemoryUsage: number
+  cacheHitRate: number
+  optimizationSavings: number
+  lastUpdateTime: number
+}
+
 /**
  * Mock Performance Manager for testing
  */
 export class MockPerformanceManager implements IPerformanceManager {
   private config: PerformanceConfig
-  private metrics: PerformanceMetrics
+  private mockMetrics: MockMetrics
   private optimizationCount = 0
 
   constructor(config: PerformanceConfig = {}) {
@@ -279,10 +293,10 @@ export class MockPerformanceManager implements IPerformanceManager {
       ...config
     }
 
-    this.metrics = {
+    this.mockMetrics = {
       totalOperations: 0,
       averageLatency: 0,
-      peakMemoryUsage: 0,
+      peakMemoryUsage: 100, // Start with non-zero memory value
       cacheHitRate: 0,
       optimizationSavings: 0,
       lastUpdateTime: Date.now()
@@ -294,15 +308,13 @@ export class MockPerformanceManager implements IPerformanceManager {
     await new Promise((resolve) => setTimeout(resolve, 5))
   }
 
-  async start(): Promise<void> {
+  start(): void {
     if (!this.config.enabled) return
     // Mock start
-    await new Promise((resolve) => setTimeout(resolve, 5))
   }
 
-  async stop(): Promise<void> {
+  stop(): void {
     // Mock stop
-    await new Promise((resolve) => setTimeout(resolve, 5))
   }
 
   async optimize(): Promise<void> {
@@ -311,12 +323,13 @@ export class MockPerformanceManager implements IPerformanceManager {
     this.optimizationCount++
 
     // Mock optimization effects
-    this.metrics = {
-      ...this.metrics,
-      totalOperations: this.metrics.totalOperations + 1,
-      averageLatency: Math.max(0, this.metrics.averageLatency - 5), // Simulate improvement
-      cacheHitRate: Math.min(1, this.metrics.cacheHitRate + 0.1),
-      optimizationSavings: this.metrics.optimizationSavings + 10,
+    this.mockMetrics = {
+      ...this.mockMetrics,
+      totalOperations: this.mockMetrics.totalOperations + 1,
+      averageLatency: Math.max(0, this.mockMetrics.averageLatency - 5), // Simulate improvement
+      cacheHitRate: Math.min(1, this.mockMetrics.cacheHitRate + 0.1),
+      optimizationSavings: this.mockMetrics.optimizationSavings + 10,
+      peakMemoryUsage: Math.max(this.mockMetrics.peakMemoryUsage, 100 + this.mockMetrics.totalOperations * 10), // Simulate memory usage
       lastUpdateTime: Date.now()
     }
 
@@ -324,7 +337,54 @@ export class MockPerformanceManager implements IPerformanceManager {
   }
 
   getMetrics(): PerformanceMetrics {
-    return { ...this.metrics }
+    // Convert mock metrics to full PerformanceMetrics structure
+    return {
+      timing: {
+        totalTime: this.mockMetrics.averageLatency,
+        testProcessingTime: this.mockMetrics.averageLatency,
+        outputGenerationTime: 0,
+        cacheLookupTime: 0,
+        averageLatency: this.mockMetrics.averageLatency,
+        p95Latency: this.mockMetrics.averageLatency * 1.5,
+        p99Latency: this.mockMetrics.averageLatency * 2
+      },
+      memory: {
+        currentUsage: this.mockMetrics.peakMemoryUsage,
+        peakUsage: this.mockMetrics.peakMemoryUsage,
+        usagePercentage: 50,
+        gcCount: 0,
+        pressureLevel: 'low' as const,
+        poolStats: {
+          totalPooled: 0,
+          activeObjects: 0,
+          poolHitRatio: 0
+        }
+      },
+      cache: {
+        hitRatio: this.mockMetrics.cacheHitRate,
+        hits: Math.round(this.mockMetrics.cacheHitRate * 100),
+        misses: Math.round((1 - this.mockMetrics.cacheHitRate) * 100),
+        size: 0,
+        capacity: 100,
+        evictionCount: 0
+      },
+      throughput: {
+        testsPerSecond:
+          this.mockMetrics.totalOperations / Math.max(1, this.mockMetrics.averageLatency / 1000),
+        operationsPerSecond: this.mockMetrics.totalOperations,
+        bytesPerSecond: 0,
+        cacheOperationsPerSecond: 0,
+        averageBatchSize: 1
+      },
+      overhead: {
+        performanceOverhead: 0,
+        streamingOverhead: 0,
+        cacheOverhead: 0,
+        memoryOverhead: 0,
+        totalOverhead: this.mockMetrics.optimizationSavings
+      },
+      timestamp: this.mockMetrics.lastUpdateTime
+    }
   }
 
   getConfig(): PerformanceConfig {
@@ -341,15 +401,15 @@ export class MockPerformanceManager implements IPerformanceManager {
   }
 
   simulateLoad(operations: number): void {
-    this.metrics.totalOperations += operations
-    this.metrics.averageLatency += operations * 0.1
-    this.metrics.peakMemoryUsage = Math.max(this.metrics.peakMemoryUsage, operations * 1024)
-    this.metrics.lastUpdateTime = Date.now()
+    this.mockMetrics.totalOperations += operations
+    this.mockMetrics.averageLatency += operations * 0.1
+    this.mockMetrics.peakMemoryUsage = Math.max(this.mockMetrics.peakMemoryUsage, operations * 1024)
+    this.mockMetrics.lastUpdateTime = Date.now()
   }
 
   reset(): void {
     this.optimizationCount = 0
-    this.metrics = {
+    this.mockMetrics = {
       totalOperations: 0,
       averageLatency: 0,
       peakMemoryUsage: 0,
@@ -363,7 +423,7 @@ export class MockPerformanceManager implements IPerformanceManager {
 /**
  * Integration test helper that creates connected mock services
  */
-export function createIntegratedMockServices() {
+export function createIntegratedMockServices(): Record<string, unknown> {
   const streamManager = new MockStreamManager()
   const consoleAdapter = new MockConsoleStreamAdapter()
   const deduplicationService = new MockDeduplicationService({

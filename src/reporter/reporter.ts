@@ -212,7 +212,7 @@ export class LLMReporter implements Reporter {
     // Initialize performance manager if enabled
     if (this.config.performance.enabled) {
       this.performanceManager = createPerformanceManager(this.config.performance)
-      this.initializePerformanceManager()
+      void this.initializePerformanceManager()
     }
   }
 

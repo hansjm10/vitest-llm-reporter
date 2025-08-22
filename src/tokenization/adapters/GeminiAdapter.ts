@@ -74,7 +74,7 @@ class GeminiTokenizer implements ITokenizer {
     } else {
       // Split longer segments
       const numTokens = Math.ceil(segment.length / 4)
-      return Array(numTokens).fill(segment)
+      return Array(numTokens).fill(segment) as number[]
     }
   }
 
@@ -164,9 +164,9 @@ export class GeminiAdapter extends BaseAdapter {
     return [...this.supportedModels]
   }
 
-  protected async createTokenizerImplementation(model: SupportedModel): Promise<ITokenizer> {
+  protected createTokenizerImplementation(model: SupportedModel): Promise<ITokenizer> {
     try {
-      return new GeminiTokenizer(model)
+      return Promise.resolve(new GeminiTokenizer(model))
     } catch (error) {
       throw new Error(`Failed to initialize Gemini tokenizer for model ${model}: ${error}`)
     }

@@ -149,10 +149,10 @@ export class ConsoleOutputStrategy implements OutputStrategy {
   /**
    * Initializes the console output strategy
    */
-  public async initialize(): Promise<void> {
+  public initialize(): Promise<void> {
     if (this.initialized) {
       logger('ConsoleOutputStrategy already initialized')
-      return
+      return Promise.resolve()
     }
 
     logger('Initializing ConsoleOutputStrategy')
@@ -174,6 +174,7 @@ export class ConsoleOutputStrategy implements OutputStrategy {
 
     this.initialized = true
     logger('ConsoleOutputStrategy initialized successfully')
+    return Promise.resolve()
   }
 
   /**

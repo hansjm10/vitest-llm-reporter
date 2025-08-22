@@ -611,7 +611,7 @@ export class PoolFactory {
    * Destroy all pools
    */
   static destroyAllPools(): void {
-    for (const [name, pool] of this.pools) {
+    for (const [, pool] of this.pools) {
       pool.destroy()
     }
     this.pools.clear()

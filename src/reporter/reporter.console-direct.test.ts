@@ -14,7 +14,7 @@ describe('LLMReporter Console Capture - Direct Test', () => {
   })
 
   afterEach(() => {
-    reporter.onTestRunEnd([], [], 'passed')
+    void reporter.onTestRunEnd([], [], 'passed')
   })
 
   it('should capture console output when test fails', () => {
@@ -56,7 +56,7 @@ describe('LLMReporter Console Capture - Direct Test', () => {
     reporter.onTestCaseResult(mockTestCase)
 
     // Get the output
-    reporter.onTestRunEnd([], [], 'failed')
+    void reporter.onTestRunEnd([], [], 'failed')
     const output = reporter.getOutput()
 
     // Verify console was captured
@@ -102,7 +102,7 @@ describe('LLMReporter Console Capture - Direct Test', () => {
     reporter.onTestCaseResult(mockTestCase)
 
     // Get the output
-    reporter.onTestRunEnd([], [], 'passed')
+    void reporter.onTestRunEnd([], [], 'passed')
     const output = reporter.getOutput()
 
     // Since test passed and verbose is false, it shouldn't be in output

@@ -293,7 +293,7 @@ export class ConsoleCapture {
     testId: string,
     args: unknown[],
     elapsed?: number,
-    startTime?: number
+    _startTime?: number
   ): void {
     // Only stream if adapter is ready and configured
     if (!consoleStreamAdapter.isReady()) {

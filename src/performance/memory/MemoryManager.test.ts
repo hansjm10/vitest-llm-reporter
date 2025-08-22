@@ -4,7 +4,8 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { MemoryManager } from './MemoryManager'
-import type { MemoryConfig, MemoryMetrics, MemoryPressureLevel } from '../types'
+import type { MemoryConfig } from '../types'
+// import type { MemoryMetrics, MemoryPressureLevel } from '../types' // Unused
 
 // Mock the logger utilities
 vi.mock('../../utils/logger', () => ({
@@ -184,10 +185,10 @@ describe('MemoryManager', () => {
 
     it('should calculate usage percentage correctly', () => {
       const usage = memoryManager.getUsage()
-      
+
       // Get the actual total memory being used
       const totalMemory = memoryManager['getTotalSystemMemory']()
-      
+
       // Current usage (100MB) / Total system memory * 100
       const expectedPercentage = ((100 * 1024 * 1024) / totalMemory) * 100
       expect(usage.usagePercentage).toBeCloseTo(expectedPercentage, 2)
@@ -297,7 +298,7 @@ describe('MemoryManager', () => {
         external: 0,
         arrayBuffers: 0
       })
-      
+
       await memoryManager.cleanup()
 
       // Verify cleanup tasks were executed
@@ -354,7 +355,7 @@ describe('MemoryManager', () => {
         external: 0,
         arrayBuffers: 0
       })
-      
+
       // Mock cleanup return values
       mockResourcePool.cleanup.mockReturnValue(undefined)
       mockMemoryProfiler.cleanup.mockResolvedValue(1000)

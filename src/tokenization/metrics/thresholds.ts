@@ -418,7 +418,7 @@ export class ThresholdManager {
           result[typedKey] = {
             ...result[typedKey],
             ...updates[typedKey]
-          } as any
+          }
         }
       }
     })

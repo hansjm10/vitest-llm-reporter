@@ -48,7 +48,7 @@ describe('LLMReporter Console Capture Integration', () => {
     reporter.onTestCaseResult(testCase)
 
     // End test run
-    reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
+    void reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
 
     // Get output
     const output = reporter.getOutput()
@@ -90,7 +90,7 @@ describe('LLMReporter Console Capture Integration', () => {
     reporter.onTestCaseResult(testCase)
 
     // End test run
-    reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
+    void reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
 
     // Get output
     const output = reporter.getOutput()
@@ -133,7 +133,7 @@ describe('LLMReporter Console Capture Integration', () => {
     reporter.onTestCaseResult(testCase)
 
     // End test run
-    reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
+    void reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
 
     // Get output
     const output = reporter.getOutput()

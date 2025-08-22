@@ -3,13 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import {
-  ResourcePool,
-  type PoolStats,
-  type PoolConfig,
-  type ObjectFactory,
-  type ObjectReset
-} from './ResourcePool'
+import { ResourcePool, type PoolConfig, type ObjectFactory, type ObjectReset } from './ResourcePool'
 
 // Mock the logger utilities
 vi.mock('../../utils/logger', () => ({
@@ -145,7 +139,7 @@ describe('ResourcePool', () => {
     it('should reset objects on release when configured', () => {
       const obj = pool.acquire()
       expect(obj).toBeDefined()
-      
+
       // Release the object back to the pool
       pool.release(obj!)
 
@@ -329,8 +323,8 @@ describe('ResourcePool', () => {
     })
 
     it('should calculate utilization ratio', () => {
-      const obj1 = pool.acquire()
-      const obj2 = pool.acquire()
+      pool.acquire()
+      pool.acquire()
 
       const stats = pool.getStats()
       // Utilization is activeCount / maxSize * 100
@@ -554,7 +548,7 @@ describe('ResourcePool', () => {
 
   describe('memory management', () => {
     it('should clean up resources on destroy', () => {
-      const obj = pool.acquire()
+      pool.acquire()
       const initialStats = pool.getStats()
       expect(initialStats.activeCount).toBeGreaterThan(0)
 

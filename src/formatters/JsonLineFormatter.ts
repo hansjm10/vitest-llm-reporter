@@ -14,10 +14,6 @@ import {
   type StreamingEvent,
   type FormatterConfig,
   StreamingEventType,
-  type TestCompleteData,
-  type TestFailureData,
-  type RunCompleteData,
-  type ProgressData,
   type RunStartData,
   type SuiteCompleteData,
   isTestCompleteData,
@@ -118,7 +114,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
     this.jsonlConfig = mergedConfig
   }
 
-  protected async doInitialize(): Promise<void> {
+  protected doInitialize(): void {
     this.sequence = 0
     this.state.custom = {
       ...this.state.custom,
@@ -126,7 +122,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
     }
   }
 
-  async formatEvent(event: StreamingEvent): Promise<string> {
+  formatEvent(event: StreamingEvent): string {
     if (!this.state.initialized) {
       throw new Error('JsonLineFormatter must be initialized before use')
     }
@@ -139,13 +135,13 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
       : JSON.stringify(jsonEvent, null, 2)
 
     // Track lines output
-    const custom = this.state.custom as any
+    const custom = this.state.custom as { totalLinesOutput?: number }
     custom.totalLinesOutput = (custom.totalLinesOutput || 0) + 1
 
     return jsonString + '\n'
   }
 
-  async formatFinal(output: LLMReporterOutput): Promise<string> {
+  formatFinal(output: LLMReporterOutput): string {
     if (!this.state.initialized) {
       throw new Error('JsonLineFormatter must be initialized before use')
     }
@@ -240,13 +236,14 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
    */
   private transformEventData(event: StreamingEvent): unknown {
     switch (event.type) {
-      case StreamingEventType.RUN_START:
+      case StreamingEventType.RUN_START: {
         const runStart = event.data as RunStartData
         return {
           totalTests: runStart.totalTests,
           startTime: runStart.startTime,
           status: 'started'
         }
+      }
 
       case StreamingEventType.TEST_START:
         return {
@@ -290,7 +287,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
         }
         return event.data
 
-      case StreamingEventType.SUITE_COMPLETE:
+      case StreamingEventType.SUITE_COMPLETE: {
         const suiteData = event.data as SuiteCompleteData
         return {
           suite: suiteData.suiteName,
@@ -298,6 +295,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
           results: suiteData.results,
           status: 'completed'
         }
+      }
 
       case StreamingEventType.RUN_COMPLETE:
         if (isRunCompleteData(event.data)) {
@@ -361,8 +359,13 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
   /**
    * Get JSONL-specific statistics
    */
-  getJsonlStats() {
-    const custom = this.state.custom as any
+  getJsonlStats(): {
+    totalLinesOutput: number
+    currentSequence: number
+    compact: boolean
+    schemaVersion: string
+  } {
+    const custom = this.state.custom as { totalLinesOutput?: number }
     return {
       totalLinesOutput: custom.totalLinesOutput || 0,
       currentSequence: this.sequence,
@@ -390,7 +393,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
     return jsonlString
       .split('\n')
       .filter((line) => line.trim())
-      .map((line) => JSON.parse(line))
+      .map((line) => JSON.parse(line) as JsonLineEvent)
   }
 
   /**

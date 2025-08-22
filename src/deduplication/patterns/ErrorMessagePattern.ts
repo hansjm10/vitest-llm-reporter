@@ -157,7 +157,7 @@ export class ErrorMessagePattern implements IPatternMatcher {
    */
   private tokenize(text: string): Token[] {
     const tokens: Token[] = []
-    let remaining = text
+    // Removed unused variable 'remaining'
     let position = 0
 
     // First, extract variable parts
@@ -339,7 +339,7 @@ export class ErrorMessagePattern implements IPatternMatcher {
     const n = b.length
     const dp: number[][] = Array(m + 1)
       .fill(null)
-      .map(() => Array(n + 1).fill(0))
+      .map(() => Array(n + 1).fill(0) as number[])
 
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {

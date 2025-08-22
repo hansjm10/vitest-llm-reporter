@@ -7,13 +7,8 @@
  * @module TemplateExtractor
  */
 
-import type {
-  FailureTemplate,
-  TemplateVariable,
-  DuplicateEntry,
-  PatternComponent
-} from '../../types/deduplication'
-import { levenshteinDistance, longestCommonSubsequence } from '../algorithms/similarity'
+import type { FailureTemplate, TemplateVariable, DuplicateEntry } from '../../types/deduplication'
+import { levenshteinDistance } from '../algorithms/similarity'
 
 /**
  * Template extraction options
@@ -146,7 +141,7 @@ export class TemplateExtractor {
     const commonSuffix = this.findCommonSuffix(strings)
 
     // Build segments
-    let position = 0
+    // Removed unused variable 'position'
 
     // Add common prefix as static segment
     if (commonPrefix.length >= this.options.minCommonLength) {
@@ -156,7 +151,7 @@ export class TemplateExtractor {
         positions: [0],
         examples: [commonPrefix]
       })
-      position = commonPrefix.length
+      // Variable 'position' was assigned but never used, removing it
     }
 
     // Find variable parts in the middle
@@ -240,7 +235,7 @@ export class TemplateExtractor {
     // Check if all parts match a pattern
     const patterns = [
       { name: 'number', regex: /^\d+$/, type: 'number' },
-      { name: 'path', regex: /^[\/\\].+/, type: 'path' },
+      { name: 'path', regex: /^[/\\].+/, type: 'path' },
       { name: 'identifier', regex: /^[a-zA-Z_]\w*$/, type: 'variable-name' },
       { name: 'string', regex: /^['"`].+['"`]$/, type: 'string' }
     ]
@@ -423,7 +418,7 @@ export class TemplateExtractor {
     if (examples.every((e) => /^\d+$/.test(e))) {
       return 'number'
     }
-    if (examples.every((e) => /^[\/\\].+/.test(e))) {
+    if (examples.every((e) => /^[/\\].+/.test(e))) {
       return 'path'
     }
     if (examples.every((e) => /^\d+$/.test(e))) {

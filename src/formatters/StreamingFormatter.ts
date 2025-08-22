@@ -337,7 +337,7 @@ export abstract class BaseStreamingFormatter implements StreamingFormatter {
         this.state.runStartTime = event.timestamp
         break
 
-      case StreamingEventType.TEST_COMPLETE:
+      case StreamingEventType.TEST_COMPLETE: {
         this.state.testsProcessed++
         const completeData = event.data as TestCompleteData
         if (completeData.result.status === 'passed') {
@@ -346,6 +346,7 @@ export abstract class BaseStreamingFormatter implements StreamingFormatter {
           this.state.counts.skipped++
         }
         break
+      }
 
       case StreamingEventType.TEST_FAILURE:
         this.state.testsProcessed++

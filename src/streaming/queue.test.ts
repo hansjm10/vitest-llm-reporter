@@ -4,7 +4,7 @@
  * @module streaming/queue.test
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PriorityOutputQueue, TestOutputQueue, OutputPriority, OutputSource } from './queue.js'
 
 describe('PriorityOutputQueue', () => {

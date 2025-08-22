@@ -9,12 +9,7 @@
 
 import { EventEmitter } from 'events'
 import { coreLogger, errorLogger, perfLogger } from '../utils/logger'
-import {
-  StreamErrorHandler,
-  StreamErrorType,
-  StreamErrorSeverity,
-  RecoveryStrategy
-} from './ErrorHandler'
+import { StreamErrorHandler, RecoveryStrategy } from './ErrorHandler'
 import { OutputPriority, OutputSource } from './queue'
 
 /**
@@ -543,7 +538,7 @@ export class StreamRecovery extends EventEmitter {
   /**
    * Determine the type of failure based on metrics and health
    */
-  private determineFailureType(health: StreamHealth): StreamFailureType {
+  private determineFailureType(_health: StreamHealth): StreamFailureType {
     const metrics = this.monitoringData.performance
 
     if (this.monitoringData.circuitBreaker.isOpen) {

@@ -5,9 +5,8 @@
  * and the overall streaming infrastructure.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
-  MockStreamManager,
   MockConsoleStreamAdapter,
   createIntegratedMockServices
 } from '../fixtures/mock-implementations'
@@ -111,7 +110,7 @@ describe('Streaming Workflow Integration', () => {
       }
 
       expect(events).toHaveLength(3)
-      events.forEach((event, index) => {
+      events.forEach((event, _index) => {
         expect(event.type).toBe('stream_data')
         expect(event.data).toHaveProperty('operation')
       })

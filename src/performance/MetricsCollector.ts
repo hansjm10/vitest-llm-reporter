@@ -162,7 +162,7 @@ export class MetricsCollector implements IMetricsCollector {
    * Get metrics history
    */
   getHistory(): PerformanceMetrics[] {
-    return this.metricsHistory.map(({ id, ...metrics }) => metrics)
+    return this.metricsHistory.map(({ id: _id, ...metrics }) => metrics)
   }
 
   /**
@@ -260,12 +260,12 @@ export class MetricsCollector implements IMetricsCollector {
     const recentWindow = Date.now() - 60000 // Last minute
     const recentOperations = this.cacheOperations.filter((op) => op.timestamp > recentWindow)
 
-    let totalTime = 0
+    let _totalTime = 0
     let cacheLookupTime = 0
     const latencies: number[] = []
 
     recentOperations.forEach((op) => {
-      totalTime += op.duration
+      _totalTime += op.duration
       if (op.operation === 'hit' || op.operation === 'miss') {
         cacheLookupTime += op.duration
       }
@@ -532,7 +532,7 @@ export class MetricsCollector implements IMetricsCollector {
   private startMemoryMonitoring(): void {
     const interval = this.config.memory.monitoringInterval
 
-    const monitor = () => {
+    const monitor = (): void => {
       if (!this.isCollecting) {
         return
       }

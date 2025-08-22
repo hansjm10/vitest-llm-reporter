@@ -267,7 +267,7 @@ describe('FileOutputStrategy', () => {
     }).toThrow('FilePath is required')
   })
 
-  it('should handle write failures gracefully', async () => {
+  it('should handle write failures gracefully', () => {
     const strategy = new FileOutputStrategy({
       filePath: '/root/readonly/file.json' // Assuming this path is not writable
     })
@@ -458,7 +458,7 @@ describe('DualOutputStrategy', () => {
     expect(mockStdout.write).toHaveBeenCalled()
   })
 
-  it('should handle continue-on-error fallback mode', async () => {
+  it('should handle continue-on-error fallback mode', () => {
     // Create a scenario where file write might fail
     const badFile = '/root/readonly/bad-file.json'
 
@@ -472,7 +472,7 @@ describe('DualOutputStrategy', () => {
     expect(strategy.canExecute()).toBe(true)
   })
 
-  it('should handle require-both fallback mode', async () => {
+  it('should handle require-both fallback mode', () => {
     const strategy = new DualOutputStrategy({
       file: { filePath: tempFile },
       console: { stream: 'stdout' },
@@ -508,7 +508,7 @@ describe('DualOutputStrategy', () => {
   })
 
   it('should handle operation timeouts', async () => {
-    mockStdout.write = vi.fn((data, encoding, callback) => {
+    mockStdout.write = vi.fn((_data, _encoding, _callback) => {
       // Never call callback to simulate timeout
       return true
     })
@@ -527,6 +527,9 @@ describe('DualOutputStrategy', () => {
     // Should not throw due to continue-on-error mode
     await strategy.write(mockReporterOutput)
     await strategy.close()
+
+    // Verify strategy was initialized
+    expect(strategy.canExecute()).toBe(true)
   }, 10000) // Increase test timeout
 
   it('should provide access to individual strategies', () => {

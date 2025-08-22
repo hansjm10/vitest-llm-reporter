@@ -7,7 +7,7 @@ import {
   createOutputWithFilePath
 } from '../test-utils'
 
-describe('SchemaProcessor', async () => {
+describe('SchemaProcessor', () => {
   // Create a valid output with special characters for testing sanitization
   const validOutput = (() => {
     const output = createOutputWithPassed(1)
@@ -17,7 +17,7 @@ describe('SchemaProcessor', async () => {
 
   const invalidOutput = createInvalidOutput('summary')
 
-  describe('Default Processing', async () => {
+  describe('Default Processing', () => {
     it('should validate and sanitize by default', async () => {
       const processor = new SchemaProcessor()
       const result = await processor.process(validOutput)
@@ -43,7 +43,7 @@ describe('SchemaProcessor', async () => {
     })
   })
 
-  describe('Validation Only', async () => {
+  describe('Validation Only', () => {
     it('should only validate when sanitize is false', async () => {
       const processor = new SchemaProcessor()
       const result = await processor.process(validOutput, { sanitize: false })
@@ -57,7 +57,7 @@ describe('SchemaProcessor', async () => {
       expect(result.data!.passed![0].test).toContain('"quotes"')
     })
 
-    it('should use validate convenience method', async () => {
+    it('should use validate convenience method', () => {
       const processor = new SchemaProcessor()
       const result = processor.validate(validOutput)
 
@@ -67,7 +67,7 @@ describe('SchemaProcessor', async () => {
     })
   })
 
-  describe('Sanitization Only', async () => {
+  describe('Sanitization Only', () => {
     it('should only sanitize when validate is false', async () => {
       const processor = new SchemaProcessor()
       const result = await processor.process(validOutput, { validate: false })
@@ -81,7 +81,7 @@ describe('SchemaProcessor', async () => {
       expect(result.data!.passed![0].test).toBe('test with \\"quotes\\" and <script>')
     })
 
-    it('should use sanitize convenience method', async () => {
+    it('should use sanitize convenience method', () => {
       const processor = new SchemaProcessor()
       const result = processor.sanitize(validOutput)
 
@@ -101,7 +101,7 @@ describe('SchemaProcessor', async () => {
     })
   })
 
-  describe('No Processing', async () => {
+  describe('No Processing', () => {
     it('should pass through when both validate and sanitize are false', async () => {
       const processor = new SchemaProcessor()
       const result = await processor.process(validOutput, { validate: false, sanitize: false })
@@ -113,7 +113,7 @@ describe('SchemaProcessor', async () => {
     })
   })
 
-  describe('Custom Configuration', async () => {
+  describe('Custom Configuration', () => {
     it('should use custom validation config', async () => {
       const processor = new SchemaProcessor({
         validationConfig: { maxCodeLines: 1 }
@@ -149,7 +149,7 @@ describe('SchemaProcessor', async () => {
     })
   })
 
-  describe('Configuration Updates', async () => {
+  describe('Configuration Updates', () => {
     it('should update validation config', async () => {
       const processor = new SchemaProcessor()
 

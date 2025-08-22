@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { OutputSynchronizer, TestContext, OutputOperation } from './OutputSynchronizer.js'
+import { OutputSynchronizer } from './OutputSynchronizer.js'
 import { OutputPriority, OutputSource } from './queue.js'
 
 // Mock process.stdout and process.stderr

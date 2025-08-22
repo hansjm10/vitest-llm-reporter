@@ -7,6 +7,7 @@
  * @module MemoryManager
  */
 
+import * as os from 'os'
 import type { IMemoryManager, MemoryMetrics, MemoryPressureLevel, MemoryConfig } from '../types'
 import { ResourcePool } from './ResourcePool'
 import { MemoryProfiler } from './MemoryProfiler'
@@ -46,7 +47,7 @@ interface AllocationTracker {
  */
 export class MemoryManager implements IMemoryManager {
   private readonly config: Required<MemoryConfig>
-  private readonly pools: Map<string, ResourcePool<any>>
+  private readonly pools: Map<string, ResourcePool<unknown>>
   private readonly profiler: MemoryProfiler
   private readonly thresholds: MemoryThresholds
   private readonly allocationTracker: AllocationTracker
@@ -123,7 +124,7 @@ export class MemoryManager implements IMemoryManager {
       // Test result pool
       this.pools.set(
         'testResults',
-        new ResourcePool<any>(
+        new ResourcePool<Record<string, unknown>>(
           () => ({
             test: { name: '', file: '', duration: 0 },
             result: { state: 'pending', errors: [] },
@@ -134,7 +135,9 @@ export class MemoryManager implements IMemoryManager {
             obj.test.file = ''
             obj.test.duration = 0
             obj.result.state = 'pending'
-            obj.result.errors.length = 0
+            if (Array.isArray(obj.result.errors)) {
+              obj.result.errors.length = 0
+            }
             obj.console.length = 0
             return obj
           },
@@ -145,7 +148,7 @@ export class MemoryManager implements IMemoryManager {
       // Error pool
       this.pools.set(
         'errors',
-        new ResourcePool<any>(
+        new ResourcePool<Record<string, unknown>>(
           () => ({
             message: '',
             stack: '',
@@ -166,7 +169,7 @@ export class MemoryManager implements IMemoryManager {
       // Console output pool
       this.pools.set(
         'consoleOutputs',
-        new ResourcePool<any>(
+        new ResourcePool<Record<string, unknown>>(
           () => ({
             type: 'log',
             output: '',
@@ -199,19 +202,19 @@ export class MemoryManager implements IMemoryManager {
         name: 'pool_cleanup',
         priority: 1,
         estimatedSavings: 5 * 1024 * 1024, // 5MB
-        execute: async () => this.cleanupPools()
+        execute: () => this.cleanupPools()
       },
       {
         name: 'allocation_cleanup',
         priority: 2,
         estimatedSavings: 10 * 1024 * 1024, // 10MB
-        execute: async () => this.cleanupAllocations()
+        execute: () => this.cleanupAllocations()
       },
       {
         name: 'force_gc',
         priority: 3,
         estimatedSavings: 20 * 1024 * 1024, // 20MB
-        execute: async () => this.forceGarbageCollection()
+        execute: () => this.forceGarbageCollection()
       },
       {
         name: 'profiler_cleanup',
@@ -375,11 +378,11 @@ export class MemoryManager implements IMemoryManager {
 
       // Run profiling if enabled
       if (this.config.enableProfiling) {
-        await this.profiler.profile()
+        this.profiler.profile()
       }
 
       // Optimize pools
-      for (const [type, pool] of this.pools) {
+      for (const [_type, pool] of this.pools) {
         pool.optimize()
       }
 
@@ -457,7 +460,7 @@ export class MemoryManager implements IMemoryManager {
   /**
    * Clean up object pools
    */
-  private async cleanupPools(): Promise<number> {
+  private cleanupPools(): number {
     let totalSaved = 0
 
     for (const [type, pool] of this.pools) {
@@ -477,7 +480,7 @@ export class MemoryManager implements IMemoryManager {
   /**
    * Clean up allocation tracking
    */
-  private async cleanupAllocations(): Promise<number> {
+  private cleanupAllocations(): number {
     const now = Date.now()
     const maxAge = 60 * 60 * 1000 // 1 hour
     let cleaned = 0
@@ -496,7 +499,7 @@ export class MemoryManager implements IMemoryManager {
   /**
    * Force garbage collection
    */
-  private async forceGarbageCollection(): Promise<number> {
+  private forceGarbageCollection(): number {
     const beforeUsage = process.memoryUsage().heapUsed
 
     if (global.gc) {
@@ -585,7 +588,6 @@ export class MemoryManager implements IMemoryManager {
    */
   private getTotalSystemMemory(): number {
     try {
-      const os = require('os')
       return os.totalmem()
     } catch {
       return 2 * 1024 * 1024 * 1024 // Default to 2GB
@@ -596,12 +598,8 @@ export class MemoryManager implements IMemoryManager {
    * Get process memory limit
    */
   private getProcessMemoryLimit(): number {
-    try {
-      // Node.js default heap limit is roughly 1.4GB on 64-bit systems
-      return 1.4 * 1024 * 1024 * 1024
-    } catch {
-      return 1 * 1024 * 1024 * 1024 // Default to 1GB
-    }
+    // Node.js default heap limit is roughly 1.4GB on 64-bit systems
+    return 1.4 * 1024 * 1024 * 1024
   }
 
   /**

@@ -67,7 +67,7 @@ export class TokenCounter {
     })
 
     if (!nonEmptyTexts.length) {
-      return new Array(texts.length).fill(0)
+      return new Array(texts.length).fill(0) as number[]
     }
 
     // Process in batches if enabled
@@ -84,7 +84,7 @@ export class TokenCounter {
         })
       }
 
-      return results
+      return results as number[]
     } else {
       // Process all at once
       const textArray = nonEmptyTexts.map((item) => item.text)
@@ -95,7 +95,7 @@ export class TokenCounter {
         results[item.index] = batchResults[index].tokenCount
       })
 
-      return results
+      return results as number[]
     }
   }
 

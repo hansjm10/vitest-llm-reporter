@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { MemoryProfiler, type MemorySnapshot, type MemoryTrend } from './MemoryProfiler'
+import { MemoryProfiler } from './MemoryProfiler'
 import type { MemoryConfig, MemoryMetrics } from '../types'
 
 // Mock the logger utilities
@@ -96,7 +96,7 @@ describe('MemoryProfiler', () => {
 
     it('should record multiple snapshots over time', () => {
       vi.useFakeTimers()
-      
+
       profiler.recordSnapshot(mockMemoryMetrics)
 
       // Wait a bit and record another
@@ -106,7 +106,7 @@ describe('MemoryProfiler', () => {
       const snapshots = (profiler as any).snapshots
       expect(snapshots).toHaveLength(2)
       expect(snapshots[1].timestamp).toBeGreaterThan(snapshots[0].timestamp)
-      
+
       vi.useRealTimers()
     })
 
@@ -139,7 +139,7 @@ describe('MemoryProfiler', () => {
       // Need at least 10 snapshots for trend analysis
       for (let i = 0; i < 15; i++) {
         vi.setSystemTime(baseTime + i * 1000)
-        
+
         // Mock process.memoryUsage to return increasing values
         const currentUsage = 50 * 1024 * 1024 + i * 10 * 1024 * 1024 // Start at 50MB, increase by 10MB each time
         process.memoryUsage = vi.fn().mockReturnValue({
@@ -149,7 +149,7 @@ describe('MemoryProfiler', () => {
           rss: currentUsage * 2,
           arrayBuffers: 512 * 1024
         }) as any
-        
+
         profiler.recordSnapshot(mockMemoryMetrics)
       }
 
@@ -171,7 +171,7 @@ describe('MemoryProfiler', () => {
       // Need at least 10 snapshots for trend analysis
       for (let i = 0; i < 15; i++) {
         vi.setSystemTime(baseTime + i * 1000)
-        
+
         // Mock process.memoryUsage to return decreasing values
         const currentUsage = 100 * 1024 * 1024 - i * 5 * 1024 * 1024 // Start at 100MB, decrease by 5MB each time
         process.memoryUsage = vi.fn().mockReturnValue({
@@ -181,7 +181,7 @@ describe('MemoryProfiler', () => {
           rss: currentUsage * 2,
           arrayBuffers: 512 * 1024
         }) as any
-        
+
         profiler.recordSnapshot(mockMemoryMetrics)
       }
 
@@ -375,7 +375,7 @@ describe('MemoryProfiler', () => {
         profiler.recordSnapshot(mockMemoryMetrics)
       }
 
-      profiler.cleanup()
+      void profiler.cleanup()
 
       // Cleanup should complete without throwing
       // Note: getSnapshots method is not implemented in MemoryProfiler
