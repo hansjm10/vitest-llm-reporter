@@ -7,6 +7,7 @@
 
 import type { SupportedModel } from '../types.js'
 import type { MetricSection, TokenMetricsConfig } from './types.js'
+import { createSafeObject } from '../../utils/sanitization.js'
 
 /**
  * Threshold levels for warnings
@@ -318,7 +319,7 @@ export class ThresholdManager {
    * Get all current threshold settings
    */
   getSettings(): ThresholdSettings {
-    return JSON.parse(JSON.stringify(this.settings))
+    return createSafeObject(this.settings) as ThresholdSettings
   }
 
   /**
@@ -332,14 +333,14 @@ export class ThresholdManager {
    * Reset to default settings
    */
   resetToDefaults(): void {
-    this.settings = JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS))
+    this.settings = createSafeObject(DEFAULT_THRESHOLDS) as ThresholdSettings
   }
 
   /**
    * Create threshold settings from reporter config
    */
   static fromReporterConfig(config: TokenMetricsConfig): ThresholdSettings {
-    const settings = JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS))
+    const settings = createSafeObject(DEFAULT_THRESHOLDS) as ThresholdSettings
 
     if (config.thresholds) {
       if (config.thresholds.totalTokens) {
@@ -394,7 +395,7 @@ export class ThresholdManager {
   ): ThresholdSettings {
     if (!updates) return base
 
-    const result = JSON.parse(JSON.stringify(base))
+    const result = createSafeObject(base) as ThresholdSettings
 
     Object.keys(updates).forEach((key) => {
       const typedKey = key as keyof ThresholdSettings
@@ -457,7 +458,7 @@ export function createModelAwareThresholds(
   baseSettings?: Partial<ThresholdSettings>
 ): ThresholdSettings {
   const limits = MODEL_LIMITS[model]
-  const settings = JSON.parse(JSON.stringify(DEFAULT_THRESHOLDS))
+  const settings = createSafeObject(DEFAULT_THRESHOLDS) as ThresholdSettings
 
   // Adjust total tokens based on model limits
   settings.totalTokens.info = Math.floor(limits.conservativeThreshold * 0.25)

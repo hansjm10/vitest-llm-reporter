@@ -83,7 +83,7 @@ interface ConsoleOutputPoolObject {
  */
 export class MemoryManager implements IMemoryManager {
   private readonly config: Required<MemoryConfig>
-  private readonly pools: Map<string, ResourcePool<any>>
+  private readonly pools: Map<string, ResourcePool<unknown>>
   private readonly profiler: MemoryProfiler
   private readonly thresholds: MemoryThresholds
   private readonly allocationTracker: AllocationTracker
@@ -376,10 +376,10 @@ export class MemoryManager implements IMemoryManager {
 
     const pool = this.pools.get(type)
     if (pool) {
-      const obj = pool.acquire()
+      const obj = pool.acquire() as T | null
       if (obj) {
         this.trackAllocation(type, this.estimateObjectSize(obj))
-        return obj as T
+        return obj
       }
     }
 
@@ -496,7 +496,7 @@ export class MemoryManager implements IMemoryManager {
   /**
    * Clean up object pools
    */
-  private async cleanupPools(): Promise<number> {
+  private cleanupPools(): number {
     let totalSaved = 0
 
     for (const [type, pool] of this.pools) {
@@ -516,7 +516,7 @@ export class MemoryManager implements IMemoryManager {
   /**
    * Clean up allocation tracking
    */
-  private async cleanupAllocations(): Promise<number> {
+  private cleanupAllocations(): number {
     const now = Date.now()
     const maxAge = 60 * 60 * 1000 // 1 hour
     let cleaned = 0
@@ -535,7 +535,7 @@ export class MemoryManager implements IMemoryManager {
   /**
    * Force garbage collection
    */
-  private async forceGarbageCollection(): Promise<number> {
+  private forceGarbageCollection(): number {
     const beforeUsage = process.memoryUsage().heapUsed
 
     if (global.gc) {

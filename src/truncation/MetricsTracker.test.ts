@@ -7,9 +7,7 @@ import {
   TruncationMetricsTracker,
   globalTruncationMetrics,
   type TruncationMetrics,
-  type StagedTruncationMetrics,
-  type TruncationStage,
-  type TruncationSummary
+  type TruncationStage
 } from './MetricsTracker'
 
 describe('TruncationMetricsTracker', () => {

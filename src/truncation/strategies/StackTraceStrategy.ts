@@ -7,12 +7,7 @@
  * by analyzing frame importance and user code patterns.
  */
 
-import type {
-  ITruncationStrategy,
-  TruncationContext,
-  TruncationResult,
-  ContentType
-} from '../types'
+import type { ITruncationStrategy, TruncationContext, TruncationResult } from '../types'
 import { getTokenCounter } from '../../tokenization/TokenCounter'
 
 /**
@@ -91,7 +86,7 @@ export class StackTraceStrategy implements ITruncationStrategy {
         wasTruncated: true,
         strategyUsed: this.name
       }
-    } catch (error) {
+    } catch (_error) {
       // Fallback to line-based truncation if parsing fails
       const lines = content.split('\n')
       const maxLines = Math.min(25, lines.length)
@@ -172,11 +167,11 @@ export class StackTraceStrategy implements ITruncationStrategy {
   private parseStackTrace(content: string): StackFrame[] {
     const lines = content.split('\n')
     const frames: StackFrame[] = []
-    let errorMessage = ''
+    let _errorMessage = ''
 
     for (const line of lines) {
       if (this.isErrorMessageLine(line)) {
-        errorMessage = line
+        _errorMessage = line
         frames.push({
           type: 'error-message',
           content: line,

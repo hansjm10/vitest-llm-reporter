@@ -572,7 +572,7 @@ export class BufferPool extends ResourcePool<Buffer> {
  * Object pool factory
  */
 export class PoolFactory {
-  private static pools = new Map<string, ResourcePool<any>>()
+  private static pools = new Map<string, ResourcePool<unknown>>()
 
   /**
    * Get or create a pool for a specific type

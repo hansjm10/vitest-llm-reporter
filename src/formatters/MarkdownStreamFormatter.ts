@@ -107,16 +107,17 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
     this.markdownConfig = mergedConfig
   }
 
-  protected async doInitialize(): Promise<void> {
+  protected doInitialize(): Promise<void> {
     this.sections = []
     this.state.custom = {
       ...this.state.custom,
       sectionsCreated: 0,
       lastProgressUpdate: 0
     }
+    return Promise.resolve()
   }
 
-  async formatEvent(event: StreamingEvent): Promise<string> {
+  formatEvent(event: StreamingEvent): Promise<string> {
     if (!this.state.initialized) {
       throw new Error('MarkdownStreamFormatter must be initialized before use')
     }
@@ -131,10 +132,10 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
       custom.sectionsCreated = (custom.sectionsCreated || 0) + 1
     }
 
-    return output
+    return Promise.resolve(output)
   }
 
-  async formatFinal(output: LLMReporterOutput): Promise<string> {
+  formatFinal(output: LLMReporterOutput): Promise<string> {
     if (!this.state.initialized) {
       throw new Error('MarkdownStreamFormatter must be initialized before use')
     }
@@ -212,7 +213,7 @@ export class MarkdownStreamFormatter extends BaseStreamingFormatter {
       lines.push('')
     }
 
-    return lines.join('\n')
+    return Promise.resolve(lines.join('\n'))
   }
 
   /**

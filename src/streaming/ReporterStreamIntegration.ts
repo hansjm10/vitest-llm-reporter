@@ -7,8 +7,9 @@
  * @module streaming/ReporterStreamIntegration
  */
 
-import type { TestResult, TestFailure } from '../types/schema'
+import type { TestResult, TestFailure, LLMReporterOutput } from '../types/schema'
 import type { StreamingConfig } from '../types/reporter'
+import type { EnvironmentInfo } from '../types/environment'
 import { OutputSynchronizer, type SynchronizerConfig } from './OutputSynchronizer'
 import { OutputSource, OutputPriority } from './queue'
 import { OutputBuilder } from '../output/OutputBuilder'
@@ -17,7 +18,7 @@ import { coreLogger, errorLogger } from '../utils/logger'
 import { detectEnvironment } from '../utils/environment'
 import { detectTerminalCapabilities, type TerminalCapabilities } from '../utils/terminal'
 import { StreamErrorHandler, StreamErrorType, RecoveryStrategy } from './ErrorHandler'
-import { StreamRecovery, StreamHealth } from './StreamRecovery'
+import { StreamRecovery, StreamHealth, StreamFailureType } from './StreamRecovery'
 import { StreamingDiagnostics } from './diagnostics'
 
 /**
@@ -56,7 +57,7 @@ export enum StreamEventType {
 export interface StreamEvent {
   type: StreamEventType
   timestamp: number
-  data: any
+  data: unknown
 }
 
 /**
@@ -175,7 +176,7 @@ export class ReporterStreamIntegration {
       )
 
       if (!recoveryResult.success) {
-        throw new Error(`Failed to start streaming integration: ${error}`)
+        throw new Error(`Failed to start streaming integration: ${String(error)}`)
       }
 
       // If recovery succeeded, we might be in degraded mode
@@ -239,7 +240,10 @@ export class ReporterStreamIntegration {
   /**
    * Determines if streaming should degrade gracefully
    */
-  private shouldDegradeGracefully(envInfo: any, terminalCaps: TerminalCapabilities): boolean {
+  private shouldDegradeGracefully(
+    envInfo: EnvironmentInfo,
+    terminalCaps: TerminalCapabilities
+  ): boolean {
     if (!this.config.gracefulDegradation) {
       return false
     }
@@ -313,7 +317,7 @@ export class ReporterStreamIntegration {
       // Track the error
       this.diagnostics.trackOperationError(operationId, {
         type: StreamErrorType.EXECUTION,
-        severity: 'error' in result ? ('high' as any) : ('normal' as any),
+        severity: 'error' in result ? 'high' : 'normal',
         source: {
           operation: 'streamTestResult',
           priority: 'error' in result ? OutputPriority.HIGH : OutputPriority.NORMAL,
@@ -373,13 +377,13 @@ export class ReporterStreamIntegration {
   /**
    * Write dual-mode output (streaming + file)
    */
-  async writeDualOutput(finalOutput: any): Promise<void> {
+  writeDualOutput(finalOutput: LLMReporterOutput): void {
     if (!this.config.outputFile) {
       return
     }
 
     try {
-      await this.outputWriter.write(this.config.outputFile, finalOutput)
+      this.outputWriter.write(this.config.outputFile, finalOutput)
       this.debug('Dual-mode output written to: %s', this.config.outputFile)
     } catch (error) {
       this.debugError('Error writing dual-mode output: %O', error)
@@ -416,7 +420,7 @@ export class ReporterStreamIntegration {
   /**
    * Emit stream event
    */
-  private emitEvent(type: StreamEventType, data: any): void {
+  private emitEvent(type: StreamEventType, data: unknown): void {
     const event: StreamEvent = {
       type,
       timestamp: Date.now(),
@@ -438,7 +442,12 @@ export class ReporterStreamIntegration {
   /**
    * Get current test statistics
    */
-  getStats() {
+  getStats(): {
+    isActive: boolean
+    testCounts: { passed: number; failed: number; skipped: number }
+    duration: number
+    synchronizerStats: ReturnType<OutputSynchronizer['getStats']>
+  } {
     return {
       isActive: this.isActive,
       testCounts: { ...this.testCounts },
@@ -486,28 +495,28 @@ export class ReporterStreamIntegration {
   /**
    * Get error handler statistics
    */
-  getErrorStats() {
+  getErrorStats(): ReturnType<StreamErrorHandler['getStats']> {
     return this.errorHandler.getStats()
   }
 
   /**
    * Get diagnostics report
    */
-  getDiagnosticsReport() {
+  getDiagnosticsReport(): ReturnType<StreamingDiagnostics['generateReport']> {
     return this.diagnostics.generateReport()
   }
 
   /**
    * Get recovery monitoring data
    */
-  getRecoveryData() {
+  getRecoveryData(): ReturnType<StreamRecovery['getMonitoringData']> {
     return this.streamRecovery.getMonitoringData()
   }
 
   /**
    * Manually trigger recovery for testing purposes
    */
-  async triggerManualRecovery(failureType: any): Promise<void> {
+  async triggerManualRecovery(failureType: StreamFailureType): Promise<void> {
     await this.streamRecovery.manualRecovery(failureType)
   }
 

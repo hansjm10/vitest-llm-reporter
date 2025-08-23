@@ -30,6 +30,40 @@ export interface LockConfig {
 }
 
 /**
+ * Mutex statistics
+ */
+export interface MutexStats {
+  locked: boolean
+  holder: string | null
+  waiters: number
+  lockCount: number
+  name?: string
+}
+
+/**
+ * Semaphore statistics
+ */
+export interface SemaphoreStats {
+  permits: number
+  waiters: number
+  acquisitions: number
+  name?: string
+}
+
+/**
+ * Read-write lock statistics
+ */
+export interface ReadWriteLockStats {
+  readers: number
+  writing: boolean
+  readWaiters: number
+  writeWaiters: number
+  readCount: number
+  writeCount: number
+  name?: string
+}
+
+/**
  * Mutual exclusion lock for critical sections
  *
  * Ensures only one operation can proceed at a time.
@@ -95,7 +129,7 @@ export class Mutex {
 
       // Clear timeout when resolved
       const originalResolve = waiter.resolve
-      waiter.resolve = () => {
+      waiter.resolve = (): void => {
         clearTimeout(timeoutId)
         originalResolve()
       }
@@ -153,7 +187,7 @@ export class Mutex {
   /**
    * Get lock statistics for monitoring
    */
-  getStats() {
+  getStats(): MutexStats {
     return {
       locked: this._locked,
       holder: this._holder,
@@ -229,7 +263,7 @@ export class Semaphore {
       }, this._config.timeout)
 
       const originalResolve = waiter.resolve
-      waiter.resolve = () => {
+      waiter.resolve = (): void => {
         clearTimeout(timeoutId)
         originalResolve()
       }
@@ -272,7 +306,7 @@ export class Semaphore {
   /**
    * Get semaphore statistics
    */
-  getStats() {
+  getStats(): SemaphoreStats {
     return {
       permits: this._permits,
       waiters: this._waiters.length,
@@ -345,7 +379,7 @@ export class ReadWriteLock {
       }, this._config.timeout)
 
       const originalResolve = waiter.resolve
-      waiter.resolve = () => {
+      waiter.resolve = (): void => {
         clearTimeout(timeoutId)
         originalResolve()
       }
@@ -393,7 +427,7 @@ export class ReadWriteLock {
       }, this._config.timeout)
 
       const originalResolve = waiter.resolve
-      waiter.resolve = () => {
+      waiter.resolve = (): void => {
         clearTimeout(timeoutId)
         originalResolve()
       }
@@ -471,7 +505,7 @@ export class ReadWriteLock {
   /**
    * Get lock statistics
    */
-  getStats() {
+  getStats(): ReadWriteLockStats {
     return {
       readers: this._readers,
       writing: this._writing,

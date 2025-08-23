@@ -230,7 +230,7 @@ export class WarningSystem {
       type,
       message,
       stack: error?.stack,
-      code: (error as any)?.code,
+      code: error && 'code' in error && typeof error.code === 'string' ? error.code : undefined,
       context,
       timestamp: Date.now()
     }
@@ -402,7 +402,7 @@ export class WarningSystem {
       try {
         handler(warning)
       } catch (error) {
-        logger(`Error in warning handler: ${error}`)
+        logger(`Error in warning handler: ${String(error)}`)
       }
     }
   }
@@ -426,7 +426,7 @@ export class WarningSystem {
       try {
         handler(error)
       } catch (handlerError) {
-        logger(`Error in error handler: ${handlerError}`)
+        logger(`Error in error handler: ${String(handlerError)}`)
       }
     }
   }

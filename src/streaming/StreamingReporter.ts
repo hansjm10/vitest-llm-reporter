@@ -10,14 +10,38 @@
 import type { Vitest, TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
 import type { SerializedError } from 'vitest'
 import type { LLMReporterConfig } from '../types/reporter'
+import type { TestFailure, TestResult, TestSummary } from '../types/schema'
 import { LLMReporter } from '../reporter/reporter'
 import {
   ReporterStreamIntegration,
   StreamEventType,
-  type StreamIntegrationConfig
+  type StreamIntegrationConfig,
+  type StreamEvent
 } from './ReporterStreamIntegration'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { detectEnvironment, hasTTY } from '../utils/environment'
+
+/**
+ * Typed event data interfaces for stream events
+ */
+interface TestFailureEventData {
+  result: TestFailure
+}
+
+interface TestCompleteEventData {
+  result: TestResult | TestFailure
+}
+
+interface RunCompleteEventData {
+  summary: TestSummary
+}
+
+interface StreamingStats {
+  eventsProcessed: number
+  testCount: number
+  startTime: number
+  endTime?: number
+}
 
 /**
  * Streaming reporter configuration extends base configuration
@@ -114,24 +138,27 @@ export class StreamingReporter extends LLMReporter {
 
     // Listen for test failures to provide immediate feedback
     this.streamIntegration.on(StreamEventType.TEST_FAILURE, (event) => {
-      this.handleStreamTestFailure(event.data.result)
+      const data = event.data as TestFailureEventData
+      this.handleStreamTestFailure(data.result)
     })
 
     // Listen for test completions for progress updates
     this.streamIntegration.on(StreamEventType.TEST_COMPLETE, (event) => {
-      this.handleStreamTestComplete(event.data.result)
+      const data = event.data as TestCompleteEventData
+      this.handleStreamTestComplete(data.result)
     })
 
     // Listen for run completion
     this.streamIntegration.on(StreamEventType.RUN_COMPLETE, (event) => {
-      this.handleStreamRunComplete(event.data)
+      const data = event.data as RunCompleteEventData
+      this.handleStreamRunComplete(data)
     })
   }
 
   /**
    * Handle streaming test failure
    */
-  private handleStreamTestFailure(result: any): void {
+  private handleStreamTestFailure(result: TestFailure): void {
     if (this.streamingConfig.onStreamOutput) {
       const output = `FAIL ${result.test} - ${result.error?.message || 'Unknown error'}\n`
       this.streamingConfig.onStreamOutput(output)
@@ -141,7 +168,7 @@ export class StreamingReporter extends LLMReporter {
   /**
    * Handle streaming test completion
    */
-  private handleStreamTestComplete(result: any): void {
+  private handleStreamTestComplete(result: TestResult | TestFailure): void {
     if (this.streamingConfig.onStreamOutput) {
       const status = 'error' in result ? 'FAIL' : 'PASS'
       const output = `${status} ${result.test}\n`
@@ -152,7 +179,7 @@ export class StreamingReporter extends LLMReporter {
   /**
    * Handle streaming run completion
    */
-  private handleStreamRunComplete(data: any): void {
+  private handleStreamRunComplete(data: RunCompleteEventData): void {
     if (this.streamingConfig.onStreamOutput) {
       const summary = data.summary
       const output = `\nTest run completed: ${summary.passed} passed, ${summary.failed} failed, ${summary.skipped} skipped (${summary.duration}ms)\n`
@@ -219,7 +246,9 @@ export class StreamingReporter extends LLMReporter {
       const testResults = state.testResults
 
       // Find the corresponding result
-      let result: any = testResults.failed.find((f) => f.test === testCase.name)
+      let result: TestResult | TestFailure | undefined = testResults.failed.find(
+        (f) => f.test === testCase.name
+      )
       if (!result) {
         result = testResults.passed.find((p) => p.test === testCase.name)
       }
@@ -248,12 +277,12 @@ export class StreamingReporter extends LLMReporter {
       await super.onTestRunEnd(testModules, unhandledErrors, reason)
 
       // Handle streaming completion
-      this.completeStreaming()
+      void this.completeStreaming()
     } catch (error) {
       this.streamDebugError('Error in onTestRunEnd: %O', error)
 
       // Ensure streaming is cleaned up even if there's an error
-      this.completeStreaming()
+      void this.completeStreaming()
 
       if (!this.streamingConfig.gracefulDegradation) {
         throw error
@@ -275,7 +304,7 @@ export class StreamingReporter extends LLMReporter {
 
       // Write dual-mode output (streaming + file)
       if (finalOutput) {
-        await this.streamIntegration.writeDualOutput(finalOutput)
+        this.streamIntegration.writeDualOutput(finalOutput)
       }
 
       // Stop streaming session
@@ -292,8 +321,8 @@ export class StreamingReporter extends LLMReporter {
   /**
    * Get streaming statistics
    */
-  getStreamingStats(): any {
-    return this.streamIntegration?.getStats() || null
+  getStreamingStats(): StreamingStats | null {
+    return (this.streamIntegration?.getStats() as StreamingStats) || null
   }
 
   /**
@@ -317,21 +346,21 @@ export class StreamingReporter extends LLMReporter {
     if (enabled && !this.streamIntegration) {
       this.initializeStreaming()
     } else if (!enabled && this.streamIntegration) {
-      this.completeStreaming()
+      void this.completeStreaming()
     }
   }
 
   /**
    * Add custom stream event listener
    */
-  onStreamEvent(event: StreamEventType, listener: (event: any) => void): void {
+  onStreamEvent(event: StreamEventType, listener: (event: StreamEvent) => void): void {
     this.streamIntegration?.on(event, listener)
   }
 
   /**
    * Remove custom stream event listener
    */
-  offStreamEvent(event: StreamEventType, listener: (event: any) => void): void {
+  offStreamEvent(event: StreamEventType, listener: (event: StreamEvent) => void): void {
     this.streamIntegration?.off(event, listener)
   }
 }

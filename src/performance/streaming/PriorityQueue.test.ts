@@ -32,7 +32,7 @@ describe('PriorityQueue', () => {
     it('should accept custom configuration', () => {
       const customConfig = {
         ...defaultConfig,
-        maxSize: 50,
+        maxSize: 50
         // timeoutMs: 1000 - doesn't exist0
       }
       const customQueue = new PriorityQueue(customConfig)
@@ -318,7 +318,7 @@ describe('PriorityQueue', () => {
 
     it('should identify expired items', () => {
       const shortTimeoutQueue = new PriorityQueue({
-        ...defaultConfig,
+        ...defaultConfig
         // timeoutMs: 1000 - doesn't exist
       })
 
@@ -334,7 +334,7 @@ describe('PriorityQueue', () => {
 
     it('should clean up expired items', () => {
       const shortTimeoutQueue = new PriorityQueue({
-        ...defaultConfig,
+        ...defaultConfig
         // timeoutMs: 1000 - doesn't exist
       })
 
@@ -354,7 +354,7 @@ describe('PriorityQueue', () => {
 
       // Use adjustPriority instead of updatePriority
       queue.adjustPriority('task', 100)
-      
+
       // Verify the priority was adjusted
       const item = queue.peek()
       expect(item).toBeDefined()

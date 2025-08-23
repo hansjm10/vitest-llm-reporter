@@ -448,7 +448,7 @@ export class StreamErrorHandler {
         return this.executeAbort(errorContext, startTime)
 
       default:
-        throw new Error(`Unknown recovery strategy: ${strategy}`)
+        throw new Error(`Unknown recovery strategy: ${String(strategy)}`)
     }
   }
 
@@ -551,7 +551,7 @@ export class StreamErrorHandler {
       ) {
         console.error(message)
       } else {
-        console.log(message)
+        console.warn(message)
       }
 
       return {

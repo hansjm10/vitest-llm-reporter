@@ -114,15 +114,16 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
     this.jsonlConfig = mergedConfig
   }
 
-  protected async doInitialize(): Promise<void> {
+  protected doInitialize(): Promise<void> {
     this.sequence = 0
     this.state.custom = {
       ...this.state.custom,
       totalLinesOutput: 0
     }
+    return Promise.resolve()
   }
 
-  async formatEvent(event: StreamingEvent): Promise<string> {
+  formatEvent(event: StreamingEvent): Promise<string> {
     if (!this.state.initialized) {
       throw new Error('JsonLineFormatter must be initialized before use')
     }
@@ -138,10 +139,10 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
     const custom = this.state.custom as { totalLinesOutput?: number }
     custom.totalLinesOutput = (custom.totalLinesOutput || 0) + 1
 
-    return jsonString + '\n'
+    return Promise.resolve(jsonString + '\n')
   }
 
-  async formatFinal(output: LLMReporterOutput): Promise<string> {
+  formatFinal(output: LLMReporterOutput): Promise<string> {
     if (!this.state.initialized) {
       throw new Error('JsonLineFormatter must be initialized before use')
     }
@@ -196,7 +197,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
       ? JSON.stringify(fullOutputEvent)
       : JSON.stringify(fullOutputEvent, null, 2)
 
-    return jsonString + '\n' + fullOutputString + '\n'
+    return Promise.resolve(jsonString + '\n' + fullOutputString + '\n')
   }
 
   /**

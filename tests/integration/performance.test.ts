@@ -8,18 +8,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
   MockPerformanceManager,
-  // MockStreamManager, // Unused
   createIntegratedMockServices
 } from '../fixtures/mock-implementations'
-import {
-  // createSampleOutput, // Unused
-  createStreamOperations,
-  PERFORMANCE_TEST_DATA
-  // CONFIG_PRESETS // Unused
-} from '../fixtures/test-data'
-// import type { PerformanceConfig } from '../../src/performance/types' // Unused
-// import type { PerformanceMetrics } from '../../src/performance/types' // Unused
-// import type { StreamConfig } from '../../src/streaming/types' // Unused
+import { createStreamOperations, PERFORMANCE_TEST_DATA } from '../fixtures/test-data'
 
 describe('Performance Optimization Integration', () => {
   let services: ReturnType<typeof createIntegratedMockServices>
@@ -76,14 +67,20 @@ describe('Performance Optimization Integration', () => {
       // Simulate load
       const loadedMetrics = services.performanceManager.getMetrics()
 
-      expect(loadedMetrics.throughput.operationsPerSecond).toBeGreaterThanOrEqual(initialMetrics.throughput.operationsPerSecond)
-      expect(loadedMetrics.timing.averageLatency).toBeGreaterThanOrEqual(initialMetrics.timing.averageLatency)
+      expect(loadedMetrics.throughput.operationsPerSecond).toBeGreaterThanOrEqual(
+        initialMetrics.throughput.operationsPerSecond
+      )
+      expect(loadedMetrics.timing.averageLatency).toBeGreaterThanOrEqual(
+        initialMetrics.timing.averageLatency
+      )
 
       // Run optimization
       await services.performanceManager.optimize()
       const optimizedMetrics = services.performanceManager.getMetrics()
 
-      expect(optimizedMetrics.timing.averageLatency).toBeLessThanOrEqual(loadedMetrics.timing.averageLatency)
+      expect(optimizedMetrics.timing.averageLatency).toBeLessThanOrEqual(
+        loadedMetrics.timing.averageLatency
+      )
       expect(optimizedMetrics.cache.hitRatio).toBeGreaterThanOrEqual(loadedMetrics.cache.hitRatio)
     })
 
@@ -155,7 +152,7 @@ describe('Performance Optimization Integration', () => {
 
       const promises = highVolumeOperations.map((operation, index) => {
         if (index % 20 === 0) {
-          // Simulate periodic optimization
+          // Simulate periodic optimization - intentionally empty
         }
         return services.streamManager.write(operation)
       })
@@ -179,6 +176,7 @@ describe('Performance Optimization Integration', () => {
         await services.streamManager.write(operation)
 
         if (operations.indexOf(operation) % 10 === 0) {
+          // Track progress - intentionally empty
         }
       }
 
@@ -199,7 +197,7 @@ describe('Performance Optimization Integration', () => {
     })
 
     it('should handle large test suite performance', async () => {
-      const largeOutput = PERFORMANCE_TEST_DATA.largeTestSuite(1000)
+      PERFORMANCE_TEST_DATA.largeTestSuite(1000)
 
       // Simulate processing large output
 
@@ -207,16 +205,19 @@ describe('Performance Optimization Integration', () => {
       await services.performanceManager.optimize()
       const afterMetrics = services.performanceManager.getMetrics()
 
-      expect(afterMetrics.timing.averageLatency).toBeLessThanOrEqual(beforeMetrics.timing.averageLatency)
-      expect(afterMetrics.throughput.operationsPerSecond).toBeGreaterThanOrEqual(beforeMetrics.throughput.operationsPerSecond)
+      expect(afterMetrics.timing.averageLatency).toBeLessThanOrEqual(
+        beforeMetrics.timing.averageLatency
+      )
+      expect(afterMetrics.throughput.operationsPerSecond).toBeGreaterThanOrEqual(
+        beforeMetrics.throughput.operationsPerSecond
+      )
     })
 
     it('should maintain performance with memory intensive workloads', async () => {
-      const memoryIntensiveOutput = PERFORMANCE_TEST_DATA.memoryIntensiveOutput()
+      PERFORMANCE_TEST_DATA.memoryIntensiveOutput()
 
       // Simulate memory-heavy processing
       for (let batch = 0; batch < 10; batch++) {
-
         if (batch % 3 === 0) {
           await services.performanceManager.optimize()
         }
@@ -321,9 +322,6 @@ describe('Performance Optimization Integration', () => {
     })
 
     it('should accurately track operation counts', () => {
-      const expectedOperations = 75
-
-
       const metrics = services.performanceManager.getMetrics()
       expect(metrics.throughput.operationsPerSecond).toBeGreaterThanOrEqual(0)
     })
@@ -340,14 +338,16 @@ describe('Performance Optimization Integration', () => {
       // Optimize
       await services.performanceManager.optimize()
       const optimizedMetrics = services.performanceManager.getMetrics()
-      expect(optimizedMetrics.timing.averageLatency).toBeLessThanOrEqual(loadedMetrics.timing.averageLatency)
+      expect(optimizedMetrics.timing.averageLatency).toBeLessThanOrEqual(
+        loadedMetrics.timing.averageLatency
+      )
     })
 
     it('should track memory usage patterns', () => {
       const operations = [10, 50, 100, 200, 150, 75]
       let peakMemory = 0
 
-      for (const opCount of operations) {
+      for (const _opCount of operations) {
         const currentMetrics = services.performanceManager.getMetrics()
         peakMemory = Math.max(peakMemory, currentMetrics.memory.peakUsage)
       }

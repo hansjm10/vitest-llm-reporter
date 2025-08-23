@@ -59,7 +59,7 @@ export class GPTAdapter extends BaseAdapter {
     return [...this.supportedModels]
   }
 
-  protected async createTokenizerImplementation(model: SupportedModel): Promise<ITokenizer> {
+  protected createTokenizerImplementation(model: SupportedModel): ITokenizer {
     const encodingName = GPT_MODEL_ENCODING_MAP[model]
     if (!encodingName) {
       throw new Error(`No encoding mapping found for GPT model: ${model}`)
@@ -69,7 +69,7 @@ export class GPTAdapter extends BaseAdapter {
       const encoding = getEncoding(encodingName)
       return new GPTTokenizer(model, encoding)
     } catch (error) {
-      throw new Error(`Failed to initialize js-tiktoken for model ${model}: ${error}`)
+      throw new Error(`Failed to initialize js-tiktoken for model ${model}: ${String(error)}`)
     }
   }
 

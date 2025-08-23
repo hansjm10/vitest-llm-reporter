@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { describe, it, expect } from 'vitest'
 
 describe('Console Output Test', () => {

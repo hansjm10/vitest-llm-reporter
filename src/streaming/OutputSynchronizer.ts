@@ -428,7 +428,7 @@ export class OutputSynchronizer {
       // Even degraded mode failed, try console fallback
       const message =
         typeof operation.data === 'string' ? operation.data : operation.data.toString()
-      console.log(`[DEGRADED-OUTPUT] ${message}`)
+      console.error(`[DEGRADED-OUTPUT] ${message}`)
     }
   }
 
@@ -581,7 +581,7 @@ export class OutputSynchronizer {
       await this.flush()
 
       // Clear remaining test registrations
-      await this._testRegistryLock.withWriteLock(async () => {
+      await this._testRegistryLock.withWriteLock(() => {
         this._activeTests.clear()
         this._testOutputOrder.clear()
       })
@@ -642,14 +642,14 @@ export class OutputSynchronizer {
   /**
    * Get error handler statistics
    */
-  getErrorStats() {
+  getErrorStats(): ReturnType<StreamErrorHandler['getStats']> | null {
     return this._errorHandler?.getStats() || null
   }
 
   /**
    * Get diagnostics report
    */
-  getDiagnosticsReport() {
+  getDiagnosticsReport(): Record<string, unknown> | null {
     return this._diagnostics?.generateReport() || null
   }
 
@@ -670,7 +670,7 @@ export class OutputSynchronizer {
   /**
    * Get truncation metrics if available
    */
-  getTruncationMetrics() {
+  getTruncationMetrics(): Array<unknown> {
     return this._truncationEngine?.getMetrics() || []
   }
 

@@ -238,7 +238,7 @@ export class BenchmarkRunner {
         this.gcCount++
         return originalGC()
       }
-      this.originalGCCallback = originalGC as (() => void)
+      this.originalGCCallback = originalGC as () => void
     }
   }
 

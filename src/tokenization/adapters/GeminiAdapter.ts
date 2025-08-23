@@ -168,7 +168,7 @@ export class GeminiAdapter extends BaseAdapter {
     try {
       return Promise.resolve(new GeminiTokenizer(model))
     } catch (error) {
-      throw new Error(`Failed to initialize Gemini tokenizer for model ${model}: ${error}`)
+      throw new Error(`Failed to initialize Gemini tokenizer for model ${model}: ${String(error)}`)
     }
   }
 

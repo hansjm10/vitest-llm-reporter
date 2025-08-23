@@ -133,7 +133,7 @@ export class ConsoleStreamAdapter implements IConsoleStreamAdapter {
               return '[Complex Object]'
             }
           }
-          return String(arg as Record<string, unknown>)
+          return JSON.stringify(arg)
         })
         .join(' ')
     } catch (_error) {

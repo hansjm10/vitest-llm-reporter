@@ -6,7 +6,8 @@
   },
   "include": [
     "src/**/*",
-    "tests/**/*"
+    "tests/**/*",
+    "test-console.test.ts"
   ],
   "exclude": []
 }

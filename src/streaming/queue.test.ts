@@ -17,7 +17,7 @@ describe('PriorityOutputQueue', () => {
     })
   })
 
-  afterEach(async () => {
+  afterEach(() => {
     queue.clear()
   })
 
@@ -245,8 +245,8 @@ describe('PriorityOutputQueue', () => {
       // Second should be dropped
       try {
         await limitedQueue.enqueue(OutputPriority.NORMAL, OutputSource.TEST, 'test2', () => {})
-      } catch (error) {
-        // Expected
+      } catch {
+        // Expected - queue is full
       }
 
       const stats = limitedQueue.getStats()
@@ -264,7 +264,7 @@ describe('TestOutputQueue', () => {
     queue = new TestOutputQueue({ enableBatching: false })
   })
 
-  afterEach(async () => {
+  afterEach(() => {
     queue.clear()
   })
 

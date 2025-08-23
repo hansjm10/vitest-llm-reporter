@@ -214,9 +214,7 @@ export class LLMReporter implements Reporter {
       this.performanceManager = createPerformanceManager(this.config.performance)
       void this.initializePerformanceManager()
     }
-
   }
-
 
   /**
    * Initialize performance manager
@@ -462,7 +460,6 @@ export class LLMReporter implements Reporter {
     )
   }
 
-
   /**
    * Handle test run end event
    *
@@ -550,11 +547,15 @@ export class LLMReporter implements Reporter {
             this.outputWriter.write(this.config.outputFile, this.output)
             this.debug('Output written to %s', this.config.outputFile)
           } catch (writeError) {
-            this.debugError('Failed to write output file %s: %O', this.config.outputFile, writeError)
+            this.debugError(
+              'Failed to write output file %s: %O',
+              this.config.outputFile,
+              writeError
+            )
             // Don't propagate write errors - log is sufficient
           }
         }
-        
+
         // Also write to console if no file is specified or streaming is enabled
         if (!this.config.outputFile || this.config.enableStreaming) {
           try {

@@ -7,12 +7,7 @@
  * middle content that may be less critical for debugging.
  */
 
-import type {
-  ITruncationStrategy,
-  TruncationContext,
-  TruncationResult,
-  ContentType
-} from '../types'
+import type { ITruncationStrategy, TruncationContext, TruncationResult } from '../types'
 import { getTokenCounter } from '../../tokenization/TokenCounter'
 
 /**
@@ -133,7 +128,7 @@ export class HeadTailStrategy implements ITruncationStrategy {
     headRatio: number,
     tailRatio: number,
     separator: string,
-    context: TruncationContext
+    _context: TruncationContext
   ): string {
     const lines = content.split('\n')
     const totalLines = lines.length
@@ -183,7 +178,7 @@ export class HeadTailStrategy implements ITruncationStrategy {
     headRatio: number,
     tailRatio: number,
     separator: string,
-    context: TruncationContext
+    _context: TruncationContext
   ): string {
     const totalLength = content.length
     const separatorLength = separator.length

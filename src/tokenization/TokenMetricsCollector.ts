@@ -16,7 +16,7 @@ import {
 import { WarningSystem, getWarningSystem, WarningFormatter } from './metrics/warnings.js'
 import type { SupportedModel } from './types.js'
 import type { LLMReporterConfig } from '../types/reporter.js'
-import type { LLMReporterOutput, TestFailure, TestResult } from '../types/schema.js'
+import type { LLMReporterOutput, TestFailure, TestResult, TestSummary } from '../types/schema.js'
 import type {
   TokenMetrics,
   TokenMetricsConfig,
@@ -28,10 +28,21 @@ import type {
   MetricsStats,
   SectionTokens,
   MetricSection,
-  MetricsExportOptions
+  MetricsExportOptions,
+  MetricsWarning
 } from './metrics/types.js'
+import type { AggregationOptions } from './metrics/aggregator.js'
 
 const logger = createLogger('token-metrics:collector')
+
+/**
+ * Export data structure for metrics
+ */
+interface ExportData {
+  summary?: TokenMetricsSummary
+  files?: FileTokenMetrics[]
+  warnings?: MetricsWarning[]
+}
 
 /**
  * Collection events
@@ -121,7 +132,7 @@ export class TokenMetricsCollector {
     logger('Starting token metrics collection from reporter output')
 
     if (this.context.state !== 'collecting') {
-      await this.initialize()
+      this.initialize()
     }
 
     try {
@@ -130,7 +141,7 @@ export class TokenMetricsCollector {
       this.fileMetrics.clear()
 
       // Process summary
-      await this.processSummary(output.summary)
+      this.processSummary(output.summary)
 
       // Process test results
       let totalTests = 0
@@ -405,17 +416,18 @@ export class TokenMetricsCollector {
           ? JSON.stringify(exportData, null, 2)
           : JSON.stringify(exportData)
 
-      case 'jsonl':
+      case 'jsonl': {
         // Export as JSON Lines format
         const lines: string[] = []
         if (exportData.summary)
           lines.push(JSON.stringify({ type: 'summary', data: exportData.summary }))
         if (exportData.files && Array.isArray(exportData.files)) {
-          for (const file of exportData.files) {
+          for (const file of exportData.files as FileTokenMetrics[]) {
             lines.push(JSON.stringify({ type: 'file', data: file }))
           }
         }
         return lines.join('\n')
+      }
 
       case 'markdown':
         return this.formatAsMarkdown(exportData)
@@ -485,7 +497,7 @@ export class TokenMetricsCollector {
 
   // Private methods
 
-  private async processSummary(summary: any): Promise<void> {
+  private processSummary(summary: TestSummary): void {
     // Summary processing would count tokens in summary fields
     // For now, this is a placeholder as summary structure varies
     logger(`Processing summary: ${summary.total} total tests`)
@@ -499,7 +511,7 @@ export class TokenMetricsCollector {
     return this.processTest(result)
   }
 
-  private async extractTestSections(
+  private extractTestSections(
     testData: TestFailure | TestResult,
     customSections?: Record<string, string>
   ): Promise<Record<MetricSection, string>> {
@@ -689,7 +701,7 @@ export class TokenMetricsCollector {
     return grouped
   }
 
-  private aggregateFileMetrics(options: any): FileTokenMetrics[] {
+  private aggregateFileMetrics(options: AggregationOptions): FileTokenMetrics[] {
     if (!this.aggregator) {
       throw new Error('Aggregator not initialized')
     }
@@ -750,7 +762,7 @@ export class TokenMetricsCollector {
     }
   }
 
-  private formatAsMarkdown(data: any): string {
+  private formatAsMarkdown(data: ExportData): string {
     let markdown = '# Token Metrics Report\n\n'
 
     if (data.summary) {
@@ -774,7 +786,7 @@ export class TokenMetricsCollector {
     return markdown
   }
 
-  private formatAsCSV(data: any): string {
+  private formatAsCSV(data: ExportData): string {
     const rows: string[] = []
     rows.push('Type,Name,File,Tokens,Status,Duration')
 

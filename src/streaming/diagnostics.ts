@@ -65,7 +65,7 @@ export interface OperationMetrics {
     message: string
   }
   /** Additional metadata */
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 /**
@@ -313,7 +313,7 @@ export class StreamingDiagnostics {
     operation: string,
     priority: OutputPriority,
     source: OutputSource,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): string {
     if (!this.config.enabled || !this.config.enableOperationTracking) {
       return ''
@@ -344,7 +344,7 @@ export class StreamingDiagnostics {
   /**
    * Track operation completion
    */
-  trackOperationComplete(operationId: string, success: boolean, result?: any): void {
+  trackOperationComplete(operationId: string, success: boolean, result?: unknown): void {
     if (!this.config.enabled || !operationId) {
       return
     }
@@ -450,7 +450,11 @@ export class StreamingDiagnostics {
   /**
    * Log recovery events
    */
-  logRecoveryEvent(event: string, data: any, level: DiagnosticLevel = DiagnosticLevel.INFO): void {
+  logRecoveryEvent(
+    event: string,
+    data: unknown,
+    level: DiagnosticLevel = DiagnosticLevel.INFO
+  ): void {
     if (!this.config.enabled) {
       return
     }
@@ -545,7 +549,7 @@ export class StreamingDiagnostics {
   /**
    * Check for resource warnings
    */
-  private checkResourceWarnings(performance: any): void {
+  private checkResourceWarnings(performance: StreamMonitoringData['performance']): void {
     const thresholds = this.config.warningThresholds
 
     if (performance.memoryUsage > (thresholds.memoryUsage || 100)) {
@@ -611,18 +615,18 @@ export class StreamingDiagnostics {
     event: DiagnosticEvent,
     level: DiagnosticLevel,
     message: string,
-    data?: any
+    data?: unknown
   ): void {
     if (!this.shouldLog(level)) {
       return
     }
 
-    const logData = {
+    const _logData: Record<string, unknown> = {
       event,
       level,
       message,
       timestamp: Date.now(),
-      ...data
+      ...(typeof data === 'object' && data !== null ? data : { data })
     }
 
     switch (level) {
@@ -790,7 +794,15 @@ export class StreamingDiagnostics {
   /**
    * Get current statistics
    */
-  getStats() {
+  getStats(): {
+    isActive: boolean
+    duration: number
+    operationCount: number
+    activeOperations: number
+    errorCount: number
+    eventCount: number
+    history: OperationMetrics[]
+  } {
     return {
       isActive: this.isActive,
       duration: this.isActive ? Date.now() - this.startTime : 0,

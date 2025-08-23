@@ -60,9 +60,9 @@ describe('Deduplication Performance Benchmarks', () => {
     it('should deduplicate small dataset efficiently', async () => {
       const _tests = TestDataGenerator.generateTestSuite(20)
 
-      const result = await runner.run('deduplication_small_dataset', async () => {
+      const result = await runner.run('deduplication_small_dataset', () => {
         // Mock deduplicate - method doesn't exist in actual service
-        const deduplicated = {} as any // await deduplicationService.deduplicate(tests)
+        const deduplicated = {} // await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -78,11 +78,11 @@ describe('Deduplication Performance Benchmarks', () => {
     })
 
     it('should deduplicate medium dataset efficiently', async () => {
-      const tests = TestDataGenerator.generateTestSuite(100)
+      const _tests = TestDataGenerator.generateTestSuite(100)
 
-      const result = await runner.run('deduplication_medium_dataset', async () => {
+      const result = await runner.run('deduplication_medium_dataset', () => {
         // Mock deduplicate - method doesn't exist in actual service
-        const deduplicated = {} as any // await deduplicationService.deduplicate(tests)
+        const deduplicated = {} // await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -94,11 +94,11 @@ describe('Deduplication Performance Benchmarks', () => {
     })
 
     it('should handle baseline deduplication target (1000 tests)', async () => {
-      const tests = TestDataGenerator.generateTestSuite(1000)
+      const _tests = TestDataGenerator.generateTestSuite(1000)
 
-      const result = await runner.run('deduplication_baseline_1000', async () => {
+      const result = await runner.run('deduplication_baseline_1000', () => {
         // Mock deduplicate - method doesn't exist in actual service
-        const deduplicated = {} as any // await deduplicationService.deduplicate(tests)
+        const deduplicated = {} // await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -117,7 +117,7 @@ describe('Deduplication Performance Benchmarks', () => {
   describe('Pattern Detection Performance', () => {
     it('should detect assertion patterns efficiently', async () => {
       // Generate tests with similar assertion patterns
-      const tests = Array.from({ length: 50 }, (_, i) => {
+      const _tests = Array.from({ length: 50 }, (_, i) => {
         const task = TestDataGenerator.generateMockTask(`assertion-test-${i}`)
         if (task.result && Math.random() > 0.5) {
           task.result.state = 'fail'
@@ -126,8 +126,8 @@ describe('Deduplication Performance Benchmarks', () => {
         return task
       })
 
-      const result = await runner.run('deduplication_assertion_patterns', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_assertion_patterns', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -146,7 +146,7 @@ describe('Deduplication Performance Benchmarks', () => {
         'AssertionError: expected value to be'
       ]
 
-      const tests = Array.from({ length: 60 }, (_, i) => {
+      const _tests = Array.from({ length: 60 }, (_, i) => {
         const task = TestDataGenerator.generateMockTask(`error-test-${i}`)
         if (task.result) {
           task.result.state = 'fail'
@@ -156,8 +156,8 @@ describe('Deduplication Performance Benchmarks', () => {
         return task
       })
 
-      const result = await runner.run('deduplication_error_patterns', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_error_patterns', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -168,15 +168,15 @@ describe('Deduplication Performance Benchmarks', () => {
     })
 
     it('should detect stack trace patterns efficiently', async () => {
-      const tests = Array.from({ length: 40 }, (_, i) => {
+      const _tests = Array.from({ length: 40 }, (_, i) => {
         const task = TestDataGenerator.generateComplexErrorTest()
         task.name = `stack-trace-test-${i}`
         task.id = `stack-${i}`
         return task
       })
 
-      const result = await runner.run('deduplication_stack_patterns', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_stack_patterns', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -187,15 +187,15 @@ describe('Deduplication Performance Benchmarks', () => {
     })
 
     it('should detect console output patterns efficiently', async () => {
-      const tests = Array.from({ length: 30 }, (_, i) => {
+      const _tests = Array.from({ length: 30 }, (_, i) => {
         const task = TestDataGenerator.generateConsoleHeavyTest(100)
         task.name = `console-test-${i}`
         task.id = `console-${i}`
         return task
       })
 
-      const result = await runner.run('deduplication_console_patterns', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_console_patterns', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -224,8 +224,8 @@ describe('Deduplication Performance Benchmarks', () => {
         tests.push(similarTest)
       }
 
-      const result = await runner.run('deduplication_similarity_analysis', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_similarity_analysis', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -238,7 +238,7 @@ describe('Deduplication Performance Benchmarks', () => {
     it('should handle high similarity datasets efficiently', async () => {
       // Generate dataset with many duplicate patterns
       const baseError = new Error('Common error message that appears frequently')
-      const tests = Array.from({ length: 80 }, (_, i) => {
+      const _tests = Array.from({ length: 80 }, (_, i) => {
         const task = TestDataGenerator.generateMockTask(`duplicate-test-${i}`)
         if (task.result && i % 5 === 0) {
           // 20% will have the same error
@@ -248,8 +248,8 @@ describe('Deduplication Performance Benchmarks', () => {
         return task
       })
 
-      const result = await runner.run('deduplication_high_similarity', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_high_similarity', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -261,7 +261,7 @@ describe('Deduplication Performance Benchmarks', () => {
 
     it('should handle low similarity datasets efficiently', async () => {
       // Generate dataset with unique patterns
-      const tests = Array.from({ length: 70 }, (_, i) => {
+      const _tests = Array.from({ length: 70 }, (_, i) => {
         const task = TestDataGenerator.generateMockTask(`unique-test-${i}`)
         if (task.result) {
           task.result.state = Math.random() > 0.8 ? 'fail' : 'pass'
@@ -272,8 +272,8 @@ describe('Deduplication Performance Benchmarks', () => {
         return task
       })
 
-      const result = await runner.run('deduplication_low_similarity', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_low_similarity', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -288,7 +288,7 @@ describe('Deduplication Performance Benchmarks', () => {
     it('should compress duplicates efficiently', async () => {
       // Generate tests with compressible patterns
       const commonPrefix = 'AssertionError: Expected value to be'
-      const tests = Array.from({ length: 60 }, (_, i) => {
+      const _tests = Array.from({ length: 60 }, (_, i) => {
         const task = TestDataGenerator.generateMockTask(`compress-test-${i}`)
         if (task.result && i % 4 === 0) {
           task.result.state = 'fail'
@@ -297,8 +297,8 @@ describe('Deduplication Performance Benchmarks', () => {
         return task
       })
 
-      const result = await runner.run('deduplication_compression', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_compression', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -316,7 +316,7 @@ describe('Deduplication Performance Benchmarks', () => {
         'Timeout after ${duration}ms in ${test}'
       ]
 
-      const tests = Array.from({ length: 45 }, (_, i) => {
+      const _tests = Array.from({ length: 45 }, (_, i) => {
         const task = TestDataGenerator.generateMockTask(`template-test-${i}`)
         if (task.result) {
           task.result.state = 'fail'
@@ -334,8 +334,8 @@ describe('Deduplication Performance Benchmarks', () => {
         return task
       })
 
-      const result = await runner.run('deduplication_template_extraction', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_template_extraction', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -348,14 +348,14 @@ describe('Deduplication Performance Benchmarks', () => {
 
   describe('Reference Management Performance', () => {
     it('should manage references efficiently', async () => {
-      const tests = TestDataGenerator.generateTestSuite(100)
+      const _tests = TestDataGenerator.generateTestSuite(100)
 
-      const result = await runner.run('deduplication_reference_management', async () => {
+      const result = await runner.run('deduplication_reference_management', () => {
         // First pass - establish references
-        const firstPass = {} as any // Mock: await deduplicationService.deduplicate(tests.slice(0, 50))
+        const firstPass = {} // Mock: await deduplicationService.deduplicate(tests.slice(0, 50))
 
         // Second pass - should use existing references
-        const secondPass = {} as any // Mock: await deduplicationService.deduplicate(tests.slice(50))
+        const secondPass = {} // Mock: await deduplicationService.deduplicate(tests.slice(50))
 
         return { firstPass, secondPass }
       })
@@ -367,15 +367,16 @@ describe('Deduplication Performance Benchmarks', () => {
     })
 
     it('should handle reference cleanup efficiently', async () => {
-      const tests = TestDataGenerator.generateTestSuite(80)
+      const _tests = TestDataGenerator.generateTestSuite(80)
 
-      const result = await runner.run('deduplication_reference_cleanup', async () => {
+      const result = await runner.run('deduplication_reference_cleanup', () => {
         // Generate many references
         // Mock: await deduplicationService.deduplicate(tests)
         // Trigger cleanup
         // Mock: await deduplicationService.cleanup()
         // Process again to test cleaned state
         // Mock: await deduplicationService.deduplicate(tests.slice(0, 20))
+        return {}
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 500, 'Reference cleanup')
@@ -387,7 +388,7 @@ describe('Deduplication Performance Benchmarks', () => {
 
   describe('Algorithm Performance Comparison', () => {
     it('should compare Jaccard vs Cosine similarity performance', async () => {
-      const tests = TestDataGenerator.generateTestSuite(50)
+      const _tests = TestDataGenerator.generateTestSuite(50)
 
       const jaccardConfig: DeduplicationConfig = {
         enabled: true,
@@ -402,18 +403,18 @@ describe('Deduplication Performance Benchmarks', () => {
         algorithms: { similarity: 'cosine', clustering: 'hierarchical' }
       }
 
-      const jaccardService = new DeduplicationService(jaccardConfig)
+      const _jaccardService = new DeduplicationService(jaccardConfig)
       // Mock: await jaccardService.initialize()
 
-      const cosineService = new DeduplicationService(cosineConfig)
+      const _cosineService = new DeduplicationService(cosineConfig)
       // Mock: await cosineService.initialize()
 
-      const jaccardResult = await runner.run('deduplication_jaccard', async () => {
-        return {} as any // Mock: await jaccardService.deduplicate(tests)
+      const jaccardResult = await runner.run('deduplication_jaccard', () => {
+        return {} // Mock: await jaccardService.deduplicate(tests)
       })
 
-      const cosineResult = await runner.run('deduplication_cosine', async () => {
-        return {} as any // Mock: await cosineService.deduplicate(tests)
+      const cosineResult = await runner.run('deduplication_cosine', () => {
+        return {} // Mock: await cosineService.deduplicate(tests)
       })
 
       // Both should meet baseline
@@ -432,10 +433,10 @@ describe('Deduplication Performance Benchmarks', () => {
 
   describe('Memory Efficiency', () => {
     it('should manage memory during large deduplication', async () => {
-      const tests = TestDataGenerator.generateTestSuite(200)
+      const _tests = TestDataGenerator.generateTestSuite(200)
 
-      const result = await runner.run('deduplication_memory_efficiency', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_memory_efficiency', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -448,15 +449,16 @@ describe('Deduplication Performance Benchmarks', () => {
 
     it('should handle memory pressure gracefully', async () => {
       // Generate memory-intensive test data
-      const tests = Array.from({ length: 100 }, (_, i) => {
+      const _tests = Array.from({ length: 100 }, (_, i) => {
         const task = TestDataGenerator.generateMockTask(`memory-test-${i}`)
         // Add large data to increase memory pressure
-        ;(task as any).largeData = TestDataGenerator.generateMemoryIntensiveData(0.5) // 500KB per test
+        // @ts-expect-error - Adding test data for memory pressure simulation
+        task.largeData = TestDataGenerator.generateMemoryIntensiveData(0.5) // 500KB per test
         return task
       })
 
-      const result = await runner.run('deduplication_memory_pressure', async () => {
-        const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+      const result = await runner.run('deduplication_memory_pressure', () => {
+        const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
         return deduplicated
       })
 
@@ -469,7 +471,7 @@ describe('Deduplication Performance Benchmarks', () => {
 
   describe('Configuration Impact', () => {
     it('should compare performance with different threshold settings', async () => {
-      const tests = TestDataGenerator.generateTestSuite(60)
+      const _tests = TestDataGenerator.generateTestSuite(60)
 
       const strictConfig: DeduplicationConfig = {
         enabled: true,
@@ -484,18 +486,18 @@ describe('Deduplication Performance Benchmarks', () => {
         thresholds: { similarity: 0.6, compression: 0.3, frequency: 2 }
       }
 
-      const strictService = new DeduplicationService(strictConfig)
+      const _strictService = new DeduplicationService(strictConfig)
       // Mock: await strictService.initialize()
 
-      const lenientService = new DeduplicationService(lenientConfig)
+      const _lenientService = new DeduplicationService(lenientConfig)
       // Mock: await lenientService.initialize()
 
-      const strictResult = await runner.run('deduplication_strict_thresholds', async () => {
-        return {} as any // Mock: await strictService.deduplicate(tests)
+      const strictResult = await runner.run('deduplication_strict_thresholds', () => {
+        return {} // Mock: await strictService.deduplicate(tests)
       })
 
-      const lenientResult = await runner.run('deduplication_lenient_thresholds', async () => {
-        return {} as any // Mock: await lenientService.deduplicate(tests)
+      const lenientResult = await runner.run('deduplication_lenient_thresholds', () => {
+        return {} // Mock: await lenientService.deduplicate(tests)
       })
 
       // Both should work but with different performance characteristics
@@ -517,10 +519,10 @@ describe('Deduplication Performance Benchmarks', () => {
       const results = []
 
       for (const size of sizes) {
-        const tests = TestDataGenerator.generateTestSuite(size)
+        const _tests = TestDataGenerator.generateTestSuite(size)
 
-        const result = await runner.run(`deduplication_scale_${size}`, async () => {
-          const deduplicated = {} as any // Mock: await deduplicationService.deduplicate(tests)
+        const result = await runner.run(`deduplication_scale_${size}`, () => {
+          const deduplicated = {} // Mock: await deduplicationService.deduplicate(tests)
           return deduplicated
         })
 

@@ -275,9 +275,9 @@ describe('CacheManager', () => {
     it('should handle clear errors gracefully', () => {
       const tokenCache = cacheManager.getCache('token')
       if (tokenCache) {
-        vi.mocked(tokenCache.clear).mockImplementationOnce(() => {
+        vi.mocked(tokenCache).clear.mockImplementationOnce(() => {
           throw new Error('Clear failed')
-        }) as unknown
+        })
       }
 
       expect(() => cacheManager.clearAll()).not.toThrow()

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest'
-import type { Vitest, File } from 'vitest'
+import type { Vitest, TestModule } from 'vitest'
 import { LLMReporter } from '../../src/reporter/reporter'
 import {
   BenchmarkRunner,
@@ -57,8 +57,8 @@ describe('Reporter Performance Benchmarks', () => {
         })
 
         // Simulate reporter lifecycle
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.([task] as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd([task] as unknown as TestModule[], [], 'passed')
       })
 
       // Assertions
@@ -87,8 +87,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 200, 'Small suite processing')
@@ -111,8 +111,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 1000, 'Medium suite processing')
@@ -138,8 +138,8 @@ describe('Reporter Performance Benchmarks', () => {
           includeSkippedTests: true
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
       })
 
       const simpleResult = await runner.run('reporter_simple_mode', async () => {
@@ -152,8 +152,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: false
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
       })
 
       // Verbose mode should be slower but not dramatically
@@ -178,8 +178,8 @@ describe('Reporter Performance Benchmarks', () => {
           maxTokens: 5000
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
       })
 
       const noTruncationResult = await runner.run('reporter_no_truncation', async () => {
@@ -192,8 +192,8 @@ describe('Reporter Performance Benchmarks', () => {
           truncationEnabled: false
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
       })
 
       // Truncation should be faster due to reduced processing
@@ -218,8 +218,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
       })
 
       // Should handle failures without significant performance impact
@@ -243,8 +243,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 800, 'Complex errors processing')
@@ -272,8 +272,8 @@ describe('Reporter Performance Benchmarks', () => {
           maxConsoleLines: 100 // Limit console output
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
       })
 
       PerformanceAssertions.assertMeetsBaseline(result, 1000, 'Console heavy processing')
@@ -298,8 +298,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
 
         // Ensure file was written by checking existence
         const fs = await import('node:fs/promises')
@@ -327,8 +327,8 @@ describe('Reporter Performance Benchmarks', () => {
           includePassedTests: true
         })
 
-        reporter.onInit?.({} as unknown as Vitest)
-        await reporter.onFinished?.(tasks as unknown as File[], [])
+        reporter.onInit({} as unknown as Vitest)
+        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
       })
 
       PerformanceAssertions.assertMemoryWithinLimits(result, 200)
@@ -355,8 +355,8 @@ describe('Reporter Performance Benchmarks', () => {
             includePassedTests: true
           })
 
-          reporter.onInit?.({} as unknown as Vitest)
-          await reporter.onFinished?.(tasks as unknown as File[], [])
+          reporter.onInit({} as unknown as Vitest)
+          await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
         })
 
         await Promise.all(promises)
@@ -387,8 +387,8 @@ describe('Reporter Performance Benchmarks', () => {
             includePassedTests: true
           })
 
-          reporter.onInit?.({} as unknown as Vitest)
-          await reporter.onFinished?.(tasks as unknown as File[], [])
+          reporter.onInit({} as unknown as Vitest)
+          await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
         })
 
         results.push(result)

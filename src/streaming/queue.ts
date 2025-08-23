@@ -84,6 +84,20 @@ export interface QueueConfig {
 }
 
 /**
+ * Queue statistics
+ */
+export interface QueueStats {
+  enqueued: number
+  processed: number
+  dropped: number
+  timeouts: number
+  batches: number
+  pending: number
+  processing: boolean
+  config: Required<QueueConfig>
+}
+
+/**
  * Priority queue for managing concurrent output operations
  *
  * Ensures proper ordering of test output while maintaining performance.
@@ -157,7 +171,9 @@ export class PriorityOutputQueue {
       // Start processing if not already running
       if (!this._processing) {
         // Use setImmediate to allow all enqueue operations to complete first
-        setImmediate(() => this._processQueue())
+        setImmediate(() => {
+          void this._processQueue()
+        })
       }
     })
   }
@@ -333,7 +349,7 @@ export class PriorityOutputQueue {
   /**
    * Get queue statistics
    */
-  getStats() {
+  getStats(): QueueStats {
     return {
       ...this._stats,
       pending: this._operations.length,

@@ -157,8 +157,8 @@ describe('WarmupService', () => {
   describe('pattern detection', () => {
     it('should learn from cache access patterns', async () => {
       // Simulate cache accesses to establish patterns
-      const mockedGet = vi.mocked(mockCache.get)
-      mockedGet
+      const mockedCache = vi.mocked(mockCache)
+      mockedCache.get
         .mockReturnValueOnce('value1')
         .mockReturnValueOnce('value2')
         .mockReturnValueOnce(undefined)
@@ -172,8 +172,8 @@ describe('WarmupService', () => {
 
     it('should prioritize frequently accessed items', async () => {
       // Mock high-frequency access patterns
-      const mockedGetMetrics = vi.mocked(mockCache.getMetrics)
-      mockedGetMetrics.mockReturnValue({
+      const mockedCache = vi.mocked(mockCache)
+      mockedCache.getMetrics.mockReturnValue({
         hitRatio: 90,
         size: 500,
         capacity: 1000,
@@ -188,8 +188,8 @@ describe('WarmupService', () => {
 
     it('should adapt to cache performance metrics', async () => {
       // Mock cache with poor performance
-      const mockedGetMetrics2 = vi.mocked(mockCache.getMetrics)
-      mockedGetMetrics2.mockReturnValue({
+      const mockedCache2 = vi.mocked(mockCache)
+      mockedCache2.getMetrics.mockReturnValue({
         hitRatio: 30,
         size: 100,
         capacity: 1000,
@@ -254,8 +254,8 @@ describe('WarmupService', () => {
   describe('performance optimization', () => {
     it('should optimize warmup based on cache metrics', async () => {
       // Mock cache with specific metrics
-      const mockedGetMetrics3 = vi.mocked(mockCache.getMetrics)
-      mockedGetMetrics3.mockReturnValue({
+      const mockedCache3 = vi.mocked(mockCache)
+      mockedCache3.getMetrics.mockReturnValue({
         hitRatio: 85,
         size: 200,
         capacity: 1000,
@@ -271,8 +271,8 @@ describe('WarmupService', () => {
 
     it('should avoid warming up already hot cache', async () => {
       // Mock cache with very high hit ratio
-      const mockedGetMetrics4 = vi.mocked(mockCache.getMetrics)
-      mockedGetMetrics4.mockReturnValue({
+      const mockedCache4 = vi.mocked(mockCache)
+      mockedCache4.getMetrics.mockReturnValue({
         hitRatio: 98,
         size: 500,
         capacity: 1000,
@@ -289,10 +289,9 @@ describe('WarmupService', () => {
 
     it('should handle cache at capacity', async () => {
       // Mock full cache
-      const mockedSize = vi.mocked(mockCache.size)
-      mockedSize.mockReturnValue(1000)
-      const mockedGetMetrics5 = vi.mocked(mockCache.getMetrics)
-      mockedGetMetrics5.mockReturnValue({
+      const mockedCache5 = vi.mocked(mockCache)
+      mockedCache5.size.mockReturnValue(1000)
+      mockedCache5.getMetrics.mockReturnValue({
         hitRatio: 75,
         size: 1000,
         capacity: 1000,

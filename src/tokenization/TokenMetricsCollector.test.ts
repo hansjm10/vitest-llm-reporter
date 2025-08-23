@@ -4,12 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { TokenMetricsCollector, createTokenMetricsCollector } from './TokenMetricsCollector'
-import type {
-  TokenMetricsConfig,
-  TokenMetrics,
-  TestTokenMetrics,
-  FileTokenMetrics
-} from './metrics/types'
+import type { TokenMetricsConfig, TokenMetrics } from './metrics/types'
 import type { LLMReporterOutput, TestFailure } from '../types/schema'
 import type { LLMReporterConfig } from '../types/reporter'
 
@@ -298,38 +293,38 @@ describe('TokenMetricsCollector', () => {
   })
 
   describe('initialize', () => {
-    it('should initialize collector for collection', async () => {
+    it('should initialize collector for collection', () => {
       collector.initialize()
 
       const context = collector.getContext()
       expect(context.state).toBe('collecting')
     })
 
-    it('should setup aggregators based on configuration', async () => {
+    it('should setup aggregators based on configuration', () => {
       collector.initialize()
 
       expect(collector['aggregator']).toBeDefined()
       expect(collector['streamingAggregator']).toBeDefined()
     })
 
-    it('should setup batch aggregator when batching enabled', async () => {
+    it('should setup batch aggregator when batching enabled', () => {
       const batchCollector = new TokenMetricsCollector({
         ...defaultConfig,
         enableBatching: true
       })
 
-      await batchCollector.initialize()
+      batchCollector.initialize()
 
       expect(batchCollector['batchAggregator']).toBeDefined()
     })
 
-    it('should not setup batch aggregator when batching disabled', async () => {
+    it('should not setup batch aggregator when batching disabled', () => {
       const noBatchCollector = new TokenMetricsCollector({
         ...defaultConfig,
         enableBatching: false
       })
 
-      await noBatchCollector.initialize()
+      noBatchCollector.initialize()
 
       expect(noBatchCollector['batchAggregator']).toBeUndefined()
     })
@@ -354,7 +349,7 @@ describe('TokenMetricsCollector', () => {
             file: 'test.js',
             suite: ['test suite'],
             startLine: 10,
-        endLine: 15,
+            endLine: 15,
             error: {
               message: 'Test failed',
               type: 'AssertionError',
@@ -656,7 +651,7 @@ describe('TokenMetricsCollector', () => {
   })
 
   describe('getCurrentMetrics', () => {
-    it('should return current metrics snapshot', async () => {
+    it('should return current metrics snapshot', () => {
       // Initialize to set up streamingAggregator
       collector.initialize()
       const current = collector.getCurrentMetrics()
@@ -666,10 +661,10 @@ describe('TokenMetricsCollector', () => {
       expect(current.files).toBeDefined()
     })
 
-    it('should use streaming aggregator when available', async () => {
+    it('should use streaming aggregator when available', () => {
       collector.initialize()
 
-      const current = collector.getCurrentMetrics()
+      const _current = collector.getCurrentMetrics()
 
       expect(mockStreamingAggregator.getCurrentSummary).toHaveBeenCalled()
       expect(mockStreamingAggregator.getCurrentFiles).toHaveBeenCalled()
@@ -865,7 +860,7 @@ describe('TokenMetricsCollector', () => {
       expect(stats.errorsCount).toBeGreaterThanOrEqual(0)
     })
 
-    it('should use aggregator stats when available', async () => {
+    it('should use aggregator stats when available', () => {
       collector.initialize()
 
       const stats = collector.getCollectionStats()
@@ -874,12 +869,12 @@ describe('TokenMetricsCollector', () => {
       expect(stats.processingTime).toBeDefined()
     })
 
-    it('should use batch aggregator stats when available', async () => {
+    it('should use batch aggregator stats when available', () => {
       const batchCollector = new TokenMetricsCollector({
         ...defaultConfig,
         enableBatching: true
       })
-      await batchCollector.initialize()
+      batchCollector.initialize()
 
       const stats = batchCollector.getCollectionStats()
 
@@ -933,14 +928,14 @@ describe('TokenMetricsCollector', () => {
   })
 
   describe('content truncation', () => {
-    it('should truncate content exceeding max size', async () => {
+    it('should truncate content exceeding max size', () => {
       const largeContent = 'x'.repeat(60000) // Exceeds default 50000
       const truncated = collector['truncateContent'](largeContent)
 
       expect(truncated.length).toBe(defaultConfig.maxContentSize)
     })
 
-    it('should not truncate content within limits', async () => {
+    it('should not truncate content within limits', () => {
       const normalContent = 'x'.repeat(1000)
       const truncated = collector['truncateContent'](normalContent)
 
@@ -1079,10 +1074,10 @@ describe('TokenMetricsCollector', () => {
           file: 'test.js',
           suite: ['suite'],
           startLine: 10,
-        endLine: 15,
+          endLine: 15,
           error: { message: 'Error', type: 'Error', stack: 'stack' }
         })
-      } catch (error) {
+      } catch (_error) {
         // Expected to throw
       }
 
@@ -1145,7 +1140,14 @@ describe('TokenMetricsCollector', () => {
 
       try {
         await collector.collectFromOutput({
-          summary: { total: 1, failed: 1, passed: 0, skipped: 0, duration: 1000, timestamp: new Date().toISOString() },
+          summary: {
+            total: 1,
+            failed: 1,
+            passed: 0,
+            skipped: 0,
+            duration: 1000,
+            timestamp: new Date().toISOString()
+          },
           failures: [
             {
               test: 'test',
@@ -1157,7 +1159,7 @@ describe('TokenMetricsCollector', () => {
             }
           ]
         })
-      } catch (error) {
+      } catch (_error) {
         // Expected to throw during finalization
       }
 

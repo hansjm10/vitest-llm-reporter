@@ -38,7 +38,7 @@ class ClaudeTokenizer implements ITokenizer {
    * Apply Claude-specific adjustments to token count
    * This is an approximation based on observed differences
    */
-  private adjustTokensForClaude(tokens: number[], originalText: string): number[] {
+  private adjustTokensForClaude(tokens: number[], _originalText: string): number[] {
     // Claude models often have slightly different handling of:
     // 1. Whitespace and newlines
     // 2. Special characters
@@ -71,14 +71,14 @@ export class ClaudeAdapter extends BaseAdapter {
     return [...this.supportedModels]
   }
 
-  protected async createTokenizerImplementation(model: SupportedModel): Promise<ITokenizer> {
+  protected createTokenizerImplementation(model: SupportedModel): ITokenizer {
     try {
       // Use GPT-4's cl100k_base encoding as approximation for Claude
       const encoding = getEncoding('cl100k_base')
       return new ClaudeTokenizer(model, encoding)
     } catch (error) {
       throw new Error(
-        `Failed to initialize Claude tokenizer approximation for model ${model}: ${error}`
+        `Failed to initialize Claude tokenizer approximation for model ${model}: ${String(error)}`
       )
     }
   }

@@ -4,7 +4,7 @@
  * @module streaming/locks.test
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { Mutex, Semaphore, ReadWriteLock } from './locks.js'
 
 describe('Mutex', () => {
@@ -34,7 +34,7 @@ describe('Mutex', () => {
     })
 
     it('should release lock correctly', () => {
-      mutex.acquire('test1')
+      void mutex.acquire('test1')
       expect(mutex.isLocked).toBe(true)
 
       mutex.release('test1')
@@ -355,7 +355,7 @@ describe('ReadWriteLock', () => {
       await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Try to queue more readers - they should wait for the writer
-      const readerPromise = rwLock.acquireRead('reader2')
+      const _readerPromise = rwLock.acquireRead('reader2')
       await new Promise((resolve) => setTimeout(resolve, 10))
 
       expect(rwLock.getStats().writeWaiters).toBe(1)

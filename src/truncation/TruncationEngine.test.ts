@@ -13,12 +13,12 @@ import {
 import type {
   ITruncationStrategy,
   // TruncationContext,
-  TruncationResult,
-  TruncationEngineConfig,
-  TruncationStats
+  // TruncationResult,
+  TruncationEngineConfig
+  // TruncationStats
 } from './types'
 import { ContentType, ContentPriority } from './types'
-import type { SupportedModel } from '../tokenization/types'
+// import type { SupportedModel } from '../tokenization/types'
 import type { TruncationConfig } from '../types/reporter'
 
 // Mock TokenCounter - define outside of vi.mock to avoid hoisting issues
@@ -37,20 +37,20 @@ vi.mock('../tokenization/TokenCounter.js', () => ({
 
 // Mock context utilities
 vi.mock('./context.js', () => ({
-  createTruncationContext: (model: string, contentType: string, options: any = {}) => ({
-    model,
+  createTruncationContext: (_model: string, contentType: string, options: any = {}) => ({
+    model: _model,
     contentType,
     maxTokens: options.maxTokens || 8000,
     priority: options.priority || 'high',
     preserveStructure: options.preserveStructure || false,
     metadata: options.metadata || {}
   }),
-  getEffectiveMaxTokens: (model: string) => 8000,
-  wouldExceedContext: (tokenCount: number, model: string, maxTokens?: number) => {
+  getEffectiveMaxTokens: (_model: string) => 8000,
+  wouldExceedContext: (tokenCount: number, _model: string, maxTokens?: number) => {
     const limit = maxTokens || 8000
     return tokenCount > limit
   },
-  calculateTruncationTarget: (model: string) => 6000
+  calculateTruncationTarget: (_model: string) => 6000
 }))
 
 // Mock priority utilities
@@ -62,23 +62,31 @@ vi.mock('./priorities.js', () => ({
 describe('TruncationEngine', () => {
   let engine: TruncationEngine
   let mockStrategy: ITruncationStrategy
+  let mockTruncate: ReturnType<typeof vi.fn>
+  let mockCanTruncate: ReturnType<typeof vi.fn>
+  let mockEstimateSavings: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
+
+    // Set up mock functions
+    mockCanTruncate = vi.fn().mockReturnValue(true)
+    mockTruncate = vi.fn().mockResolvedValue({
+      content: 'truncated content',
+      tokenCount: 500,
+      tokensSaved: 500,
+      wasTruncated: true,
+      strategyUsed: 'test-strategy'
+    })
+    mockEstimateSavings = vi.fn().mockResolvedValue(500)
 
     // Set up mock strategy
     mockStrategy = {
       name: 'test-strategy',
       priority: 100,
-      canTruncate: vi.fn().mockReturnValue(true),
-      truncate: vi.fn().mockResolvedValue({
-        content: 'truncated content',
-        tokenCount: 500,
-        tokensSaved: 500,
-        wasTruncated: true,
-        strategyUsed: 'test-strategy'
-      }),
-      estimateSavings: vi.fn().mockResolvedValue(500)
+      canTruncate: mockCanTruncate,
+      truncate: mockTruncate,
+      estimateSavings: mockEstimateSavings
     }
 
     engine = new TruncationEngine()
@@ -217,15 +225,16 @@ describe('TruncationEngine', () => {
       expect(result.strategyUsed).toBe('test-strategy')
       expect(result.tokensSaved).toBe(9600) // 10000 - 400
 
-      expect(mockStrategy.truncate).toHaveBeenCalledWith(content, 8000, expect.any(Object))
+      expect(mockTruncate).toHaveBeenCalledWith(content, 8000, expect.any(Object))
     })
 
     it('should try multiple strategies if first fails', async () => {
+      const failingTruncate = vi.fn().mockRejectedValue(new Error('Strategy failed'))
       const failingStrategy: ITruncationStrategy = {
         name: 'failing-strategy',
         priority: 200, // Higher priority
         canTruncate: vi.fn().mockReturnValue(true),
-        truncate: vi.fn().mockRejectedValue(new Error('Strategy failed')),
+        truncate: failingTruncate,
         estimateSavings: vi.fn()
       }
 
@@ -236,19 +245,20 @@ describe('TruncationEngine', () => {
       const content = 'content to truncate'
       const result = await engine.truncate(content, 'gpt-4', ContentType.ERROR)
 
-      expect(failingStrategy.truncate).toHaveBeenCalled()
-      expect(mockStrategy.truncate).toHaveBeenCalled()
+      expect(failingTruncate).toHaveBeenCalled()
+      expect(mockTruncate).toHaveBeenCalled()
       expect(result.strategyUsed).toBe('test-strategy')
     })
 
     it('should respect maxAttempts configuration', async () => {
       const limitedEngine = new TruncationEngine({ maxAttempts: 1 })
 
+      const failingTruncate2 = vi.fn().mockRejectedValue(new Error('Failed'))
       const failingStrategy: ITruncationStrategy = {
         name: 'failing-strategy',
         priority: 200,
         canTruncate: vi.fn().mockReturnValue(true),
-        truncate: vi.fn().mockRejectedValue(new Error('Failed')),
+        truncate: failingTruncate2,
         estimateSavings: vi.fn()
       }
 
@@ -258,24 +268,25 @@ describe('TruncationEngine', () => {
       mockTokenCounter.count.mockResolvedValue(10000)
 
       const content = 'content to truncate'
-      const result = await limitedEngine.truncate(content, 'gpt-4', ContentType.ERROR)
+      const _result = await limitedEngine.truncate(content, 'gpt-4', ContentType.ERROR)
 
-      expect(failingStrategy.truncate).toHaveBeenCalledTimes(1)
-      expect(mockStrategy.truncate).not.toHaveBeenCalled() // Should stop after max attempts
+      expect(failingTruncate2).toHaveBeenCalledTimes(1)
+      expect(mockTruncate).not.toHaveBeenCalled() // Should stop after max attempts
     })
 
     it('should use preferred strategies when specified', async () => {
+      const lowPriorityTruncate = vi.fn().mockResolvedValue({
+        content: 'low priority result',
+        tokenCount: 400,
+        tokensSaved: 600,
+        wasTruncated: true,
+        strategyUsed: 'low-priority'
+      })
       const lowPriorityStrategy: ITruncationStrategy = {
         name: 'low-priority',
         priority: 10, // Lower than test-strategy
         canTruncate: vi.fn().mockReturnValue(true),
-        truncate: vi.fn().mockResolvedValue({
-          content: 'low priority result',
-          tokenCount: 400,
-          tokensSaved: 600,
-          wasTruncated: true,
-          strategyUsed: 'low-priority'
-        }),
+        truncate: lowPriorityTruncate,
         estimateSavings: vi.fn()
       }
 
@@ -287,7 +298,7 @@ describe('TruncationEngine', () => {
         preferredStrategies: ['low-priority']
       })
 
-      expect(lowPriorityStrategy.truncate).toHaveBeenCalled()
+      expect(lowPriorityTruncate).toHaveBeenCalled()
       expect(result.strategyUsed).toBe('low-priority')
     })
 
@@ -366,7 +377,7 @@ describe('TruncationEngine', () => {
 
       await engine.truncate('content', 'gpt-4', ContentType.ERROR, options)
 
-      expect(mockStrategy.truncate).toHaveBeenCalledWith(
+      expect(mockTruncate).toHaveBeenCalledWith(
         'content',
         4000, // Custom maxTokens
         expect.objectContaining({
@@ -587,11 +598,12 @@ describe('TruncationEngine', () => {
 
   describe('strategy selection', () => {
     it('should filter strategies that cannot handle content', async () => {
+      const incompatibleTruncate = vi.fn()
       const incompatibleStrategy: ITruncationStrategy = {
         name: 'incompatible',
         priority: 200,
         canTruncate: vi.fn().mockReturnValue(false), // Cannot handle
-        truncate: vi.fn(),
+        truncate: incompatibleTruncate,
         estimateSavings: vi.fn()
       }
 
@@ -601,22 +613,23 @@ describe('TruncationEngine', () => {
 
       await engine.truncate('content', 'gpt-4', ContentType.ERROR)
 
-      expect(incompatibleStrategy.truncate).not.toHaveBeenCalled()
-      expect(mockStrategy.truncate).toHaveBeenCalled()
+      expect(incompatibleTruncate).not.toHaveBeenCalled()
+      expect(mockTruncate).toHaveBeenCalled()
     })
 
     it('should sort strategies by priority', async () => {
+      const highPriorityTruncate = vi.fn().mockResolvedValue({
+        content: 'high priority result',
+        tokenCount: 400,
+        tokensSaved: 600,
+        wasTruncated: true,
+        strategyUsed: 'high-priority'
+      })
       const highPriorityStrategy: ITruncationStrategy = {
         name: 'high-priority',
         priority: 300,
         canTruncate: vi.fn().mockReturnValue(true),
-        truncate: vi.fn().mockResolvedValue({
-          content: 'high priority result',
-          tokenCount: 400,
-          tokensSaved: 600,
-          wasTruncated: true,
-          strategyUsed: 'high-priority'
-        }),
+        truncate: highPriorityTruncate,
         estimateSavings: vi.fn()
       }
 
@@ -626,7 +639,7 @@ describe('TruncationEngine', () => {
 
       const result = await engine.truncate('content', 'gpt-4', ContentType.ERROR)
 
-      expect(highPriorityStrategy.truncate).toHaveBeenCalled()
+      expect(highPriorityTruncate).toHaveBeenCalled()
       expect(result.strategyUsed).toBe('high-priority')
     })
   })

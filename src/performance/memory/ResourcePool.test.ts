@@ -263,6 +263,9 @@ describe('ResourcePool', () => {
         shrinkPool.optimize()
       }
 
+      // Verify pool still functions after optimization
+      expect(shrinkPool.getStats().size).toBeGreaterThan(0)
+
       shrinkPool.destroy()
     })
 

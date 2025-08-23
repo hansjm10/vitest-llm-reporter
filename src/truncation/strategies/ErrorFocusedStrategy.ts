@@ -7,12 +7,7 @@
  * error context and diagnostic information.
  */
 
-import type {
-  ITruncationStrategy,
-  TruncationContext,
-  TruncationResult,
-  ContentType
-} from '../types'
+import type { ITruncationStrategy, TruncationContext, TruncationResult } from '../types'
 import { getTokenCounter } from '../../tokenization/TokenCounter'
 
 /**
@@ -105,7 +100,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
         wasTruncated: true,
         strategyUsed: this.name
       }
-    } catch (error) {
+    } catch (_error) {
       // Fallback to simple truncation if analysis fails
       const lines = content.split('\n')
       const maxLines = Math.min(15, lines.length)
@@ -170,7 +165,7 @@ export class ErrorFocusedStrategy implements ITruncationStrategy {
     context: TruncationContext
   ): Promise<string> {
     const lines = content.split('\n')
-    const tokenCounter = getTokenCounter()
+    const _tokenCounter = getTokenCounter()
 
     // Identify error-related lines
     const errorLines = this.identifyErrorLines(lines)

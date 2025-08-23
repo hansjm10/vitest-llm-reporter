@@ -6,12 +6,7 @@
  * to score content importance and make informed truncation decisions.
  */
 
-import type {
-  ITruncationStrategy,
-  TruncationContext,
-  TruncationResult,
-  ContentType
-} from '../types'
+import type { ITruncationStrategy, TruncationContext, TruncationResult } from '../types'
 import { getTokenCounter } from '../../tokenization/TokenCounter'
 
 /**
@@ -103,7 +98,7 @@ export class SmartStrategy implements ITruncationStrategy {
         wasTruncated: true,
         strategyUsed: this.name
       }
-    } catch (error) {
+    } catch (_error) {
       // Fallback to simple line-based truncation
       const lines = content.split('\n')
       const maxLines = Math.min(20, lines.length)

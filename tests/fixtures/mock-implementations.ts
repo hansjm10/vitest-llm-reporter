@@ -329,7 +329,10 @@ export class MockPerformanceManager implements IPerformanceManager {
       averageLatency: Math.max(0, this.mockMetrics.averageLatency - 5), // Simulate improvement
       cacheHitRate: Math.min(1, this.mockMetrics.cacheHitRate + 0.1),
       optimizationSavings: this.mockMetrics.optimizationSavings + 10,
-      peakMemoryUsage: Math.max(this.mockMetrics.peakMemoryUsage, 100 + this.mockMetrics.totalOperations * 10), // Simulate memory usage
+      peakMemoryUsage: Math.max(
+        this.mockMetrics.peakMemoryUsage,
+        100 + this.mockMetrics.totalOperations * 10
+      ), // Simulate memory usage
       lastUpdateTime: Date.now()
     }
 

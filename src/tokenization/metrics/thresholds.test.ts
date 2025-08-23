@@ -9,8 +9,6 @@ import {
   resetThresholdManager,
   createModelAwareThresholds,
   type ThresholdSettings,
-  type ThresholdLevel,
-  type ModelLimits,
   type ThresholdConfig
 } from './thresholds'
 import type { SupportedModel, TokenMetricsConfig, MetricSection } from './types'

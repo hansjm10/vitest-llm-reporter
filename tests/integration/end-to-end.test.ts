@@ -202,7 +202,7 @@ describe('End-to-End Integration', () => {
       expect(totalTime).toBeLessThan(5000) // Should complete within 5 seconds
 
       // Optimize performance after high load
-      const optimizationResults = await services.performanceManager.optimize()
+      await services.performanceManager.optimize()
 
       const metrics = services.performanceManager.getMetrics()
       expect(metrics.throughput.operationsPerSecond).toBeGreaterThan(0)
@@ -265,7 +265,9 @@ describe('End-to-End Integration', () => {
       // Verify optimized operation
       expect(deduplicationResult.stats.compressionRatio).toBeLessThan(0.8) // Aggressive deduplication
       expect(services.streamManager.getOperations()).toHaveLength(15)
-      expect(services.performanceManager.getMetrics().overhead.totalOverhead).toBeGreaterThanOrEqual(0)
+      expect(
+        services.performanceManager.getMetrics().overhead.totalOverhead
+      ).toBeGreaterThanOrEqual(0)
     })
 
     it('should handle conflicting configuration requirements', async () => {

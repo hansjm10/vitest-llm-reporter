@@ -9,8 +9,30 @@
 
 import { EventEmitter } from 'events'
 import { coreLogger, errorLogger, perfLogger } from '../utils/logger'
-import { StreamErrorHandler, RecoveryStrategy } from './ErrorHandler'
+import { StreamErrorHandler, RecoveryStrategy, type RecoveryResult } from './ErrorHandler'
 import { OutputPriority, OutputSource } from './queue'
+
+/**
+ * Stream metrics data structure
+ */
+interface StreamMetrics {
+  timestamp: number
+  latency: number
+  queueSize: number
+  memoryUsage: number
+  operationsPerSecond: number
+  errorRate: number
+  circuitBreakerStatus: boolean
+}
+
+/**
+ * Performance history entry
+ */
+interface PerformanceHistoryEntry {
+  timestamp: number
+  latency: number
+  queueSize: number
+}
 
 /**
  * Stream health status
@@ -179,7 +201,7 @@ export class StreamRecovery extends EventEmitter {
   private monitoringData: StreamMonitoringData
   private healthCheckTimer?: NodeJS.Timeout
   private isActive = false
-  private performanceHistory: Array<{ timestamp: number; latency: number; queueSize: number }> = []
+  private performanceHistory: PerformanceHistoryEntry[] = []
   private maxPerformanceHistory = 100
 
   constructor(
@@ -290,7 +312,7 @@ export class StreamRecovery extends EventEmitter {
 
     try {
       // Collect current metrics
-      const metrics = await this.collectMetrics()
+      const metrics = this.collectMetrics()
 
       // Update performance history
       this.updatePerformanceHistory(metrics)
@@ -332,7 +354,7 @@ export class StreamRecovery extends EventEmitter {
   /**
    * Collect current stream metrics
    */
-  private async collectMetrics(): Promise<any> {
+  private collectMetrics(): StreamMetrics {
     // This would collect metrics from the streaming system
     // For now, we'll simulate some basic metrics
     const metrics = {
@@ -370,16 +392,14 @@ export class StreamRecovery extends EventEmitter {
    */
   private calculateErrorRate(): number {
     const stats = this.errorHandler.getStats()
-    const recentErrors = Array.isArray(stats.recentErrors) 
-      ? stats.recentErrors.length 
-      : 0
+    const recentErrors = Array.isArray(stats.recentErrors) ? stats.recentErrors.length : 0
     return recentErrors / 10 // Error rate based on last 10 operations
   }
 
   /**
    * Update performance history
    */
-  private updatePerformanceHistory(metrics: any): void {
+  private updatePerformanceHistory(metrics: StreamMetrics): void {
     this.performanceHistory.push({
       timestamp: metrics.timestamp,
       latency: metrics.latency,
@@ -395,7 +415,7 @@ export class StreamRecovery extends EventEmitter {
   /**
    * Analyze health based on collected metrics
    */
-  private analyzeHealth(metrics: any): StreamHealth {
+  private analyzeHealth(metrics: StreamMetrics): StreamHealth {
     const thresholds = this.healthConfig.performanceThresholds
 
     // Check circuit breaker
@@ -437,7 +457,7 @@ export class StreamRecovery extends EventEmitter {
   /**
    * Update monitoring data with new metrics
    */
-  private updateMonitoringData(metrics: any, newHealth: StreamHealth): void {
+  private updateMonitoringData(metrics: StreamMetrics, newHealth: StreamHealth): void {
     this.monitoringData.performance = {
       averageLatency: this.calculateAverageLatency(),
       queueSize: metrics.queueSize,
@@ -601,10 +621,10 @@ export class StreamRecovery extends EventEmitter {
         this.monitoringData.health = StreamHealth.RECOVERING
         this.emit(StreamRecoveryEvent.RECOVERY_COMPLETED, result)
       } else {
-        await this.handleRecoveryFailure(failureType, result.error)
+        this.handleRecoveryFailure(failureType, result.error || new Error('Recovery failed'))
       }
     } catch (error) {
-      await this.handleRecoveryFailure(
+      this.handleRecoveryFailure(
         failureType,
         error instanceof Error ? error : new Error(String(error))
       )
@@ -641,7 +661,7 @@ export class StreamRecovery extends EventEmitter {
   private async executeRecovery(
     failureType: StreamFailureType,
     strategy: RecoveryStrategy
-  ): Promise<any> {
+  ): Promise<RecoveryResult> {
     // Use the error handler to execute the recovery
     const mockError = new Error(`Stream failure: ${failureType}`)
     const operationContext = {
@@ -657,7 +677,7 @@ export class StreamRecovery extends EventEmitter {
   /**
    * Handle recovery failure
    */
-  private async handleRecoveryFailure(failureType: StreamFailureType, error: Error): Promise<void> {
+  private handleRecoveryFailure(failureType: StreamFailureType, error: Error): void {
     const recovery = this.monitoringData.recovery
     if (!recovery) {
       return
