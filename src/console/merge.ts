@@ -12,6 +12,7 @@ import { createLogger } from '../utils/logger'
 
 export class ConsoleMerger {
   private debug = createLogger('console-merger')
+  private normalizationCache = new Map<string, string>()
 
   /**
    * Merge console outputs from multiple sources
@@ -73,6 +74,9 @@ export class ConsoleMerger {
       this.countEntries(vitestOutput)
     )
 
+    // Clear normalization cache after merge to prevent memory buildup
+    this.normalizationCache.clear()
+
     return cleaned
   }
 
@@ -104,21 +108,37 @@ export class ConsoleMerger {
   /**
    * Normalize a log entry for comparison
    * Removes timestamps and excessive whitespace
+   * Uses caching to avoid re-normalizing the same strings
    *
    * @param log - The log entry to normalize
    * @returns Normalized log entry
    */
   private normalizeLog(log: string): string {
-    return (
-      log
-        // Remove timestamp prefixes like [123ms] or timestamps in general
-        .replace(/^\[\d+(?:ms)?\]\s*/, '')
-        .replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\b/g, '')
-        .replace(/\b\d{13}\b/g, '') // Remove unix timestamps
-        // Normalize whitespace
-        .replace(/\s+/g, ' ')
-        .trim()
-    )
+    // Check cache first
+    const cached = this.normalizationCache.get(log)
+    if (cached !== undefined) {
+      return cached
+    }
+
+    // Limit cache size to prevent memory issues (LRU-style)
+    if (this.normalizationCache.size > 100) {
+      // Remove oldest entries (first 20)
+      const keysToDelete = Array.from(this.normalizationCache.keys()).slice(0, 20)
+      keysToDelete.forEach((key) => this.normalizationCache.delete(key))
+    }
+
+    const normalized = log
+      // Remove timestamp prefixes like [123ms] or timestamps in general
+      .replace(/^\[\d+(?:ms)?\]\s*/, '')
+      .replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\b/g, '')
+      .replace(/\b\d{13}\b/g, '') // Remove unix timestamps
+      // Normalize whitespace
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    // Store in cache
+    this.normalizationCache.set(log, normalized)
+    return normalized
   }
 
   /**
@@ -129,7 +149,7 @@ export class ConsoleMerger {
    * @returns True if logs are similar enough to be duplicates
    */
   private areSimilar(log1: string, log2: string): boolean {
-    // Exact match after normalization
+    // Exact match after normalization (fast path)
     if (log1 === log2) {
       return true
     }
@@ -139,9 +159,63 @@ export class ConsoleMerger {
       return true
     }
 
-    // Could add more sophisticated similarity checks here (e.g., Levenshtein distance)
-    // but for now, keep it simple
-    return false
+    // Fuzzy matching using Levenshtein distance
+    // Use 85% similarity threshold (0.85)
+    const maxLen = Math.max(log1.length, log2.length)
+    if (maxLen === 0) {
+      return true // Both empty strings
+    }
+
+    const distance = this.levenshteinDistance(log1, log2)
+    const similarity = 1 - distance / maxLen
+
+    // Consider strings similar if they have 85% or higher similarity
+    return similarity >= 0.85
+  }
+
+  /**
+   * Calculate Levenshtein distance between two strings
+   * Uses optimized two-row dynamic programming approach
+   *
+   * @param str1 - First string
+   * @param str2 - Second string
+   * @returns Edit distance between the strings
+   */
+  private levenshteinDistance(str1: string, str2: string): number {
+    // Handle edge cases
+    if (str1 === str2) return 0
+    if (str1.length === 0) return str2.length
+    if (str2.length === 0) return str1.length
+
+    // Ensure str1 is the shorter string for memory optimization
+    if (str1.length > str2.length) {
+      ;[str1, str2] = [str2, str1]
+    }
+
+    const len1 = str1.length
+    const len2 = str2.length
+
+    // Use two rows instead of full matrix to save memory
+    let prevRow = Array.from({ length: len1 + 1 }, (_, i) => i)
+    let currRow = new Array<number>(len1 + 1)
+
+    for (let j = 1; j <= len2; j++) {
+      currRow[0] = j
+      for (let i = 1; i <= len1; i++) {
+        const cost = str1[i - 1] === str2[j - 1] ? 0 : 1
+        currRow[i] = Math.min(
+          currRow[i - 1] + 1, // Insertion
+          prevRow[i] + 1, // Deletion
+          prevRow[i - 1] + cost // Substitution
+        )
+      }
+      // Swap rows
+      const temp = prevRow
+      prevRow = currRow
+      currRow = temp
+    }
+
+    return prevRow[len1]
   }
 
   /**
