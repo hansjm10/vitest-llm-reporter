@@ -17,7 +17,10 @@ const mockStderr = {
   write: vi.fn()
 }
 
+// Preserve the original process object and only override stdout/stderr
+const originalProcess = process
 vi.stubGlobal('process', {
+  ...originalProcess,
   stdout: mockStdout,
   stderr: mockStderr
 })

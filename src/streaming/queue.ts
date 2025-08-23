@@ -422,8 +422,18 @@ export class TestOutputQueue extends PriorityOutputQueue {
     const testKey = `${testFile}::${testName}`
     this._activeTests.delete(testKey)
 
-    // Wait for any pending operations for this test
+    // Wait for any pending operations for this test with timeout
+    const maxWaitTime = 5000 // 5 seconds max wait
+    const startTime = Date.now()
+    
     while (this._operations.some((op) => op.testFile === testFile && op.testName === testName)) {
+      if (Date.now() - startTime > maxWaitTime) {
+        // Timeout - force clear any remaining operations for this test
+        this._operations = this._operations.filter(
+          (op) => !(op.testFile === testFile && op.testName === testName)
+        )
+        break
+      }
       await new Promise((resolve) => setTimeout(resolve, 10))
     }
   }

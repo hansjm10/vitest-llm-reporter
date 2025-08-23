@@ -59,7 +59,7 @@ export class GPTAdapter extends BaseAdapter {
     return [...this.supportedModels]
   }
 
-  protected createTokenizerImplementation(model: SupportedModel): ITokenizer {
+  protected async createTokenizerImplementation(model: SupportedModel): Promise<ITokenizer> {
     const encodingName = GPT_MODEL_ENCODING_MAP[model]
     if (!encodingName) {
       throw new Error(`No encoding mapping found for GPT model: ${model}`)

@@ -17,7 +17,7 @@ import { OutputWriter } from '../output/OutputWriter'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { detectEnvironment } from '../utils/environment'
 import { detectTerminalCapabilities, type TerminalCapabilities } from '../utils/terminal'
-import { StreamErrorHandler, StreamErrorType, RecoveryStrategy } from './ErrorHandler'
+import { StreamErrorHandler, StreamErrorType, StreamErrorSeverity, RecoveryStrategy } from './ErrorHandler'
 import { StreamRecovery, StreamHealth, StreamFailureType } from './StreamRecovery'
 import { StreamingDiagnostics } from './diagnostics'
 
@@ -317,7 +317,7 @@ export class ReporterStreamIntegration {
       // Track the error
       this.diagnostics.trackOperationError(operationId, {
         type: StreamErrorType.EXECUTION,
-        severity: 'error' in result ? 'high' : 'normal',
+        severity: 'error' in result ? StreamErrorSeverity.HIGH : StreamErrorSeverity.NORMAL,
         source: {
           operation: 'streamTestResult',
           priority: 'error' in result ? OutputPriority.HIGH : OutputPriority.NORMAL,

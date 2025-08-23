@@ -37,7 +37,7 @@ export class StreamManager extends EventEmitter implements IStreamManager {
   private operationQueue: StreamOperation[] = []
   private flushTimer?: NodeJS.Timeout
 
-  initialize(config: StreamConfig): void {
+  async initialize(config: StreamConfig): Promise<void> {
     this.config = { ...DEFAULT_CONFIG, ...config }
     this.initialized = this.config.enabled
 
@@ -50,7 +50,7 @@ export class StreamManager extends EventEmitter implements IStreamManager {
     }
   }
 
-  write(operation: StreamOperation): void {
+  async write(operation: StreamOperation): Promise<void> {
     if (!this.isReady()) {
       this.debug('StreamManager not ready, skipping write operation')
       return
@@ -72,7 +72,7 @@ export class StreamManager extends EventEmitter implements IStreamManager {
     this.emitEvent('stream_data', operation)
   }
 
-  flush(): void {
+  async flush(): Promise<void> {
     if (!this.isReady()) {
       return
     }
@@ -118,14 +118,14 @@ export class StreamManager extends EventEmitter implements IStreamManager {
     return this.initialized && this.config.enabled
   }
 
-  close(): void {
+  async close(): Promise<void> {
     if (this.flushTimer) {
       clearInterval(this.flushTimer)
       this.flushTimer = undefined
     }
 
     // Flush any remaining operations
-    this.flush()
+    await this.flush()
 
     this.initialized = false
     this.emitEvent('stream_end', {})

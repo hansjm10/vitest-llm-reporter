@@ -584,6 +584,11 @@ describe('ResourcePool', () => {
     })
 
     it('should limit memory growth', () => {
+      // Skip test if process.memoryUsage is not available
+      if (typeof process?.memoryUsage !== 'function') {
+        return
+      }
+      
       const initialMemory = process.memoryUsage().heapUsed
 
       // Perform many operations

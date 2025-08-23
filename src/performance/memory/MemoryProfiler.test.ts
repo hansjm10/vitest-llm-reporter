@@ -430,6 +430,11 @@ describe('MemoryProfiler', () => {
     })
 
     it('should limit memory usage of profiler itself', () => {
+      // Skip test if process.memoryUsage is not available
+      if (typeof process?.memoryUsage !== 'function') {
+        return
+      }
+      
       const initialMemory = process.memoryUsage().heapUsed
 
       // Record many snapshots

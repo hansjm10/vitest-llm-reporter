@@ -416,6 +416,11 @@ describe('WarmupService', () => {
     })
 
     it('should not consume excessive memory during warmup', async () => {
+      // Skip test if process.memoryUsage is not available
+      if (typeof process?.memoryUsage !== 'function') {
+        return
+      }
+      
       // This test is more conceptual - in real scenarios you'd monitor memory usage
       const initialMemory = process.memoryUsage().heapUsed
 

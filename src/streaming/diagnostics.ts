@@ -470,6 +470,11 @@ export class StreamingDiagnostics {
       return
     }
 
+    // Check if process.memoryUsage is available (may not be in test environment)
+    if (typeof process?.memoryUsage !== 'function') {
+      return
+    }
+
     const memUsage = process.memoryUsage()
     const now = Date.now()
 
@@ -809,8 +814,8 @@ export class StreamingDiagnostics {
       operationCount: this.operationCounter,
       activeOperations: this.activeOperations.size,
       errorCount: this.errorHistory.length,
-      performanceHistory: this.performanceHistory.length,
-      config: this.config
+      eventCount: this.operationHistory.length,
+      history: this.operationHistory
     }
   }
 

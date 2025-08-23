@@ -322,7 +322,19 @@ export class StreamingReporter extends LLMReporter {
    * Get streaming statistics
    */
   getStreamingStats(): StreamingStats | null {
-    return (this.streamIntegration?.getStats() as StreamingStats) || null
+    if (!this.streamIntegration) {
+      return null
+    }
+    
+    const stats = this.streamIntegration.getStats()
+    
+    // Convert to StreamingStats format
+    return {
+      eventsProcessed: stats.testCounts.passed + stats.testCounts.failed + stats.testCounts.skipped,
+      testCount: stats.testCounts.passed + stats.testCounts.failed + stats.testCounts.skipped,
+      startTime: Date.now() - stats.duration,
+      endTime: stats.isActive ? undefined : Date.now()
+    }
   }
 
   /**

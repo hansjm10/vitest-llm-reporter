@@ -85,6 +85,7 @@ export class MetricsCollector implements IMetricsCollector {
   }
   private debug = coreLogger()
   private debugError = errorLogger()
+  private memoryMonitorTimer?: NodeJS.Timeout
 
   constructor(config: Required<PerformanceConfig>) {
     this.config = config
@@ -117,6 +118,13 @@ export class MetricsCollector implements IMetricsCollector {
     }
 
     this.isCollecting = false
+    
+    // Clear memory monitoring timer
+    if (this.memoryMonitorTimer) {
+      clearTimeout(this.memoryMonitorTimer)
+      this.memoryMonitorTimer = undefined
+    }
+    
     this.debug('Metrics collection stopped')
   }
 
@@ -557,10 +565,12 @@ export class MetricsCollector implements IMetricsCollector {
         this.debugError('Memory monitoring error: %O', error)
       }
 
-      setTimeout(monitor, interval)
+      // Store the timer reference so we can clear it later
+      this.memoryMonitorTimer = setTimeout(monitor, interval)
     }
 
-    setTimeout(monitor, interval)
+    // Store the initial timer reference
+    this.memoryMonitorTimer = setTimeout(monitor, interval)
   }
 
   /**

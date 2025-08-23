@@ -71,7 +71,7 @@ export class ClaudeAdapter extends BaseAdapter {
     return [...this.supportedModels]
   }
 
-  protected createTokenizerImplementation(model: SupportedModel): ITokenizer {
+  protected async createTokenizerImplementation(model: SupportedModel): Promise<ITokenizer> {
     try {
       // Use GPT-4's cl100k_base encoding as approximation for Claude
       const encoding = getEncoding('cl100k_base')

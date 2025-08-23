@@ -38,6 +38,10 @@ export class MemoryProfiler {
     if (!this.config.enableProfiling) return
 
     try {
+      // Check if process.memoryUsage is available
+      if (typeof process?.memoryUsage !== 'function') {
+        return
+      }
       const memUsage = process.memoryUsage()
       const snapshot: MemorySnapshot = {
         timestamp: Date.now(),
@@ -64,6 +68,10 @@ export class MemoryProfiler {
     if (!this.config.enableProfiling) return
 
     try {
+      // Check if process.memoryUsage is available
+      if (typeof process?.memoryUsage !== 'function') {
+        return
+      }
       // Record current snapshot
       const memUsage = process.memoryUsage()
       this.recordSnapshot({

@@ -211,7 +211,7 @@ export class TokenMetricsCollector {
     logger(`Processing test: ${testId}`)
 
     try {
-      const sections = await this.extractTestSections(testData, customSections)
+      const sections = this.extractTestSections(testData, customSections)
       const sectionMetrics = await this.countSectionTokens(sections)
 
       const totalTokens = Object.values(sectionMetrics).reduce(
@@ -453,7 +453,7 @@ export class TokenMetricsCollector {
         cacheMisses: 0,
         processingTime: 0,
         averageProcessingTime: 0,
-        memoryUsage: process.memoryUsage().heapUsed,
+        memoryUsage: typeof process?.memoryUsage === 'function' ? process.memoryUsage().heapUsed : 0,
         warningsCount: this.warningSystem.getWarnings().length,
         errorsCount: this.warningSystem.getErrors().length
       }
@@ -514,7 +514,7 @@ export class TokenMetricsCollector {
   private extractTestSections(
     testData: TestFailure | TestResult,
     customSections?: Record<string, string>
-  ): Promise<Record<MetricSection, string>> {
+  ): Record<MetricSection, string> {
     const sections: Record<MetricSection, string> = {
       summary: '', // Test basic info
       testCases: testData.test,

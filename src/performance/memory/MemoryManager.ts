@@ -83,7 +83,7 @@ interface ConsoleOutputPoolObject {
  */
 export class MemoryManager implements IMemoryManager {
   private readonly config: Required<MemoryConfig>
-  private readonly pools: Map<string, ResourcePool<unknown>>
+  private readonly pools: Map<string, ResourcePool<any>>
   private readonly profiler: MemoryProfiler
   private readonly thresholds: MemoryThresholds
   private readonly allocationTracker: AllocationTracker
@@ -238,19 +238,19 @@ export class MemoryManager implements IMemoryManager {
         name: 'pool_cleanup',
         priority: 1,
         estimatedSavings: 5 * 1024 * 1024, // 5MB
-        execute: () => this.cleanupPools()
+        execute: async () => this.cleanupPools()
       },
       {
         name: 'allocation_cleanup',
         priority: 2,
         estimatedSavings: 10 * 1024 * 1024, // 10MB
-        execute: () => this.cleanupAllocations()
+        execute: async () => this.cleanupAllocations()
       },
       {
         name: 'force_gc',
         priority: 3,
         estimatedSavings: 20 * 1024 * 1024, // 20MB
-        execute: () => this.forceGarbageCollection()
+        execute: async () => this.forceGarbageCollection()
       },
       {
         name: 'profiler_cleanup',
@@ -296,6 +296,10 @@ export class MemoryManager implements IMemoryManager {
    */
   getUsage(): MemoryMetrics {
     try {
+      // Check if process.memoryUsage is available
+      if (typeof process?.memoryUsage !== 'function') {
+        return this.createEmptyMemoryMetrics()
+      }
       const memUsage = process.memoryUsage()
       const currentUsage = memUsage.heapUsed
       const totalMemory = this.getTotalSystemMemory()
@@ -330,6 +334,10 @@ export class MemoryManager implements IMemoryManager {
    * Check current memory pressure level
    */
   checkPressure(): MemoryPressureLevel {
+    // Check if process.memoryUsage is available
+    if (typeof process?.memoryUsage !== 'function') {
+      return 'low'
+    }
     const currentUsage = process.memoryUsage().heapUsed
     return this.calculatePressureLevel(currentUsage)
   }
@@ -536,6 +544,10 @@ export class MemoryManager implements IMemoryManager {
    * Force garbage collection
    */
   private forceGarbageCollection(): number {
+    // Check if process.memoryUsage is available
+    if (typeof process?.memoryUsage !== 'function') {
+      return 0
+    }
     const beforeUsage = process.memoryUsage().heapUsed
 
     if (global.gc) {

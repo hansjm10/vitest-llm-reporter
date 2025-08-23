@@ -480,9 +480,9 @@ export class OutputSynchronizer {
    * Detect deadlock conditions
    */
   private _detectDeadlockConditions(
-    outputStats: Record<string, unknown>,
-    registryStats: Record<string, unknown>,
-    queueStats: Record<string, unknown>
+    outputStats: any,
+    registryStats: any,
+    queueStats: any
   ): boolean {
     // Check for long-running locks
     // Output mutex held too long
@@ -650,7 +650,8 @@ export class OutputSynchronizer {
    * Get diagnostics report
    */
   getDiagnosticsReport(): Record<string, unknown> | null {
-    return this._diagnostics?.generateReport() || null
+    const report = this._diagnostics?.generateReport()
+    return report ? (report as unknown as Record<string, unknown>) : null
   }
 
   /**
