@@ -338,7 +338,7 @@ export class MemoryManager implements IMemoryManager {
     if (typeof process?.memoryUsage !== 'function') {
       return 'low'
     }
-    const currentUsage = process.memoryUsage().heapUsed
+    const currentUsage = process?.memoryUsage?.()?.heapUsed || 0
     return this.calculatePressureLevel(currentUsage)
   }
 
@@ -548,14 +548,14 @@ export class MemoryManager implements IMemoryManager {
     if (typeof process?.memoryUsage !== 'function') {
       return 0
     }
-    const beforeUsage = process.memoryUsage().heapUsed
+    const beforeUsage = process?.memoryUsage?.()?.heapUsed || 0
 
     if (global.gc) {
       global.gc()
       this.gcCount++
       this.lastGCTime = Date.now()
 
-      const afterUsage = process.memoryUsage().heapUsed
+      const afterUsage = process?.memoryUsage?.()?.heapUsed || 0
       const saved = beforeUsage - afterUsage
 
       this.debug('Forced GC saved %d bytes', saved)

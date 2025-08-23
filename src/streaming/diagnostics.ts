@@ -697,7 +697,7 @@ export class StreamingDiagnostics {
     // Get latest performance metrics
     const latestPerf = this.performanceHistory[this.performanceHistory.length - 1] || {
       timestamp: now,
-      memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024,
+      memoryUsage: (process?.memoryUsage?.()?.heapUsed || 0) / 1024 / 1024,
       queueMetrics: { currentSize: 0, maxSize: 0, throughput: 0 },
       latencyMetrics: { average: 0, p95: 0, p99: 0, max: 0 },
       errorMetrics: { totalErrors: 0, errorRate: 0, errorsByType: {} }

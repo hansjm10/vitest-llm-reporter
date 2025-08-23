@@ -435,14 +435,14 @@ describe('MemoryProfiler', () => {
         return
       }
       
-      const initialMemory = process.memoryUsage().heapUsed
+      const initialMemory = process?.memoryUsage?.()?.heapUsed || 0
 
       // Record many snapshots
       for (let i = 0; i < 10000; i++) {
         profiler.recordSnapshot(mockMemoryMetrics)
       }
 
-      const finalMemory = process.memoryUsage().heapUsed
+      const finalMemory = process?.memoryUsage?.()?.heapUsed || 0
       const profilerMemoryUsage = finalMemory - initialMemory
 
       // Profiler itself shouldn't use excessive memory (adjust threshold as needed)

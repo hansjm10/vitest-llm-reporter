@@ -453,7 +453,7 @@ export class TokenMetricsCollector {
         cacheMisses: 0,
         processingTime: 0,
         averageProcessingTime: 0,
-        memoryUsage: typeof process?.memoryUsage === 'function' ? process.memoryUsage().heapUsed : 0,
+        memoryUsage: typeof process?.memoryUsage === 'function' ? process?.memoryUsage?.()?.heapUsed || 0 : 0,
         warningsCount: this.warningSystem.getWarnings().length,
         errorsCount: this.warningSystem.getErrors().length
       }

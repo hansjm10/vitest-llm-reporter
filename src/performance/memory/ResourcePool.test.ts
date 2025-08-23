@@ -589,7 +589,7 @@ describe('ResourcePool', () => {
         return
       }
       
-      const initialMemory = process.memoryUsage().heapUsed
+      const initialMemory = process?.memoryUsage?.()?.heapUsed || 0
 
       // Perform many operations
       for (let i = 0; i < 1000; i++) {
@@ -597,7 +597,7 @@ describe('ResourcePool', () => {
         if (obj) pool.release(obj)
       }
 
-      const finalMemory = process.memoryUsage().heapUsed
+      const finalMemory = process?.memoryUsage?.()?.heapUsed || 0
       const memoryIncrease = finalMemory - initialMemory
 
       // Should not cause excessive memory growth

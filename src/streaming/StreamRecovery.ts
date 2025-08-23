@@ -361,7 +361,7 @@ export class StreamRecovery extends EventEmitter {
       timestamp: Date.now(),
       latency: Math.random() * 500, // Simulated latency
       queueSize: Math.floor(Math.random() * 50), // Simulated queue size
-      memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024, // Actual memory usage in MB
+      memoryUsage: (process?.memoryUsage?.()?.heapUsed || 0) / 1024 / 1024, // Actual memory usage in MB
       operationsPerSecond: this.calculateOperationsPerSecond(),
       errorRate: this.calculateErrorRate(),
       circuitBreakerStatus: this.monitoringData.circuitBreaker.isOpen

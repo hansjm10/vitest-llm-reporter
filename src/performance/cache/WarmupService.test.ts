@@ -422,11 +422,11 @@ describe('WarmupService', () => {
       }
       
       // This test is more conceptual - in real scenarios you'd monitor memory usage
-      const initialMemory = process.memoryUsage().heapUsed
+      const initialMemory = process?.memoryUsage?.()?.heapUsed || 0
 
       await warmupService.warmupCache('memory-cache', mockCache)
 
-      const finalMemory = process.memoryUsage().heapUsed
+      const finalMemory = process?.memoryUsage?.()?.heapUsed || 0
       const memoryIncrease = finalMemory - initialMemory
 
       // Should not increase memory by more than 10MB (adjust as needed)

@@ -4,7 +4,7 @@
  * @module streaming/locks.test
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { Mutex, Semaphore, ReadWriteLock } from './locks.js'
 
 describe('Mutex', () => {
@@ -213,6 +213,27 @@ describe('ReadWriteLock', () => {
 
   beforeEach(() => {
     rwLock = new ReadWriteLock({ timeout: 1000 })
+  })
+
+  afterEach(() => {
+    // Force release any held locks to prevent hanging tests
+    const stats = rwLock.getStats()
+    if (stats.writing) {
+      try {
+        rwLock.releaseWrite()
+      } catch {
+        // Ignore errors if lock wasn't properly acquired
+      }
+    }
+    while (stats.readers > 0) {
+      try {
+        rwLock.releaseRead()
+        stats.readers--
+      } catch {
+        // Ignore errors if lock wasn't properly acquired
+        break
+      }
+    }
   })
 
   describe('read operations', () => {

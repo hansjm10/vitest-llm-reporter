@@ -449,7 +449,7 @@ describe('PriorityQueue', () => {
     })
 
     it('should limit memory usage', () => {
-      const initialMemory = process.memoryUsage().heapUsed
+      const initialMemory = process?.memoryUsage?.()?.heapUsed || 0
 
       // Add and remove many items
       for (let i = 0; i < 10000; i++) {
@@ -459,7 +459,7 @@ describe('PriorityQueue', () => {
         }
       }
 
-      const finalMemory = process.memoryUsage().heapUsed
+      const finalMemory = process?.memoryUsage?.()?.heapUsed || 0
       const memoryIncrease = finalMemory - initialMemory
 
       // Should not consume excessive memory
