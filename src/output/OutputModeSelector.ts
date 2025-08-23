@@ -10,7 +10,6 @@
 
 import { FileOutputStrategy } from './strategies/FileOutputStrategy.js'
 import { ConsoleOutputStrategy } from './strategies/ConsoleOutputStrategy.js'
-import { DualOutputStrategy } from './strategies/DualOutputStrategy.js'
 import { OutputValidator } from './validators/OutputValidator.js'
 import { detectEnvironment } from '../utils/environment.js'
 import { createLogger } from '../utils/logger.js'
@@ -24,51 +23,11 @@ import type {
   OutputModeSelectionConfig,
   OutputModeConfig,
   ConfigurationSource,
-  EnvironmentOutputPreferences,
-  StreamOutputConfig
+  EnvironmentOutputPreferences
 } from '../types/output-modes.js'
 
 const logger = createLogger('output-mode-selector')
 
-/**
- * Stream output strategy (placeholder implementation)
- * This would be implemented when streaming functionality is added
- */
-class StreamOutputStrategy implements OutputStrategy {
-  private config: StreamOutputConfig
-  private fallbackStrategy?: OutputStrategy
-
-  constructor(config: StreamOutputConfig) {
-    this.config = config
-    // For now, use console as fallback for stream mode
-    this.fallbackStrategy = new ConsoleOutputStrategy({
-      stream: config.target === 'file' ? 'stdout' : 'stdout',
-      formatting: { spaces: 2 }
-    })
-  }
-
-  public canExecute(): boolean {
-    return this.fallbackStrategy?.canExecute() ?? false
-  }
-
-  public async initialize(): Promise<void> {
-    if (this.fallbackStrategy) {
-      await this.fallbackStrategy.initialize()
-    }
-  }
-
-  public async write(data: LLMReporterOutput): Promise<void> {
-    if (this.fallbackStrategy) {
-      await this.fallbackStrategy.write(data)
-    }
-  }
-
-  public async close(): Promise<void> {
-    if (this.fallbackStrategy) {
-      await this.fallbackStrategy.close()
-    }
-  }
-}
 
 /**
  * Output Mode Selector
@@ -237,7 +196,7 @@ export class OutputModeSelector {
   private tryFallbackChain(): OutputModeSelection {
     logger('Starting fallback chain')
 
-    const fallbackOrder: OutputMode[] = ['console', 'file', 'dual', 'stream']
+    const fallbackOrder: OutputMode[] = ['console', 'file']
 
     for (const mode of fallbackOrder) {
       logger('Trying fallback mode: %s', mode)
@@ -303,32 +262,6 @@ export class OutputModeSelector {
           }
         }
 
-      case 'dual':
-        return {
-          mode: 'dual',
-          config: {
-            file: {
-              filePath: this.getDefaultFilePath(),
-              ...this.config.fileConfig
-            },
-            console: {
-              stream: 'stdout',
-              formatting: { spaces: 2 },
-              ...this.config.consoleConfig
-            },
-            ...this.config.dualConfig
-          }
-        }
-
-      case 'stream':
-        return {
-          mode: 'stream',
-          config: {
-            realTime: true,
-            target: 'console',
-            ...this.config.streamConfig
-          }
-        }
 
       default:
         throw new Error(`Unsupported output mode: ${mode as string}`)
@@ -345,12 +278,6 @@ export class OutputModeSelector {
 
       case 'console':
         return new ConsoleOutputStrategy(config.config)
-
-      case 'dual':
-        return new DualOutputStrategy(config.config)
-
-      case 'stream':
-        return new StreamOutputStrategy(config.config)
 
       default:
         throw new Error(`Cannot create strategy for mode: ${mode}`)

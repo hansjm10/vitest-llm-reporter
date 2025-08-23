@@ -34,8 +34,6 @@ export interface LLMReporterConfig {
   streamingMode?: boolean
   /** Enable token counting for test results (default: false) */
   tokenCountingEnabled?: boolean
-  /** Output format for the reporter (default: 'json') */
-  outputFormat?: 'json' | 'jsonl' | 'markdown'
   /** Maximum number of tokens to include in output (default: undefined) */
   maxTokens?: number
   /** Model to use for token counting (default: 'gpt-4') */

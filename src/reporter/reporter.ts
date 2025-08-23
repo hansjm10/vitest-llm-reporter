@@ -26,7 +26,6 @@ interface ResolvedLLMReporterConfig
   includeDebugOutput: boolean
   streamingMode: boolean
   tokenCountingEnabled: boolean
-  outputFormat: 'json' | 'jsonl' | 'markdown'
   maxTokens: number | undefined
   tokenCountingModel: string
   enableStreaming: boolean
@@ -96,7 +95,6 @@ export class LLMReporter implements Reporter {
       includeDebugOutput: config.includeDebugOutput ?? false,
       streamingMode: config.streamingMode ?? false,
       tokenCountingEnabled: config.tokenCountingEnabled ?? false,
-      outputFormat: config.outputFormat ?? 'json',
       maxTokens: config.maxTokens ?? undefined,
       tokenCountingModel: config.tokenCountingModel ?? 'gpt-4',
       enableStreaming: shouldEnableStreaming,
@@ -191,12 +189,6 @@ export class LLMReporter implements Reporter {
     }
     if (config.maxTokens !== undefined && config.maxTokens < 0) {
       throw new Error('maxTokens must be a positive number')
-    }
-    if (
-      config.outputFormat !== undefined &&
-      !['json', 'jsonl', 'markdown'].includes(config.outputFormat)
-    ) {
-      throw new Error('outputFormat must be one of: json, jsonl, markdown')
     }
     if (config.tokenCountingModel !== undefined && typeof config.tokenCountingModel !== 'string') {
       throw new Error('tokenCountingModel must be a string')

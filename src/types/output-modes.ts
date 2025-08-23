@@ -9,12 +9,11 @@
 
 import type { FileOutputConfig } from '../output/strategies/FileOutputStrategy.js'
 import type { ConsoleOutputConfig } from '../output/strategies/ConsoleOutputStrategy.js'
-import type { DualOutputConfig } from '../output/strategies/DualOutputStrategy.js'
 
 /**
  * Available output modes for the reporter
  */
-export type OutputMode = 'file' | 'console' | 'dual' | 'stream'
+export type OutputMode = 'file' | 'console'
 
 /**
  * Output mode selection priorities
@@ -51,27 +50,6 @@ export interface OutputModeSelection {
 export type OutputModeConfig =
   | { mode: 'file'; config: FileOutputConfig }
   | { mode: 'console'; config: ConsoleOutputConfig }
-  | { mode: 'dual'; config: DualOutputConfig }
-  | { mode: 'stream'; config: StreamOutputConfig }
-
-/**
- * Stream output configuration (placeholder for streaming functionality)
- */
-export interface StreamOutputConfig {
-  /** Enable real-time streaming */
-  realTime?: boolean
-  /** Buffer size for stream output */
-  bufferSize?: number
-  /** Stream target (console or file) */
-  target?: 'console' | 'file'
-  /** Additional stream-specific options */
-  options?: {
-    /** Flush interval in milliseconds */
-    flushInterval?: number
-    /** Maximum concurrent streams */
-    maxConcurrentStreams?: number
-  }
-}
 
 /**
  * Environment-based output preferences
@@ -99,10 +77,6 @@ export interface OutputModeSelectionConfig {
   fileConfig?: FileOutputConfig
   /** Console output configuration */
   consoleConfig?: ConsoleOutputConfig
-  /** Dual output configuration */
-  dualConfig?: Omit<DualOutputConfig, 'file' | 'console'>
-  /** Stream output configuration */
-  streamConfig?: StreamOutputConfig
   /** Enable strict mode (fail if preferred mode unavailable) */
   strictMode?: boolean
   /** Enable fallback chain on failures */

@@ -39,7 +39,6 @@ describe('LLMReporter', () => {
         includeDebugOutput: false,
         streamingMode: false,
         tokenCountingEnabled: false,
-        outputFormat: 'json',
         maxTokens: undefined,
         tokenCountingModel: 'gpt-4',
         enableStreaming: false,
@@ -77,14 +76,12 @@ describe('LLMReporter', () => {
       const customReporter = new LLMReporter({
         streamingMode: true,
         tokenCountingEnabled: true,
-        outputFormat: 'jsonl',
         maxTokens: 4000,
         tokenCountingModel: 'gpt-3.5-turbo'
       })
       expect(customReporter.getConfig()).toMatchObject({
         streamingMode: true,
         tokenCountingEnabled: true,
-        outputFormat: 'jsonl',
         maxTokens: 4000,
         tokenCountingModel: 'gpt-3.5-turbo'
       })
@@ -643,12 +640,6 @@ describe('LLMReporter', () => {
       )
     })
 
-    it('should validate outputFormat is valid', () => {
-      expect(() => new LLMReporter({ outputFormat: 'invalid' as any })).toThrow(
-        'outputFormat must be one of: json, jsonl, markdown'
-      )
-    })
-
     it('should validate tokenCountingModel is a string', () => {
       expect(() => new LLMReporter({ tokenCountingModel: 123 as any })).toThrow(
         'tokenCountingModel must be a string'
@@ -659,12 +650,6 @@ describe('LLMReporter', () => {
       expect(() => new LLMReporter({ maxTokens: 0 })).not.toThrow()
       expect(() => new LLMReporter({ maxTokens: 4000 })).not.toThrow()
       expect(() => new LLMReporter({ maxTokens: undefined })).not.toThrow()
-    })
-
-    it('should allow valid outputFormat values', () => {
-      expect(() => new LLMReporter({ outputFormat: 'json' })).not.toThrow()
-      expect(() => new LLMReporter({ outputFormat: 'jsonl' })).not.toThrow()
-      expect(() => new LLMReporter({ outputFormat: 'markdown' })).not.toThrow()
     })
   })
 
