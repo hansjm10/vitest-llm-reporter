@@ -8,7 +8,7 @@
  */
 
 import type { DeduplicationConfig } from './deduplication'
-import type { PerformanceConfig } from '../performance/types'
+import type { PerformanceConfig } from '../monitoring/types'
 
 /**
  * Configuration options for the LLM Reporter

@@ -19,7 +19,7 @@ import {
   PerformanceManager,
   createPerformanceManager,
   type PerformanceConfig
-} from '../performance'
+} from '../monitoring'
 
 /**
  * Processing options

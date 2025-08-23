@@ -31,7 +31,7 @@ interface ResolvedLLMReporterConfig
   tokenCountingModel: string
   enableStreaming: boolean
   streaming: Required<StreamingConfig>
-  performance: Required<PerformanceConfig>
+  performance: Required<MonitoringConfig>
 }
 
 // Import new components
@@ -48,8 +48,9 @@ import { detectEnvironment, hasTTY } from '../utils/environment'
 import {
   PerformanceManager,
   createPerformanceManager,
-  type PerformanceConfig
-} from '../performance'
+  type PerformanceConfig,
+  type MonitoringConfig
+} from '../monitoring'
 
 export class LLMReporter implements Reporter {
   private config: ResolvedLLMReporterConfig
@@ -116,65 +117,9 @@ export class LLMReporter implements Reporter {
         }
       },
       performance: {
-        mode: config.performance?.mode ?? 'production',
         enabled: config.performance?.enabled ?? true,
-        maxOverheadPercent: config.performance?.maxOverheadPercent ?? 5,
-        enableMetrics: config.performance?.enableMetrics ?? true,
-        enableCaching: config.performance?.enableCaching ?? true,
-        enableMemoryManagement: config.performance?.enableMemoryManagement ?? true,
-        enableStreamingOptimizations: config.performance?.enableStreamingOptimizations ?? true,
-        cache: {
-          enabled: config.performance?.cache?.enabled ?? true,
-          tokenCacheSize: config.performance?.cache?.tokenCacheSize ?? 10000,
-          resultCacheSize: config.performance?.cache?.resultCacheSize ?? 5000,
-          templateCacheSize: config.performance?.cache?.templateCacheSize ?? 1000,
-          ttl: config.performance?.cache?.ttl ?? 3600000,
-          targetHitRatio: config.performance?.cache?.targetHitRatio ?? 80,
-          enableWarming: config.performance?.cache?.enableWarming ?? true,
-          evictionStrategy: config.performance?.cache?.evictionStrategy ?? 'adaptive',
-          enableMultiTier: config.performance?.cache?.enableMultiTier ?? true
-        },
-        memory: {
-          enabled: config.performance?.memory?.enabled ?? true,
-          pressureThreshold: config.performance?.memory?.pressureThreshold ?? 100,
-          enablePooling: config.performance?.memory?.enablePooling ?? true,
-          poolSizes: {
-            testResults: config.performance?.memory?.poolSizes?.testResults ?? 1000,
-            errors: config.performance?.memory?.poolSizes?.errors ?? 500,
-            consoleOutputs: config.performance?.memory?.poolSizes?.consoleOutputs ?? 2000
-          },
-          enableProfiling: config.performance?.memory?.enableProfiling ?? false,
-          monitoringInterval: config.performance?.memory?.monitoringInterval ?? 10000
-        },
-        streaming: {
-          enabled: config.performance?.streaming?.enabled ?? true,
-          enableAdaptiveBuffering: config.performance?.streaming?.enableAdaptiveBuffering ?? true,
-          bufferLimits: {
-            min: config.performance?.streaming?.bufferLimits?.min ?? 1024,
-            max: config.performance?.streaming?.bufferLimits?.max ?? 1048576,
-            initial: config.performance?.streaming?.bufferLimits?.initial ?? 8192
-          },
-          enableBackgroundProcessing:
-            config.performance?.streaming?.enableBackgroundProcessing ?? true,
-          priorityQueue: {
-            maxSize: config.performance?.streaming?.priorityQueue?.maxSize ?? 10000,
-            batchSize: config.performance?.streaming?.priorityQueue?.batchSize ?? 100,
-            processingInterval:
-              config.performance?.streaming?.priorityQueue?.processingInterval ?? 100
-          }
-        },
-        benchmark: {
-          enabled: config.performance?.benchmark?.enabled ?? false,
-          suite: config.performance?.benchmark?.suite ?? 'basic',
-          thresholds: {
-            maxLatency: config.performance?.benchmark?.thresholds?.maxLatency ?? 1000,
-            maxMemoryUsage: config.performance?.benchmark?.thresholds?.maxMemoryUsage ?? 512,
-            maxOverhead: config.performance?.benchmark?.thresholds?.maxOverhead ?? 5,
-            minThroughput: config.performance?.benchmark?.thresholds?.minThroughput ?? 100
-          },
-          sampleSize: config.performance?.benchmark?.sampleSize ?? 100,
-          warmupIterations: config.performance?.benchmark?.warmupIterations ?? 10
-        }
+        cacheSize: config.performance?.cacheSize ?? 1000,
+        memoryWarningThreshold: config.performance?.memoryWarningThreshold ?? (500 * 1024 * 1024) // 500MB
       }
     }
 
@@ -522,18 +467,13 @@ export class LLMReporter implements Reporter {
           }
 
           // Log performance metrics in debug mode
-          if (
-            this.config.performance.mode === 'development' ||
-            this.config.performance.mode === 'debug'
-          ) {
-            const metrics = this.performanceManager.getMetrics()
-            this.debug('Performance metrics: %O', {
-              overhead: metrics.overhead.totalOverhead,
-              cacheHitRatio: metrics.cache.hitRatio,
-              memoryUsage: metrics.memory.usagePercentage,
-              throughput: metrics.throughput.testsPerSecond
-            })
-          }
+          const metrics = this.performanceManager.getMetrics()
+          this.debug('Performance metrics: %O', {
+            testCount: metrics.testCount,
+            cacheHitRate: metrics.cache.hitRate,
+            memoryUsed: metrics.memory.used,
+            uptime: metrics.uptime
+          })
         } catch (perfError) {
           this.debugError('Performance optimization failed: %O', perfError)
         }
