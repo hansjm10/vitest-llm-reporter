@@ -16,9 +16,20 @@ describe('MemoryProfiler', () => {
   let profiler: MemoryProfiler
   let defaultConfig: Required<MemoryConfig>
   let mockMemoryMetrics: MemoryMetrics
+  let originalMemoryUsage: any
 
   beforeEach(() => {
     vi.clearAllMocks()
+
+    // Mock process.memoryUsage
+    originalMemoryUsage = process.memoryUsage
+    process.memoryUsage = vi.fn(() => ({
+      rss: 100 * 1024 * 1024,
+      heapTotal: 80 * 1024 * 1024,
+      heapUsed: 50 * 1024 * 1024,
+      external: 10 * 1024 * 1024,
+      arrayBuffers: 5 * 1024 * 1024
+    })) as any
 
     defaultConfig = {
       enabled: true,
@@ -47,6 +58,13 @@ describe('MemoryProfiler', () => {
     }
 
     profiler = new MemoryProfiler(defaultConfig)
+  })
+
+  afterEach(() => {
+    // Restore original process.memoryUsage
+    if (originalMemoryUsage) {
+      process.memoryUsage = originalMemoryUsage
+    }
   })
 
   describe('constructor', () => {

@@ -520,17 +520,4 @@ export class ReporterStreamIntegration {
     await this.streamRecovery.manualRecovery(failureType)
   }
 
-  /**
-   * Reset circuit breaker for testing purposes
-   */
-  resetCircuitBreaker(): void {
-    this.streamRecovery.resetCircuitBreaker()
-  }
-
-  /**
-   * Check if circuit breaker is open
-   */
-  isCircuitBreakerOpen(): boolean {
-    return this.streamRecovery.isCircuitBreakerOpen()
-  }
 }

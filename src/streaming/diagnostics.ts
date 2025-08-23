@@ -437,8 +437,7 @@ export class StreamingDiagnostics {
 
     this.logEvent(DiagnosticEvent.HEALTH_CHECK, level, `Stream health check: ${health}`, {
       health,
-      performance: monitoringData.performance,
-      circuitBreaker: monitoringData.circuitBreaker
+      performance: monitoringData.performance
     })
 
     // Check for resource warnings

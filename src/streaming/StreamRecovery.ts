@@ -22,7 +22,6 @@ interface StreamMetrics {
   memoryUsage: number
   operationsPerSecond: number
   errorRate: number
-  circuitBreakerStatus: boolean
 }
 
 /**
@@ -119,12 +118,6 @@ export interface RecoveryConfig {
   maxRecoveryAttempts?: number
   /** Delay between recovery attempts (ms) */
   recoveryDelay?: number
-  /** Enable circuit breaker pattern */
-  enableCircuitBreaker?: boolean
-  /** Circuit breaker failure threshold */
-  circuitBreakerThreshold?: number
-  /** Circuit breaker timeout (ms) */
-  circuitBreakerTimeout?: number
 }
 
 /**
@@ -150,15 +143,6 @@ export interface StreamMonitoringData {
     /** Operations per second */
     operationsPerSecond: number
   }
-  /** Circuit breaker status */
-  circuitBreaker: {
-    /** Is circuit breaker open */
-    isOpen: boolean
-    /** Failure count */
-    failureCount: number
-    /** Last failure time */
-    lastFailureTime?: number
-  }
   /** Active recovery information */
   recovery?: {
     /** Current recovery mode */
@@ -182,9 +166,7 @@ export enum StreamRecoveryEvent {
   FAILURE_DETECTED = 'failure_detected',
   RECOVERY_STARTED = 'recovery_started',
   RECOVERY_COMPLETED = 'recovery_completed',
-  RECOVERY_FAILED = 'recovery_failed',
-  CIRCUIT_BREAKER_OPENED = 'circuit_breaker_opened',
-  CIRCUIT_BREAKER_CLOSED = 'circuit_breaker_closed'
+  RECOVERY_FAILED = 'recovery_failed'
 }
 
 /**
@@ -231,10 +213,7 @@ export class StreamRecovery extends EventEmitter {
       enableAutoRecovery: recoveryConfig.enableAutoRecovery ?? true,
       recoveryTimeout: recoveryConfig.recoveryTimeout ?? 30000,
       maxRecoveryAttempts: recoveryConfig.maxRecoveryAttempts ?? 3,
-      recoveryDelay: recoveryConfig.recoveryDelay ?? 1000,
-      enableCircuitBreaker: recoveryConfig.enableCircuitBreaker ?? true,
-      circuitBreakerThreshold: recoveryConfig.circuitBreakerThreshold ?? 5,
-      circuitBreakerTimeout: recoveryConfig.circuitBreakerTimeout ?? 60000
+      recoveryDelay: recoveryConfig.recoveryDelay ?? 1000
     }
 
     this.monitoringData = {
@@ -247,10 +226,6 @@ export class StreamRecovery extends EventEmitter {
         queueSize: 0,
         memoryUsage: 0,
         operationsPerSecond: 0
-      },
-      circuitBreaker: {
-        isOpen: false,
-        failureCount: 0
       }
     }
 
@@ -363,8 +338,7 @@ export class StreamRecovery extends EventEmitter {
       queueSize: Math.floor(Math.random() * 50), // Simulated queue size
       memoryUsage: (process?.memoryUsage?.()?.heapUsed || 0) / 1024 / 1024, // Actual memory usage in MB
       operationsPerSecond: this.calculateOperationsPerSecond(),
-      errorRate: this.calculateErrorRate(),
-      circuitBreakerStatus: this.monitoringData.circuitBreaker.isOpen
+      errorRate: this.calculateErrorRate()
     }
 
     return metrics
@@ -418,11 +392,6 @@ export class StreamRecovery extends EventEmitter {
   private analyzeHealth(metrics: StreamMetrics): StreamHealth {
     const thresholds = this.healthConfig.performanceThresholds
 
-    // Check circuit breaker
-    if (this.monitoringData.circuitBreaker.isOpen) {
-      return StreamHealth.FAILED
-    }
-
     // Check critical thresholds
     if (
       metrics.latency > (thresholds.maxLatency || 1000) * 2 ||
@@ -472,9 +441,6 @@ export class StreamRecovery extends EventEmitter {
     } else if (newHealth === StreamHealth.FAILED || newHealth === StreamHealth.UNHEALTHY) {
       this.monitoringData.consecutiveFailures++
       this.monitoringData.consecutiveSuccesses = 0
-
-      // Update circuit breaker
-      this.updateCircuitBreaker(true)
     }
   }
 
@@ -490,49 +456,6 @@ export class StreamRecovery extends EventEmitter {
     return sum / this.performanceHistory.length
   }
 
-  /**
-   * Update circuit breaker status
-   */
-  private updateCircuitBreaker(failure: boolean): void {
-    if (!this.recoveryConfig.enableCircuitBreaker) {
-      return
-    }
-
-    if (failure) {
-      this.monitoringData.circuitBreaker.failureCount++
-      this.monitoringData.circuitBreaker.lastFailureTime = Date.now()
-
-      if (
-        this.monitoringData.circuitBreaker.failureCount >=
-        this.recoveryConfig.circuitBreakerThreshold
-      ) {
-        if (!this.monitoringData.circuitBreaker.isOpen) {
-          this.monitoringData.circuitBreaker.isOpen = true
-          this.debug(
-            'Circuit breaker opened due to %d failures',
-            this.monitoringData.circuitBreaker.failureCount
-          )
-          this.emit(StreamRecoveryEvent.CIRCUIT_BREAKER_OPENED)
-        }
-      }
-    } else {
-      // Reset failure count on success
-      this.monitoringData.circuitBreaker.failureCount = 0
-
-      // Close circuit breaker if it was open and timeout has passed
-      if (this.monitoringData.circuitBreaker.isOpen) {
-        const lastFailureTime = this.monitoringData.circuitBreaker.lastFailureTime
-        if (lastFailureTime) {
-          const timeSinceLastFailure = Date.now() - lastFailureTime
-          if (timeSinceLastFailure > this.recoveryConfig.circuitBreakerTimeout) {
-            this.monitoringData.circuitBreaker.isOpen = false
-            this.debug('Circuit breaker closed after timeout')
-            this.emit(StreamRecoveryEvent.CIRCUIT_BREAKER_CLOSED)
-          }
-        }
-      }
-    }
-  }
 
   /**
    * Handle health status changes
@@ -562,10 +485,6 @@ export class StreamRecovery extends EventEmitter {
    */
   private determineFailureType(_health: StreamHealth): StreamFailureType {
     const metrics = this.monitoringData.performance
-
-    if (this.monitoringData.circuitBreaker.isOpen) {
-      return StreamFailureType.EXTERNAL_FAILURE
-    }
 
     if (metrics.queueSize > (this.healthConfig.performanceThresholds?.maxQueueSize || 100)) {
       return StreamFailureType.QUEUE_OVERFLOW
@@ -731,28 +650,11 @@ export class StreamRecovery extends EventEmitter {
   }
 
   /**
-   * Check if circuit breaker is open
-   */
-  isCircuitBreakerOpen(): boolean {
-    return this.monitoringData.circuitBreaker.isOpen
-  }
-
-  /**
    * Manually trigger recovery
    */
   async manualRecovery(failureType: StreamFailureType): Promise<void> {
     this.debug('Manual recovery triggered for failure type: %s', failureType)
     await this.triggerRecovery(failureType)
-  }
-
-  /**
-   * Force reset circuit breaker
-   */
-  resetCircuitBreaker(): void {
-    this.monitoringData.circuitBreaker.isOpen = false
-    this.monitoringData.circuitBreaker.failureCount = 0
-    this.debug('Circuit breaker manually reset')
-    this.emit(StreamRecoveryEvent.CIRCUIT_BREAKER_CLOSED)
   }
 
   /**
