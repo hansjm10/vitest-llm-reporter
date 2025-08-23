@@ -125,7 +125,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
 
   formatEvent(event: StreamingEvent): Promise<string> {
     if (!this.state.initialized) {
-      throw new Error('JsonLineFormatter must be initialized before use')
+      return Promise.reject(new Error('JsonLineFormatter must be initialized before use'))
     }
 
     this.updateCounters(event)
@@ -144,7 +144,7 @@ export class JsonLineFormatter extends BaseStreamingFormatter {
 
   formatFinal(output: LLMReporterOutput): Promise<string> {
     if (!this.state.initialized) {
-      throw new Error('JsonLineFormatter must be initialized before use')
+      return Promise.reject(new Error('JsonLineFormatter must be initialized before use'))
     }
 
     // Create a final summary event
