@@ -3,7 +3,6 @@ import { ConsoleBuffer } from './buffer'
 import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console'
 import { ConsoleInterceptor } from './interceptor'
 import { createLogger } from '../utils/logger'
-import { consoleStreamAdapter } from '../streaming/ConsoleStreamAdapter'
 import type { ConsoleStreamData } from '../streaming/types'
 
 /**
@@ -295,28 +294,11 @@ export class ConsoleCapture {
     elapsed?: number,
     _startTime?: number
   ): void {
-    // Only stream if adapter is ready and configured
-    if (!consoleStreamAdapter.isReady()) {
-      return
-    }
-
-    // Respect debug/trace filtering for streaming too
+    // Streaming removed in simplification - console data is buffered directly
+    // Respect debug/trace filtering
     if (!this.config.includeDebugOutput && (method === 'debug' || method === 'trace')) {
       return
     }
-
-    const streamData: ConsoleStreamData = {
-      method,
-      testId,
-      args,
-      timestamp: Date.now(),
-      elapsed
-    }
-
-    // Fire and forget - don't block console operations for streaming
-    consoleStreamAdapter.streamConsoleData(streamData).catch((error) => {
-      this.debug('Failed to stream console data: %o', error)
-    })
   }
 
   /**

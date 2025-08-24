@@ -275,12 +275,14 @@ export class EventOrchestrator {
           name?: string
           id: string
         }
-        const testContext = OutputSynchronizer.createTestContext(
-          testCaseWithFile.file?.filepath || 'unknown',
-          testCaseWithFile.name || testCaseWithFile.id
-        )
+        const testContext: TestContext = {
+          testId: testCaseWithFile.id,
+          testName: testCaseWithFile.name || testCaseWithFile.id,
+          filePath: testCaseWithFile.file?.filepath || 'unknown',
+          startTime: Date.now()
+        }
         this.activeTests.set(testCase.id, testContext)
-        this.outputSynchronizer.registerTest(testContext).catch((error) => {
+        this.outputSynchronizer.registerTestStart(testContext).catch((error: Error) => {
           this.debugError('Failed to register test for streaming: %O', error)
         })
       }
@@ -501,7 +503,7 @@ export class EventOrchestrator {
 
     const testContext = this.activeTests.get(testId)
     if (testContext) {
-      this.outputSynchronizer.unregisterTest(testContext).catch((error) => {
+      this.outputSynchronizer.registerTestComplete(testId).catch((error: Error) => {
         this.debugError('Failed to unregister test from streaming: %O', error)
       })
       this.activeTests.delete(testId)

@@ -22,20 +22,8 @@ import { coreLogger, errorLogger } from '../utils/logger'
 import { detectEnvironment, hasTTY } from '../utils/environment'
 
 /**
- * Typed event data interfaces for stream events
+ * Streaming statistics interface
  */
-interface TestFailureEventData {
-  result: TestFailure
-}
-
-interface TestCompleteEventData {
-  result: TestResult | TestFailure
-}
-
-interface RunCompleteEventData {
-  summary: TestSummary
-}
-
 interface StreamingStats {
   eventsProcessed: number
   testCount: number
@@ -76,6 +64,7 @@ export class StreamingReporter extends LLMReporter {
   private streamDebug = coreLogger()
   private streamDebugError = errorLogger()
   private isStreamingActive = false
+  private streamingStartTime = Date.now()
 
   constructor(config: StreamingReporterConfig = {}) {
     // Initialize base reporter
@@ -117,9 +106,6 @@ export class StreamingReporter extends LLMReporter {
 
       this.streamIntegration = new ReporterStreamIntegration(integrationConfig)
 
-      // Set up event listeners for streaming output
-      this.setupStreamEventListeners()
-
       this.streamDebug('Streaming integration initialized successfully')
     } catch (error) {
       this.streamDebugError('Failed to initialize streaming integration: %O', error)
@@ -131,71 +117,14 @@ export class StreamingReporter extends LLMReporter {
   }
 
   /**
-   * Set up event listeners for stream events
-   */
-  private setupStreamEventListeners(): void {
-    if (!this.streamIntegration) return
-
-    // Listen for test failures to provide immediate feedback
-    this.streamIntegration.on(StreamEventType.TEST_FAILURE, (event) => {
-      const data = event.data as TestFailureEventData
-      this.handleStreamTestFailure(data.result)
-    })
-
-    // Listen for test completions for progress updates
-    this.streamIntegration.on(StreamEventType.TEST_COMPLETE, (event) => {
-      const data = event.data as TestCompleteEventData
-      this.handleStreamTestComplete(data.result)
-    })
-
-    // Listen for run completion
-    this.streamIntegration.on(StreamEventType.RUN_COMPLETE, (event) => {
-      const data = event.data as RunCompleteEventData
-      this.handleStreamRunComplete(data)
-    })
-  }
-
-  /**
-   * Handle streaming test failure
-   */
-  private handleStreamTestFailure(result: TestFailure): void {
-    if (this.streamingConfig.onStreamOutput) {
-      const output = `FAIL ${result.test} - ${result.error?.message || 'Unknown error'}\n`
-      this.streamingConfig.onStreamOutput(output)
-    }
-  }
-
-  /**
-   * Handle streaming test completion
-   */
-  private handleStreamTestComplete(result: TestResult | TestFailure): void {
-    if (this.streamingConfig.onStreamOutput) {
-      const status = 'error' in result ? 'FAIL' : 'PASS'
-      const output = `${status} ${result.test}\n`
-      this.streamingConfig.onStreamOutput(output)
-    }
-  }
-
-  /**
-   * Handle streaming run completion
-   */
-  private handleStreamRunComplete(data: RunCompleteEventData): void {
-    if (this.streamingConfig.onStreamOutput) {
-      const summary = data.summary
-      const output = `\nTest run completed: ${summary.passed} passed, ${summary.failed} failed, ${summary.skipped} skipped (${summary.duration}ms)\n`
-      this.streamingConfig.onStreamOutput(output)
-    }
-  }
-
-  /**
    * Override onInit to start streaming
    */
   onInit(ctx: Vitest): void {
     super.onInit(ctx)
 
     if (this.streamIntegration) {
-      this.streamIntegration.start().catch((error) => {
-        this.streamDebugError('Failed to start streaming: %O', error)
+      this.streamIntegration.initialize().catch((error) => {
+        this.streamDebugError('Failed to initialize streaming: %O', error)
       })
     }
   }
@@ -208,10 +137,19 @@ export class StreamingReporter extends LLMReporter {
 
     if (this.streamIntegration && !this.isStreamingActive) {
       this.streamIntegration
-        .start()
+        .initialize()
         .then(() => {
           this.isStreamingActive = true
+          this.streamingStartTime = Date.now()
           this.streamDebug('Streaming session started')
+
+          // Send run start event
+          const event: StreamEvent = {
+            type: StreamEventType.SUITE_START,
+            timestamp: Date.now(),
+            data: { suiteId: 'test-run', suiteName: 'Test Run' }
+          }
+          return this.streamIntegration?.processEvent(event)
         })
         .catch((error) => {
           this.streamDebugError('Failed to start streaming session: %O', error)
@@ -249,15 +187,49 @@ export class StreamingReporter extends LLMReporter {
       let result: TestResult | TestFailure | undefined = testResults.failed.find(
         (f) => f.test === testCase.name
       )
+      
       if (!result) {
         result = testResults.passed.find((p) => p.test === testCase.name)
       }
+      
       if (!result) {
         result = testResults.skipped.find((s) => s.test === testCase.name)
       }
 
       if (result) {
-        await this.streamIntegration.streamTestResult(result)
+        // Send appropriate event based on result type
+        let eventType: StreamEventType
+        let eventData: any
+
+        if ('error' in result) {
+          // This is a TestFailure
+          eventType = StreamEventType.TEST_FAILURE
+          eventData = { testId: testCase.id || testCase.name, failure: result }
+          
+          // Also send a test complete event
+          await this.streamIntegration.processEvent({
+            type: eventType,
+            timestamp: Date.now(),
+            data: eventData
+          })
+        }
+
+        // Always send a test complete event
+        eventType = StreamEventType.TEST_COMPLETE
+        eventData = { testId: testCase.id || testCase.name, result: result }
+
+        await this.streamIntegration.processEvent({
+          type: eventType,
+          timestamp: Date.now(),
+          data: eventData
+        })
+
+        // Handle custom output callback
+        if (this.streamingConfig.onStreamOutput) {
+          const status = 'error' in result ? 'FAIL' : 'PASS'
+          const output = `${status} ${result.test}${('error' in result && result.error?.message) ? ` - ${result.error.message}` : ''}\n`
+          this.streamingConfig.onStreamOutput(output)
+        }
       }
     } catch (error) {
       this.streamDebugError('Error streaming test result: %O', error)
@@ -277,12 +249,12 @@ export class StreamingReporter extends LLMReporter {
       await super.onTestRunEnd(testModules, unhandledErrors, reason)
 
       // Handle streaming completion
-      void this.completeStreaming()
+      await this.completeStreaming()
     } catch (error) {
       this.streamDebugError('Error in onTestRunEnd: %O', error)
 
       // Ensure streaming is cleaned up even if there's an error
-      void this.completeStreaming()
+      await this.completeStreaming()
 
       if (!this.streamingConfig.gracefulDegradation) {
         throw error
@@ -302,13 +274,24 @@ export class StreamingReporter extends LLMReporter {
       // Get final output
       const finalOutput = this.getOutput()
 
-      // Write dual-mode output (streaming + file)
+      // Send run complete event
       if (finalOutput) {
-        this.streamIntegration.writeDualOutput(finalOutput)
+        await this.streamIntegration.processEvent({
+          type: StreamEventType.RUN_COMPLETE,
+          timestamp: Date.now(),
+          data: { output: finalOutput }
+        })
+
+        // Handle custom output callback for run completion
+        if (this.streamingConfig.onStreamOutput && finalOutput.summary) {
+          const summary = finalOutput.summary
+          const output = `\nTest run completed: ${summary.passed} passed, ${summary.failed} failed, ${summary.skipped} skipped (${summary.duration}ms)\n`
+          this.streamingConfig.onStreamOutput(output)
+        }
       }
 
-      // Stop streaming session
-      await this.streamIntegration.stop()
+      // Shutdown streaming session
+      await this.streamIntegration.shutdown()
       this.isStreamingActive = false
 
       this.streamDebug('Streaming session completed')
@@ -330,10 +313,10 @@ export class StreamingReporter extends LLMReporter {
     
     // Convert to StreamingStats format
     return {
-      eventsProcessed: stats.testCounts.passed + stats.testCounts.failed + stats.testCounts.skipped,
-      testCount: stats.testCounts.passed + stats.testCounts.failed + stats.testCounts.skipped,
-      startTime: Date.now() - stats.duration,
-      endTime: stats.isActive ? undefined : Date.now()
+      eventsProcessed: stats.eventsProcessed,
+      testCount: stats.eventsProcessed, // Use events processed as test count approximation
+      startTime: this.streamingStartTime,
+      endTime: this.isStreamingActive ? undefined : Date.now()
     }
   }
 
@@ -341,14 +324,14 @@ export class StreamingReporter extends LLMReporter {
    * Check if streaming is currently active
    */
   get isStreaming(): boolean {
-    return this.isStreamingActive && Boolean(this.streamIntegration?.active)
+    return this.isStreamingActive && Boolean(this.streamIntegration)
   }
 
   /**
    * Get environment information
    */
   getEnvironmentInfo(): ReturnType<typeof detectEnvironment> {
-    return this.streamIntegration?.getEnvironmentInfo() || detectEnvironment()
+    return detectEnvironment()
   }
 
   /**
@@ -357,22 +340,22 @@ export class StreamingReporter extends LLMReporter {
   setStreamingEnabled(enabled: boolean): void {
     if (enabled && !this.streamIntegration) {
       this.initializeStreaming()
-    } else if (!enabled && this.streamIntegration) {
+    } else if (!enabled && this.streamIntegration && this.isStreamingActive) {
       void this.completeStreaming()
     }
   }
 
   /**
-   * Add custom stream event listener
+   * Add custom stream event listener (stub - no longer supported in simplified API)
    */
   onStreamEvent(event: StreamEventType, listener: (event: StreamEvent) => void): void {
-    this.streamIntegration?.on(event, listener)
+    this.streamDebug('Event listeners are not supported in the simplified streaming API')
   }
 
   /**
-   * Remove custom stream event listener
+   * Remove custom stream event listener (stub - no longer supported in simplified API)
    */
   offStreamEvent(event: StreamEventType, listener: (event: StreamEvent) => void): void {
-    this.streamIntegration?.off(event, listener)
+    this.streamDebug('Event listeners are not supported in the simplified streaming API')
   }
 }

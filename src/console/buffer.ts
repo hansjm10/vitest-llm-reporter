@@ -1,6 +1,5 @@
 import { inspect } from 'node:util'
 import type { ConsoleMethod, ConsoleBufferConfig } from '../types/console'
-import { bufferStreamBridge } from '../streaming/BufferStreamBridge'
 
 /**
  * Console Buffer
@@ -240,23 +239,14 @@ export class ConsoleBuffer {
    * Stream buffer addition in real-time (private method)
    */
   private streamBufferAddition(method: ConsoleMethod, content: string): void {
-    // Fire and forget - don't block buffer operations for streaming
-    bufferStreamBridge.streamBufferAddition(method, content).catch(() => {
-      // Silently ignore streaming errors to prevent affecting buffer operations
-    })
+    // Streaming removed in simplification - buffer handles everything directly
   }
 
   /**
    * Stream entire buffer flush to streaming infrastructure
    */
   async streamFlush(testId?: string): Promise<void> {
-    if (bufferStreamBridge.isReady()) {
-      try {
-        await bufferStreamBridge.streamBufferFlush(this, testId)
-      } catch (_error) {
-        // Silently handle streaming errors - don't affect buffer operations
-      }
-    }
+    // Streaming removed in simplification - buffer handles everything directly
   }
 
   /**

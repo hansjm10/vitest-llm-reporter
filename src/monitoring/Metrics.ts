@@ -6,6 +6,7 @@
  */
 
 import { MAX_TRACKED_OPERATIONS } from './constants'
+import { coreLogger } from '../utils/logger'
 
 export class Metrics {
   private startTime = Date.now()
@@ -14,6 +15,7 @@ export class Metrics {
   private cacheMisses = 0
   private errorCount = 0
   private operations: Array<{ name: string; duration: number; timestamp: number }> = []
+  private debug = coreLogger()
   
   recordTest(): void {
     this.testCount++
@@ -37,6 +39,9 @@ export class Metrics {
       duration,
       timestamp: Date.now()
     })
+    
+    // Log timing under DEBUG
+    this.debug(`[TIMING] ${name}: ${duration}ms`)
     
     // Keep only last operations to avoid memory bloat
     if (this.operations.length > MAX_TRACKED_OPERATIONS) {
