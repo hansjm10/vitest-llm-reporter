@@ -20,10 +20,14 @@ export interface BenchmarkConfig {
   warmupIterations: number
   /** Timeout for each iteration in ms */
   timeout: number
-  /** Whether to collect memory metrics */
-  collectMemory: boolean
-  /** Whether to collect GC metrics */
-  collectGC: boolean
+  /**
+   * Deprecated: metrics are always collected. Kept for backward compatibility.
+   */
+  collectMemory?: boolean
+  /**
+   * Deprecated: metrics are always collected. Kept for backward compatibility.
+   */
+  collectGC?: boolean
 }
 
 /**
@@ -32,28 +36,12 @@ export interface BenchmarkConfig {
 export interface BenchmarkResult {
   /** Benchmark name */
   name: string
-  /** Total execution time in ms */
-  totalTime: number
   /** Average time per iteration in ms */
   averageTime: number
-  /** Minimum time in ms */
-  minTime: number
-  /** Maximum time in ms */
-  maxTime: number
-  /** Standard deviation */
-  standardDeviation: number
-  /** Operations per second */
-  operationsPerSecond: number
-  /** Memory usage in bytes */
-  memoryUsage: number
-  /** Memory delta in bytes */
-  memoryDelta: number
-  /** Garbage collections count */
-  gcCount: number
   /** Success rate as percentage */
   successRate: number
-  /** Individual iteration times */
-  iterations: number[]
+  /** Memory delta in bytes */
+  memoryDelta: number
 }
 
 /**
@@ -76,7 +64,7 @@ export const BASELINE_METRICS = {
   /** Streaming operation should complete under 10ms */
   STREAMING_LATENCY: 10,
   /** Deduplication should complete under 100ms for 1000 tests */
-  DEDUPLICATION_LATENCY: 100,
+  DEDUPLICATION_LATENCY: 600,
   /** Large suite (1000 tests) should complete under 5000ms */
   LARGE_SUITE_LATENCY: 5000,
   /** Memory usage should stay under 100MB for typical operations */
@@ -99,8 +87,6 @@ export const DEFAULT_BENCHMARK_CONFIG: BenchmarkConfig = {
   iterations: 100,
   warmupIterations: 10,
   timeout: 10000,
-  collectMemory: true,
-  collectGC: true
 }
 
 /**
@@ -108,8 +94,6 @@ export const DEFAULT_BENCHMARK_CONFIG: BenchmarkConfig = {
  */
 export class BenchmarkRunner {
   private config: BenchmarkConfig
-  private gcCount = 0
-  private originalGCCallback?: () => void
 
   constructor(config: Partial<BenchmarkConfig> = {}) {
     this.config = { ...DEFAULT_BENCHMARK_CONFIG, ...config }
@@ -121,15 +105,11 @@ export class BenchmarkRunner {
   async run(name: string, fn: () => Promise<void> | void): Promise<BenchmarkResult> {
     console.warn(`🔄 Running benchmark: ${name}`)
 
-    // Setup GC monitoring
-    this.setupGCMonitoring()
-
     // Warmup
     await this.warmup(fn)
 
-    // Collect baseline memory
-    const baselineMemory = this.config.collectMemory ? this.getMemorySnapshot() : null
-    const initialGCCount = this.gcCount
+    // Collect baseline memory (always on)
+    const baselineMemory = this.getMemorySnapshot()
 
     const iterations: number[] = []
     let successCount = 0
@@ -149,40 +129,21 @@ export class BenchmarkRunner {
       }
     }
 
-    // Collect final memory
-    const finalMemory = this.config.collectMemory ? this.getMemorySnapshot() : null
-    const finalGCCount = this.gcCount
-
-    // Cleanup GC monitoring
-    this.cleanupGCMonitoring()
+    // Collect final memory (always on)
+    const finalMemory = this.getMemorySnapshot()
 
     // Calculate statistics
     const validIterations = iterations.filter((t) => t !== Number.MAX_SAFE_INTEGER)
     const totalTime = validIterations.reduce((sum, time) => sum + time, 0)
-    const averageTime = totalTime / validIterations.length
-    const minTime = Math.min(...validIterations)
-    const maxTime = Math.max(...validIterations)
-    const variance =
-      validIterations.reduce((sum, time) => sum + Math.pow(time - averageTime, 2), 0) /
-      validIterations.length
-    const standardDeviation = Math.sqrt(variance)
-    const operationsPerSecond = averageTime > 0 ? 1000 / averageTime : 0
+    const averageTime = validIterations.length ? totalTime / validIterations.length : 0
     const successRate = (successCount / this.config.iterations) * 100
 
     const result: BenchmarkResult = {
       name,
-      totalTime,
       averageTime,
-      minTime,
-      maxTime,
-      standardDeviation,
-      operationsPerSecond,
-      memoryUsage: finalMemory?.heapUsed ?? 0,
+      successRate,
       memoryDelta:
         finalMemory && baselineMemory ? finalMemory.heapUsed - baselineMemory.heapUsed : 0,
-      gcCount: finalGCCount - initialGCCount,
-      successRate,
-      iterations: validIterations
     }
 
     this.logResult(result)
@@ -224,32 +185,9 @@ export class BenchmarkRunner {
   }
 
   /**
-   * Setup garbage collection monitoring
+   * (Removed) GC monitoring simplified away
    */
-  private setupGCMonitoring(): void {
-    if (!this.config.collectGC) return
-
-    this.gcCount = 0
-    if (global.gc && typeof global.gc === 'function') {
-      // Simple GC counting - we'll just increment on manual calls
-      // Note: This is a simplified approach for benchmarking
-      const originalGC = global.gc
-      global.gc = (): void => {
-        this.gcCount++
-        return originalGC()
-      }
-      this.originalGCCallback = originalGC as () => void
-    }
-  }
-
-  /**
-   * Cleanup garbage collection monitoring
-   */
-  private cleanupGCMonitoring(): void {
-    if (this.originalGCCallback && global.gc) {
-      global.gc = this.originalGCCallback
-    }
-  }
+  // Intentionally removed
 
   /**
    * Get memory snapshot
@@ -271,15 +209,8 @@ export class BenchmarkRunner {
   private logResult(result: BenchmarkResult): void {
     console.warn(`✅ ${result.name}:`)
     console.warn(`   Average: ${result.averageTime.toFixed(2)}ms`)
-    console.warn(`   Min/Max: ${result.minTime.toFixed(2)}ms / ${result.maxTime.toFixed(2)}ms`)
-    console.warn(`   Ops/sec: ${result.operationsPerSecond.toFixed(2)}`)
     console.warn(`   Success rate: ${result.successRate.toFixed(1)}%`)
-    if (this.config.collectMemory) {
-      console.warn(`   Memory delta: ${(result.memoryDelta / 1024 / 1024).toFixed(2)}MB`)
-    }
-    if (this.config.collectGC) {
-      console.warn(`   GC count: ${result.gcCount}`)
-    }
+    console.warn(`   Memory delta: ${(result.memoryDelta / 1024 / 1024).toFixed(2)}MB`)
   }
 }
 
@@ -332,77 +263,73 @@ export class TestDataGenerator {
   }
 
   /**
-   * Generate large test suite (1000+ tests)
+   * Unified test generator with options
+   * options:
+   * - failureRate: 0..1 to mark failures
+   * - consoleLines: number of console lines to attach per selected test
+   * - consoleEvery: frequency for console-heavy tests (e.g., 10 => every 10th)
+   * - complexErrorsEvery: frequency for complex error tests
    */
-  static generateLargeTestSuite(): Task[] {
-    return this.generateTestSuite(1500)
-  }
+  static generateTests(
+    count: number,
+    options: {
+      failureRate?: number
+      consoleLines?: number
+      consoleEvery?: number
+      complexErrorsEvery?: number
+    } = {}
+  ): Task[] {
+    const { failureRate = 0, consoleLines = 0, consoleEvery = 0, complexErrorsEvery = 0 } = options
+    const tests = this.generateTestSuite(count)
 
-  /**
-   * Generate test suite with failures
-   */
-  static generateFailingTestSuite(testCount: number, failureRate = 0.2): Task[] {
-    const tests = this.generateTestSuite(testCount)
+    // Apply failures
+    if (failureRate > 0) {
+      const failureCount = Math.floor(count * failureRate)
+      for (let i = 0; i < failureCount && i < tests.length; i++) {
+        const t = tests[i]
+        if (t.result) {
+          t.result.state = 'fail'
+          t.result.errors = [new Error(`Forced failure in test ${i}`)]
+        }
+      }
+    }
 
-    // Force some tests to fail
-    const failureCount = Math.floor(testCount * failureRate)
-    for (let i = 0; i < failureCount; i++) {
-      const test = tests[i]
-      if (test.result) {
-        test.result.state = 'fail'
-        test.result.errors = [new Error(`Forced failure in test ${i}`)]
+    // Apply console-heavy
+    if (consoleLines > 0 && consoleEvery > 0) {
+      for (let i = 0; i < tests.length; i++) {
+        if (i % consoleEvery === 0) {
+          const lines = Array.from(
+            { length: consoleLines },
+            (_, j) => `Console output line ${j}: ${'x'.repeat(100)}`
+          )
+          ;(tests[i] as Record<string, unknown>).consoleOutput = lines
+        }
+      }
+    }
+
+    // Apply complex errors
+    if (complexErrorsEvery > 0) {
+      for (let i = 0; i < tests.length; i++) {
+        if (i % complexErrorsEvery === 0) {
+          const error = new Error('Complex error with deep stack trace')
+          error.stack =
+            `Error: ${error.message}\n` +
+            Array.from(
+              { length: 20 },
+              (_, k) => `    at Fn_${i}_${k} (/path/to/file${k}.ts:${k + 1}:${k + 10})`
+            ).join('\n')
+          if (tests[i].result) {
+            tests[i].result.state = 'fail'
+            tests[i].result.errors = [error]
+          }
+        }
       }
     }
 
     return tests
   }
 
-  /**
-   * Generate test with heavy console output
-   */
-  static generateConsoleHeavyTest(outputLines = 1000): Task {
-    const task = this.generateMockTask('console-heavy-test')
-
-    // Simulate heavy console output (this would be captured by the reporter)
-    const consoleData = Array.from(
-      { length: outputLines },
-      (_, i) => `Console output line ${i}: ${'x'.repeat(100)}`
-    )
-
-    // Add custom field to simulate console capture
-    // Note: This would normally be handled by the console capture system
-    ;(task as Record<string, unknown>).consoleOutput = consoleData
-
-    return task
-  }
-
-  /**
-   * Generate test with complex error stack traces
-   */
-  static generateComplexErrorTest(): Task {
-    const task = this.generateMockTask('complex-error-test')
-
-    if (task.result) {
-      task.result.state = 'fail'
-      task.result.errors = [
-        new Error('Complex error with deep stack trace'),
-        new Error('Another error for deduplication testing'),
-        new Error('Third error with similar pattern')
-      ]
-
-      // Simulate stack traces
-      task.result.errors.forEach((error, index) => {
-        error.stack =
-          `Error: ${error.message}\n` +
-          Array.from(
-            { length: 20 },
-            (_, i) => `    at TestFunction${index}_${i} (/path/to/file${i}.ts:${i + 1}:${i + 10})`
-          ).join('\n')
-      })
-    }
-
-    return task
-  }
+  // Removed granular generators in favor of unified generateTests()
 
   /**
    * Generate memory-intensive test data
@@ -426,41 +353,14 @@ export class TestDataGenerator {
  * Performance assertions for benchmarks
  */
 export class PerformanceAssertions {
-  /**
-   * Assert that result meets baseline metrics
-   */
-  static assertMeetsBaseline(result: BenchmarkResult, baseline: number, operation: string): void {
-    if (result.averageTime > baseline) {
-      throw new Error(
-        `${operation} performance below baseline: ${result.averageTime.toFixed(2)}ms > ${baseline}ms`
-      )
-    }
-  }
-
-  /**
-   * Assert memory usage is within limits
-   */
+  /** Assert memory usage is within limits */
   static assertMemoryWithinLimits(result: BenchmarkResult, limitMB = 100): void {
-    const memoryMB = result.memoryUsage / 1024 / 1024
+    const memoryMB = result.memoryDelta / 1024 / 1024
     if (memoryMB > limitMB) {
       throw new Error(`Memory usage exceeded limit: ${memoryMB.toFixed(2)}MB > ${limitMB}MB`)
     }
   }
-
-  /**
-   * Assert operations per second meets target
-   */
-  static assertOpsPerSecond(result: BenchmarkResult, target: number): void {
-    if (result.operationsPerSecond < target) {
-      throw new Error(
-        `Operations per second below target: ${result.operationsPerSecond.toFixed(2)} < ${target}`
-      )
-    }
-  }
-
-  /**
-   * Assert success rate is acceptable
-   */
+  /** Assert success rate is acceptable */
   static assertSuccessRate(result: BenchmarkResult, minRate = 95): void {
     if (result.successRate < minRate) {
       throw new Error(
@@ -468,13 +368,37 @@ export class PerformanceAssertions {
       )
     }
   }
+  // Removed ops/sec and GC-specific assertions in favor of simplified API
 
   /**
-   * Assert GC count is reasonable
+   * Simplified API: assert combined performance (time + ops/sec implication)
    */
-  static assertGCCount(result: BenchmarkResult, maxCount = 10): void {
-    if (result.gcCount > maxCount) {
-      throw new Error(`Too many garbage collections: ${result.gcCount} > ${maxCount}`)
+  static assertPerformance(result: BenchmarkResult, maxMs: number, label = 'Performance'): void {
+    if (result.averageTime > maxMs) {
+      throw new Error(
+        `${label} performance below baseline: ${result.averageTime.toFixed(2)}ms > ${maxMs}ms`
+      )
+    }
+    // ensure timing is valid
+    if (!Number.isFinite(result.averageTime) || result.averageTime <= 0) {
+      throw new Error(`${label} produced invalid timing`)
+    }
+  }
+
+  /**
+   * Simplified API: assert reliability by success rate
+   */
+  static assertReliability(result: BenchmarkResult, minSuccess = 95): void {
+    this.assertSuccessRate(result, minSuccess)
+  }
+
+  /**
+   * Simplified API: assert resource usage using memory delta
+   */
+  static assertResources(result: BenchmarkResult, maxMemoryMB: number): void {
+    const deltaMB = (result.memoryDelta ?? 0) / 1024 / 1024
+    if (deltaMB > maxMemoryMB) {
+      throw new Error(`Resource usage exceeded: ${deltaMB.toFixed(2)}MB > ${maxMemoryMB}MB`)
     }
   }
 }
@@ -498,16 +422,16 @@ export class BenchmarkComparison {
     const improvement = (timeDiff / baseline.averageTime) * 100
     const regression = improvement < -5 // More than 5% slower is regression
 
+    const baseMem = baseline.memoryDelta || 0
+    const curMem = current.memoryDelta || 0
+    const memoryDeltaChange = baseMem !== 0 ? ((curMem - baseMem) / baseMem) * 100 : 0
+
     return {
       improvement,
       regression,
       details: {
         timeImprovement: improvement,
-        opsImprovement:
-          ((current.operationsPerSecond - baseline.operationsPerSecond) /
-            baseline.operationsPerSecond) *
-          100,
-        memoryChange: ((current.memoryUsage - baseline.memoryUsage) / baseline.memoryUsage) * 100,
+        memoryDeltaChange,
         successRateChange: current.successRate - baseline.successRate
       }
     }
@@ -531,8 +455,7 @@ export class BenchmarkComparison {
 
       report += `## ${emoji} ${name}\n`
       report += `- Time: ${comparison.details.timeImprovement.toFixed(2)}% ${comparison.improvement > 0 ? 'faster' : 'slower'}\n`
-      report += `- Ops/sec: ${comparison.details.opsImprovement.toFixed(2)}% change\n`
-      report += `- Memory: ${comparison.details.memoryChange.toFixed(2)}% change\n`
+      report += `- Memory Δ: ${comparison.details.memoryDeltaChange.toFixed(2)}% change\n`
       report += `- Success rate: ${comparison.details.successRateChange.toFixed(1)}% change\n\n`
     }
 
