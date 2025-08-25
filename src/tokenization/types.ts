@@ -1,5 +1,7 @@
 /**
  * Supported language models for tokenization
+ * NOTE: Model is now a pass-through string, no model-specific logic is applied.
+ * Token estimation is the same for all models.
  */
 export type SupportedModel =
   | 'gpt-4'
@@ -12,6 +14,7 @@ export type SupportedModel =
   | 'claude-3-haiku'
   | 'claude-3-5-sonnet'
   | 'claude-3-5-haiku'
+  | string // Allow any string as model since we're just estimating
 
 /**
  * Configuration options for the tokenization service
@@ -37,62 +40,5 @@ export interface TokenizationResult {
   fromCache: boolean
 }
 
-/**
- * Cache entry for tokenization results
- */
-export interface CacheEntry {
-  /** Tokenization result */
-  result: TokenizationResult
-  /** Timestamp when entry was created */
-  timestamp: number
-}
-
-/**
- * Cache key for tokenization operations
- */
-export interface CacheKey {
-  /** Text content */
-  text: string
-  /** Model used */
-  model: SupportedModel
-}
-
-/**
- * Tokenizer interface for different models
- */
-export interface ITokenizer {
-  /** Encode text to tokens */
-  encode(text: string): number[]
-  /** Count tokens in text */
-  countTokens(text: string): number
-  /** Get model name */
-  getModel(): SupportedModel
-}
-
-/**
- * Tokenizer factory interface
- */
-export interface ITokenizerFactory {
-  /** Create tokenizer for specified model */
-  createTokenizer(model: SupportedModel): Promise<ITokenizer>
-  /** Check if model is supported */
-  isModelSupported(model: string): model is SupportedModel
-}
-
-/**
- * LRU Cache interface
- */
-export interface ILRUCache<K, V> {
-  /** Get value by key */
-  get(key: K): V | undefined
-  /** Set key-value pair */
-  set(key: K, value: V): void
-  /** Check if key exists */
-  has(key: K): boolean
-  /** Clear all entries */
-  clear(): void
-  /** Get current size */
-  size(): number
-  /** Get maximum capacity */
-  capacity(): number
-}
+// Legacy interfaces removed - no longer needed with estimation-only approach
+// Keeping only the essential types for API compatibility

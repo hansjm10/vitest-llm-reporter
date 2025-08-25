@@ -1,305 +1,86 @@
+/**
+ * Tokenization Service - Simplified token estimation service
+ * 
+ * Provides token counting using simple character-based estimation.
+ * All counts are ESTIMATES only, not exact tokenization.
+ * Default: 4 characters per token.
+ */
+
 import type {
   SupportedModel,
   TokenizationConfig,
-  TokenizationResult,
-  CacheEntry,
-  CacheKey,
-  ITokenizer,
-  ITokenizerFactory
+  TokenizationResult
 } from './types.js'
-import { TokenizationCache } from './cache.js'
-import {
-  GPTAdapter,
-  ClaudeAdapter,
-  GeminiAdapter,
-  type ITokenizationAdapter
-} from './adapters/index.js'
+import { 
+  estimateTokens, 
+  estimateTokensBatch,
+  type TokenEstimatorOptions 
+} from './estimator.js'
 
 /**
- * Model to adapter mapping
- */
-const MODEL_ADAPTER_MAP: Record<string, new () => ITokenizationAdapter> = {
-  gpt: GPTAdapter,
-  claude: ClaudeAdapter,
-  gemini: GeminiAdapter
-}
-
-/**
- * Get the appropriate adapter for a model
- */
-function getAdapterForModel(model: SupportedModel): ITokenizationAdapter {
-  let adapterClass: new () => ITokenizationAdapter
-
-  if (model.startsWith('gpt-')) {
-    adapterClass = MODEL_ADAPTER_MAP['gpt']
-  } else if (model.startsWith('claude-')) {
-    adapterClass = MODEL_ADAPTER_MAP['claude']
-  } else if (model.startsWith('gemini-')) {
-    adapterClass = MODEL_ADAPTER_MAP['gemini']
-  } else {
-    // Default to GPT adapter for unknown models
-    adapterClass = MODEL_ADAPTER_MAP['gpt']
-  }
-
-  return new adapterClass()
-}
-
-/**
- * Adapter-based tokenizer factory
- */
-class AdapterTokenizerFactory implements ITokenizerFactory {
-  private adapters = new Map<string, ITokenizationAdapter>()
-  private lazyLoad: boolean
-
-  constructor(lazyLoad = true) {
-    this.lazyLoad = lazyLoad
-  }
-
-  async createTokenizer(model: SupportedModel): Promise<ITokenizer> {
-    const adapter = this.getOrCreateAdapter(model)
-    return adapter.createTokenizer(model)
-  }
-
-  isModelSupported(model: string): model is SupportedModel {
-    try {
-      const adapter = this.getOrCreateAdapter(model as SupportedModel)
-      return adapter.supportsModel(model as SupportedModel)
-    } catch {
-      return false
-    }
-  }
-
-  /**
-   * Get or create adapter for a model
-   */
-  private getOrCreateAdapter(model: SupportedModel): ITokenizationAdapter {
-    const adapterKey = this.getAdapterKey(model)
-
-    let adapter = this.adapters.get(adapterKey)
-    if (!adapter) {
-      adapter = getAdapterForModel(model)
-      this.adapters.set(adapterKey, adapter)
-    }
-
-    return adapter
-  }
-
-  /**
-   * Get adapter cache key for a model
-   */
-  private getAdapterKey(model: SupportedModel): string {
-    if (model.startsWith('gpt-')) return 'gpt'
-    if (model.startsWith('claude-')) return 'claude'
-    if (model.startsWith('gemini-')) return 'gemini'
-    return 'gpt' // Default
-  }
-
-  /**
-   * Preload tokenizers for all models (useful when lazyLoad is false)
-   */
-  async preloadAll(): Promise<void> {
-    const adapters = [new GPTAdapter(), new ClaudeAdapter(), new GeminiAdapter()]
-
-    for (const adapter of adapters) {
-      const models = adapter.getSupportedModels()
-      await Promise.all(
-        models.map((model) =>
-          this.createTokenizer(model).catch(() => {
-            // Ignore preload failures
-          })
-        )
-      )
-    }
-  }
-
-  /**
-   * Clear cached tokenizers
-   */
-  clearCache(): void {
-    for (const adapter of this.adapters.values()) {
-      adapter.clearCache()
-    }
-    this.adapters.clear()
-  }
-
-  /**
-   * Get all available adapters
-   */
-  getAdapters(): ITokenizationAdapter[] {
-    return Array.from(this.adapters.values())
-  }
-
-  /**
-   * Get adapter for a specific model
-   */
-  getAdapterForModel(model: SupportedModel): ITokenizationAdapter {
-    return this.getOrCreateAdapter(model)
-  }
-}
-
-/**
- * Main tokenization service
+ * Main tokenization service using simple estimation
  */
 export class TokenizationService {
   private config: Required<TokenizationConfig>
-  private cache: TokenizationCache
-  private factory: AdapterTokenizerFactory
+  private estimatorOptions: TokenEstimatorOptions
 
   constructor(config: TokenizationConfig = {}) {
     this.config = {
       defaultModel: config.defaultModel ?? 'gpt-4',
-      cacheSize: config.cacheSize ?? 1000,
-      lazyLoad: config.lazyLoad ?? true
+      cacheSize: config.cacheSize ?? 1000, // Kept for API compatibility, not used
+      lazyLoad: config.lazyLoad ?? true // Kept for API compatibility, not used
     }
-
-    this.cache = new TokenizationCache(this.config.cacheSize)
-    this.factory = new AdapterTokenizerFactory(this.config.lazyLoad)
+    
+    // Could be made configurable in the future
+    this.estimatorOptions = {
+      charsPerToken: 4
+    }
   }
 
   /**
-   * Count tokens in text using specified model
+   * Count tokens in text using estimation
+   * NOTE: Returns estimated tokens only, not exact counts
    */
   async countTokens(
     text: string,
     model: SupportedModel = this.config.defaultModel
   ): Promise<TokenizationResult> {
-    if (!text) {
-      return {
-        tokenCount: 0,
-        model,
-        fromCache: false
-      }
-    }
-
-    // Check cache first
-    const cacheKey: CacheKey = { text, model }
-    const cached = this.cache.get(cacheKey)
-
-    if (cached) {
-      return {
-        ...cached.result,
-        fromCache: true
-      }
-    }
-
-    // Tokenize using appropriate tokenizer
-    const tokenizer = await this.factory.createTokenizer(model)
-    const tokenCount = tokenizer.countTokens(text)
-
-    const result: TokenizationResult = {
+    const tokenCount = estimateTokens(text, this.estimatorOptions)
+    
+    return {
       tokenCount,
       model,
-      fromCache: false
+      fromCache: false // No caching in estimation-only approach
     }
-
-    // Cache the result
-    const cacheEntry: CacheEntry = {
-      result,
-      timestamp: Date.now()
-    }
-    this.cache.set(cacheKey, cacheEntry)
-
-    return result
   }
 
   /**
-   * Encode text to tokens using specified model
-   */
-  async encode(text: string, model: SupportedModel = this.config.defaultModel): Promise<number[]> {
-    if (!text) {
-      return []
-    }
-
-    const tokenizer = await this.factory.createTokenizer(model)
-    return tokenizer.encode(text)
-  }
-
-  /**
-   * Batch count tokens for multiple texts
+   * Batch count tokens for multiple texts using estimation
+   * NOTE: Returns estimated tokens only, not exact counts
    */
   async batchCountTokens(
     texts: string[],
     model: SupportedModel = this.config.defaultModel
   ): Promise<TokenizationResult[]> {
-    return Promise.all(texts.map((text) => this.countTokens(text, model)))
+    const tokenCounts = estimateTokensBatch(texts, this.estimatorOptions)
+    
+    return tokenCounts.map(tokenCount => ({
+      tokenCount,
+      model,
+      fromCache: false
+    }))
   }
 
   /**
-   * Get supported models
-   */
-  getSupportedModels(): SupportedModel[] {
-    const adapters = this.factory.getAdapters()
-    const allModels: SupportedModel[] = []
-
-    for (const adapter of adapters) {
-      allModels.push(...adapter.getSupportedModels())
-    }
-
-    // If no adapters loaded yet, return models from static adapter instances
-    if (allModels.length === 0) {
-      const gptAdapter = new GPTAdapter()
-      const claudeAdapter = new ClaudeAdapter()
-      const geminiAdapter = new GeminiAdapter()
-
-      allModels.push(
-        ...gptAdapter.getSupportedModels(),
-        ...claudeAdapter.getSupportedModels(),
-        ...geminiAdapter.getSupportedModels()
-      )
-    }
-
-    return [...new Set(allModels)] // Remove duplicates
-  }
-
-  /**
-   * Check if a model is supported
-   */
-  isModelSupported(model: string): model is SupportedModel {
-    return this.factory.isModelSupported(model)
-  }
-
-  /**
-   * Get cache statistics
-   */
-  getCacheStats(): { size: number; capacity: number } {
-    return this.cache.getStats()
-  }
-
-  /**
-   * Clear tokenization cache
-   */
-  clearCache(): void {
-    this.cache.clear()
-  }
-
-  /**
-   * Preload all tokenizers (useful for reducing first-time latency)
-   */
-  async preloadTokenizers(): Promise<void> {
-    await this.factory.preloadAll()
-  }
-
-  /**
-   * Get current configuration
-   */
-  getConfig(): Required<TokenizationConfig> {
-    return { ...this.config }
-  }
-
-  /**
-   * Estimate token count without loading tokenizer (rough approximation)
-   * Useful for quick estimates when exact count isn't needed
+   * Estimate token count (synchronous)
+   * NOTE: Returns estimated tokens only, not exact counts
    */
   estimateTokenCount(text: string): number {
-    if (!text) return 0
-
-    // Rough approximation: ~4 characters per token for English text
-    // This is a very rough estimate and should not be used for precise calculations
-    return Math.ceil(text.length / 4)
+    return estimateTokens(text, this.estimatorOptions)
   }
 
   /**
-   * Check if text exceeds token limit for a model
+   * Check if text exceeds token limit using estimation
    */
   async exceedsTokenLimit(
     text: string,
@@ -311,9 +92,8 @@ export class TokenizationService {
   }
 
   /**
-   * Truncate text to fit within token limit
-   * Note: This is a rough implementation that truncates by characters
-   * For precise truncation, you'd need to decode tokens back to text
+   * Truncate text to fit within token limit using character-based approximation
+   * NOTE: This is approximate truncation based on estimated tokens
    */
   async truncateToTokenLimit(
     text: string,
@@ -326,53 +106,65 @@ export class TokenizationService {
       return text
     }
 
-    // Rough truncation by character ratio
-    const ratio = limit / result.tokenCount
-    const targetLength = Math.floor(text.length * ratio * 0.9) // 90% to be safe
+    // Calculate character limit based on token limit
+    // Use 90% of calculated length to be conservative
+    const charsPerToken = this.estimatorOptions.charsPerToken ?? 4
+    const targetCharLength = Math.floor(limit * charsPerToken * 0.9)
 
-    return text.substring(0, targetLength)
+    return text.substring(0, targetCharLength)
   }
 
   /**
-   * Get the adapter being used for a specific model
+   * Get supported models
+   * NOTE: Model parameter is now just a pass-through string, 
+   * no model-specific logic is applied
    */
-  getAdapterForModel(model: SupportedModel): ITokenizationAdapter {
-    return this.factory.getAdapterForModel(model)
+  getSupportedModels(): SupportedModel[] {
+    // Return common models for compatibility
+    return [
+      'gpt-4',
+      'gpt-4-turbo',
+      'gpt-4o',
+      'gpt-4o-mini',
+      'gpt-3.5-turbo',
+      'claude-3-opus',
+      'claude-3-sonnet',
+      'claude-3-haiku',
+      'claude-3-5-sonnet',
+      'claude-3-5-haiku'
+    ]
   }
 
   /**
-   * Get all available adapters
+   * Check if a model is supported
+   * NOTE: All models are "supported" since we just do estimation
    */
-  getAvailableAdapters(): ITokenizationAdapter[] {
-    const gptAdapter = new GPTAdapter()
-    const claudeAdapter = new ClaudeAdapter()
-    const geminiAdapter = new GeminiAdapter()
-
-    return [gptAdapter, claudeAdapter, geminiAdapter]
+  isModelSupported(model: string): model is SupportedModel {
+    // Accept any model string since we're just estimating
+    return typeof model === 'string' && model.length > 0
   }
 
   /**
-   * Get adapter information for a model
+   * Get cache statistics
+   * NOTE: No caching in estimation-only approach, returns empty stats
    */
-  getAdapterInfo(model: SupportedModel): {
-    name: string
-    supportsModel: boolean
-    models: SupportedModel[]
-  } {
-    const adapter = this.getAdapterForModel(model)
-
-    return {
-      name: adapter.getName(),
-      supportsModel: adapter.supportsModel(model),
-      models: adapter.getSupportedModels()
-    }
+  getCacheStats(): { size: number; capacity: number } {
+    return { size: 0, capacity: 0 }
   }
 
   /**
-   * Clear all adapter caches
+   * Clear tokenization cache
+   * NOTE: No-op in estimation-only approach
    */
-  clearAdapterCaches(): void {
-    this.factory.clearCache()
+  clearCache(): void {
+    // No cache to clear
+  }
+
+  /**
+   * Get current configuration
+   */
+  getConfig(): Required<TokenizationConfig> {
+    return { ...this.config }
   }
 }
 
