@@ -3,7 +3,6 @@ import { ConsoleBuffer } from './buffer'
 import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console'
 import { ConsoleInterceptor } from './interceptor'
 import { createLogger } from '../utils/logger'
-import type { ConsoleStreamData } from '../streaming/types'
 
 /**
  * Console Capture

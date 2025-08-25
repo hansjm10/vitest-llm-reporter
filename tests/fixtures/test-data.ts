@@ -5,8 +5,6 @@
  */
 
 import type { LLMReporterOutput, TestSummary } from '../../src/types/schema'
-import type { StreamOperation, StreamPriority, ConsoleStreamData } from '../../src/streaming/types'
-import type { OutputOperation } from '../../src/streaming/OutputSynchronizer'
 import type { ConsoleMethod } from '../../src/types/console'
 import type { DeduplicationConfig } from '../../src/types/deduplication'
 import type { PerformanceConfig } from '../../src/performance/types'
@@ -190,33 +188,6 @@ export function createSampleOutput(
   return output
 }
 
-/**
- * Creates stream operations for testing
- */
-export function createStreamOperations(count: number): StreamOperation[] {
-  return Array.from({ length: count }, (_, i) => ({
-    content: `Test output line ${i + 1}`,
-    priority: (i % 4) as StreamPriority,
-    stream: 'stdout' as const,
-    testId: `test-${i + 1}`,
-    timestamp: Date.now() + i * 100
-  }))
-}
-
-/**
- * Creates console stream data for testing
- */
-export function createConsoleStreamData(count: number): ConsoleStreamData[] {
-  const methods: ConsoleMethod[] = ['log', 'error', 'warn', 'info']
-
-  return Array.from({ length: count }, (_, i) => ({
-    method: methods[i % methods.length],
-    testId: `test-${i + 1}`,
-    args: [`Console message ${i + 1}`, { data: i }],
-    timestamp: Date.now() + i * 50,
-    elapsed: i * 10
-  }))
-}
 
 /**
  * Performance test data generators
@@ -233,11 +204,6 @@ export const PERFORMANCE_TEST_DATA = {
   // Memory intensive data
   memoryIntensiveOutput: (): LLMReporterOutput => createSampleOutput(100, 50, 25),
 
-  // High frequency streaming data
-  highFrequencyStreams: (count: number): OutputOperation[] => createStreamOperations(count),
-
-  // Console heavy data
-  consoleHeavyData: (count: number): ConsoleStreamData[] => createConsoleStreamData(count)
 }
 
 /**

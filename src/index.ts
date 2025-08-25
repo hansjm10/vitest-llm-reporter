@@ -45,8 +45,6 @@ export type { LLMReporterConfig, StreamingConfig } from './types/reporter'
 // Export streaming components
 export { StreamingReporter } from './streaming/StreamingReporter'
 export type { StreamingReporterConfig } from './streaming/StreamingReporter'
-export { ReporterStreamIntegration, StreamEventType } from './streaming/ReporterStreamIntegration'
-export type { StreamIntegrationConfig, StreamEvent } from './streaming/ReporterStreamIntegration'
 
 // Export deduplication module
 export { DeduplicationService, createDeduplicationService } from './deduplication'

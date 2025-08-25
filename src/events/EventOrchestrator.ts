@@ -19,11 +19,6 @@ import type { ConsoleMethod } from '../types/console'
 import { coreLogger, errorLogger } from '../utils/logger'
 import { consoleCapture } from '../console'
 import { consoleMerger } from '../console/merge'
-import {
-  OutputSynchronizer,
-  type SynchronizerConfig,
-  type TestContext
-} from '../streaming/OutputSynchronizer'
 import type { TruncationConfig } from '../types/reporter'
 import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 import { globalTruncationMetrics } from '../truncation/MetricsTracker'
@@ -44,10 +39,7 @@ export interface OrchestratorConfig {
   maxConsoleLines?: number
   /** Include debug/trace console output */
   includeDebugOutput?: boolean
-  /** Enable streaming mode */
-  enableStreaming?: boolean
-  /** Streaming synchronizer configuration */
-  streamingConfig?: SynchronizerConfig
+  // Streaming removed - simplified implementation
   /** Truncation configuration */
   truncationConfig?: TruncationConfig
 }
@@ -72,13 +64,6 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
   maxConsoleBytes: 50_000,
   maxConsoleLines: 100,
   includeDebugOutput: false,
-  enableStreaming: false,
-  streamingConfig: {
-    enableTestGrouping: true,
-    maxConcurrentTests: 10,
-    deadlockCheckInterval: 5000,
-    enableMonitoring: true
-  },
   truncationConfig: {
     enabled: false,
     maxTokens: undefined,
@@ -120,8 +105,6 @@ export class EventOrchestrator {
   private contextBuilder: ErrorContextBuilder
   private debug = coreLogger()
   private debugError = errorLogger()
-  private outputSynchronizer?: OutputSynchronizer
-  private activeTests = new Map<string, TestContext>()
   private truncationEngine?: ITruncationEngine
 
   constructor(
@@ -148,11 +131,6 @@ export class EventOrchestrator {
       includeDebugOutput: this.config.includeDebugOutput
     })
 
-    // Initialize streaming synchronizer if enabled
-    if (this.config.enableStreaming) {
-      this.outputSynchronizer = new OutputSynchronizer(this.config.streamingConfig)
-      this.debug('Streaming mode enabled')
-    }
 
     // Initialize truncation engine if enabled
     if (
@@ -268,24 +246,7 @@ export class EventOrchestrator {
       // Start console capture for this test
       consoleCapture.startCapture(testCase.id)
 
-      // Register test in streaming synchronizer if enabled
-      if (this.outputSynchronizer) {
-        const testCaseWithFile = testCase as {
-          file?: { filepath?: string }
-          name?: string
-          id: string
-        }
-        const testContext: TestContext = {
-          testId: testCaseWithFile.id,
-          testName: testCaseWithFile.name || testCaseWithFile.id,
-          filePath: testCaseWithFile.file?.filepath || 'unknown',
-          startTime: Date.now()
-        }
-        this.activeTests.set(testCase.id, testContext)
-        this.outputSynchronizer.registerTestStart(testContext).catch((error: Error) => {
-          this.debugError('Failed to register test for streaming: %O', error)
-        })
-      }
+      // Streaming removed - simplified implementation
     }
   }
 
@@ -499,15 +460,7 @@ export class EventOrchestrator {
    * Unregisters a test from streaming synchronizer
    */
   private unregisterTestFromStreaming(testId?: string): void {
-    if (!testId || !this.outputSynchronizer) return
-
-    const testContext = this.activeTests.get(testId)
-    if (testContext) {
-      this.outputSynchronizer.registerTestComplete(testId).catch((error: Error) => {
-        this.debugError('Failed to unregister test from streaming: %O', error)
-      })
-      this.activeTests.delete(testId)
-    }
+    // Streaming removed - simplified implementation
   }
 
   /**
@@ -517,13 +470,8 @@ export class EventOrchestrator {
     this.stateManager.reset()
     consoleCapture.reset()
 
-    // Clean up streaming resources
-    if (this.outputSynchronizer) {
-      this.outputSynchronizer.shutdown().catch((error) => {
-        this.debugError('Error shutting down output synchronizer: %O', error)
-      })
-    }
-    this.activeTests.clear()
+    // Streaming removed - simplified implementation
+    // this.activeTests.clear() // Removed with streaming
   }
 
   /**

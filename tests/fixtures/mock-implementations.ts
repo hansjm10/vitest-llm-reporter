@@ -5,15 +5,6 @@
  */
 
 import type {
-  IStreamManager,
-  StreamConfig,
-  StreamOperation,
-  StreamEvent,
-  StreamEventType,
-  IConsoleStreamAdapter,
-  ConsoleStreamData
-} from '../../src/streaming/types'
-import type {
   IDeduplicationService,
   DeduplicationConfig,
   DeduplicationResult
@@ -25,137 +16,6 @@ import type {
 } from '../../src/performance/types'
 import type { LLMReporterOutput } from '../../src/types/schema'
 
-/**
- * Mock Stream Manager for testing
- */
-export class MockStreamManager implements IStreamManager {
-  private config?: StreamConfig
-  private ready = false
-  private operations: StreamOperation[] = []
-  private eventListeners = new Map<StreamEventType, ((event: StreamEvent) => void)[]>()
-
-  async initialize(config: StreamConfig): Promise<void> {
-    this.config = config
-    this.ready = config.enabled
-    this.emit('stream_start', {})
-    await Promise.resolve()
-  }
-
-  async write(operation: StreamOperation): Promise<void> {
-    if (!this.ready) {
-      throw new Error('StreamManager not initialized or not ready')
-    }
-
-    this.operations.push(operation)
-    this.emit('stream_data', { operation })
-    await Promise.resolve()
-  }
-
-  async flush(): Promise<void> {
-    if (!this.ready) return
-
-    this.emit('stream_flush', { operationsCount: this.operations.length })
-    // Simulate flush delay
-    await new Promise((resolve) => setTimeout(resolve, 10))
-  }
-
-  isReady(): boolean {
-    return this.ready
-  }
-
-  async close(): Promise<void> {
-    this.emit('stream_end', {})
-    this.ready = false
-    this.operations = []
-    this.eventListeners.clear()
-    await Promise.resolve()
-  }
-
-  on(event: StreamEventType, listener: (event: StreamEvent) => void): void {
-    if (!this.eventListeners.has(event)) {
-      this.eventListeners.set(event, [])
-    }
-    this.eventListeners.get(event)!.push(listener)
-  }
-
-  off(event: StreamEventType, listener: (event: StreamEvent) => void): void {
-    const listeners = this.eventListeners.get(event)
-    if (listeners) {
-      const index = listeners.indexOf(listener)
-      if (index !== -1) {
-        listeners.splice(index, 1)
-      }
-    }
-  }
-
-  // Test utilities
-  getOperations(): StreamOperation[] {
-    return [...this.operations]
-  }
-
-  getConfig(): StreamConfig | undefined {
-    return this.config
-  }
-
-  private emit(type: StreamEventType, data: unknown): void {
-    const event: StreamEvent = {
-      type,
-      timestamp: Date.now(),
-      data
-    }
-
-    const listeners = this.eventListeners.get(type) || []
-    listeners.forEach((listener) => listener(event))
-  }
-}
-
-/**
- * Mock Console Stream Adapter for testing
- */
-export class MockConsoleStreamAdapter implements IConsoleStreamAdapter {
-  private streamManager?: IStreamManager
-  private ready = false
-  private streamedData: ConsoleStreamData[] = []
-
-  initialize(streamManager: IStreamManager): void {
-    this.streamManager = streamManager
-    this.ready = streamManager.isReady()
-  }
-
-  async streamConsoleData(data: ConsoleStreamData): Promise<void> {
-    if (!this.ready || !this.streamManager) {
-      throw new Error('Adapter not initialized or not ready')
-    }
-
-    this.streamedData.push(data)
-
-    // Convert console data to stream operation
-    const operation: StreamOperation = {
-      content: `[${data.method}] ${JSON.stringify(data.args)}`,
-      priority: data.method === 'error' ? 1 : 2,
-      stream: data.method === 'error' ? 'stderr' : 'stdout',
-      testId: data.testId,
-      timestamp: data.timestamp
-    }
-
-    await this.streamManager.write(operation)
-  }
-
-  isReady(): boolean {
-    return this.ready && this.streamManager?.isReady() === true
-  }
-
-  destroy(): void {
-    this.ready = false
-    this.streamManager = undefined
-    this.streamedData = []
-  }
-
-  // Test utilities
-  getStreamedData(): ConsoleStreamData[] {
-    return [...this.streamedData]
-  }
-}
 
 /**
  * Mock Deduplication Service for testing
@@ -427,8 +287,6 @@ export class MockPerformanceManager implements IPerformanceManager {
  * Integration test helper that creates connected mock services
  */
 export function createIntegratedMockServices(): Record<string, unknown> {
-  const streamManager = new MockStreamManager()
-  const consoleAdapter = new MockConsoleStreamAdapter()
   const deduplicationService = new MockDeduplicationService({
     enabled: true,
     strategy: 'moderate',
@@ -445,8 +303,6 @@ export function createIntegratedMockServices(): Record<string, unknown> {
   })
 
   return {
-    streamManager,
-    consoleAdapter,
     deduplicationService,
     performanceManager
   }

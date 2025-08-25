@@ -147,8 +147,6 @@ export class LLMReporter implements Reporter {
         maxConsoleBytes: this.config.maxConsoleBytes,
         maxConsoleLines: this.config.maxConsoleLines,
         includeDebugOutput: this.config.includeDebugOutput,
-        enableStreaming: this.config.enableStreaming,
-        streamingConfig: this.config.streaming
       }
     )
 
