@@ -242,3 +242,214 @@ export function splitHeadTail(
 export function estimateCharsForTokens(targetTokens: number, avgCharsPerToken = 3.5): number {
   return Math.floor(targetTokens * avgCharsPerToken)
 }
+
+/**
+ * Truncate a stack trace preserving important frames
+ * 
+ * @param stack - Stack trace string
+ * @param maxFrames - Maximum number of frames to keep
+ * @param prioritizeUserCode - Whether to prioritize user code frames
+ * @returns Truncated stack trace
+ */
+export function truncateStackTrace(
+  stack: string,
+  maxFrames: number,
+  prioritizeUserCode = true
+): string {
+  const lines = stack.split('\n')
+  const headerLines: string[] = []
+  const userFrames: string[] = []
+  const nodeModulesFrames: string[] = []
+  const otherFrames: string[] = []
+
+  for (const line of lines) {
+    if (isErrorMessageLine(line)) {
+      headerLines.push(line)
+    } else if (isStackFrameLine(line)) {
+      if (isUserCodePath(line)) {
+        userFrames.push(line)
+      } else if (line.includes('node_modules')) {
+        nodeModulesFrames.push(line)
+      } else {
+        otherFrames.push(line)
+      }
+    }
+  }
+
+  const result: string[] = [...headerLines]
+  let frameCount = 0
+
+  // Add user frames first if prioritizing
+  if (prioritizeUserCode) {
+    const userFramesToAdd = Math.min(userFrames.length, maxFrames)
+    result.push(...userFrames.slice(0, userFramesToAdd))
+    frameCount += userFramesToAdd
+  }
+
+  // Add other frames if we have room
+  if (frameCount < maxFrames) {
+    const otherFramesToAdd = Math.min(otherFrames.length, maxFrames - frameCount)
+    result.push(...otherFrames.slice(0, otherFramesToAdd))
+    frameCount += otherFramesToAdd
+  }
+
+  // Add node_modules frames if still room
+  if (frameCount < maxFrames && nodeModulesFrames.length > 0) {
+    const nodeFramesToAdd = Math.min(nodeModulesFrames.length, maxFrames - frameCount)
+    result.push(...nodeModulesFrames.slice(0, nodeFramesToAdd))
+    frameCount += nodeFramesToAdd
+  }
+
+  // Add indicator if frames were omitted
+  const totalFrames = userFrames.length + nodeModulesFrames.length + otherFrames.length
+  if (totalFrames > frameCount) {
+    result.push(`    ... ${totalFrames - frameCount} frames omitted`)
+  }
+
+  return result.join('\n')
+}
+
+/**
+ * Truncate code context around a specific line
+ * 
+ * @param code - Code lines array
+ * @param lineNumber - Target line number (0-based)
+ * @param contextLines - Number of lines before/after to include
+ * @returns Truncated code context
+ */
+export function truncateCodeContext(
+  code: string[],
+  lineNumber?: number,
+  contextLines = 2
+): string[] {
+  if (!code || code.length === 0) {
+    return []
+  }
+
+  // If no line number, just return first few lines
+  if (lineNumber === undefined || lineNumber < 0) {
+    return code.slice(0, Math.min(contextLines * 2 + 1, code.length))
+  }
+
+  const startLine = Math.max(0, lineNumber - contextLines)
+  const endLine = Math.min(code.length, lineNumber + contextLines + 1)
+
+  const result = code.slice(startLine, endLine)
+
+  // Add indicators if truncated
+  if (startLine > 0) {
+    result.unshift('...')
+  }
+  if (endLine < code.length) {
+    result.push('...')
+  }
+
+  return result
+}
+
+/**
+ * Truncate assertion details (expected/actual values)
+ * 
+ * @param value - Value to truncate
+ * @param maxChars - Maximum characters
+ * @returns Truncated value as string
+ */
+export function truncateAssertionValue(value: unknown, maxChars = 200): string {
+  let str: string
+  
+  if (typeof value === 'string') {
+    str = value
+  } else if (value === undefined) {
+    return 'undefined'
+  } else if (value === null) {
+    return 'null'
+  } else {
+    try {
+      str = JSON.stringify(value, null, 2)
+    } catch {
+      str = String(value)
+    }
+  }
+
+  if (str.length <= maxChars) {
+    return str
+  }
+
+  // For JSON objects/arrays, try to preserve structure
+  if (str.startsWith('{') || str.startsWith('[')) {
+    const truncated = str.substring(0, maxChars - 10)
+    const lastNewline = truncated.lastIndexOf('\n')
+    if (lastNewline > maxChars * 0.5) {
+      return truncated.substring(0, lastNewline) + '\n  ...\n' + (str.startsWith('{') ? '}' : ']')
+    }
+  }
+
+  return safeTrimToChars(str, maxChars - 3) + '...'
+}
+
+/**
+ * Apply fair caps across multiple items
+ * 
+ * @param items - Items to cap
+ * @param totalBudget - Total character budget
+ * @param minPerItem - Minimum characters per item
+ * @returns Capped items
+ */
+export function applyFairCaps(
+  items: string[],
+  totalBudget: number,
+  minPerItem = 100
+): string[] {
+  if (items.length === 0) return []
+
+  const fairShare = Math.max(minPerItem, Math.floor(totalBudget / items.length))
+  const result: string[] = []
+  let remainingBudget = totalBudget
+
+  for (const item of items) {
+    if (remainingBudget <= 0) break
+
+    const itemBudget = Math.min(fairShare, remainingBudget)
+    if (item.length <= itemBudget) {
+      result.push(item)
+      remainingBudget -= item.length
+    } else {
+      const truncated = safeTrimToChars(item, itemBudget - 10) + '\n...[cut]'
+      result.push(truncated)
+      remainingBudget -= truncated.length
+    }
+  }
+
+  return result
+}
+
+/**
+ * Truncate console output by category
+ * 
+ * @param console - Console output object
+ * @param limits - Character limits per category
+ * @returns Truncated console output
+ */
+export function truncateConsoleOutput(
+  console: Record<string, string[]>,
+  limits: Record<string, number>
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {}
+
+  for (const [category, logs] of Object.entries(console)) {
+    if (!Array.isArray(logs) || logs.length === 0) continue
+
+    const limit = limits[category] || 1000
+    const combined = logs.join('\n')
+
+    if (combined.length <= limit) {
+      result[category] = logs
+    } else {
+      // Truncate and preserve some structure
+      const truncated = safeTrimToChars(combined, limit - 20, { preferBoundaries: true })
+      result[category] = [truncated + '\n...[truncated]']
+    }
+  }
+
+  return result
+}

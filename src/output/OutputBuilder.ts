@@ -10,8 +10,7 @@
 import type { LLMReporterOutput, TestSummary, TestResult, TestFailure } from '../types/schema'
 import type { SerializedError } from 'vitest'
 import type { TruncationConfig } from '../types/reporter'
-// Late truncation temporarily disabled - to be implemented separately
-// import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
+import { LateTruncator } from '../truncation/LateTruncator'
 
 /**
  * Output builder configuration
@@ -85,15 +84,15 @@ export interface BuildOptions {
  */
 export class OutputBuilder {
   private config: Required<OutputBuilderConfig>
-  // private truncationEngine?: ITruncationEngine // Late truncation disabled
+  private lateTruncator?: LateTruncator
 
   constructor(config: OutputBuilderConfig = {}) {
     this.config = { ...DEFAULT_OUTPUT_CONFIG, ...config }
 
-    // Late truncation temporarily disabled
-    // if (this.config.truncation.enabled && this.config.truncation.enableLateTruncation) {
-    //   this.truncationEngine = createTruncationEngine(this.config.truncation)
-    // }
+    // Initialize late truncator if enabled
+    if (this.config.truncation.enabled && this.config.truncation.enableLateTruncation) {
+      this.lateTruncator = new LateTruncator()
+    }
   }
 
   /**
@@ -324,84 +323,25 @@ export class OutputBuilder {
    * Applies late-stage truncation to the complete output
    */
   private applyLateTruncation(output: LLMReporterOutput): LLMReporterOutput {
-    // Late truncation temporarily disabled - to be implemented separately
-    return output
-    
-    /* Late truncation implementation disabled
-    if (!this.truncationEngine) {
+    if (!this.lateTruncator || !this.config.truncation.enabled || !this.config.truncation.enableLateTruncation) {
       return output
     }
 
-    // Serialize output to check total size
-    const serialized = JSON.stringify(output, null, 2)
-
-    if (!this.truncationEngine.needsTruncation(serialized)) {
-      return output
-    }
-
-    // Apply progressive truncation strategy
-    const truncatedOutput = { ...output }
-
-    // Strategy 1: Truncate failure details first (keeping errors but reducing context)
-    if (truncatedOutput.failures) {
-      truncatedOutput.failures = truncatedOutput.failures.map((failure) => {
-        const failureJson = JSON.stringify(failure)
-        if (this.truncationEngine!.needsTruncation(failureJson)) {
-          // Truncate console output first
-          if (failure.console) {
-            const consoleStr = JSON.stringify(failure.console)
-            const truncated = this.truncationEngine!.truncate(consoleStr)
-            try {
-              failure.console = JSON.parse(truncated.content) as Record<string, unknown>
-            } catch {
-              // If parsing fails, create simplified console output
-              failure.console = { logs: ['[Console output truncated]'] }
-            }
-          }
-
-          // Truncate error stack if still too large
-          if (failure.error && this.truncationEngine!.needsTruncation(JSON.stringify(failure))) {
-            // Limit stack trace lines
-            if (failure.error.stack) {
-              const stackLines = failure.error.stack.split('\n')
-              failure.error.stack = stackLines.slice(0, 10).join('\n')
-            }
-          }
-        }
-        return failure
-      })
-    }
-
-    // Check if we still need more truncation
-    const newSerialized = JSON.stringify(truncatedOutput, null, 2)
-    if (this.truncationEngine.needsTruncation(newSerialized)) {
-      // Strategy 2: Remove passed/skipped tests if they exist
-      if (truncatedOutput.passed?.length) {
-        delete truncatedOutput.passed
-      }
-      if (truncatedOutput.skipped?.length) {
-        delete truncatedOutput.skipped
-      }
-    }
-
-    return truncatedOutput
-    End of late truncation */
+    return this.lateTruncator.apply(output, this.config.truncation)
   }
 
   /**
    * Gets truncation metrics if available
    */
   public getTruncationMetrics(): unknown[] {
-    // return this.truncationEngine?.getMetrics() || []
-    return [] // Late truncation disabled
+    return this.lateTruncator?.getMetrics() || []
   }
 
   /**
    * Check if truncation is enabled
    */
   public get hasTruncation(): boolean {
-    // return Boolean(this.truncationEngine)
-    return false // Late truncation disabled
+    return Boolean(this.lateTruncator)
   }
 
   /**
@@ -410,18 +350,20 @@ export class OutputBuilder {
   public updateConfig(config: OutputBuilderConfig): void {
     this.config = { ...this.config, ...config }
 
-    // Late truncation config update disabled
-    // if (this.truncationEngine && config.truncation) {
-    //   this.truncationEngine.updateConfig(config.truncation)
-    // }
-    // if (
-    //   config.truncation?.enabled &&
-    //   config.truncation?.enableLateTruncation &&
-    //   !this.truncationEngine
-    // ) {
-    //   this.truncationEngine = createTruncationEngine(this.config.truncation)
-    // } else if (!config.truncation?.enabled && this.truncationEngine) {
-    //   this.truncationEngine = undefined
-    // }
+    // Update late truncator configuration
+    if (this.lateTruncator && config.truncation) {
+      this.lateTruncator.updateConfig(config.truncation)
+    }
+    
+    // Initialize or destroy late truncator based on config changes
+    if (
+      config.truncation?.enabled &&
+      config.truncation?.enableLateTruncation &&
+      !this.lateTruncator
+    ) {
+      this.lateTruncator = new LateTruncator()
+    } else if (!config.truncation?.enabled && this.lateTruncator) {
+      this.lateTruncator = undefined
+    }
   }
 }

@@ -9,7 +9,7 @@ import type { TruncationConfig } from '../types/reporter.js'
 import type { SupportedModel } from '../tokenization/types.js'
 import { TokenCounter } from '../tokenization/TokenCounter.js'
 import { getEffectiveMaxTokens } from './context.js'
-import { ContentPriority } from './types.js'
+import { ContentPriority, ContentType } from './types.js'
 import { getContentPriority } from './priorities.js'
 import {
   safeTrimToChars,
@@ -245,8 +245,8 @@ export class EarlyTruncator {
       priority = ContentPriority.LOW
     } else {
       // Check content for priority keywords
-      const contentType = category === 'errors' ? 'error' : 'log'
-      priority = getContentPriority(content, contentType as any)
+      // Default to 'log' content type for non-categorized content
+      priority = getContentPriority(content, ContentType.LOG)
     }
 
     // Preservation ratio: higher priority = keep more content
