@@ -20,14 +20,6 @@ export interface BenchmarkConfig {
   warmupIterations: number
   /** Timeout for each iteration in ms */
   timeout: number
-  /**
-   * Deprecated: metrics are always collected. Kept for backward compatibility.
-   */
-  collectMemory?: boolean
-  /**
-   * Deprecated: metrics are always collected. Kept for backward compatibility.
-   */
-  collectGC?: boolean
 }
 
 /**
@@ -86,7 +78,7 @@ export const BASELINE_METRICS = {
 export const DEFAULT_BENCHMARK_CONFIG: BenchmarkConfig = {
   iterations: 100,
   warmupIterations: 10,
-  timeout: 10000,
+  timeout: 10000
 }
 
 /**
@@ -143,7 +135,7 @@ export class BenchmarkRunner {
       averageTime,
       successRate,
       memoryDelta:
-        finalMemory && baselineMemory ? finalMemory.heapUsed - baselineMemory.heapUsed : 0,
+        finalMemory && baselineMemory ? finalMemory.heapUsed - baselineMemory.heapUsed : 0
     }
 
     this.logResult(result)

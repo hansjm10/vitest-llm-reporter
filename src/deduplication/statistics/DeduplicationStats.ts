@@ -145,7 +145,6 @@ export class DeduplicationStatsCollector {
    */
   startProcessing(): () => void {
     const startTime = Date.now()
-    // Removed unused variable 'startMemory'
 
     return () => {
       const duration = Date.now() - startTime

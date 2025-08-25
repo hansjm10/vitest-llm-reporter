@@ -73,17 +73,14 @@ export class EarlyTruncator {
 
     const estimatedTokens = this.tokenCounter.estimate(content)
     const maxTokens = getEffectiveMaxTokens(this.model, this.config.maxTokens)
-    
+
     return estimatedTokens > maxTokens
   }
 
   /**
    * Truncate content using appropriate strategy
    */
-  truncate(
-    content: string,
-    category?: ContentCategory
-  ): TruncationResult {
+  truncate(content: string, category?: ContentCategory): TruncationResult {
     const originalTokens = this.tokenCounter.estimate(content)
     const maxTokens = getEffectiveMaxTokens(this.model, this.config.maxTokens)
 
@@ -129,15 +126,15 @@ export class EarlyTruncator {
   private applySimpleStrategy(content: string, maxTokens: number): string {
     const targetChars = estimateCharsForTokens(maxTokens)
     const lines = content.split('\n')
-    
+
     // If content is short, just trim it
     if (lines.length <= 3) {
       return safeTrimToChars(content, targetChars)
     }
-    
+
     // Calculate how many lines we can afford for head and tail
     const availableCharsPerSection = targetChars * 0.4
-    
+
     // Build head section
     let headLines: string[] = []
     let headChars = 0
@@ -146,7 +143,7 @@ export class EarlyTruncator {
       headLines.push(lines[i])
       headChars += lines[i].length + 1
     }
-    
+
     // Build tail section (from the end)
     let tailLines: string[] = []
     let tailChars = 0
@@ -155,7 +152,7 @@ export class EarlyTruncator {
       tailLines.unshift(lines[i]) // Add to beginning to maintain order
       tailChars += lines[i].length + 1
     }
-    
+
     const headContent = headLines.join('\n')
     const tailContent = tailLines.join('\n')
 
@@ -188,7 +185,7 @@ export class EarlyTruncator {
 
     // Extract with context
     const selectedIndices = extractLinesWithContext(lines, importantIndices, 1)
-    
+
     // Build result with selected lines
     const chunks: string[] = []
     let currentChunk: string[] = []
@@ -234,7 +231,7 @@ export class EarlyTruncator {
   ): string {
     // Determine content priority based on category and content
     let priority: ContentPriority
-    
+
     if (category === 'errors') {
       priority = ContentPriority.CRITICAL
     } else if (category === 'warns') {
@@ -251,24 +248,24 @@ export class EarlyTruncator {
 
     // Preservation ratio: higher priority = keep more content
     const preserveRatio = {
-      [ContentPriority.CRITICAL]: 0.9,  // Keep 90% of allowed tokens
-      [ContentPriority.HIGH]: 0.7,      // Keep 70% of allowed tokens
-      [ContentPriority.MEDIUM]: 0.5,    // Keep 50% of allowed tokens
-      [ContentPriority.LOW]: 0.3,       // Keep 30% of allowed tokens
+      [ContentPriority.CRITICAL]: 0.9, // Keep 90% of allowed tokens
+      [ContentPriority.HIGH]: 0.7, // Keep 70% of allowed tokens
+      [ContentPriority.MEDIUM]: 0.5, // Keep 50% of allowed tokens
+      [ContentPriority.LOW]: 0.3, // Keep 30% of allowed tokens
       [ContentPriority.DISPOSABLE]: 0.1 // Keep 10% of allowed tokens
     }[priority]
 
     // Calculate target size based on priority
     const targetTokens = Math.floor(maxTokens * preserveRatio)
     const targetChars = estimateCharsForTokens(targetTokens)
-    
+
     // Apply trimming based on priority
     if (priority <= ContentPriority.HIGH) {
       // For high priority, try to preserve important parts
       const lines = content.split('\n')
       const importantLines: string[] = []
       let totalChars = 0
-      
+
       // First pass: collect lines with priority keywords
       for (const line of lines) {
         if (hasPriorityKeyword(line) || isErrorMessageLine(line)) {
@@ -278,7 +275,7 @@ export class EarlyTruncator {
           }
         }
       }
-      
+
       // Second pass: fill remaining space with other content
       for (const line of lines) {
         if (!importantLines.includes(line)) {
@@ -288,7 +285,7 @@ export class EarlyTruncator {
           }
         }
       }
-      
+
       return importantLines.join('\n') + '\n...[priority-based truncation]'
     }
 
@@ -303,7 +300,7 @@ export class EarlyTruncator {
   private applyErrorStrategy(content: string, maxTokens: number): string {
     const lines = content.split('\n')
     const targetChars = estimateCharsForTokens(maxTokens)
-    
+
     const result: string[] = []
     let currentChars = 0
 
@@ -319,7 +316,7 @@ export class EarlyTruncator {
     // Second pass: Keep user code frames (filter out node_modules)
     const userFrames: string[] = []
     const nodeModulesFrames: string[] = []
-    
+
     for (const line of lines) {
       if (isStackFrameLine(line)) {
         if (isUserCodePath(line)) {
@@ -339,7 +336,7 @@ export class EarlyTruncator {
         result.push(frame)
         currentChars += frame.length + 1
       }
-      
+
       // Add indication of filtered frames if any were removed
       if (nodeModulesFrames.length > 0) {
         result.push(`...[${nodeModulesFrames.length} node_modules frames omitted]`)
@@ -393,7 +390,7 @@ export class EarlyTruncator {
   updateConfig(config: TruncationConfig): void {
     this.config = { ...this.config, ...config }
     if (config.model) {
-      this.model = config.model as SupportedModel
+      this.model = config.model
       this.tokenCounter = new TokenCounter({ defaultModel: this.model })
     }
   }

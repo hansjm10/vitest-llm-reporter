@@ -34,8 +34,12 @@ describe('Token Estimator', () => {
     })
 
     it('throws error for invalid charsPerToken', () => {
-      expect(() => estimateTokens('test', { charsPerToken: 0 })).toThrow('charsPerToken must be a positive number')
-      expect(() => estimateTokens('test', { charsPerToken: -1 })).toThrow('charsPerToken must be a positive number')
+      expect(() => estimateTokens('test', { charsPerToken: 0 })).toThrow(
+        'charsPerToken must be a positive number'
+      )
+      expect(() => estimateTokens('test', { charsPerToken: -1 })).toThrow(
+        'charsPerToken must be a positive number'
+      )
     })
   })
 
@@ -120,7 +124,7 @@ describe('Token Estimator', () => {
       const result1 = estimateTokens(text)
       const result2 = estimateTokens(text)
       const result3 = estimateTokens(text)
-      
+
       expect(result1).toBe(result2)
       expect(result2).toBe(result3)
     })

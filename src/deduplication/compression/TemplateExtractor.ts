@@ -141,7 +141,6 @@ export class TemplateExtractor {
     const commonSuffix = this.findCommonSuffix(strings)
 
     // Build segments
-    // Removed unused variable 'position'
 
     // Add common prefix as static segment
     if (commonPrefix.length >= this.options.minCommonLength) {

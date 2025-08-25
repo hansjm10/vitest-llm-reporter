@@ -1,6 +1,6 @@
 /**
  * Late Truncator - Global truncation applied to final output
- * 
+ *
  * This module implements the primary global token budget enforcement
  * on the complete LLMReporterOutput. It uses a phase-based approach
  * to progressively reduce content while preserving essential information.
@@ -66,7 +66,7 @@ export class LateTruncator {
 
     // Update model if specified
     if (config.model) {
-      this.model = config.model as SupportedModel
+      this.model = config.model
       this.tokenCounter = new TokenCounter({ defaultModel: this.model })
     }
 
@@ -80,11 +80,11 @@ export class LateTruncator {
 
     // Apply phased truncation
     const truncated = this.applyPhasedTruncation(output, budget)
-    
+
     // Record metrics
     const truncatedTokens = this.estimateOutputTokens(truncated)
     this.recordMetrics(originalTokens, truncatedTokens, [])
-    
+
     return truncated
   }
 
@@ -98,7 +98,7 @@ export class LateTruncator {
 
     const budget = this.calculateBudget(config)
     const currentTokens = this.estimateOutputTokens(output)
-    
+
     return currentTokens > budget
   }
 
@@ -128,9 +128,13 @@ export class LateTruncator {
     if (this.estimateOutputTokens(current) > budget) {
       current = this.phase1RemoveLowValueSections(current)
       phasesApplied.push('remove-low-value')
-      
+
       if (this.estimateOutputTokens(current) <= budget) {
-        this.recordMetrics(this.estimateOutputTokens(output), this.estimateOutputTokens(current), phasesApplied)
+        this.recordMetrics(
+          this.estimateOutputTokens(output),
+          this.estimateOutputTokens(current),
+          phasesApplied
+        )
         return current
       }
     }
@@ -139,9 +143,13 @@ export class LateTruncator {
     if (this.estimateOutputTokens(current) > budget) {
       current = this.phase2TrimFailures(current)
       phasesApplied.push('trim-failures')
-      
+
       if (this.estimateOutputTokens(current) <= budget) {
-        this.recordMetrics(this.estimateOutputTokens(output), this.estimateOutputTokens(current), phasesApplied)
+        this.recordMetrics(
+          this.estimateOutputTokens(output),
+          this.estimateOutputTokens(current),
+          phasesApplied
+        )
         return current
       }
     }
@@ -152,7 +160,11 @@ export class LateTruncator {
       phasesApplied.push('progressive-tightening')
     }
 
-    this.recordMetrics(this.estimateOutputTokens(output), this.estimateOutputTokens(current), phasesApplied)
+    this.recordMetrics(
+      this.estimateOutputTokens(output),
+      this.estimateOutputTokens(current),
+      phasesApplied
+    )
     return current
   }
 
@@ -187,15 +199,15 @@ export class LateTruncator {
 
     // Define console output limits for this phase
     const consoleLimits: ConsoleOutputLimits = {
-      debug: 0,      // Remove debug entirely
-      info: 100,     // 25 lines * 4 chars/token estimate
-      warns: 100,    // 25 lines * 4 chars/token estimate  
-      logs: 100,     // 25 lines * 4 chars/token estimate
-      errors: 400    // 100 lines * 4 chars/token estimate
+      debug: 0, // Remove debug entirely
+      info: 100, // 25 lines * 4 chars/token estimate
+      warns: 100, // 25 lines * 4 chars/token estimate
+      logs: 100, // 25 lines * 4 chars/token estimate
+      errors: 400 // 100 lines * 4 chars/token estimate
     }
 
     // Apply truncation to each failure
-    result.failures = result.failures.map(failure => this.truncateFailure(failure, consoleLimits))
+    result.failures = result.failures.map((failure) => this.truncateFailure(failure, consoleLimits))
 
     return result
   }
@@ -203,7 +215,10 @@ export class LateTruncator {
   /**
    * Phase 3: Progressive tightening
    */
-  private phase3ProgressiveTightening(output: LLMReporterOutput, budget: number): LLMReporterOutput {
+  private phase3ProgressiveTightening(
+    output: LLMReporterOutput,
+    budget: number
+  ): LLMReporterOutput {
     let result = { ...output }
     let iteration = 0
     const maxIterations = 5
@@ -216,8 +231,8 @@ export class LateTruncator {
       }
 
       // Progressively tighter limits each iteration
-      const tightnessRatio = 1 - (iteration * 0.2) // 80%, 60%, 40%, 20%, 0%
-      
+      const tightnessRatio = 1 - iteration * 0.2 // 80%, 60%, 40%, 20%, 0%
+
       const consoleLimits: ConsoleOutputLimits = {
         debug: 0,
         info: Math.floor(50 * tightnessRatio),
@@ -227,27 +242,31 @@ export class LateTruncator {
       }
 
       // Apply increasingly aggressive truncation
-      result.failures = result.failures.map(failure => {
+      result.failures = result.failures.map((failure) => {
         let truncated = this.truncateFailure(failure, consoleLimits)
-        
+
         // Additional aggressive measures in later iterations
         if (iteration >= 2) {
           // Reduce stack frames further
           if (truncated.error.stack) {
-            truncated.error.stack = truncateStackTrace(truncated.error.stack, Math.max(3, 10 - iteration * 2))
+            truncated.error.stack = truncateStackTrace(
+              truncated.error.stack,
+              Math.max(3, 10 - iteration * 2)
+            )
           }
-          
+
           // Shrink error message
           if (truncated.error.message && truncated.error.message.length > 512) {
-            truncated.error.message = safeTrimToChars(truncated.error.message, 512 - iteration * 100) + '...'
+            truncated.error.message =
+              safeTrimToChars(truncated.error.message, 512 - iteration * 100) + '...'
           }
-          
+
           // Collapse code context
           if (truncated.error.context?.code && truncated.error.context.code.length > 1) {
             truncated.error.context.code = ['[code context truncated]']
           }
         }
-        
+
         return truncated
       })
 
@@ -283,7 +302,10 @@ export class LateTruncator {
   /**
    * Truncate console output for a failure
    */
-  private truncateFailureConsole(console: ConsoleOutput, limits: ConsoleOutputLimits): ConsoleOutput {
+  private truncateFailureConsole(
+    console: ConsoleOutput,
+    limits: ConsoleOutputLimits
+  ): ConsoleOutput {
     const result: ConsoleOutput = {}
 
     // Remove debug entirely if limit is 0
@@ -295,15 +317,15 @@ export class LateTruncator {
     if (console.info) {
       result.info = this.capConsoleCategory(console.info, limits.info)
     }
-    
+
     if (console.warns) {
       result.warns = this.capConsoleCategory(console.warns, limits.warns)
     }
-    
+
     if (console.logs) {
       result.logs = this.capConsoleCategory(console.logs, limits.logs)
     }
-    
+
     // Preserve errors more generously
     if (console.errors) {
       result.errors = this.capConsoleCategory(console.errors, limits.errors)
@@ -317,7 +339,7 @@ export class LateTruncator {
    */
   private capConsoleCategory(logs: string[], charLimit: number): string[] {
     if (charLimit <= 0) return []
-    
+
     const combined = logs.join('\n')
     if (combined.length <= charLimit) {
       return logs
@@ -325,14 +347,14 @@ export class LateTruncator {
 
     // Use fair capping to distribute budget
     const capped = applyFairCaps(logs, charLimit, 50)
-    
+
     // If still over, just truncate the combined string
     const cappedCombined = capped.join('\n')
     if (cappedCombined.length > charLimit) {
       const truncated = safeTrimToChars(cappedCombined, charLimit - 20, { preferBoundaries: true })
       return [truncated + '\n...[truncated]']
     }
-    
+
     return capped
   }
 
@@ -350,11 +372,7 @@ export class LateTruncator {
     // Truncate code context
     if (result.context) {
       if (result.context.code) {
-        result.context.code = truncateCodeContext(
-          result.context.code, 
-          result.context.lineNumber, 
-          2
-        )
+        result.context.code = truncateCodeContext(result.context.code, result.context.lineNumber, 2)
       }
 
       // Truncate assertion values
@@ -362,7 +380,7 @@ export class LateTruncator {
         const expectedStr = truncateAssertionValue(result.context.expected, 200)
         result.context.expected = expectedStr as any
       }
-      
+
       if (result.context.actual !== undefined) {
         const actualStr = truncateAssertionValue(result.context.actual, 200)
         result.context.actual = actualStr as any
@@ -375,7 +393,7 @@ export class LateTruncator {
         const expectedStr = truncateAssertionValue(result.assertion.expected, 200)
         result.assertion.expected = expectedStr
       }
-      
+
       if (result.assertion.actual !== undefined) {
         const actualStr = truncateAssertionValue(result.assertion.actual, 200)
         result.assertion.actual = actualStr
@@ -388,7 +406,11 @@ export class LateTruncator {
   /**
    * Record truncation metrics
    */
-  private recordMetrics(originalTokens: number, truncatedTokens: number, phasesApplied: string[]): void {
+  private recordMetrics(
+    originalTokens: number,
+    truncatedTokens: number,
+    phasesApplied: string[]
+  ): void {
     const metrics: LateTruncationMetrics = {
       originalTokens,
       truncatedTokens,
@@ -398,7 +420,7 @@ export class LateTruncator {
     }
 
     this.metrics.push(metrics)
-    
+
     // Keep only last 100 metrics
     if (this.metrics.length > 100) {
       this.metrics = this.metrics.slice(-100)
@@ -417,7 +439,7 @@ export class LateTruncator {
    */
   updateConfig(config: TruncationConfig): void {
     if (config.model) {
-      this.model = config.model as SupportedModel
+      this.model = config.model
       this.tokenCounter = new TokenCounter({ defaultModel: this.model })
     }
   }

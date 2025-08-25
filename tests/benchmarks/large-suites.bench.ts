@@ -8,7 +8,12 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import type { Vitest, TestModule } from 'vitest'
 import { LLMReporter } from '../../src/reporter/reporter'
-import { BenchmarkRunner, TestDataGenerator, PerformanceAssertions, BASELINE_METRICS } from './utils'
+import {
+  BenchmarkRunner,
+  TestDataGenerator,
+  PerformanceAssertions,
+  BASELINE_METRICS
+} from './utils'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { unlink } from 'node:fs/promises'
@@ -88,4 +93,3 @@ describe('Large Test Suite Performance Benchmarks', () => {
     PerformanceAssertions.assertResources(result, 900)
   })
 })
-

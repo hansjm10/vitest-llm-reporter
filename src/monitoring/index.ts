@@ -1,6 +1,6 @@
 /**
  * Simple Monitoring System
- * 
+ *
  * A straightforward replacement for the over-engineered performance module.
  * No "intelligent" features - just simple, honest monitoring.
  */
@@ -30,7 +30,7 @@ export { MonitoringService as PerformanceManager } from './MonitoringService'
 
 /**
  * Create a monitoring service with simple configuration
- * 
+ *
  * @param config Simple monitoring configuration
  * @returns Configured MonitoringService instance
  */
@@ -40,7 +40,7 @@ export function createPerformanceManager(config?: MonitoringConfig): MonitoringS
 
 /**
  * Create a monitoring service (direct alias)
- * 
+ *
  * @param config Simple monitoring configuration
  * @returns Configured MonitoringService instance
  */

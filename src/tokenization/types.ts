@@ -39,6 +39,3 @@ export interface TokenizationResult {
   /** Whether result was retrieved from cache */
   fromCache: boolean
 }
-
-// Legacy interfaces removed - no longer needed with estimation-only approach
-// Keeping only the essential types for API compatibility

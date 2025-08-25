@@ -17,7 +17,7 @@ export interface SafeTrimOptions {
 
 /**
  * Safely trim text to target character count
- * 
+ *
  * @param text - Text to trim
  * @param targetChars - Target character count
  * @param opts - Trimming options
@@ -46,7 +46,7 @@ export function safeTrimToChars(
     const lastComma = trimmed.lastIndexOf(',')
 
     const boundary = Math.max(lastSpace, lastNewline, lastSentence, lastComma)
-    
+
     // Only use boundary if it's not too far back (at least 80% of target)
     if (boundary > safeTarget * 0.8) {
       trimmed = text.substring(0, boundary + 1)
@@ -58,20 +58,18 @@ export function safeTrimToChars(
 
 /**
  * Join text chunks with ellipsis
- * 
+ *
  * @param chunks - Text chunks to join
  * @param ellipsis - Ellipsis separator
  * @returns Joined text
  */
 export function joinWithEllipsis(chunks: string[], ellipsis = '...'): string {
-  return chunks
-    .filter(chunk => chunk && chunk.trim())
-    .join(ellipsis)
+  return chunks.filter((chunk) => chunk && chunk.trim()).join(ellipsis)
 }
 
 /**
  * Check if a line appears to be a stack frame
- * 
+ *
  * @param line - Line to check
  * @returns True if line looks like a stack frame
  */
@@ -89,7 +87,7 @@ export function isStackFrameLine(line: string): boolean {
 
 /**
  * Check if a line appears to be an error message
- * 
+ *
  * @param line - Line to check
  * @returns True if line looks like an error message
  */
@@ -104,7 +102,7 @@ export function isErrorMessageLine(line: string): boolean {
 
 /**
  * Check if a path is user code (not node_modules or internals)
- * 
+ *
  * @param path - File path to check
  * @returns True if path appears to be user code
  */
@@ -122,29 +120,48 @@ export function isUserCodePath(path: string): boolean {
 
 /**
  * Check if a line contains priority keywords
- * 
+ *
  * @param line - Line to check
  * @returns True if line contains priority keywords
  */
 export function hasPriorityKeyword(line: string): boolean {
   const keywords = [
     // Error keywords
-    'error', 'fail', 'failure', 'exception', 'throw', 'crash', 'fatal',
+    'error',
+    'fail',
+    'failure',
+    'exception',
+    'throw',
+    'crash',
+    'fatal',
     // Assertion keywords
-    'assert', 'expect', 'should', 'must', 'require',
+    'assert',
+    'expect',
+    'should',
+    'must',
+    'require',
     // Testing keywords
-    'test', 'describe', 'it(', 'spec', 'scenario',
+    'test',
+    'describe',
+    'it(',
+    'spec',
+    'scenario',
     // Important markers
-    'warning', 'critical', 'important', 'bug', 'issue', 'problem'
+    'warning',
+    'critical',
+    'important',
+    'bug',
+    'issue',
+    'problem'
   ]
 
   const lowerLine = line.toLowerCase()
-  return keywords.some(keyword => lowerLine.includes(keyword))
+  return keywords.some((keyword) => lowerLine.includes(keyword))
 }
 
 /**
  * Handle tiny token limits with minimal deterministic output
- * 
+ *
  * @param maxTokens - Maximum token limit
  * @param content - Original content
  * @returns Minimal truncated content
@@ -157,7 +174,7 @@ export function handleTinyLimit(maxTokens: number, content: string): string {
   if (maxTokens < 10) {
     // Try to include first error message or key info
     const lines = content.split('\n')
-    const errorLine = lines.find(line => isErrorMessageLine(line))
+    const errorLine = lines.find((line) => isErrorMessageLine(line))
     if (errorLine) {
       return safeTrimToChars(errorLine, maxTokens * 3, { preferBoundaries: false }) + '...'
     }
@@ -172,7 +189,7 @@ export function handleTinyLimit(maxTokens: number, content: string): string {
 
 /**
  * Extract lines around matches with context
- * 
+ *
  * @param lines - All lines
  * @param matchIndices - Indices of matching lines
  * @param contextLines - Number of context lines before/after
@@ -205,7 +222,7 @@ export function extractLinesWithContext(
 
 /**
  * Split content into head and tail portions
- * 
+ *
  * @param content - Content to split
  * @param headRatio - Ratio for head portion (0-1)
  * @param tailRatio - Ratio for tail portion (0-1)
@@ -234,7 +251,7 @@ export function splitHeadTail(
 
 /**
  * Estimate character count for target tokens
- * 
+ *
  * @param targetTokens - Target token count
  * @param avgCharsPerToken - Average characters per token (default: 3.5)
  * @returns Estimated character count
@@ -245,7 +262,7 @@ export function estimateCharsForTokens(targetTokens: number, avgCharsPerToken = 
 
 /**
  * Truncate a stack trace preserving important frames
- * 
+ *
  * @param stack - Stack trace string
  * @param maxFrames - Maximum number of frames to keep
  * @param prioritizeUserCode - Whether to prioritize user code frames
@@ -311,7 +328,7 @@ export function truncateStackTrace(
 
 /**
  * Truncate code context around a specific line
- * 
+ *
  * @param code - Code lines array
  * @param lineNumber - Target line number (0-based)
  * @param contextLines - Number of lines before/after to include
@@ -349,14 +366,14 @@ export function truncateCodeContext(
 
 /**
  * Truncate assertion details (expected/actual values)
- * 
+ *
  * @param value - Value to truncate
  * @param maxChars - Maximum characters
  * @returns Truncated value as string
  */
 export function truncateAssertionValue(value: unknown, maxChars = 200): string {
   let str: string
-  
+
   if (typeof value === 'string') {
     str = value
   } else if (value === undefined) {
@@ -389,17 +406,13 @@ export function truncateAssertionValue(value: unknown, maxChars = 200): string {
 
 /**
  * Apply fair caps across multiple items
- * 
+ *
  * @param items - Items to cap
  * @param totalBudget - Total character budget
  * @param minPerItem - Minimum characters per item
  * @returns Capped items
  */
-export function applyFairCaps(
-  items: string[],
-  totalBudget: number,
-  minPerItem = 100
-): string[] {
+export function applyFairCaps(items: string[], totalBudget: number, minPerItem = 100): string[] {
   if (items.length === 0) return []
 
   const fairShare = Math.max(minPerItem, Math.floor(totalBudget / items.length))
@@ -425,7 +438,7 @@ export function applyFairCaps(
 
 /**
  * Truncate console output by category
- * 
+ *
  * @param console - Console output object
  * @param limits - Character limits per category
  * @returns Truncated console output

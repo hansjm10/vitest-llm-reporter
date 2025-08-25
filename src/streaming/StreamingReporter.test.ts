@@ -20,10 +20,10 @@ describe('StreamingReporter', () => {
   it('should allow enabling/disabling streaming at runtime', () => {
     const reporter = new StreamingReporter()
     expect(reporter.isStreaming).toBe(false)
-    
+
     reporter.setStreamingEnabled(true)
     expect(reporter.isStreaming).toBe(true)
-    
+
     reporter.setStreamingEnabled(false)
     expect(reporter.isStreaming).toBe(false)
   })
@@ -45,7 +45,7 @@ describe('StreamingReporter', () => {
     } as any
 
     reporter.onTestCaseResult(testCase)
-    
+
     expect(outputHandler).toHaveBeenCalledWith('  ✓ test case (100ms)\n')
   })
 
@@ -63,7 +63,7 @@ describe('StreamingReporter', () => {
     reporter.onTestCaseResult(passCase)
     reporter.onTestCaseResult(failCase)
     reporter.onTestCaseResult(skipCase)
-    
+
     expect(outputHandler).toHaveBeenNthCalledWith(1, '  ✓ pass test (50ms)\n')
     expect(outputHandler).toHaveBeenNthCalledWith(2, '  ✗ fail test (60ms)\n')
     expect(outputHandler).toHaveBeenNthCalledWith(3, '  ○ skip test (0ms)\n')
@@ -85,7 +85,7 @@ describe('StreamingReporter', () => {
     } as any
 
     reporter.onTestCaseResult(testCase)
-    
+
     expect(outputHandler).not.toHaveBeenCalled()
   })
 
@@ -102,7 +102,7 @@ describe('StreamingReporter', () => {
     } as any
 
     reporter.onTestCaseResult(testCase)
-    
+
     expect(outputHandler).not.toHaveBeenCalled()
   })
 })

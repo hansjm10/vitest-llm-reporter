@@ -467,7 +467,8 @@ export class TokenMetricsCollector {
         cacheMisses: 0,
         processingTime: 0,
         averageProcessingTime: 0,
-        memoryUsage: typeof process?.memoryUsage === 'function' ? process?.memoryUsage?.()?.heapUsed || 0 : 0,
+        memoryUsage:
+          typeof process?.memoryUsage === 'function' ? process?.memoryUsage?.()?.heapUsed || 0 : 0,
         warningsCount: this.warningSystem.getWarnings().length,
         errorsCount: this.warningSystem.getErrors().length
       }
@@ -599,9 +600,13 @@ export class TokenMetricsCollector {
         }
 
         if (content.length > truncatedContent.length) {
-          const warning = this.warningSystem.warnContentTruncated(content.length, truncatedContent.length, {
-            section
-          })
+          const warning = this.warningSystem.warnContentTruncated(
+            content.length,
+            truncatedContent.length,
+            {
+              section
+            }
+          )
           this.events.onWarning?.({
             type: 'warning',
             timestamp: Date.now(),
@@ -761,7 +766,6 @@ export class TokenMetricsCollector {
     return fileMetrics
   }
 
-
   private reportProgress(completed: number, total: number, current: string): void {
     this.events.onProgress?.({ completed, total, current })
   }
@@ -803,7 +807,8 @@ export class TokenMetricsCollector {
     if (data.warnings && data.warnings.length > 0) {
       markdown += `## Warnings\n\n`
       for (const warning of data.warnings) {
-        const emoji = warning.severity === 'high' ? '🚨' : warning.severity === 'medium' ? '⚠️' : 'ℹ️'
+        const emoji =
+          warning.severity === 'high' ? '🚨' : warning.severity === 'medium' ? '⚠️' : 'ℹ️'
         let message = `${emoji} ${warning.message}`
         if (warning.context.testId) {
           message += ` (Test: ${warning.context.testId})`

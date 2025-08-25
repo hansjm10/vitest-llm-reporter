@@ -4,11 +4,7 @@
  * Minimal warning and error collection for token metrics.
  */
 
-import type {
-  MetricsWarning,
-  MetricsError,
-  MetricSection
-} from './types.js'
+import type { MetricsWarning, MetricsError, MetricSection } from './types.js'
 import type { ThresholdLevel } from './thresholds.js'
 import type { SupportedModel } from '../types.js'
 

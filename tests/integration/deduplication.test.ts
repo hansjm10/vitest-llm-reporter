@@ -6,21 +6,9 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import {
-  // MockPerformanceManager, // Unused
-  createIntegratedMockServices
-} from '../fixtures/mock-implementations'
-import {
-  createSampleOutput,
-  DEDUPLICATION_SCENARIOS
-  // CONFIG_PRESETS, // Unused
-  // SAMPLE_TEST_DATA // Unused
-} from '../fixtures/test-data'
-import type {
-  DeduplicationConfig,
-  DeduplicationResult
-  // DeduplicationGroup // Unused
-} from '../../src/types/deduplication'
+import { createIntegratedMockServices } from '../fixtures/mock-implementations'
+import { createSampleOutput, DEDUPLICATION_SCENARIOS } from '../fixtures/test-data'
+import type { DeduplicationConfig, DeduplicationResult } from '../../src/types/deduplication'
 import type { LLMReporterOutput, TestFailure } from '../../src/types/schema'
 
 describe('Deduplication Integration', () => {

@@ -323,7 +323,11 @@ export class OutputBuilder {
    * Applies late-stage truncation to the complete output
    */
   private applyLateTruncation(output: LLMReporterOutput): LLMReporterOutput {
-    if (!this.lateTruncator || !this.config.truncation.enabled || !this.config.truncation.enableLateTruncation) {
+    if (
+      !this.lateTruncator ||
+      !this.config.truncation.enabled ||
+      !this.config.truncation.enableLateTruncation
+    ) {
       return output
     }
 
@@ -354,7 +358,7 @@ export class OutputBuilder {
     if (this.lateTruncator && config.truncation) {
       this.lateTruncator.updateConfig(config.truncation)
     }
-    
+
     // Initialize or destroy late truncator based on config changes
     if (
       config.truncation?.enabled &&

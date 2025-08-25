@@ -131,7 +131,6 @@ export class EventOrchestrator {
       includeDebugOutput: this.config.includeDebugOutput
     })
 
-
     // Initialize truncator if enabled
     if (
       this.config.truncationConfig.enabled &&

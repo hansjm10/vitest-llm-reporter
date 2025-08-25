@@ -23,10 +23,10 @@ export * from './context'
 export * from './priorities'
 
 // Export the synchronous early truncator
-export { 
+export {
   EarlyTruncator,
   ContentCategory,
-  // Note: TruncationMetrics and TruncationResult from EarlyTruncator 
+  // Note: TruncationMetrics and TruncationResult from EarlyTruncator
   // are different from those in types.ts, so we export them with aliases
   type TruncationMetrics as EarlyTruncationMetrics,
   type TruncationResult as EarlyTruncationResult

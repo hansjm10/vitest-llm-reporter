@@ -443,5 +443,4 @@ describe('Performance Tests', () => {
     const parsed = JSON.parse(content)
     expect(parsed.failures).toHaveLength(1000)
   })
-
 })

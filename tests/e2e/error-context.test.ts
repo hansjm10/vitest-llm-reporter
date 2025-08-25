@@ -213,7 +213,7 @@ export default defineConfig({
     // In normal test runs (not subprocess), console capture works correctly
 
     // For now, we'll verify the structure exists but may be empty
-    // TODO: Investigate subprocess console capture in future enhancement
+    // Note: Subprocess console capture has known limitations; revisit if requirements change
     if (firstFailure.console) {
       expect(firstFailure.console).toBeDefined()
 

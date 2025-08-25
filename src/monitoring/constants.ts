@@ -1,6 +1,6 @@
 /**
  * Monitoring Module Constants
- * 
+ *
  * Centralized constants for the monitoring system to avoid magic numbers
  * and ensure consistent configuration across components.
  */

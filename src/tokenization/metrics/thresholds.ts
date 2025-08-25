@@ -319,7 +319,9 @@ export class ThresholdManager {
    * Get all current threshold settings
    */
   getSettings(): ThresholdSettings {
-    return createSafeObject(this.settings as unknown as Record<string, unknown>) as unknown as ThresholdSettings
+    return createSafeObject(
+      this.settings as unknown as Record<string, unknown>
+    ) as unknown as ThresholdSettings
   }
 
   /**
@@ -333,14 +335,18 @@ export class ThresholdManager {
    * Reset to default settings
    */
   resetToDefaults(): void {
-    this.settings = createSafeObject(DEFAULT_THRESHOLDS as unknown as Record<string, unknown>) as unknown as ThresholdSettings
+    this.settings = createSafeObject(
+      DEFAULT_THRESHOLDS as unknown as Record<string, unknown>
+    ) as unknown as ThresholdSettings
   }
 
   /**
    * Create threshold settings from reporter config
    */
   static fromReporterConfig(config: TokenMetricsConfig): ThresholdSettings {
-    const settings = createSafeObject(DEFAULT_THRESHOLDS as unknown as Record<string, unknown>) as unknown as ThresholdSettings
+    const settings = createSafeObject(
+      DEFAULT_THRESHOLDS as unknown as Record<string, unknown>
+    ) as unknown as ThresholdSettings
 
     if (config.thresholds) {
       if (config.thresholds.totalTokens) {
@@ -395,7 +401,9 @@ export class ThresholdManager {
   ): ThresholdSettings {
     if (!updates) return base
 
-    const result = createSafeObject(base as unknown as Record<string, unknown>) as unknown as ThresholdSettings
+    const result = createSafeObject(
+      base as unknown as Record<string, unknown>
+    ) as unknown as ThresholdSettings
 
     Object.keys(updates).forEach((key) => {
       const typedKey = key as keyof ThresholdSettings
@@ -458,7 +466,9 @@ export function createModelAwareThresholds(
   baseSettings?: Partial<ThresholdSettings>
 ): ThresholdSettings {
   const limits = MODEL_LIMITS[model]
-  const settings = createSafeObject(DEFAULT_THRESHOLDS as unknown as Record<string, unknown>) as unknown as ThresholdSettings
+  const settings = createSafeObject(
+    DEFAULT_THRESHOLDS as unknown as Record<string, unknown>
+  ) as unknown as ThresholdSettings
 
   // Adjust total tokens based on model limits
   settings.totalTokens.info = Math.floor(limits.conservativeThreshold * 0.25)

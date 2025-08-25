@@ -216,7 +216,5 @@ export function isModelSupported(model: string): model is SupportedModel {
  * Get all supported models with their context information
  */
 export function getAllModelContextInfo(): ModelContextInfo[] {
-  return Object.keys(MODEL_CONTEXT_WINDOWS).map((model) =>
-    getModelContextInfo(model as SupportedModel)
-  )
+  return Object.keys(MODEL_CONTEXT_WINDOWS).map((model) => getModelContextInfo(model))
 }

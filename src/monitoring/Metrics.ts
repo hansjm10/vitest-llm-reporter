@@ -1,6 +1,6 @@
 /**
  * Simple Metrics Collector
- * 
+ *
  * Basic metrics collection without any fancy algorithms.
  * Just counts and timers - nothing "intelligent" about it.
  */
@@ -16,39 +16,39 @@ export class Metrics {
   private errorCount = 0
   private operations: Array<{ name: string; duration: number; timestamp: number }> = []
   private debug = coreLogger()
-  
+
   recordTest(): void {
     this.testCount++
   }
-  
+
   recordCacheHit(): void {
     this.cacheHits++
   }
-  
+
   recordCacheMiss(): void {
     this.cacheMisses++
   }
-  
+
   recordError(): void {
     this.errorCount++
   }
-  
+
   recordOperation(name: string, duration: number): void {
     this.operations.push({
       name,
       duration,
       timestamp: Date.now()
     })
-    
+
     // Log timing under DEBUG
     this.debug(`[TIMING] ${name}: ${duration}ms`)
-    
+
     // Keep only last operations to avoid memory bloat
     if (this.operations.length > MAX_TRACKED_OPERATIONS) {
       this.operations.shift()
     }
   }
-  
+
   timeOperation<T>(name: string, operation: () => T): T {
     const start = Date.now()
     try {
@@ -63,7 +63,7 @@ export class Metrics {
       throw error
     }
   }
-  
+
   async timeAsyncOperation<T>(name: string, operation: () => Promise<T>): Promise<T> {
     const start = Date.now()
     try {
@@ -78,18 +78,18 @@ export class Metrics {
       throw error
     }
   }
-  
+
   getMetrics() {
     const now = Date.now()
-    const memoryUsed = typeof process?.memoryUsage === 'function' 
-      ? process.memoryUsage().heapUsed 
-      : 0
-    
+    const memoryUsed =
+      typeof process?.memoryUsage === 'function' ? process.memoryUsage().heapUsed : 0
+
     const totalCacheOps = this.cacheHits + this.cacheMisses
-    const avgOperationTime = this.operations.length > 0
-      ? this.operations.reduce((sum, op) => sum + op.duration, 0) / this.operations.length
-      : 0
-      
+    const avgOperationTime =
+      this.operations.length > 0
+        ? this.operations.reduce((sum, op) => sum + op.duration, 0) / this.operations.length
+        : 0
+
     return {
       duration: now - this.startTime,
       testCount: this.testCount,
@@ -103,11 +103,11 @@ export class Metrics {
       uptime: now - this.startTime
     }
   }
-  
+
   getRecentOperations(limit = 10): Array<{ name: string; duration: number; timestamp: number }> {
     return this.operations.slice(-limit)
   }
-  
+
   reset(): void {
     this.startTime = Date.now()
     this.testCount = 0

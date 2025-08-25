@@ -1,6 +1,6 @@
 /**
  * Monitoring Types
- * 
+ *
  * Simple type definitions for the monitoring system.
  * No complex hierarchies or over-engineered interfaces.
  */

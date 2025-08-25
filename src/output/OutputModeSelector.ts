@@ -28,7 +28,6 @@ import type {
 
 const logger = createLogger('output-mode-selector')
 
-
 /**
  * Output Mode Selector
  *
@@ -261,7 +260,6 @@ export class OutputModeSelector {
             ...this.config.consoleConfig
           }
         }
-
 
       default:
         throw new Error(`Unsupported output mode: ${mode as string}`)

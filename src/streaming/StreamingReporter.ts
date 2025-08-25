@@ -33,10 +33,10 @@ export class StreamingReporter extends LLMReporter {
 
   constructor(config: StreamingReporterConfig = {}) {
     super(config)
-    
+
     this.streamingEnabled = config.enableStreaming ?? false
     this.outputHandler = config.onStreamOutput ?? ((msg) => process.stdout.write(msg))
-    
+
     if (this.streamingEnabled) {
       this.streamDebug('Streaming output enabled')
     }
@@ -55,14 +55,18 @@ export class StreamingReporter extends LLMReporter {
       const result = (testCase as any).result
       if (result) {
         // Normalize state values (Vitest uses 'pass'/'fail', we display 'passed'/'failed')
-        const status = result.state === 'fail' ? '✗' : 
-                       result.state === 'pass' ? '✓' : 
-                       result.state === 'skip' ? '○' :
-                       '?'
-        
+        const status =
+          result.state === 'fail'
+            ? '✗'
+            : result.state === 'pass'
+              ? '✓'
+              : result.state === 'skip'
+                ? '○'
+                : '?'
+
         const duration = result.duration ?? 0
         const message = `  ${status} ${testCase.name} (${duration}ms)\n`
-        
+
         this.outputHandler(message)
       }
     }

@@ -16,11 +16,7 @@ import type { DeduplicationConfig } from '../types/deduplication'
 // import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 import { createDeduplicationService, type IDeduplicationService } from '../deduplication'
 import type { DeduplicationResult, DuplicateEntry } from '../types/deduplication'
-import {
-  PerformanceManager,
-  createPerformanceManager,
-  type PerformanceConfig
-} from '../monitoring'
+import { PerformanceManager, createPerformanceManager, type PerformanceConfig } from '../monitoring'
 
 /**
  * Processing options

@@ -308,7 +308,6 @@ describe('TokenMetricsCollector', () => {
       expect(context.config.maxContentSize).toBe(50000)
     })
 
-
     it('should generate unique run ID', () => {
       const collector1 = new TokenMetricsCollector(defaultConfig)
       const collector2 = new TokenMetricsCollector(defaultConfig)
@@ -1106,7 +1105,6 @@ describe('TokenMetricsCollector', () => {
         suite: ['suite'],
         startLine: 10,
         endLine: 15,
-        status: 'failed',
         error: { message: 'Error', type: 'Error', stack: 'stack' }
       }
 
@@ -1135,8 +1133,8 @@ describe('TokenMetricsCollector', () => {
           failed: 1,
           passed: 0,
           skipped: 0,
-          pending: 0,
-          duration: 1000
+          duration: 1000,
+          timestamp: new Date().toISOString()
         },
         failures: [
           {
@@ -1145,14 +1143,13 @@ describe('TokenMetricsCollector', () => {
             suite: ['suite'],
             startLine: 10,
             endLine: 15,
-            status: 'failed',
             error: { message: 'Error', type: 'Error', stack: 'stack' }
           }
         ]
       }
 
       await expect(collector.collectFromOutput(output)).rejects.toThrow()
-      
+
       expect(mockWarningSystem.recordError).toHaveBeenCalled()
       expect(mockEvents.onError).toHaveBeenCalledWith(
         expect.objectContaining({

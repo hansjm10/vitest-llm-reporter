@@ -6,13 +6,11 @@
 
 import type { LLMReporterOutput, TestSummary } from '../../src/types/schema'
 import type { ConsoleMethod } from '../../src/types/console'
-import type { DeduplicationConfig } from '../../src/types/deduplication'
-import type { PerformanceConfig } from '../../src/performance/types'
 
 /**
  * Sample test data for integration tests
  */
-export const SAMPLE_TEST_DATA = {
+const SAMPLE_TEST_DATA = {
   // Basic test results
   simplePass: {
     test: 'simple passing test',
@@ -91,47 +89,6 @@ export const SAMPLE_TEST_DATA = {
 }
 
 /**
- * Configuration presets for testing
- */
-export const CONFIG_PRESETS = {
-  minimal: {
-    deduplication: {
-      enabled: false,
-      strategy: 'conservative' as const,
-      thresholds: { exact: 1.0, high: 0.9, medium: 0.7, low: 0.5 },
-      patterns: { stackTrace: true, errorMessage: true, consoleOutput: false, assertion: true },
-      compression: { enabled: false, minGroupSize: 2, maxTemplateVariables: 5, preserveExamples: 1 }
-    } as DeduplicationConfig,
-
-    performance: {
-      enabled: false,
-      mode: 'balanced' as const,
-      enableCaching: false,
-      enableMemoryOptimization: false,
-      enableStreamOptimization: false
-    } as PerformanceConfig
-  },
-
-  aggressive: {
-    deduplication: {
-      enabled: true,
-      strategy: 'aggressive' as const,
-      thresholds: { exact: 1.0, high: 0.8, medium: 0.6, low: 0.4 },
-      patterns: { stackTrace: true, errorMessage: true, consoleOutput: true, assertion: true },
-      compression: { enabled: true, minGroupSize: 2, maxTemplateVariables: 15, preserveExamples: 5 }
-    } as DeduplicationConfig,
-
-    performance: {
-      enabled: true,
-      mode: 'performance' as const,
-      enableCaching: true,
-      enableMemoryOptimization: true,
-      enableStreamOptimization: true
-    } as PerformanceConfig
-  }
-}
-
-/**
  * Creates sample LLM reporter output with specified characteristics
  */
 export function createSampleOutput(
@@ -188,7 +145,6 @@ export function createSampleOutput(
   return output
 }
 
-
 /**
  * Performance test data generators
  */
@@ -202,8 +158,7 @@ export const PERFORMANCE_TEST_DATA = {
     ),
 
   // Memory intensive data
-  memoryIntensiveOutput: (): LLMReporterOutput => createSampleOutput(100, 50, 25),
-
+  memoryIntensiveOutput: (): LLMReporterOutput => createSampleOutput(100, 50, 25)
 }
 
 /**

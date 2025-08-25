@@ -1,21 +1,13 @@
 /**
  * Tokenization Service - Simplified token estimation service
- * 
+ *
  * Provides token counting using simple character-based estimation.
  * All counts are ESTIMATES only, not exact tokenization.
  * Default: 4 characters per token.
  */
 
-import type {
-  SupportedModel,
-  TokenizationConfig,
-  TokenizationResult
-} from './types.js'
-import { 
-  estimateTokens, 
-  estimateTokensBatch,
-  type TokenEstimatorOptions 
-} from './estimator.js'
+import type { SupportedModel, TokenizationConfig, TokenizationResult } from './types.js'
+import { estimateTokens, estimateTokensBatch, type TokenEstimatorOptions } from './estimator.js'
 
 /**
  * Main tokenization service using simple estimation
@@ -30,7 +22,7 @@ export class TokenizationService {
       cacheSize: config.cacheSize ?? 1000, // Kept for API compatibility, not used
       lazyLoad: config.lazyLoad ?? true // Kept for API compatibility, not used
     }
-    
+
     // Could be made configurable in the future
     this.estimatorOptions = {
       charsPerToken: 4
@@ -46,7 +38,7 @@ export class TokenizationService {
     model: SupportedModel = this.config.defaultModel
   ): Promise<TokenizationResult> {
     const tokenCount = estimateTokens(text, this.estimatorOptions)
-    
+
     return {
       tokenCount,
       model,
@@ -63,8 +55,8 @@ export class TokenizationService {
     model: SupportedModel = this.config.defaultModel
   ): Promise<TokenizationResult[]> {
     const tokenCounts = estimateTokensBatch(texts, this.estimatorOptions)
-    
-    return tokenCounts.map(tokenCount => ({
+
+    return tokenCounts.map((tokenCount) => ({
       tokenCount,
       model,
       fromCache: false
@@ -116,7 +108,7 @@ export class TokenizationService {
 
   /**
    * Get supported models
-   * NOTE: Model parameter is now just a pass-through string, 
+   * NOTE: Model parameter is now just a pass-through string,
    * no model-specific logic is applied
    */
   getSupportedModels(): SupportedModel[] {

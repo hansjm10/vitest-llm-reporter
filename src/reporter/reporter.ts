@@ -117,7 +117,7 @@ export class LLMReporter implements Reporter {
       performance: {
         enabled: config.performance?.enabled ?? true,
         cacheSize: config.performance?.cacheSize ?? 1000,
-        memoryWarningThreshold: config.performance?.memoryWarningThreshold ?? (500 * 1024 * 1024) // 500MB
+        memoryWarningThreshold: config.performance?.memoryWarningThreshold ?? 500 * 1024 * 1024 // 500MB
       }
     }
 
@@ -146,7 +146,7 @@ export class LLMReporter implements Reporter {
         captureConsoleOnFailure: this.config.captureConsoleOnFailure,
         maxConsoleBytes: this.config.maxConsoleBytes,
         maxConsoleLines: this.config.maxConsoleLines,
-        includeDebugOutput: this.config.includeDebugOutput,
+        includeDebugOutput: this.config.includeDebugOutput
       }
     )
 
