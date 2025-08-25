@@ -10,7 +10,8 @@
 import type { LLMReporterOutput, TestSummary, TestResult, TestFailure } from '../types/schema'
 import type { SerializedError } from 'vitest'
 import type { TruncationConfig } from '../types/reporter'
-import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
+// Late truncation temporarily disabled - to be implemented separately
+// import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 
 /**
  * Output builder configuration
@@ -84,15 +85,15 @@ export interface BuildOptions {
  */
 export class OutputBuilder {
   private config: Required<OutputBuilderConfig>
-  private truncationEngine?: ITruncationEngine
+  // private truncationEngine?: ITruncationEngine // Late truncation disabled
 
   constructor(config: OutputBuilderConfig = {}) {
     this.config = { ...DEFAULT_OUTPUT_CONFIG, ...config }
 
-    // Initialize truncation engine for late-stage truncation if enabled
-    if (this.config.truncation.enabled && this.config.truncation.enableLateTruncation) {
-      this.truncationEngine = createTruncationEngine(this.config.truncation)
-    }
+    // Late truncation temporarily disabled
+    // if (this.config.truncation.enabled && this.config.truncation.enableLateTruncation) {
+    //   this.truncationEngine = createTruncationEngine(this.config.truncation)
+    // }
   }
 
   /**
@@ -323,6 +324,10 @@ export class OutputBuilder {
    * Applies late-stage truncation to the complete output
    */
   private applyLateTruncation(output: LLMReporterOutput): LLMReporterOutput {
+    // Late truncation temporarily disabled - to be implemented separately
+    return output
+    
+    /* Late truncation implementation disabled
     if (!this.truncationEngine) {
       return output
     }
@@ -380,20 +385,23 @@ export class OutputBuilder {
     }
 
     return truncatedOutput
+    End of late truncation */
   }
 
   /**
    * Gets truncation metrics if available
    */
   public getTruncationMetrics(): unknown[] {
-    return this.truncationEngine?.getMetrics() || []
+    // return this.truncationEngine?.getMetrics() || []
+    return [] // Late truncation disabled
   }
 
   /**
    * Check if truncation is enabled
    */
   public get hasTruncation(): boolean {
-    return Boolean(this.truncationEngine)
+    // return Boolean(this.truncationEngine)
+    return false // Late truncation disabled
   }
 
   /**
@@ -402,20 +410,18 @@ export class OutputBuilder {
   public updateConfig(config: OutputBuilderConfig): void {
     this.config = { ...this.config, ...config }
 
-    // Update truncation engine config
-    if (this.truncationEngine && config.truncation) {
-      this.truncationEngine.updateConfig(config.truncation)
-    }
-
-    // Initialize or destroy truncation engine based on config changes
-    if (
-      config.truncation?.enabled &&
-      config.truncation?.enableLateTruncation &&
-      !this.truncationEngine
-    ) {
-      this.truncationEngine = createTruncationEngine(this.config.truncation)
-    } else if (!config.truncation?.enabled && this.truncationEngine) {
-      this.truncationEngine = undefined
-    }
+    // Late truncation config update disabled
+    // if (this.truncationEngine && config.truncation) {
+    //   this.truncationEngine.updateConfig(config.truncation)
+    // }
+    // if (
+    //   config.truncation?.enabled &&
+    //   config.truncation?.enableLateTruncation &&
+    //   !this.truncationEngine
+    // ) {
+    //   this.truncationEngine = createTruncationEngine(this.config.truncation)
+    // } else if (!config.truncation?.enabled && this.truncationEngine) {
+    //   this.truncationEngine = undefined
+    // }
   }
 }

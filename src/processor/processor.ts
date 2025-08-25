@@ -12,7 +12,8 @@ import { SchemaValidator, ValidationConfig, ValidationResult } from '../validati
 import { JsonSanitizer, JsonSanitizerConfig } from '../sanitization/json-sanitizer'
 import type { TruncationConfig } from '../types/reporter'
 import type { DeduplicationConfig } from '../types/deduplication'
-import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
+// Processing truncation temporarily disabled - to be implemented separately
+// import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
 import { createDeduplicationService, type IDeduplicationService } from '../deduplication'
 import type { DeduplicationResult, DuplicateEntry } from '../types/deduplication'
 import {
@@ -87,7 +88,7 @@ export interface ProcessingResult {
 export class SchemaProcessor {
   private validator: SchemaValidator
   private sanitizer: JsonSanitizer
-  private truncationEngine?: ITruncationEngine
+  // private truncationEngine?: ITruncationEngine // Processing truncation disabled
   private deduplicationService?: IDeduplicationService
   private performanceManager?: PerformanceManager
   private defaultOptions: Required<
@@ -98,10 +99,10 @@ export class SchemaProcessor {
     this.validator = new SchemaValidator(options.validationConfig)
     this.sanitizer = new JsonSanitizer(options.sanitizationConfig)
 
-    // Initialize truncation engine if enabled
-    if (options.truncationConfig?.enabled) {
-      this.truncationEngine = createTruncationEngine(options.truncationConfig)
-    }
+    // Processing truncation temporarily disabled
+    // if (options.truncationConfig?.enabled) {
+    //   this.truncationEngine = createTruncationEngine(options.truncationConfig)
+    // }
 
     // Initialize deduplication service if enabled
     if (options.deduplicationConfig?.enabled) {
@@ -212,37 +213,37 @@ export class SchemaProcessor {
       }
     }
 
-    // Truncation phase
-    if (processOptions.truncate && this.truncationEngine) {
-      try {
-        const serialized = JSON.stringify(output)
-        if (this.truncationEngine.needsTruncation(serialized)) {
-          const truncationResult = this.truncationEngine.truncate(serialized)
-          output = JSON.parse(truncationResult.content)
-          truncationMetrics = [
-            {
-              originalTokens: truncationResult.metrics.originalTokens,
-              truncatedTokens: truncationResult.metrics.truncatedTokens,
-              wasTruncated: true
-            }
-          ]
-        }
-      } catch (error) {
-        return {
-          success: false,
-          errors: [
-            {
-              path: 'truncation',
-              message: error instanceof Error ? error.message : 'Truncation failed'
-            }
-          ],
-          validated: processOptions.validate,
-          sanitized: processOptions.sanitize,
-          truncated: false,
-          deduplicated: false
-        }
-      }
-    }
+    // Processing truncation temporarily disabled
+    // if (processOptions.truncate && this.truncationEngine) {
+    //   try {
+    //     const serialized = JSON.stringify(output)
+    //     if (this.truncationEngine.needsTruncation(serialized)) {
+    //       const truncationResult = this.truncationEngine.truncate(serialized)
+    //       output = JSON.parse(truncationResult.content)
+    //       truncationMetrics = [
+    //         {
+    //           originalTokens: truncationResult.metrics.originalTokens,
+    //           truncatedTokens: truncationResult.metrics.truncatedTokens,
+    //           wasTruncated: true
+    //         }
+    //       ]
+    //     }
+    //   } catch (error) {
+    //     return {
+    //       success: false,
+    //       errors: [
+    //         {
+    //           path: 'truncation',
+    //           message: error instanceof Error ? error.message : 'Truncation failed'
+    //         }
+    //       ],
+    //       validated: processOptions.validate,
+    //       sanitized: processOptions.sanitize,
+    //       truncated: false,
+    //       deduplicated: false
+    //     }
+    //   }
+    // }
 
     // Deduplication phase
     if (processOptions.deduplicate && this.deduplicationService) {
@@ -340,27 +341,28 @@ export class SchemaProcessor {
     output: LLMReporterOutput
     metrics?: Record<string, unknown>
   } {
-    if (!this.truncationEngine) {
-      return { output }
-    }
-
-    const serialized = JSON.stringify(output)
-    if (!this.truncationEngine.needsTruncation(serialized)) {
-      return { output }
-    }
-
-    const result = this.truncationEngine.truncate(serialized)
-    return {
-      output: JSON.parse(result.content) as LLMReporterOutput,
-      metrics: result.metrics
-    }
+    // Processing truncation disabled
+    return { output }
+    // if (!this.truncationEngine) {
+    //   return { output }
+    // }
+    // const serialized = JSON.stringify(output)
+    // if (!this.truncationEngine.needsTruncation(serialized)) {
+    //   return { output }
+    // }
+    // const result = this.truncationEngine.truncate(serialized)
+    // return {
+    //   output: JSON.parse(result.content) as LLMReporterOutput,
+    //   metrics: result.metrics
+    // }
   }
 
   /**
    * Gets truncation metrics if available
    */
   public getTruncationMetrics(): unknown[] {
-    return this.truncationEngine?.getMetrics() || []
+    // return this.truncationEngine?.getMetrics() || []
+    return [] // Processing truncation disabled
   }
 
   /**
@@ -388,10 +390,11 @@ export class SchemaProcessor {
    * Updates truncation configuration
    */
   public updateTruncationConfig(config: TruncationConfig): void {
-    if (config.enabled) {
-      this.truncationEngine = createTruncationEngine(config)
-    } else {
-      this.truncationEngine = undefined
-    }
+    // Processing truncation disabled
+    // if (config.enabled) {
+    //   this.truncationEngine = createTruncationEngine(config)
+    // } else {
+    //   this.truncationEngine = undefined
+    // }
   }
 }
