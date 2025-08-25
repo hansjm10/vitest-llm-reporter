@@ -13,7 +13,7 @@ import {
   getThresholdManager,
   createModelAwareThresholds
 } from './metrics/thresholds.js'
-import { WarningSystem, getWarningSystem, WarningFormatter } from './metrics/warnings.js'
+import { WarningSystem } from './metrics/warnings.js'
 import type { SupportedModel } from './types.js'
 import type { LLMReporterConfig } from '../types/reporter.js'
 import type { LLMReporterOutput, TestFailure, TestResult, TestSummary } from '../types/schema.js'
@@ -93,8 +93,7 @@ export class TokenMetricsCollector {
 
     this.thresholdManager = getThresholdManager(createModelAwareThresholds(this.config.model))
 
-    this.warningSystem = getWarningSystem()
-    this.setupWarningHandlers()
+    this.warningSystem = new WarningSystem()
 
     logger(`Initialized TokenMetricsCollector with model: ${this.config.model}`)
   }
@@ -188,12 +187,17 @@ export class TokenMetricsCollector {
         stack: error instanceof Error ? error.stack : undefined
       }
 
-      this.warningSystem.recordError(
+      const metricsError = this.warningSystem.recordError(
         'system-error',
         'Failed to collect token metrics',
         { operation: 'collectFromOutput' },
         error instanceof Error ? error : undefined
       )
+      this.events.onError?.({
+        type: 'error',
+        timestamp: Date.now(),
+        data: metricsError
+      })
 
       throw error
     }
@@ -249,12 +253,17 @@ export class TokenMetricsCollector {
 
       return testMetrics
     } catch (error) {
-      this.warningSystem.recordError(
+      const metricsError = this.warningSystem.recordError(
         'tokenization-error',
         'Failed to process test metrics',
         { testId, filePath: testData.file, operation: 'processTest' },
         error instanceof Error ? error : undefined
       )
+      this.events.onError?.({
+        type: 'error',
+        timestamp: Date.now(),
+        data: metricsError
+      })
       throw error
     }
   }
@@ -333,12 +342,17 @@ export class TokenMetricsCollector {
         stack: error instanceof Error ? error.stack : undefined
       }
 
-      this.warningSystem.recordError(
+      const metricsError = this.warningSystem.recordError(
         'aggregation-error',
         'Failed to finalize metrics collection',
         { operation: 'finalize' },
         error instanceof Error ? error : undefined
       )
+      this.events.onError?.({
+        type: 'error',
+        timestamp: Date.now(),
+        data: metricsError
+      })
 
       throw error
     }
@@ -585,15 +599,25 @@ export class TokenMetricsCollector {
         }
 
         if (content.length > truncatedContent.length) {
-          this.warningSystem.warnContentTruncated(content.length, truncatedContent.length, {
+          const warning = this.warningSystem.warnContentTruncated(content.length, truncatedContent.length, {
             section
+          })
+          this.events.onWarning?.({
+            type: 'warning',
+            timestamp: Date.now(),
+            data: warning
           })
         }
       } catch (error) {
-        this.warningSystem.warnTokenizationFailed(
+        const warning = this.warningSystem.warnTokenizationFailed(
           error instanceof Error ? error.message : String(error),
           { section }
         )
+        this.events.onWarning?.({
+          type: 'warning',
+          timestamp: Date.now(),
+          data: warning
+        })
 
         // Create empty section on error
         results[section] = {
@@ -632,26 +656,36 @@ export class TokenMetricsCollector {
     // Check per-test threshold
     const testThreshold = this.thresholdManager.checkThreshold('perTestTokens', totalTokens)
     if (testThreshold) {
-      this.warningSystem.warnThresholdExceeded(
+      const warning = this.warningSystem.warnThresholdExceeded(
         testThreshold,
         'per-test tokens',
         totalTokens,
         this.thresholdManager.getSettings().perTestTokens.warning || 1000,
         { testId }
       )
+      this.events.onWarning?.({
+        type: 'warning',
+        timestamp: Date.now(),
+        data: warning
+      })
     }
 
     // Check model limits
     const modelThreshold = this.thresholdManager.checkModelLimit(this.config.model, totalTokens)
     if (modelThreshold) {
       const limits = this.thresholdManager.getModelLimits(this.config.model)
-      this.warningSystem.warnModelLimit(
+      const warning = this.warningSystem.warnModelLimit(
         this.config.model,
         totalTokens,
         limits.conservativeThreshold,
         'conservative',
         { testId }
       )
+      this.events.onWarning?.({
+        type: 'warning',
+        timestamp: Date.now(),
+        data: warning
+      })
     }
 
     // Check section percentages
@@ -665,13 +699,18 @@ export class TokenMetricsCollector {
       const sectionThreshold = this.thresholdManager.checkSectionThreshold(section, percentage)
 
       if (sectionThreshold) {
-        this.warningSystem.warnThresholdExceeded(
+        const warning = this.warningSystem.warnThresholdExceeded(
           sectionThreshold,
           `${section} section percentage`,
           percentage,
           this.thresholdManager.getSettings().sectionPercentage[section].warning || 50,
           { testId, section }
         )
+        this.events.onWarning?.({
+          type: 'warning',
+          timestamp: Date.now(),
+          data: warning
+        })
       }
     }
   }
@@ -680,12 +719,17 @@ export class TokenMetricsCollector {
     // Check total tokens
     const totalThreshold = this.thresholdManager.checkThreshold('totalTokens', summary.totalTokens)
     if (totalThreshold) {
-      this.warningSystem.warnThresholdExceeded(
+      const warning = this.warningSystem.warnThresholdExceeded(
         totalThreshold,
         'total tokens',
         summary.totalTokens,
         this.thresholdManager.getSettings().totalTokens.warning || 25000
       )
+      this.events.onWarning?.({
+        type: 'warning',
+        timestamp: Date.now(),
+        data: warning
+      })
     }
   }
 
@@ -717,25 +761,6 @@ export class TokenMetricsCollector {
     return fileMetrics
   }
 
-  private setupWarningHandlers(): void {
-    this.warningSystem.onWarning((warning) => {
-      const event: MetricsUpdateEvent = {
-        type: 'warning',
-        timestamp: Date.now(),
-        data: warning
-      }
-      this.events.onWarning?.(event)
-    })
-
-    this.warningSystem.onError((error) => {
-      const event: MetricsUpdateEvent = {
-        type: 'error',
-        timestamp: Date.now(),
-        data: error
-      }
-      this.events.onError?.(event)
-    })
-  }
 
   private reportProgress(completed: number, total: number, current: string): void {
     this.events.onProgress?.({ completed, total, current })
@@ -778,7 +803,18 @@ export class TokenMetricsCollector {
     if (data.warnings && data.warnings.length > 0) {
       markdown += `## Warnings\n\n`
       for (const warning of data.warnings) {
-        markdown += `- ${WarningFormatter.formatConsole(warning)}\n`
+        const emoji = warning.severity === 'high' ? '🚨' : warning.severity === 'medium' ? '⚠️' : 'ℹ️'
+        let message = `${emoji} ${warning.message}`
+        if (warning.context.testId) {
+          message += ` (Test: ${warning.context.testId})`
+        }
+        if (warning.context.filePath) {
+          message += ` (File: ${warning.context.filePath})`
+        }
+        if (warning.context.section) {
+          message += ` (Section: ${warning.context.section})`
+        }
+        markdown += `- ${message}\n`
       }
       markdown += '\n'
     }

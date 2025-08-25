@@ -74,8 +74,6 @@ const mockWarningSystem = {
   warnTokenizationFailed: vi.fn(),
   warnThresholdExceeded: vi.fn(),
   warnModelLimit: vi.fn(),
-  onWarning: vi.fn(),
-  onError: vi.fn(),
   getWarnings: vi.fn(),
   getErrors: vi.fn(),
   clear: vi.fn()
@@ -84,12 +82,43 @@ const mockWarningSystem = {
 // Initialize mock return values
 mockWarningSystem.getWarnings.mockReturnValue([])
 mockWarningSystem.getErrors.mockReturnValue([])
+mockWarningSystem.recordError.mockImplementation((type, message, context) => ({
+  type,
+  message,
+  context: context || {},
+  timestamp: Date.now()
+}))
+mockWarningSystem.warnContentTruncated.mockReturnValue({
+  type: 'content-truncated',
+  message: 'Content truncated',
+  severity: 'medium',
+  context: {},
+  timestamp: Date.now()
+})
+mockWarningSystem.warnTokenizationFailed.mockReturnValue({
+  type: 'tokenization-failed',
+  message: 'Tokenization failed',
+  severity: 'high',
+  context: {},
+  timestamp: Date.now()
+})
+mockWarningSystem.warnThresholdExceeded.mockReturnValue({
+  type: 'threshold-exceeded',
+  message: 'Threshold exceeded',
+  severity: 'medium',
+  context: {},
+  timestamp: Date.now()
+})
+mockWarningSystem.warnModelLimit.mockReturnValue({
+  type: 'threshold-exceeded',
+  message: 'Model limit exceeded',
+  severity: 'low',
+  context: {},
+  timestamp: Date.now()
+})
 
 vi.mock('./metrics/warnings.js', () => ({
-  getWarningSystem: () => mockWarningSystem,
-  WarningFormatter: {
-    formatConsole: () => 'Formatted warning'
-  }
+  WarningSystem: vi.fn(() => mockWarningSystem)
 }))
 
 // Mock Aggregators
@@ -279,10 +308,6 @@ describe('TokenMetricsCollector', () => {
       expect(context.config.maxContentSize).toBe(50000)
     })
 
-    it('should setup warning handlers', () => {
-      expect(mockWarningSystem.onWarning).toHaveBeenCalled()
-      expect(mockWarningSystem.onError).toHaveBeenCalled()
-    })
 
     it('should generate unique run ID', () => {
       const collector1 = new TokenMetricsCollector(defaultConfig)
@@ -456,6 +481,14 @@ describe('TokenMetricsCollector', () => {
 
       // Should record warnings for tokenization failures
       expect(mockWarningSystem.warnTokenizationFailed).toHaveBeenCalled()
+      expect(mockEvents.onWarning).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          data: expect.objectContaining({
+            type: 'tokenization-failed'
+          })
+        })
+      )
     })
 
     it('should clear previous results on new collection', async () => {
@@ -550,6 +583,14 @@ describe('TokenMetricsCollector', () => {
 
       // Should record warnings for tokenization failures
       expect(mockWarningSystem.warnTokenizationFailed).toHaveBeenCalled()
+      expect(mockEvents.onWarning).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          data: expect.objectContaining({
+            type: 'tokenization-failed'
+          })
+        })
+      )
     })
 
     it('should update streaming aggregator', async () => {
@@ -981,6 +1022,14 @@ describe('TokenMetricsCollector', () => {
       })
 
       expect(mockWarningSystem.warnThresholdExceeded).toHaveBeenCalled()
+      expect(mockEvents.onWarning).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          data: expect.objectContaining({
+            type: 'threshold-exceeded'
+          })
+        })
+      )
     })
 
     it('should check model limits', async () => {
@@ -1035,34 +1084,84 @@ describe('TokenMetricsCollector', () => {
       })
 
       expect(mockWarningSystem.warnThresholdExceeded).toHaveBeenCalled()
+      expect(mockEvents.onWarning).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          data: expect.objectContaining({
+            type: 'threshold-exceeded'
+          })
+        })
+      )
     })
   })
 
   describe('warning and error handling', () => {
-    it('should handle warning events', () => {
-      const warningCallback = mockWarningSystem.onWarning.mock.calls[0][0]
-      const mockWarning = { type: 'warning', message: 'Test warning' }
+    it('should forward warning events to event handlers', async () => {
+      // Trigger a tokenization failure to generate a warning
+      mockTokenCounter.countWithDetails.mockRejectedValueOnce(new Error('Token error'))
 
-      warningCallback(mockWarning)
+      const testData: TestFailure = {
+        test: 'test1',
+        file: 'test.js',
+        suite: ['suite'],
+        startLine: 10,
+        endLine: 15,
+        status: 'failed',
+        error: { message: 'Error', type: 'Error', stack: 'stack' }
+      }
 
-      expect(mockEvents.onWarning).toHaveBeenCalledWith({
-        type: 'warning',
-        timestamp: expect.any(Number),
-        data: mockWarning
-      })
+      await collector.processTest(testData)
+
+      expect(mockWarningSystem.warnTokenizationFailed).toHaveBeenCalled()
+      expect(mockEvents.onWarning).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          data: expect.objectContaining({
+            type: 'tokenization-failed'
+          })
+        })
+      )
     })
 
-    it('should handle error events', () => {
-      const errorCallback = mockWarningSystem.onError.mock.calls[0][0]
-      const mockError = { type: 'error', message: 'Test error' }
-
-      errorCallback(mockError)
-
-      expect(mockEvents.onError).toHaveBeenCalledWith({
-        type: 'error',
-        timestamp: expect.any(Number),
-        data: mockError
+    it('should forward error events to event handlers', async () => {
+      // Force an error by making aggregator throw
+      mockMetricsAggregator.aggregateSummary.mockImplementationOnce(() => {
+        throw new Error('Aggregation failed')
       })
+
+      const output: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          failed: 1,
+          passed: 0,
+          skipped: 0,
+          pending: 0,
+          duration: 1000
+        },
+        failures: [
+          {
+            test: 'test1',
+            file: 'test.js',
+            suite: ['suite'],
+            startLine: 10,
+            endLine: 15,
+            status: 'failed',
+            error: { message: 'Error', type: 'Error', stack: 'stack' }
+          }
+        ]
+      }
+
+      await expect(collector.collectFromOutput(output)).rejects.toThrow()
+      
+      expect(mockWarningSystem.recordError).toHaveBeenCalled()
+      expect(mockEvents.onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'error',
+          data: expect.objectContaining({
+            type: 'aggregation-error'
+          })
+        })
+      )
     })
 
     it('should handle tokenization failures gracefully', async () => {
@@ -1082,6 +1181,14 @@ describe('TokenMetricsCollector', () => {
       }
 
       expect(mockWarningSystem.warnTokenizationFailed).toHaveBeenCalled()
+      expect(mockEvents.onWarning).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          data: expect.objectContaining({
+            type: 'tokenization-failed'
+          })
+        })
+      )
     })
   })
 
