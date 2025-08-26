@@ -8,13 +8,13 @@
  */
 
 import type { SerializedError, UserConsoleLog } from 'vitest'
-import type { VitestSuite } from '../types/reporter-internal.js'
 import { StateManager } from '../state/StateManager.js'
 import { TestCaseExtractor } from '../extraction/TestCaseExtractor.js'
 import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
 import { TestResultBuilder } from '../builders/TestResultBuilder.js'
 import { ErrorContextBuilder } from '../builders/ErrorContextBuilder.js'
-import { isTestModule, isTestCase, isStringArray } from '../utils/type-guards.js'
+import { isTestModule, isTestCase, hasProperty } from '../utils/type-guards.js'
+import { extractSuiteNames } from '../utils/suites.js'
 import type { ConsoleMethod } from '../types/console.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import { consoleCapture } from '../console/index.js'
@@ -145,35 +145,6 @@ export class EventOrchestrator {
   }
 
   /**
-   * Extracts suite names from a Vitest suite object
-   */
-  private extractSuiteNames(suite: unknown): string[] | undefined {
-    // Handle case where suite is already a string array
-    if (isStringArray(suite)) {
-      return suite
-    }
-
-    // Handle Vitest suite object structure
-    if (suite && typeof suite === 'object') {
-      const names: string[] = []
-      let current = suite as VitestSuite
-
-      // Traverse up the suite hierarchy collecting names
-      while (current && typeof current === 'object') {
-        if (current.name && typeof current.name === 'string') {
-          // Add to beginning since we're traversing from child to parent
-          names.unshift(current.name)
-        }
-        current = current.suite as VitestSuite
-      }
-
-      return names.length > 0 ? names : undefined
-    }
-
-    return undefined
-  }
-
-  /**
    * Handles test run start event
    */
   public handleTestRunStart(specifications: ReadonlyArray<unknown>): void {
@@ -193,26 +164,38 @@ export class EventOrchestrator {
    * Handles test module collected event
    */
   public handleTestModuleCollected(module: unknown): void {
-    const mod = module as { children?: () => unknown; filepath?: string; id?: string }
+    if (!module || typeof module !== 'object') {
+      return
+    }
 
-    if (mod.children && typeof mod.children === 'function') {
-      const tests = mod.children() as Array<{
-        id?: string
-        name?: string
-        mode?: string
-        file?: { filepath?: string }
-        suite?: string[]
-      }>
+    // Safe property access with type guards
+    if (hasProperty(module, 'children')) {
+      const children = (module as Record<string, unknown>).children
+      if (typeof children === 'function') {
+        const tests = (children as () => unknown)() as Array<{
+          id?: string
+          name?: string
+          mode?: string
+          file?: { filepath?: string }
+          suite?: string[]
+        }>
 
-      const collectedTests = tests.map((test) => ({
-        id: test.id,
-        name: test.name,
-        mode: test.mode,
-        file: mod.filepath || test.file?.filepath,
-        suite: this.extractSuiteNames(test.suite)
-      }))
+        const filepath =
+          hasProperty(module, 'filepath') &&
+          typeof (module as Record<string, unknown>).filepath === 'string'
+            ? ((module as Record<string, unknown>).filepath as string)
+            : undefined
 
-      this.stateManager.recordCollectedTests(collectedTests)
+        const collectedTests = tests.map((test) => ({
+          id: test.id,
+          name: test.name,
+          mode: test.mode,
+          file: filepath || test.file?.filepath,
+          suite: extractSuiteNames(test.suite)
+        }))
+
+        this.stateManager.recordCollectedTests(collectedTests)
+      }
     }
   }
 
@@ -339,13 +322,11 @@ export class EventOrchestrator {
       }
     | undefined {
     if (!testCase || typeof testCase !== 'object') return undefined
-    // Vitest augments TaskBase with `logs?: UserConsoleLog[]`
-    const logs = (
-      testCase as {
-        logs?: Array<{ content: string; type: string; taskId?: string; time?: number }>
-      }
-    ).logs
 
+    // Safe property access for logs
+    if (!hasProperty(testCase, 'logs')) return undefined
+
+    const logs = (testCase as Record<string, unknown>).logs
     if (!Array.isArray(logs) || logs.length === 0) return undefined
 
     const out: {
@@ -355,10 +336,12 @@ export class EventOrchestrator {
       info?: string[]
       debug?: string[]
     } = {}
-    for (const entry of logs) {
-      const content = entry?.content
-      const type = entry?.type
-      const time = entry?.time
+    for (const entry of logs as Array<unknown>) {
+      if (!entry || typeof entry !== 'object') continue
+      const entryObj = entry as Record<string, unknown>
+      const content = entryObj.content
+      const type = entryObj.type
+      const time = entryObj.time
 
       if (typeof content !== 'string' || typeof type !== 'string') continue
 

@@ -18,7 +18,8 @@ import type {
   AssertionValue
 } from '../types/schema'
 
-import { validateFilePath, createSafeObject, hasOwnProperty } from '../utils/sanitization.js'
+import { validateFilePath, createSafeObject } from '../utils/sanitization.js'
+import { hasProperty } from '../utils/type-guards.js'
 
 import { ErrorMessages, BYTES_PER_MB, MAX_TIMESTAMP_LENGTH, MAX_ARRAY_SIZE } from './errors.js'
 
@@ -192,7 +193,7 @@ export class SchemaValidator {
     const obj = createSafeObject(output as unknown as Record<string, unknown>)
 
     // Validate summary (required)
-    if (!hasOwnProperty(obj, 'summary')) {
+    if (!hasProperty(obj, 'summary')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD('summary'), 'summary')
       return false
     }
@@ -201,7 +202,7 @@ export class SchemaValidator {
     }
 
     // Validate failures array if present
-    if (hasOwnProperty(obj, 'failures') && obj.failures !== undefined) {
+    if (hasProperty(obj, 'failures') && obj.failures !== undefined) {
       if (!Array.isArray(obj.failures)) {
         this.addError(
           context,
@@ -242,7 +243,7 @@ export class SchemaValidator {
     }
 
     // Validate passed array if present
-    if (hasOwnProperty(obj, 'passed') && obj.passed !== undefined) {
+    if (hasProperty(obj, 'passed') && obj.passed !== undefined) {
       if (!Array.isArray(obj.passed)) {
         this.addError(
           context,
@@ -279,7 +280,7 @@ export class SchemaValidator {
     }
 
     // Validate skipped array if present
-    if (hasOwnProperty(obj, 'skipped') && obj.skipped !== undefined) {
+    if (hasProperty(obj, 'skipped') && obj.skipped !== undefined) {
       if (!Array.isArray(obj.skipped)) {
         this.addError(
           context,
@@ -340,7 +341,7 @@ export class SchemaValidator {
     // Check required numeric fields
     const requiredNumbers = ['total', 'passed', 'failed', 'skipped', 'duration']
     for (const field of requiredNumbers) {
-      if (!hasOwnProperty(obj, field)) {
+      if (!hasProperty(obj, field)) {
         this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.${field}`), `${path}.${field}`)
         return false
       }
@@ -427,7 +428,7 @@ export class SchemaValidator {
     const obj = createSafeObject(test as Record<string, unknown>)
 
     // Check required string fields with length limits
-    if (!hasOwnProperty(obj, 'test')) {
+    if (!hasProperty(obj, 'test')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.test`), `${path}.test`)
       return false
     }
@@ -450,7 +451,7 @@ export class SchemaValidator {
       return false
     }
 
-    if (!hasOwnProperty(obj, 'file')) {
+    if (!hasProperty(obj, 'file')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.file`), `${path}.file`)
       return false
     }
@@ -485,7 +486,7 @@ export class SchemaValidator {
     }
 
     // Check startLine
-    if (!hasOwnProperty(obj, 'startLine')) {
+    if (!hasProperty(obj, 'startLine')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.startLine`), `${path}.startLine`)
       return false
     }
@@ -509,7 +510,7 @@ export class SchemaValidator {
     }
 
     // Check endLine
-    if (!hasOwnProperty(obj, 'endLine')) {
+    if (!hasProperty(obj, 'endLine')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.endLine`), `${path}.endLine`)
       return false
     }
@@ -544,7 +545,7 @@ export class SchemaValidator {
     }
 
     // Check optional suite array
-    if (hasOwnProperty(obj, 'suite') && obj.suite !== undefined) {
+    if (hasProperty(obj, 'suite') && obj.suite !== undefined) {
       if (!Array.isArray(obj.suite)) {
         this.addError(
           context,
@@ -600,7 +601,7 @@ export class SchemaValidator {
     const obj = createSafeObject(failure as unknown as Record<string, unknown>)
 
     // Check error object (TestFailure-specific property)
-    if (!hasOwnProperty(obj, 'error')) {
+    if (!hasProperty(obj, 'error')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.error`), `${path}.error`)
       return false
     }
@@ -725,7 +726,7 @@ export class SchemaValidator {
     const ctx = createSafeObject(errorCtx as Record<string, unknown>)
 
     // Validate required code array
-    if (!hasOwnProperty(ctx, 'code')) {
+    if (!hasProperty(ctx, 'code')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.code`), `${path}.code`)
       return false
     }
@@ -799,7 +800,7 @@ export class SchemaValidator {
     context.totalCodeSize = newTotal
 
     // Validate optional numeric fields
-    if (hasOwnProperty(ctx, 'lineNumber') && ctx.lineNumber !== undefined) {
+    if (hasProperty(ctx, 'lineNumber') && ctx.lineNumber !== undefined) {
       if (typeof ctx.lineNumber !== 'number') {
         this.addError(
           context,
@@ -824,7 +825,7 @@ export class SchemaValidator {
       }
     }
 
-    if (hasOwnProperty(ctx, 'columnNumber') && ctx.columnNumber !== undefined) {
+    if (hasProperty(ctx, 'columnNumber') && ctx.columnNumber !== undefined) {
       if (typeof ctx.columnNumber !== 'number') {
         this.addError(
           context,
@@ -850,13 +851,13 @@ export class SchemaValidator {
     }
 
     // Validate assertion values
-    if (hasOwnProperty(ctx, 'expected') && ctx.expected !== undefined) {
+    if (hasProperty(ctx, 'expected') && ctx.expected !== undefined) {
       if (!this.isValidAssertionValue(ctx.expected, context, `${path}.expected`)) {
         return false
       }
     }
 
-    if (hasOwnProperty(ctx, 'actual') && ctx.actual !== undefined) {
+    if (hasProperty(ctx, 'actual') && ctx.actual !== undefined) {
       if (!this.isValidAssertionValue(ctx.actual, context, `${path}.actual`)) {
         return false
       }
@@ -881,7 +882,7 @@ export class SchemaValidator {
     const obj = createSafeObject(result as unknown as Record<string, unknown>)
 
     // Check status (TestResult-specific property)
-    if (!hasOwnProperty(obj, 'status')) {
+    if (!hasProperty(obj, 'status')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.status`), `${path}.status`)
       return false
     }
@@ -896,7 +897,7 @@ export class SchemaValidator {
     }
 
     // Check optional duration (TestResult-specific property)
-    if (hasOwnProperty(obj, 'duration') && obj.duration !== undefined) {
+    if (hasProperty(obj, 'duration') && obj.duration !== undefined) {
       if (typeof obj.duration !== 'number') {
         this.addError(
           context,

@@ -7,8 +7,9 @@
  * @module extraction
  */
 
-import type { TestCaseData, VitestSuite } from '../types/reporter-internal.js'
+import type { TestCaseData } from '../types/reporter-internal.js'
 import type { ExtractedTestCase, ExtractionConfig } from '../types/extraction.js'
+import { extractSuiteNames } from '../utils/suites.js'
 
 /**
  * Default extraction configuration
@@ -154,29 +155,7 @@ export class TestCaseExtractor {
    * Extracts the test suite hierarchy
    */
   private extractSuite(tc: TestCaseData): string[] | undefined {
-    // Handle case where suite is already a string array (for compatibility)
-    if (Array.isArray(tc.suite)) {
-      return tc.suite
-    }
-
-    // Handle Vitest suite object structure
-    if (tc.suite && typeof tc.suite === 'object') {
-      const names: string[] = []
-      let current = tc.suite
-
-      // Traverse up the suite hierarchy collecting names
-      while (current && typeof current === 'object') {
-        if (current.name && typeof current.name === 'string') {
-          // Add to beginning since we're traversing from child to parent
-          names.unshift(current.name)
-        }
-        current = current.suite as VitestSuite
-      }
-
-      return names.length > 0 ? names : undefined
-    }
-
-    return undefined
+    return extractSuiteNames(tc.suite)
   }
 
   /**

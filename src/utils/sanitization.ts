@@ -172,16 +172,6 @@ export function validateFilePath(filePath: string): boolean {
 }
 
 /**
- * Sanitizes sensitive information from a file path
- * @param filePath - The file path to sanitize
- * @returns The sanitized path
- */
-export function sanitizeFilePath(filePath: string): string {
-  // Optionally sanitize sensitive information (e.g., username in path)
-  return filePath.replace(/\/(?:Users|home)\/[^/]+/, '/Users/***')
-}
-
-/**
  * Creates a safe deep clone without prototype pollution risk
  * Uses native structuredClone for performance and simplicity
  * Requires Node.js 17+ or modern browsers
@@ -245,15 +235,3 @@ export function createSafeObject<T extends Record<string, unknown>>(source: T): 
   }
 }
 
-/**
- * Checks if a property exists safely without prototype pollution
- * @param obj - The object to check
- * @param prop - The property name to check
- * @returns True if the property exists on the object itself
- */
-export function hasOwnProperty(obj: unknown, prop: string): boolean {
-  if (!obj || typeof obj !== 'object' || obj === null) {
-    return false
-  }
-  return Object.prototype.hasOwnProperty.call(obj, prop)
-}

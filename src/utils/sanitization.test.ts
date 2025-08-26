@@ -3,10 +3,9 @@ import {
   escapeJsonString,
   escapeJsonArray,
   validateFilePath,
-  sanitizeFilePath,
-  createSafeObject,
-  hasOwnProperty
+  createSafeObject
 } from './sanitization'
+import { hasProperty } from './type-guards'
 
 describe('Sanitization Utilities', () => {
   describe('escapeJsonString', () => {
@@ -63,20 +62,6 @@ describe('Sanitization Utilities', () => {
 
     it('should handle empty array', () => {
       expect(escapeJsonArray([])).toEqual([])
-    })
-  })
-
-  describe('sanitizeFilePath', () => {
-    it('should remove user information from paths', () => {
-      expect(sanitizeFilePath('/Users/johndoe/projects/test.ts')).toBe(
-        '/Users/***/projects/test.ts'
-      )
-      expect(sanitizeFilePath('/home/johndoe/projects/test.ts')).toBe('/Users/***/projects/test.ts')
-    })
-
-    it('should not affect paths without user information', () => {
-      expect(sanitizeFilePath('/opt/app/test.ts')).toBe('/opt/app/test.ts')
-      expect(sanitizeFilePath('relative/path/test.ts')).toBe('relative/path/test.ts')
     })
   })
 
@@ -150,28 +135,6 @@ describe('Sanitization Utilities', () => {
     })
   })
 
-  describe('hasOwnProperty', () => {
-    it('should safely check for properties', () => {
-      const obj = { key: 'value' }
-      expect(hasOwnProperty(obj, 'key')).toBe(true)
-      expect(hasOwnProperty(obj, 'missing')).toBe(false)
-    })
-
-    it('should not be fooled by prototype properties', () => {
-      const obj = Object.create({ inherited: true })
-      obj.own = true
-
-      expect(hasOwnProperty(obj, 'own')).toBe(true)
-      expect(hasOwnProperty(obj, 'inherited')).toBe(false)
-    })
-
-    it('should handle non-objects gracefully', () => {
-      expect(hasOwnProperty(null, 'key')).toBe(false)
-      expect(hasOwnProperty(undefined, 'key')).toBe(false)
-      expect(hasOwnProperty('string', 'key')).toBe(false)
-      expect(hasOwnProperty(123, 'key')).toBe(false)
-    })
-  })
 
   describe('validateFilePath Security Tests', () => {
     describe('Path Traversal Attack Prevention', () => {
