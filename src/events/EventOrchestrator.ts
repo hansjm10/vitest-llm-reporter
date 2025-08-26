@@ -20,7 +20,7 @@ import { coreLogger, errorLogger } from '../utils/logger.js'
 import { consoleCapture } from '../console/index.js'
 import { consoleMerger } from '../console/merge.js'
 import type { TruncationConfig } from '../types/reporter.js'
-// Truncation modules removed - using simplified TokenBudgetTruncator instead
+// Truncation handled by LateTruncator in OutputBuilder
 
 /**
  * Event orchestrator configuration
@@ -305,10 +305,7 @@ export class EventOrchestrator {
     const consoleFromCapture = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
 
     // Intelligently merge both console sources instead of choosing one
-    let consoleOutput = consoleMerger.merge(consoleFromTask, consoleFromCapture)
-
-    // Apply early truncation to console output if enabled
-    consoleOutput = this.applyEarlyTruncation(consoleOutput as Record<string, unknown>)
+    const consoleOutput = consoleMerger.merge(consoleFromTask, consoleFromCapture)
 
     // Extract and normalize error with full context including code snippets
     const normalizedError = this.errorExtractor.extractWithContext(extracted.error)
@@ -469,27 +466,6 @@ export class EventOrchestrator {
 
     // Streaming removed - simplified implementation
     // this.activeTests.clear() // Removed with streaming
-  }
-
-  /**
-   * Applies early truncation to console output if enabled
-   */
-  private applyEarlyTruncation(consoleOutput: Record<string, unknown>): Record<string, unknown> {
-    if (!consoleOutput) {
-      return consoleOutput
-    }
-
-    // Apply truncation to each console output category
-    const truncatedOutput: Record<string, unknown> = { ...consoleOutput }
-
-    for (const [key, logs] of Object.entries(consoleOutput)) {
-      if (Array.isArray(logs) && logs.length > 0) {
-        // Truncation removed - now handled in OutputBuilder
-        truncatedOutput[key] = logs
-      }
-    }
-
-    return truncatedOutput
   }
 
   /**

@@ -384,7 +384,8 @@ export function truncateAssertionValue(value: unknown, maxChars = 200): string {
     try {
       str = JSON.stringify(value, null, 2)
     } catch {
-      str = String(value)
+      // For objects without proper toString, provide a fallback
+      str = '[object]'
     }
   }
 

@@ -74,12 +74,12 @@ export class MonitoringService {
   }
 
   // Replaces the complex optimize() method
-  async optimize(): Promise<any[]> {
-    if (!this.enabled) return []
+  optimize(): Promise<unknown[]> {
+    if (!this.enabled) return Promise.resolve([])
 
     // No optimization needed - the old system was fake anyway
     // Just return empty optimizations list for compatibility
-    return []
+    return Promise.resolve([])
   }
 
   // Helper methods for backward compatibility

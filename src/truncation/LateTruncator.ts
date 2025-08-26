@@ -9,13 +9,12 @@
 import type { LLMReporterOutput, TestFailure, ConsoleOutput, TestError } from '../types/schema.js'
 import type { TruncationConfig } from '../types/reporter.js'
 import type { SupportedModel } from '../tokenization/types.js'
-import { TokenCounter } from '../tokenization/TokenCounter.js'
+import { estimateTokens } from '../tokenization/estimator.js'
 import { getEffectiveMaxTokens } from './context.js'
 import {
   truncateStackTrace,
   truncateCodeContext,
   truncateAssertionValue,
-  truncateConsoleOutput,
   applyFairCaps,
   safeTrimToChars
 } from './utils.js'
@@ -46,13 +45,11 @@ interface ConsoleOutputLimits {
  * Late truncator for global output enforcement
  */
 export class LateTruncator {
-  private tokenCounter: TokenCounter
   private model: SupportedModel
   private metrics: LateTruncationMetrics[] = []
 
   constructor() {
     this.model = 'gpt-4' // Default model
-    this.tokenCounter = new TokenCounter({ defaultModel: this.model })
   }
 
   /**
@@ -67,7 +64,6 @@ export class LateTruncator {
     // Update model if specified
     if (config.model) {
       this.model = config.model
-      this.tokenCounter = new TokenCounter({ defaultModel: this.model })
     }
 
     // Calculate budget and check if truncation is needed
@@ -78,12 +74,8 @@ export class LateTruncator {
       return output // No truncation needed
     }
 
-    // Apply phased truncation
+    // Apply phased truncation (metrics are recorded inside applyPhasedTruncation)
     const truncated = this.applyPhasedTruncation(output, budget)
-
-    // Record metrics
-    const truncatedTokens = this.estimateOutputTokens(truncated)
-    this.recordMetrics(originalTokens, truncatedTokens, [])
 
     return truncated
   }
@@ -114,7 +106,7 @@ export class LateTruncator {
    */
   private estimateOutputTokens(output: LLMReporterOutput): number {
     const json = JSON.stringify(output, null, 2)
-    return this.tokenCounter.estimate(json)
+    return estimateTokens(json)
   }
 
   /**
@@ -375,15 +367,17 @@ export class LateTruncator {
         result.context.code = truncateCodeContext(result.context.code, result.context.lineNumber, 2)
       }
 
-      // Truncate assertion values
+      // Truncate assertion values - convert to string representation
       if (result.context.expected !== undefined) {
         const expectedStr = truncateAssertionValue(result.context.expected, 200)
-        result.context.expected = expectedStr as any
+        // After truncation, we have a string representation
+        result.context.expected = expectedStr
       }
 
       if (result.context.actual !== undefined) {
         const actualStr = truncateAssertionValue(result.context.actual, 200)
-        result.context.actual = actualStr as any
+        // After truncation, we have a string representation
+        result.context.actual = actualStr
       }
     }
 
@@ -440,7 +434,6 @@ export class LateTruncator {
   updateConfig(config: TruncationConfig): void {
     if (config.model) {
       this.model = config.model
-      this.tokenCounter = new TokenCounter({ defaultModel: this.model })
     }
   }
 }

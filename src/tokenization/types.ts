@@ -3,6 +3,7 @@
  * NOTE: Model is now a pass-through string, no model-specific logic is applied.
  * Token estimation is the same for all models.
  */
+// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type SupportedModel =
   | 'gpt-4'
   | 'gpt-4-turbo'

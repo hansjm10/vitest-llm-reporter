@@ -105,7 +105,7 @@ export class LLMReporter implements Reporter {
       tokenCountingModel: config.tokenCountingModel ?? 'gpt-4',
       enableStreaming: shouldEnableStreaming,
       performance: {
-        enabled: config.performance?.enabled ?? true,
+        enabled: config.performance?.enabled ?? false,
         cacheSize: config.performance?.cacheSize ?? 1000,
         memoryWarningThreshold: config.performance?.memoryWarningThreshold ?? 500 * 1024 * 1024 // 500MB
       },
