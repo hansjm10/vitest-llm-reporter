@@ -9,10 +9,10 @@
  */
 
 // Core exports
-export { ConsoleBuffer } from './buffer'
-export { ConsoleInterceptor } from './interceptor'
-export { ConsoleCapture, consoleCapture } from './capture'
-export { ConsoleMerger, consoleMerger } from './merge'
+export { ConsoleBuffer } from './buffer.js'
+export { ConsoleInterceptor } from './interceptor.js'
+export { ConsoleCapture, consoleCapture } from './capture.js'
+export { ConsoleMerger, consoleMerger } from './merge.js'
 
 // Type exports
 export type {
@@ -20,5 +20,5 @@ export type {
   ConsoleEntry,
   ConsoleBufferConfig,
   ConsoleCaptureConfig
-} from '../types/console'
-export type { ConsoleInterceptHandler, ConsoleFunction } from './interceptor'
+} from '../types/console.js'
+export type { ConsoleInterceptHandler, ConsoleFunction } from './interceptor.js'

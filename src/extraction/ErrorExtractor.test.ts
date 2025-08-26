@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { ErrorExtractor } from './ErrorExtractor'
-import type { ErrorExtractionConfig } from '../types/extraction'
+import { ErrorExtractor } from './ErrorExtractor.js'
+import type { ErrorExtractionConfig } from '../types/extraction.js'
 import * as fs from 'node:fs'
 
 // Mock fs module

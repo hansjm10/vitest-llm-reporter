@@ -18,9 +18,9 @@ import type {
   AssertionValue
 } from '../types/schema'
 
-import { validateFilePath, createSafeObject, hasOwnProperty } from '../utils/sanitization'
+import { validateFilePath, createSafeObject, hasOwnProperty } from '../utils/sanitization.js'
 
-import { ErrorMessages, BYTES_PER_MB, MAX_TIMESTAMP_LENGTH, MAX_ARRAY_SIZE } from './errors'
+import { ErrorMessages, BYTES_PER_MB, MAX_TIMESTAMP_LENGTH, MAX_ARRAY_SIZE } from './errors.js'
 
 /**
  * Validation configuration options

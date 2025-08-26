@@ -7,16 +7,16 @@
  * @module processor
  */
 
-import type { LLMReporterOutput } from '../types/schema'
-import { SchemaValidator, ValidationConfig, ValidationResult } from '../validation/validator'
-import { JsonSanitizer, JsonSanitizerConfig } from '../sanitization/json-sanitizer'
-import type { TruncationConfig } from '../types/reporter'
-import type { DeduplicationConfig } from '../types/deduplication'
+import type { LLMReporterOutput } from '../types/schema.js'
+import { SchemaValidator, ValidationConfig, ValidationResult } from '../validation/validator.js'
+import { JsonSanitizer, JsonSanitizerConfig } from '../sanitization/json-sanitizer.js'
+import type { TruncationConfig } from '../types/reporter.js'
+import type { DeduplicationConfig } from '../types/deduplication.js'
 // Processing truncation temporarily disabled - to be implemented separately
 // import { createTruncationEngine, type ITruncationEngine } from '../truncation/TruncationEngine'
-import { createDeduplicationService, type IDeduplicationService } from '../deduplication'
-import type { DeduplicationResult, DuplicateEntry } from '../types/deduplication'
-import { PerformanceManager, createPerformanceManager, type PerformanceConfig } from '../monitoring'
+import { createDeduplicationService, type IDeduplicationService } from '../deduplication/index.js'
+import type { DeduplicationResult, DuplicateEntry } from '../types/deduplication.js'
+import { PerformanceManager, createPerformanceManager, type PerformanceConfig } from '../monitoring/index.js'
 
 /**
  * Processing options

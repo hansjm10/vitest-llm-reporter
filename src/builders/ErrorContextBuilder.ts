@@ -7,9 +7,9 @@
  * @module builders
  */
 
-import type { ErrorContext } from '../types/schema'
-import type { NormalizedError } from '../types/extraction'
-import { isAssertionError, normalizeAssertionValue } from '../utils/type-guards'
+import type { ErrorContext } from '../types/schema.js'
+import type { NormalizedError } from '../types/extraction.js'
+import { isAssertionError, normalizeAssertionValue } from '../utils/type-guards.js'
 
 /**
  * Error context builder configuration

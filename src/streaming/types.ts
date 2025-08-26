@@ -6,7 +6,5 @@
  * @module streaming/types
  */
 
-/**
- * Streaming modes supported by the reporter
- */
-export type StreamingMode = 'stdout' | 'stderr' | 'both' | 'none'
+// This file is intentionally kept minimal
+// StreamingMode type was removed as it was unused

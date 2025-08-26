@@ -5,7 +5,7 @@
  * No fancy algorithms - just honest memory usage reporting.
  */
 
-import { DEFAULT_MEMORY_WARNING_THRESHOLD } from './constants'
+import { DEFAULT_MEMORY_WARNING_THRESHOLD } from './constants.js'
 
 export class MemoryMonitor {
   private warningThreshold = DEFAULT_MEMORY_WARNING_THRESHOLD

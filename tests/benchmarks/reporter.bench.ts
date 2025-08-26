@@ -64,8 +64,7 @@ describe('Reporter Performance Benchmarks', () => {
         outputFile,
         verbose: true,
         includePassedTests: true,
-        truncationEnabled: true,
-        maxTokens: 5000
+        truncation: { enabled: true, maxTokens: 5000 }
       })
 
       reporter.onInit({} as unknown as Vitest)

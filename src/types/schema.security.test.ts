@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import type { LLMReporterOutput, TestSummary, TestFailure } from './schema'
-import { SchemaValidator } from '../validation/validator'
-import { isValidTestSummary, isValidTestFailure } from '../test-utils/validation-helpers'
+import type { LLMReporterOutput, TestSummary, TestFailure } from './schema.js'
+import { SchemaValidator } from '../validation/validator.js'
+import { isValidTestSummary, isValidTestFailure } from '../test-utils/validation-helpers.js'
 
 describe('Security Validation Tests', () => {
   const validator = new SchemaValidator()

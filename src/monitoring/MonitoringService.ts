@@ -5,11 +5,11 @@
  * PerformanceManager. No fancy "intelligent" features - just honest monitoring.
  */
 
-import { Cache } from './Cache'
-import { MemoryMonitor } from './MemoryMonitor'
-import { Metrics } from './Metrics'
-import type { MonitoringConfig } from './types'
-import { DEFAULT_CACHE_SIZE } from './constants'
+import { Cache } from './Cache.js'
+import { MemoryMonitor } from './MemoryMonitor.js'
+import { Metrics } from './Metrics.js'
+import type { MonitoringConfig } from './types.js'
+import { DEFAULT_CACHE_SIZE } from './constants.js'
 
 export class MonitoringService {
   private cache: Cache<any>

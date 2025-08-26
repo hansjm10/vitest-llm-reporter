@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { DeduplicationService } from './DeduplicationService'
-import { StackTracePattern } from './patterns/StackTracePattern'
-import { ErrorMessagePattern } from './patterns/ErrorMessagePattern'
-import type { DuplicateEntry, DeduplicationConfig } from '../types/deduplication'
+import { DeduplicationService } from './DeduplicationService.js'
+import { StackTracePattern } from './patterns/StackTracePattern.js'
+import { ErrorMessagePattern } from './patterns/ErrorMessagePattern.js'
+import type { DuplicateEntry, DeduplicationConfig } from '../types/deduplication.js'
 
 describe('DeduplicationService', () => {
   let service: DeduplicationService

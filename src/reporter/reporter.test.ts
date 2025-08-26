@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Vitest, SerializedError } from 'vitest'
 
 // Import the non-existent LLMReporter class (will fail initially - TDD)
-import { LLMReporter } from './reporter'
+import { LLMReporter } from './reporter.js'
 import {
   createMockTestCase,
   createMockTestModule,

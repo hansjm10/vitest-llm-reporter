@@ -17,7 +17,7 @@ import type {
   AssertionValue
 } from '../types/schema'
 
-import { escapeJsonString, escapeJsonArray, createSafeObject } from '../utils/sanitization'
+import { escapeJsonString, escapeJsonArray, createSafeObject } from '../utils/sanitization.js'
 
 /**
  * JSON sanitization configuration

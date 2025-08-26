@@ -8,10 +8,10 @@
  */
 
 import { readFileSync } from 'node:fs'
-import type { StackFrame, ContextExtractionOptions } from '../types/extraction'
-import type { ErrorContext } from '../types/schema'
-import { PathValidator } from '../utils/path-validator'
-import { extractionLogger, errorLogger, securityLogger } from '../utils/logger'
+import type { StackFrame, ContextExtractionOptions } from '../types/extraction.js'
+import type { ErrorContext } from '../types/schema.js'
+import { PathValidator } from '../utils/path-validator.js'
+import { extractionLogger, errorLogger, securityLogger } from '../utils/logger.js'
 
 /**
  * Extracts code context and stack frame information from errors

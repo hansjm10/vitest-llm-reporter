@@ -11,7 +11,7 @@ import {
   type ThresholdSettings,
   type ThresholdConfig
 } from './thresholds'
-import type { SupportedModel, TokenMetricsConfig, MetricSection } from './types'
+import type { SupportedModel, TokenMetricsConfig, MetricSection } from './types.js'
 
 describe('ThresholdManager', () => {
   let manager: ThresholdManager

@@ -4,7 +4,7 @@
  * A cache implementation with LRU eviction and TTL support.
  */
 
-import { CACHE_TTL_MS, DEFAULT_CACHE_SIZE } from './constants'
+import { CACHE_TTL_MS, DEFAULT_CACHE_SIZE } from './constants.js'
 
 export class Cache<T> {
   private cache = new Map<string, { value: T; timestamp: number }>()

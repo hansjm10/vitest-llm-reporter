@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { TemplateExtractor } from './TemplateExtractor'
-import { ReferenceManager } from './ReferenceManager'
-import type { DuplicateEntry, DeduplicationGroup, FailureTemplate } from '../../types/deduplication'
+import { TemplateExtractor } from './TemplateExtractor.js'
+import { ReferenceManager } from './ReferenceManager.js'
+import type { DuplicateEntry, DeduplicationGroup, FailureTemplate } from '../../types/deduplication.js'
 
 describe('Compression System', () => {
   describe('TemplateExtractor', () => {

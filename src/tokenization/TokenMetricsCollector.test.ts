@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { TokenMetricsCollector, createTokenMetricsCollector } from './TokenMetricsCollector'
-import type { TokenMetricsConfig, TokenMetrics } from './metrics/types'
-import type { LLMReporterOutput, TestFailure } from '../types/schema'
-import type { LLMReporterConfig } from '../types/reporter'
+import { TokenMetricsCollector, createTokenMetricsCollector } from './TokenMetricsCollector.js'
+import type { TokenMetricsConfig, TokenMetrics } from './metrics/types.js'
+import type { LLMReporterOutput, TestFailure } from '../types/schema.js'
+import type { LLMReporterConfig } from '../types/reporter.js'
 
 // Mock logger
 vi.mock('../utils/logger.js', () => ({

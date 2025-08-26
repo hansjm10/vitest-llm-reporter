@@ -56,5 +56,5 @@ export type {
 } from './types/deduplication'
 
 // Default export for Vitest to use
-import { LLMReporter } from './reporter/reporter'
+import { LLMReporter } from './reporter/reporter.js'
 export default LLMReporter

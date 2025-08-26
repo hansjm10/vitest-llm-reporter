@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { SchemaValidator, ValidationConfig } from './validator'
-import type { LLMReporterOutput } from '../types/schema'
+import { SchemaValidator, ValidationConfig } from './validator.js'
+import type { LLMReporterOutput } from '../types/schema.js'
 import {
   createOutputWithFailures,
   createOutputWithPassed,

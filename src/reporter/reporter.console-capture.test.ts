@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { LLMReporter } from './reporter'
-import { consoleCapture } from '../console'
+import { LLMReporter } from './reporter.js'
+import { consoleCapture } from '../console/index.js'
 import type { TestCase, TestRunEndReason } from 'vitest/node'
 
 describe('LLMReporter Console Capture Integration', () => {

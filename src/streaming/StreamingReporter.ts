@@ -8,9 +8,9 @@
  */
 
 import type { TestCase } from 'vitest/node'
-import type { LLMReporterConfig } from '../types/reporter'
-import { LLMReporter } from '../reporter/reporter'
-import { coreLogger } from '../utils/logger'
+import type { LLMReporterConfig } from '../types/reporter.js'
+import { LLMReporter } from '../reporter/reporter.js'
+import { coreLogger } from '../utils/logger.js'
 
 /**
  * Streaming reporter configuration
@@ -51,8 +51,8 @@ export class StreamingReporter extends LLMReporter {
 
     // Stream result if enabled
     if (this.streamingEnabled) {
-      // Access the result property directly (it's not a function)
-      const result = (testCase as any).result
+      // Use type guard for safer access to result property
+      const result = (testCase as { result?: { state?: string; duration?: number } }).result
       if (result) {
         // Normalize state values (Vitest uses 'pass'/'fail', we display 'passed'/'failed')
         const status =

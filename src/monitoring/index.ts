@@ -5,14 +5,14 @@
  * No "intelligent" features - just simple, honest monitoring.
  */
 
-import { MonitoringService } from './MonitoringService'
-import type { MonitoringConfig } from './types'
+import { MonitoringService } from './MonitoringService.js'
+import type { MonitoringConfig } from './types.js'
 
-export { Cache } from './Cache'
-export { MemoryMonitor } from './MemoryMonitor'
-export { Metrics } from './Metrics'
-export { MonitoringService } from './MonitoringService'
-export * from './constants'
+export { Cache } from './Cache.js'
+export { MemoryMonitor } from './MemoryMonitor.js'
+export { Metrics } from './Metrics.js'
+export { MonitoringService } from './MonitoringService.js'
+export * from './constants.js'
 
 export type {
   MonitoringConfig,
@@ -23,10 +23,10 @@ export type {
   // Backward compatibility aliases
   PerformanceConfig,
   PerformanceMetrics
-} from './types'
+} from './types.js'
 
 // For backward compatibility during migration
-export { MonitoringService as PerformanceManager } from './MonitoringService'
+export { MonitoringService as PerformanceManager } from './MonitoringService.js'
 
 /**
  * Create a monitoring service with simple configuration

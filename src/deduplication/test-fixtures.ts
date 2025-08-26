@@ -2,7 +2,7 @@
  * Test fixtures for deduplication testing
  */
 
-import type { DuplicateEntry, DeduplicationGroup } from '../types/deduplication'
+import type { DuplicateEntry, DeduplicationGroup } from '../types/deduplication.js'
 
 /**
  * Create a mock duplicate entry

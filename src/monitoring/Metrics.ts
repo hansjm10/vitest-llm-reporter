@@ -5,8 +5,8 @@
  * Just counts and timers - nothing "intelligent" about it.
  */
 
-import { MAX_TRACKED_OPERATIONS } from './constants'
-import { coreLogger } from '../utils/logger'
+import { MAX_TRACKED_OPERATIONS } from './constants.js'
+import { coreLogger } from '../utils/logger.js'
 
 export class Metrics {
   private startTime = Date.now()

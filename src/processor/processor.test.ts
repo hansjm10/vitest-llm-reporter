@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SchemaProcessor } from './processor'
+import { SchemaProcessor } from './processor.js'
 import {
   createOutputWithPassed,
   createInvalidOutput,

@@ -224,8 +224,26 @@ export function detectEnvironment(options?: EnvironmentDetectionOptions): Enviro
     isHeadless: ci.isCI || !tty.hasAnyTTY
   }
 
+  // Check for color support with environment variables
+  let supportsColor = tty.hasAnyTTY && !ci.isCI
+  
+  // Honor FORCE_COLOR to force enable color
+  if (process.env.FORCE_COLOR === '1' || process.env.FORCE_COLOR === 'true') {
+    supportsColor = true
+  }
+  
+  // Honor NO_COLOR to force disable color
+  if (process.env.NO_COLOR === '1' || process.env.NO_COLOR === 'true') {
+    supportsColor = false
+  }
+  
+  // Enable color for GitHub Actions even in CI
+  if (process.env.GITHUB_ACTIONS === 'true') {
+    supportsColor = true
+  }
+  
   const capabilities = {
-    supportsColor: tty.hasAnyTTY && !ci.isCI,
+    supportsColor,
     supportsInteractive: tty.hasFullTTY && !ci.isCI,
     supportsTerminal: tty.hasAnyTTY
   }

@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { LateTruncator } from './LateTruncator'
-import type { LLMReporterOutput, TestFailure, TestResult } from '../types/schema'
-import type { TruncationConfig } from '../types/reporter'
+import { LateTruncator } from './LateTruncator.js'
+import type { LLMReporterOutput, TestFailure, TestResult } from '../types/schema.js'
+import type { TruncationConfig } from '../types/reporter.js'
 
 describe('LateTruncator', () => {
   let truncator: LateTruncator

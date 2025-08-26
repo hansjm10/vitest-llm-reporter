@@ -6,8 +6,8 @@
  * uniform testing patterns.
  */
 
-import type { TestSummary, TestFailure, TestResult } from '../types/schema'
-import { SchemaValidator } from '../validation/validator'
+import type { TestSummary, TestFailure, TestResult } from '../types/schema.js'
+import { SchemaValidator } from '../validation/validator.js'
 
 /**
  * Creates a new instance of SchemaValidator for testing

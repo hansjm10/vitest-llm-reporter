@@ -7,10 +7,10 @@
  * @module output
  */
 
-import type { LLMReporterOutput, TestSummary, TestResult, TestFailure } from '../types/schema'
+import type { LLMReporterOutput, TestSummary, TestResult, TestFailure } from '../types/schema.js'
 import type { SerializedError } from 'vitest'
-import type { TruncationConfig } from '../types/reporter'
-import { LateTruncator } from '../truncation/LateTruncator'
+import type { TruncationConfig } from '../types/reporter.js'
+import { LateTruncator } from '../truncation/LateTruncator.js'
 
 /**
  * Output builder configuration

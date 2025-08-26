@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { ConsoleMerger } from './merge'
-import type { ConsoleOutput } from '../types/schema'
+import { ConsoleMerger } from './merge.js'
+import type { ConsoleOutput } from '../types/schema.js'
 
 describe('ConsoleMerger', () => {
   const merger = new ConsoleMerger()

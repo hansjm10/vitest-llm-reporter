@@ -7,9 +7,9 @@
  */
 
 import type { File, Test } from '@vitest/runner'
-import type { ConsoleMethod } from '../types/console'
-import { ExtractedError, VitestErrorContext } from '../types/vitest-objects'
-import type { AssertionValue } from '../types/schema'
+import type { ConsoleMethod } from '../types/console.js'
+import { ExtractedError, VitestErrorContext } from '../types/vitest-objects.js'
+import type { AssertionValue } from '../types/schema.js'
 
 export type { ExtractedError } from '../types/vitest-objects'
 

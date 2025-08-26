@@ -5,7 +5,7 @@
  * test data for testing the reporter's schema validation and processing.
  */
 
-import type { LLMReporterOutput, TestSummary, TestFailure, TestResult } from '../types/schema'
+import type { LLMReporterOutput, TestSummary, TestFailure, TestResult } from '../types/schema.js'
 
 /**
  * Creates a valid TestSummary with sensible defaults

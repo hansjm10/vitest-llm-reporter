@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { StreamingReporter } from './StreamingReporter'
+import { StreamingReporter } from './StreamingReporter.js'
 
 describe('StreamingReporter', () => {
   it('should create reporter with default config', () => {

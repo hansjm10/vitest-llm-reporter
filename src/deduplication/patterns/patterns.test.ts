@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { StackTracePattern } from './StackTracePattern'
-import { ErrorMessagePattern } from './ErrorMessagePattern'
-import { ConsoleOutputPattern } from './ConsoleOutputPattern'
-import { AssertionPattern } from './AssertionPattern'
+import { StackTracePattern } from './StackTracePattern.js'
+import { ErrorMessagePattern } from './ErrorMessagePattern.js'
+import { ConsoleOutputPattern } from './ConsoleOutputPattern.js'
+import { AssertionPattern } from './AssertionPattern.js'
 
 describe('Pattern Matchers', () => {
   describe('StackTracePattern', () => {

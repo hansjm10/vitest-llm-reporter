@@ -1,5 +1,5 @@
-import type { ConsoleMethod } from '../types/console'
-import { createLogger } from '../utils/logger'
+import type { ConsoleMethod } from '../types/console.js'
+import { createLogger } from '../utils/logger.js'
 
 /**
  * Console Interceptor

@@ -7,14 +7,14 @@
  * @module state
  */
 
-import type { TestResult, TestFailure } from '../types/schema'
+import type { TestResult, TestFailure } from '../types/schema.js'
 import type {
   StateConfig,
   TestResults,
   ModuleTiming,
   StateSnapshot,
   TestStatistics
-} from '../types/state'
+} from '../types/state.js'
 
 /**
  * Default state configuration

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { JsonSanitizer } from './json-sanitizer'
-import type { LLMReporterOutput } from '../types/schema'
+import { JsonSanitizer } from './json-sanitizer.js'
+import type { LLMReporterOutput } from '../types/schema.js'
 
 describe('JsonSanitizer', () => {
   describe('JSON String Escaping', () => {

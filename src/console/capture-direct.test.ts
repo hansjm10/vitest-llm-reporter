@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { describe, it, expect } from 'vitest'
-import { ConsoleCapture } from './capture'
+import { ConsoleCapture } from './capture.js'
 
 describe('ConsoleCapture Direct Test', () => {
   it('should capture ingested console logs', () => {

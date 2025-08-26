@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { ContextExtractor } from './ContextExtractor'
+import { ContextExtractor } from './ContextExtractor.js'
 import * as fs from 'node:fs'
 
 // Mock fs module

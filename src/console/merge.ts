@@ -1,5 +1,5 @@
-import type { ConsoleOutput } from '../types/schema'
-import { createLogger } from '../utils/logger'
+import type { ConsoleOutput } from '../types/schema.js'
+import { createLogger } from '../utils/logger.js'
 
 /**
  * Console Merger

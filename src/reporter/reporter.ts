@@ -10,12 +10,12 @@
 import type { Vitest, SerializedError, Reporter, UserConsoleLog } from 'vitest'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
-import type { LLMReporterConfig } from '../types/reporter'
-import type { LLMReporterOutput } from '../types/schema'
+import type { LLMReporterConfig } from '../types/reporter.js'
+import type { LLMReporterOutput } from '../types/schema.js'
 
 // Type for resolved configuration with explicit undefined handling
 interface ResolvedLLMReporterConfig
-  extends Omit<LLMReporterConfig, 'outputFile' | 'enableStreaming'> {
+  extends Omit<LLMReporterConfig, 'outputFile' | 'enableStreaming' | 'truncation'> {
   verbose: boolean
   outputFile: string | undefined // Explicitly undefined, not optional
   includePassedTests: boolean
@@ -29,25 +29,36 @@ interface ResolvedLLMReporterConfig
   tokenCountingModel: string
   enableStreaming: boolean
   performance: Required<MonitoringConfig>
+  truncation: {
+    enabled: boolean
+    maxTokens: number | undefined
+    model: string
+    strategy: 'simple' | 'smart' | 'priority'
+    featureFlag: boolean
+    enableEarlyTruncation: boolean
+    enableLateTruncation: boolean
+    enableMetrics: boolean
+  }
+  framedOutput: boolean // Gate for console separator frames
 }
 
 // Import new components
-import { StateManager } from '../state/StateManager'
-import { TestCaseExtractor } from '../extraction/TestCaseExtractor'
-import { ErrorExtractor } from '../extraction/ErrorExtractor'
-import { TestResultBuilder } from '../builders/TestResultBuilder'
-import { ErrorContextBuilder } from '../builders/ErrorContextBuilder'
-import { OutputBuilder } from '../output/OutputBuilder'
-import { OutputWriter } from '../output/OutputWriter'
-import { EventOrchestrator } from '../events/EventOrchestrator'
-import { coreLogger, errorLogger } from '../utils/logger'
-import { detectEnvironment, hasTTY } from '../utils/environment'
+import { StateManager } from '../state/StateManager.js'
+import { TestCaseExtractor } from '../extraction/TestCaseExtractor.js'
+import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
+import { TestResultBuilder } from '../builders/TestResultBuilder.js'
+import { ErrorContextBuilder } from '../builders/ErrorContextBuilder.js'
+import { OutputBuilder } from '../output/OutputBuilder.js'
+import { OutputWriter } from '../output/OutputWriter.js'
+import { EventOrchestrator } from '../events/EventOrchestrator.js'
+import { coreLogger, errorLogger } from '../utils/logger.js'
+import { detectEnvironment, hasTTY } from '../utils/environment.js'
 import {
   PerformanceManager,
   createPerformanceManager,
   type PerformanceConfig,
   type MonitoringConfig
-} from '../monitoring'
+} from '../monitoring/index.js'
 
 export class LLMReporter implements Reporter {
   private config: ResolvedLLMReporterConfig
@@ -99,7 +110,18 @@ export class LLMReporter implements Reporter {
         enabled: config.performance?.enabled ?? true,
         cacheSize: config.performance?.cacheSize ?? 1000,
         memoryWarningThreshold: config.performance?.memoryWarningThreshold ?? 500 * 1024 * 1024 // 500MB
-      }
+      },
+      truncation: {
+        enabled: config.truncation?.enabled ?? false,
+        maxTokens: config.truncation?.maxTokens ?? undefined,
+        model: config.truncation?.model ?? 'gpt-4',
+        strategy: config.truncation?.strategy ?? 'smart',
+        featureFlag: config.truncation?.featureFlag ?? false,
+        enableEarlyTruncation: config.truncation?.enableEarlyTruncation ?? false,
+        enableLateTruncation: config.truncation?.enableLateTruncation ?? false,
+        enableMetrics: config.truncation?.enableMetrics ?? false
+      },
+      framedOutput: config.framedOutput ?? false
     }
 
     // Initialize components
@@ -112,7 +134,8 @@ export class LLMReporter implements Reporter {
       verbose: this.config.verbose,
       includePassedTests: this.config.includePassedTests,
       includeSkippedTests: this.config.includeSkippedTests,
-      enableStreaming: this.config.enableStreaming
+      enableStreaming: this.config.enableStreaming,
+      truncation: this.config.truncation
     })
     this.outputWriter = new OutputWriter()
 
@@ -127,7 +150,8 @@ export class LLMReporter implements Reporter {
         captureConsoleOnFailure: this.config.captureConsoleOnFailure,
         maxConsoleBytes: this.config.maxConsoleBytes,
         maxConsoleLines: this.config.maxConsoleLines,
-        includeDebugOutput: this.config.includeDebugOutput
+        includeDebugOutput: this.config.includeDebugOutput,
+        truncationConfig: this.config.truncation
       }
     )
 
@@ -472,11 +496,20 @@ export class LLMReporter implements Reporter {
           try {
             // Write to console with proper formatting
             const jsonOutput = JSON.stringify(this.output, null, 2)
-            process.stdout.write('\n' + '='.repeat(80) + '\n')
-            process.stdout.write('LLM Reporter Output:\n')
-            process.stdout.write('='.repeat(80) + '\n')
+            
+            // Only add framing if framedOutput is enabled
+            if (this.config.framedOutput) {
+              process.stdout.write('\n' + '='.repeat(80) + '\n')
+              process.stdout.write('LLM Reporter Output:\n')
+              process.stdout.write('='.repeat(80) + '\n')
+            }
+            
             process.stdout.write(jsonOutput + '\n')
-            process.stdout.write('='.repeat(80) + '\n')
+            
+            if (this.config.framedOutput) {
+              process.stdout.write('='.repeat(80) + '\n')
+            }
+            
             this.debug('Output written to console')
           } catch (consoleError) {
             this.debugError('Failed to write to console: %O', consoleError)

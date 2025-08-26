@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { ConsoleBuffer } from './buffer'
-import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console'
-import { ConsoleInterceptor } from './interceptor'
-import { createLogger } from '../utils/logger'
+import { ConsoleBuffer } from './buffer.js'
+import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console.js'
+import { ConsoleInterceptor } from './interceptor.js'
+import { createLogger } from '../utils/logger.js'
 
 /**
  * Console Capture
@@ -171,9 +171,6 @@ export class ConsoleCapture {
         if (buffer) {
           const elapsed = Date.now() - context.startTime
           buffer.add(method, args, elapsed)
-
-          // Stream console data in real-time if adapter is ready
-          this.streamConsoleData(method, context.testId, args, elapsed, context.startTime)
         }
       }
       // Note: When there's no context (helper functions), we rely on Vitest's
@@ -278,26 +275,6 @@ export class ConsoleCapture {
     }
 
     buffer.add(method, args, elapsed)
-
-    // Stream console data for ingested events too
-    this.streamConsoleData(method, testId, args, elapsed)
-  }
-
-  /**
-   * Stream console data in real-time through the ConsoleStreamAdapter
-   */
-  private streamConsoleData(
-    method: ConsoleMethod,
-    testId: string,
-    args: unknown[],
-    elapsed?: number,
-    _startTime?: number
-  ): void {
-    // Streaming removed in simplification - console data is buffered directly
-    // Respect debug/trace filtering
-    if (!this.config.includeDebugOutput && (method === 'debug' || method === 'trace')) {
-      return
-    }
   }
 
   /**

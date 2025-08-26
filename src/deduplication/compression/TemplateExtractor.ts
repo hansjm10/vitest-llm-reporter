@@ -7,8 +7,8 @@
  * @module TemplateExtractor
  */
 
-import type { FailureTemplate, TemplateVariable, DuplicateEntry } from '../../types/deduplication'
-import { levenshteinDistance } from '../algorithms/similarity'
+import type { FailureTemplate, TemplateVariable, DuplicateEntry } from '../../types/deduplication.js'
+import { levenshteinDistance } from '../algorithms/similarity.js'
 
 /**
  * Template extraction options

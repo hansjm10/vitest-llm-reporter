@@ -1,5 +1,5 @@
 import { inspect } from 'node:util'
-import type { ConsoleMethod, ConsoleBufferConfig } from '../types/console'
+import type { ConsoleMethod, ConsoleBufferConfig } from '../types/console.js'
 
 /**
  * Console Buffer
@@ -76,9 +76,6 @@ export class ConsoleBuffer {
 
     this.totalBytes += bytes
     this.totalLines++
-
-    // Stream the buffer addition in real-time if bridge is ready
-    this.streamBufferAddition(method, final)
 
     return true
   }
@@ -235,34 +232,11 @@ export class ConsoleBuffer {
     }
   }
 
-  /**
-   * Stream buffer addition in real-time (private method)
-   */
-  private streamBufferAddition(method: ConsoleMethod, content: string): void {
-    // Streaming removed in simplification - buffer handles everything directly
-  }
 
   /**
-   * Stream entire buffer flush to streaming infrastructure
+   * Flush buffer contents
    */
-  async streamFlush(testId?: string): Promise<void> {
-    // Streaming removed in simplification - buffer handles everything directly
-  }
-
-  /**
-   * Flush buffer contents and optionally stream them
-   */
-  async flush(
-    testId?: string,
-    enableStreaming = true
-  ): Promise<ReturnType<typeof this.getSimplifiedOutput>> {
-    const output = this.getSimplifiedOutput()
-
-    // Stream the flush operation if enabled
-    if (enableStreaming) {
-      await this.streamFlush(testId)
-    }
-
-    return output
+  flush(): ReturnType<typeof this.getSimplifiedOutput> {
+    return this.getSimplifiedOutput()
   }
 }

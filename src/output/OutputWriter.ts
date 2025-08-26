@@ -9,7 +9,7 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import type { LLMReporterOutput } from '../types/schema'
+import type { LLMReporterOutput } from '../types/schema.js'
 
 /**
  * Output writer configuration

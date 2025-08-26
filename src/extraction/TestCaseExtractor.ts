@@ -7,8 +7,8 @@
  * @module extraction
  */
 
-import type { TestCaseData, VitestSuite } from '../types/reporter-internal'
-import type { ExtractedTestCase, ExtractionConfig } from '../types/extraction'
+import type { TestCaseData, VitestSuite } from '../types/reporter-internal.js'
+import type { ExtractedTestCase, ExtractionConfig } from '../types/extraction.js'
 
 /**
  * Default extraction configuration

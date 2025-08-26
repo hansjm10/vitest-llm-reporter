@@ -6,11 +6,11 @@
  * to progressively reduce content while preserving essential information.
  */
 
-import type { LLMReporterOutput, TestFailure, ConsoleOutput, TestError } from '../types/schema'
-import type { TruncationConfig } from '../types/reporter'
-import type { SupportedModel } from '../tokenization/types'
-import { TokenCounter } from '../tokenization/TokenCounter'
-import { getEffectiveMaxTokens } from './context'
+import type { LLMReporterOutput, TestFailure, ConsoleOutput, TestError } from '../types/schema.js'
+import type { TruncationConfig } from '../types/reporter.js'
+import type { SupportedModel } from '../tokenization/types.js'
+import { TokenCounter } from '../tokenization/TokenCounter.js'
+import { getEffectiveMaxTokens } from './context.js'
 import {
   truncateStackTrace,
   truncateCodeContext,

@@ -15,15 +15,15 @@ import {
   extractStringProperty,
   extractNumberProperty
 } from '../utils/type-guards'
-import { extractLineNumber } from '../reporter/helpers'
-import { ContextExtractor } from './ContextExtractor'
+import { extractLineNumber } from '../reporter/helpers.js'
+import { ContextExtractor } from './ContextExtractor.js'
 import type {
   NormalizedError,
   ErrorExtractionConfig,
   StackFrame,
   AssertionDetails
 } from '../types/extraction'
-import type { ErrorContext } from '../types/schema'
+import type { ErrorContext } from '../types/schema.js'
 
 /**
  * Default error extraction configuration

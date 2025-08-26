@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { EarlyTruncator } from './EarlyTruncator'
-import type { TruncationConfig } from '../types/reporter'
+import { EarlyTruncator } from './EarlyTruncator.js'
+import type { TruncationConfig } from '../types/reporter.js'
 
 describe('EarlyTruncator', () => {
   let truncator: EarlyTruncator

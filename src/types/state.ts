@@ -7,7 +7,7 @@
  * @module state-types
  */
 
-import type { TestResult, TestFailure } from './schema'
+import type { TestResult, TestFailure } from './schema.js'
 
 /**
  * Configuration for StateManager

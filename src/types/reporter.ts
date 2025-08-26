@@ -7,8 +7,8 @@
  * @module reporter-types
  */
 
-import type { DeduplicationConfig } from './deduplication'
-import type { PerformanceConfig } from '../monitoring/types'
+import type { DeduplicationConfig } from './deduplication.js'
+import type { PerformanceConfig } from '../monitoring/types.js'
 
 /**
  * Configuration options for the LLM Reporter
@@ -44,6 +44,8 @@ export interface LLMReporterConfig {
   deduplication?: DeduplicationConfig
   /** Performance optimization configuration */
   performance?: PerformanceConfig
+  /** Add separator frames around console output (default: false) */
+  framedOutput?: boolean
 }
 
 /**

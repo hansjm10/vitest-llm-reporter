@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { LLMReporter } from './reporter'
+import { LLMReporter } from './reporter.js'
 import type { TestCase } from 'vitest/node'
 
 describe('LLMReporter Line Number Extraction', () => {

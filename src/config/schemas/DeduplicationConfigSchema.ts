@@ -6,7 +6,7 @@
  * @module DeduplicationConfigSchema
  */
 
-import type { DeduplicationConfig, DeduplicationStrategy } from '../../types/deduplication'
+import type { DeduplicationConfig, DeduplicationStrategy } from '../../types/deduplication.js'
 
 /**
  * Default deduplication configuration
