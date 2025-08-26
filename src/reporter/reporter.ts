@@ -419,6 +419,20 @@ export class LLMReporter implements Reporter {
         // Continue to build output even if orchestrator fails
       }
 
+      // Debug-log any unhandled errors in a compact formatted way
+      if (unhandledErrors && unhandledErrors.length > 0) {
+        for (const ue of unhandledErrors) {
+          try {
+            const formatted = this.errorExtractor.format(
+              this.errorExtractor.extractWithContext(ue)
+            )
+            this.debug('Unhandled error (formatted):\n%s', formatted)
+          } catch (e) {
+            this.debugError('Failed to format unhandled error: %O', e)
+          }
+        }
+      }
+
       // Get statistics and test results
       const statistics = this.stateManager.getStatistics()
       const testResults = this.stateManager.getTestResults()

@@ -252,17 +252,15 @@ export class ErrorExtractor {
     // Parse stack trace to get frames
     const stackFrames = this.contextExtractor.parseStackTrace(stack)
 
-    // Extract code context with proper typing
+    // Extract code context with proper typing (do not merge assertion values here)
     const codeContext = this.extractCodeContext(filePath, lineNumber, columnNumber, stackFrames)
-
-    // Merge all context sources with clear priority
-    const mergedContext = this.mergeErrorContext(codeContext, basicError)
 
     // Build final error object
     return {
       ...basicError,
       stackFrames: stackFrames.length > 0 ? stackFrames : undefined,
-      context: mergedContext,
+      // Provide only raw code/position context; assertion enrichment happens in ErrorContextBuilder
+      context: codeContext ?? basicError.context,
       assertion: this.buildAssertionDetails(basicError, error)
     }
   }
@@ -301,78 +299,9 @@ export class ErrorExtractor {
    * 2. Existing error context (from error object)
    * 3. Assertion-only context (when only test values available)
    */
-  private mergeErrorContext(
-    codeContext: ErrorContext | undefined,
-    basicError: NormalizedError
-  ): NormalizedError['context'] | undefined {
-    const hasAssertions = this.hasAssertionValues(basicError)
-
-    // Priority 1: Fresh code context with assertions
-    if (codeContext) {
-      return this.createContextWithCode(codeContext, basicError)
-    }
-
-    // Priority 2: Existing context enhanced with assertions
-    if (basicError.context) {
-      return this.enrichExistingContext(basicError.context, basicError)
-    }
-
-    // Priority 3: Assertion-only context (requires line number)
-    if (hasAssertions && basicError.lineNumber !== undefined) {
-      return this.createAssertionContext(basicError)
-    }
-
-    return undefined
-  }
-
-  /**
-   * Checks if error has assertion values
-   */
-  private hasAssertionValues(error: NormalizedError): boolean {
-    return error.expected !== undefined || error.actual !== undefined
-  }
-
-  /**
-   * Creates context with code and assertion values
-   */
-  private createContextWithCode(
-    codeContext: ErrorContext,
-    error: NormalizedError
-  ): NormalizedError['context'] {
-    return {
-      code: codeContext.code,
-      lineNumber: codeContext.lineNumber,
-      columnNumber: codeContext.columnNumber,
-      expected: error.expected,
-      actual: error.actual
-    }
-  }
-
-  /**
-   * Enriches existing context with assertion values
-   */
-  private enrichExistingContext(
-    existing: NonNullable<NormalizedError['context']>,
-    error: NormalizedError
-  ): NormalizedError['context'] {
-    return {
-      ...existing,
-      expected: error.expected,
-      actual: error.actual
-    }
-  }
-
-  /**
-   * Creates context with only assertion values
-   */
-  private createAssertionContext(error: NormalizedError): NormalizedError['context'] {
-    return {
-      code: [], // Empty array indicates no source available
-      lineNumber: error.lineNumber,
-      expected: error.expected,
-      actual: error.actual
-    }
-  }
+  // Note: Assertion values are intentionally not merged into context here.
+  // ErrorContextBuilder is responsible for enriching context with expected/actual
+  // to keep a single point of truth for context shaping.
 
   /**
    * Builds assertion details if present
@@ -381,7 +310,7 @@ export class ErrorExtractor {
     basicError: NormalizedError,
     error: unknown
   ): AssertionDetails | undefined {
-    if (this.hasAssertionValues(basicError)) {
+    if (basicError.expected !== undefined || basicError.actual !== undefined) {
       return {
         expected: basicError.expected,
         actual: basicError.actual,

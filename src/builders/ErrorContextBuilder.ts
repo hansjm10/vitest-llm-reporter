@@ -143,10 +143,6 @@ export class ErrorContextBuilder {
   /**
    * Splits code into lines
    */
-  private splitCodeLines(code: string): string[] {
-    return code.split('\n').filter((line) => line.trim().length > 0)
-  }
-
   /**
    * Limits the number of code lines
    */

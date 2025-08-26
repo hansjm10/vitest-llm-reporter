@@ -34,6 +34,7 @@ export {
 // Export reporter class and types
 export { LLMReporter } from './reporter/reporter.js'
 export type { LLMReporterConfig } from './types/reporter.js'
+export { StreamingReporter } from './streaming/StreamingReporter.js'
 
 // Export output writer
 export { OutputWriter } from './output/OutputWriter.js'

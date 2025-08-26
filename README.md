@@ -51,6 +51,24 @@ export default defineConfig({
 
 That's it! The reporter will automatically extract failure context and output structured JSON.
 
+### Optional: Per-test streaming output
+
+If you prefer live, per-test console updates, use the `StreamingReporter`:
+
+```typescript
+import { defineConfig } from 'vitest/config'
+import { StreamingReporter } from 'vitest-llm-reporter'
+
+export default defineConfig({
+  test: {
+    // Enable live output
+    reporters: [new StreamingReporter({ enableStreaming: true })]
+  }
+})
+```
+
+Note: `StreamingReporter` is a thin wrapper around the base reporter that prints simple, real-time lines as tests complete. It does not change the JSON output behavior.
+
 ## Output Format
 
 The reporter generates concise JSON with only the essential information for understanding test results:

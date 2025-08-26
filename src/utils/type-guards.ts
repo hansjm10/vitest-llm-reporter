@@ -7,7 +7,6 @@
  */
 
 import type { File, Test } from '@vitest/runner'
-import type { ConsoleMethod } from '../types/console.js'
 import { ExtractedError, VitestErrorContext } from '../types/vitest-objects.js'
 import type { AssertionValue } from '../types/schema.js'
 
@@ -204,6 +203,19 @@ export function normalizeAssertionValue(value: unknown): AssertionValue {
 
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return value
+  }
+
+  // Handle functions and symbols explicitly to avoid lossy JSON.stringify
+  if (typeof value === 'function') {
+    return '[Function]'
+  }
+
+  if (typeof value === 'symbol') {
+    try {
+      return (value as symbol).toString()
+    } catch {
+      return 'Symbol(?)'
+    }
   }
 
   // Handle arrays

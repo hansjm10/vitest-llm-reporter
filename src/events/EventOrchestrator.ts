@@ -172,29 +172,33 @@ export class EventOrchestrator {
     if (hasProperty(module, 'children')) {
       const children = (module as Record<string, unknown>).children
       if (typeof children === 'function') {
-        const tests = (children as () => unknown)() as Array<{
-          id?: string
-          name?: string
-          mode?: string
-          file?: { filepath?: string }
-          suite?: string[]
-        }>
+        try {
+          const tests = (children as () => unknown)() as Array<{
+            id?: string
+            name?: string
+            mode?: string
+            file?: { filepath?: string }
+            suite?: string[]
+          }>
 
-        const filepath =
-          hasProperty(module, 'filepath') &&
-          typeof (module as Record<string, unknown>).filepath === 'string'
-            ? ((module as Record<string, unknown>).filepath as string)
-            : undefined
+          const filepath =
+            hasProperty(module, 'filepath') &&
+            typeof (module as Record<string, unknown>).filepath === 'string'
+              ? ((module as Record<string, unknown>).filepath as string)
+              : undefined
 
-        const collectedTests = tests.map((test) => ({
-          id: test.id,
-          name: test.name,
-          mode: test.mode,
-          file: filepath || test.file?.filepath,
-          suite: extractSuiteNames(test.suite)
-        }))
+          const collectedTests = tests.map((test) => ({
+            id: test.id,
+            name: test.name,
+            mode: test.mode,
+            file: filepath || test.file?.filepath,
+            suite: extractSuiteNames(test.suite)
+          }))
 
-        this.stateManager.recordCollectedTests(collectedTests)
+          this.stateManager.recordCollectedTests(collectedTests)
+        } catch (err) {
+          this.debugError('Failed to collect tests from module children(): %O', err)
+        }
       }
     }
   }

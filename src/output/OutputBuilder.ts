@@ -11,6 +11,8 @@ import type { LLMReporterOutput, TestSummary, TestResult, TestFailure } from '..
 import type { SerializedError } from 'vitest'
 import type { TruncationConfig } from '../types/reporter.js'
 import { LateTruncator } from '../truncation/LateTruncator.js'
+import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
+import { normalizeAssertionValue } from '../utils/type-guards.js'
 
 /**
  * Output builder configuration
@@ -162,17 +164,46 @@ export class OutputBuilder {
    * Converts unhandled errors to test failures
    */
   private convertUnhandledErrors(errors: SerializedError[]): TestFailure[] {
-    return errors.map((error) => ({
-      test: 'Unhandled Error',
-      file: '',
-      startLine: 0,
-      endLine: 0,
-      error: {
-        message: error.message || 'Unhandled error',
-        type: 'UnhandledError',
-        stack: error.stack
+    const extractor = new ErrorExtractor({ includeSourceCode: true })
+
+    return errors.map((err) => {
+      const normalized = extractor.extractWithContext(err)
+
+      // Map normalized context to schema ErrorContext when available
+      const context = normalized.context
+        ? {
+            code: Array.isArray(normalized.context.code) ? normalized.context.code : [],
+            lineNumber: normalized.context.lineNumber,
+            columnNumber: normalized.context.columnNumber,
+            expected:
+              normalized.expected !== undefined
+                ? normalizeAssertionValue(normalized.expected)
+                : undefined,
+            actual:
+              normalized.actual !== undefined
+                ? normalizeAssertionValue(normalized.actual)
+                : undefined
+          }
+        : undefined
+
+      const testError = {
+        message: normalized.message || err.message || 'Unhandled error',
+        // Preserve the semantic that this originated outside a test failure
+        type: 'UnhandledError' as const,
+        stack: normalized.stack ?? err.stack,
+        stackFrames: normalized.stackFrames,
+        assertion: normalized.assertion,
+        context
       }
-    }))
+
+      return {
+        test: 'Unhandled Error',
+        file: '',
+        startLine: 0,
+        endLine: 0,
+        error: testError
+      }
+    })
   }
 
   /**
@@ -195,15 +226,6 @@ export class OutputBuilder {
     }
 
     return this.config.verbose || this.config.includeSkippedTests
-  }
-
-  /**
-   * Builds a minimal output (summary only)
-   */
-  private buildMinimal(options: BuildOptions): LLMReporterOutput {
-    return {
-      summary: this.buildSummary(options)
-    }
   }
 
   /**

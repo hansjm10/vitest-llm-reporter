@@ -962,7 +962,7 @@ export class SchemaValidator {
     if (Array.isArray(value) || (type === 'object' && value !== null)) {
       try {
         const seen = new WeakSet()
-        const json = JSON.stringify(value, (key, val) => {
+        const json = JSON.stringify(value, (_key, val) => {
           if (typeof val === 'object' && val !== null) {
             if (seen.has(val as WeakKey)) {
               return '[Circular]'
