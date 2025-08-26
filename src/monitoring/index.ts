@@ -44,6 +44,6 @@ export function createPerformanceManager(config?: MonitoringConfig): MonitoringS
  * @param config Simple monitoring configuration
  * @returns Configured MonitoringService instance
  */
-export function createMonitoringService(config?: MonitoringConfig) {
+export function createMonitoringService(config?: MonitoringConfig): MonitoringService {
   return new MonitoringService(config)
 }

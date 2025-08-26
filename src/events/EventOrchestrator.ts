@@ -350,7 +350,7 @@ export class EventOrchestrator {
       if (typeof content !== 'string' || typeof type !== 'string') continue
 
       // Add timestamp if available (for better correlation with custom capture)
-      const formattedContent = time !== undefined ? `[${time}ms] ${content}` : content
+      const formattedContent = typeof time === 'number' ? `[${time}ms] ${content}` : content
 
       // Map Vitest console types to our output structure
       // Vitest uses 'stdout' and 'stderr' for raw output

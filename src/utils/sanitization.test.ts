@@ -5,7 +5,6 @@ import {
   validateFilePath,
   createSafeObject
 } from './sanitization'
-import { hasProperty } from './type-guards'
 
 describe('Sanitization Utilities', () => {
   describe('escapeJsonString', () => {
@@ -134,7 +133,6 @@ describe('Sanitization Utilities', () => {
       expect(() => createSafeObject(tooDeep)).toThrow('Maximum object nesting depth exceeded')
     })
   })
-
 
   describe('validateFilePath Security Tests', () => {
     describe('Path Traversal Attack Prevention', () => {

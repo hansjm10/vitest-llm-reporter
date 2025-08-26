@@ -79,7 +79,18 @@ export class Metrics {
     }
   }
 
-  getMetrics() {
+  getMetrics(): {
+    duration: number
+    testCount: number
+    errorCount: number
+    cacheHitRate: number
+    cacheHits: number
+    cacheMisses: number
+    memoryUsed: number
+    operationCount: number
+    averageOperationTime: number
+    uptime: number
+  } {
     const now = Date.now()
     const memoryUsed =
       typeof process?.memoryUsage === 'function' ? process.memoryUsage().heapUsed : 0

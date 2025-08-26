@@ -35,7 +35,8 @@ export class StreamingReporter extends LLMReporter {
     super(config)
 
     this.streamingEnabled = config.enableStreaming ?? false
-    this.outputHandler = config.onStreamOutput ?? ((msg) => process.stdout.write(msg))
+    this.outputHandler =
+      config.onStreamOutput ?? ((msg: string): boolean => process.stdout.write(msg))
 
     if (this.streamingEnabled) {
       this.streamDebug('Streaming output enabled')

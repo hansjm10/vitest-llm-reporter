@@ -11,11 +11,11 @@ import type { VitestSuite } from '../types/reporter-internal.js'
 
 /**
  * Extracts suite names from a Vitest suite object or array
- * 
+ *
  * Handles two formats:
  * 1. String array (already processed)
  * 2. Vitest suite object hierarchy (needs traversal)
- * 
+ *
  * @param suite - The suite data (array or object)
  * @returns Array of suite names from parent to child, or undefined
  */

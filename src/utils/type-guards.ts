@@ -212,7 +212,7 @@ export function normalizeAssertionValue(value: unknown): AssertionValue {
 
   if (typeof value === 'symbol') {
     try {
-      return (value as symbol).toString()
+      return value.toString()
     } catch {
       return 'Symbol(?)'
     }

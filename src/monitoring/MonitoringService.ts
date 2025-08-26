@@ -8,11 +8,11 @@
 import { Cache } from './Cache.js'
 import { MemoryMonitor } from './MemoryMonitor.js'
 import { Metrics } from './Metrics.js'
-import type { MonitoringConfig } from './types.js'
+import type { MonitoringConfig, MonitoringMetrics } from './types.js'
 import { DEFAULT_CACHE_SIZE } from './constants.js'
 
 export class MonitoringService {
-  private cache: Cache<any>
+  private cache: Cache<unknown>
   private memoryMonitor: MemoryMonitor
   private metrics: Metrics
   private enabled: boolean
@@ -48,11 +48,7 @@ export class MonitoringService {
     this.metrics.reset()
   }
 
-  getCache(): Cache<any> {
-    return this.cache
-  }
-
-  getMetrics() {
+  getMetrics(): MonitoringMetrics {
     const baseMetrics = this.metrics.getMetrics()
     const memoryInfo = this.memoryMonitor.checkMemory()
     const cacheStats = this.cache.getStats()

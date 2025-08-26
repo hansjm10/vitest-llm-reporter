@@ -43,4 +43,3 @@ describe('LLMReporter stdout JSON purity', () => {
     expect(parsed).toHaveProperty('summary')
   })
 })
-

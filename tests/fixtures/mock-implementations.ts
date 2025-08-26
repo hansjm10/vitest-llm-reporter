@@ -9,7 +9,7 @@ import type { LLMReporterOutput } from '../../src/types/schema'
 /**
  * Creates mock test fixtures
  */
-export function createMockFixtures() {
+export function createMockFixtures(): { mockOutput: LLMReporterOutput } {
   const mockOutput: LLMReporterOutput = {
     summary: {
       total: 10,

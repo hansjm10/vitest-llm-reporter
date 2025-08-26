@@ -6,6 +6,7 @@
  */
 
 import { DEFAULT_MEMORY_WARNING_THRESHOLD } from './constants.js'
+import type { MemoryInfo } from './types.js'
 
 export class MemoryMonitor {
   private warningThreshold = DEFAULT_MEMORY_WARNING_THRESHOLD
@@ -16,7 +17,7 @@ export class MemoryMonitor {
     }
   }
 
-  checkMemory(): { used: number; warning: boolean; percentage?: number } {
+  checkMemory(): MemoryInfo {
     if (typeof process?.memoryUsage !== 'function') {
       return { used: 0, warning: false }
     }
@@ -39,7 +40,7 @@ export class MemoryMonitor {
     return process.memoryUsage().heapUsed
   }
 
-  getDetailedMemory() {
+  getDetailedMemory(): NodeJS.MemoryUsage {
     if (typeof process?.memoryUsage !== 'function') {
       return {
         heapUsed: 0,

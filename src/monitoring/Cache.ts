@@ -5,6 +5,7 @@
  */
 
 import { CACHE_TTL_MS, DEFAULT_CACHE_SIZE } from './constants.js'
+import type { CacheStats } from './types.js'
 
 export class Cache<T> {
   private cache = new Map<string, { value: T; timestamp: number }>()
@@ -80,7 +81,7 @@ export class Cache<T> {
     return total === 0 ? 0 : this.hitCount / total
   }
 
-  getStats() {
+  getStats(): CacheStats {
     return {
       size: this.cache.size,
       maxSize: this.maxSize,
