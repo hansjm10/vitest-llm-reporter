@@ -18,7 +18,7 @@ import {
   truncateConsoleOutput,
   applyFairCaps,
   safeTrimToChars
-} from './utils'
+} from './utils.js'
 
 /**
  * Late truncation metrics

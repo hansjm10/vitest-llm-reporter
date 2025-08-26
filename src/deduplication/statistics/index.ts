@@ -12,4 +12,4 @@ export {
   type CompressionMetrics,
   type PatternEffectiveness,
   type ExtendedStats
-} from './DeduplicationStats'
+} from './DeduplicationStats.js'

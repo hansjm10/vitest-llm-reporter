@@ -7,7 +7,7 @@
  */
 
 // Core service
-export { DeduplicationService, createDeduplicationService } from './DeduplicationService'
+export { DeduplicationService, createDeduplicationService } from './DeduplicationService.js'
 
 // Re-export types
 export type {
@@ -45,4 +45,4 @@ export type {
 
   // Cache
   CacheEntry
-} from '../types/deduplication'
+} from '../types/deduplication.js'

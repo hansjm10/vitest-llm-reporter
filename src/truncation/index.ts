@@ -14,13 +14,13 @@ export {
   TruncationStats,
   ContentType,
   ContentTypeConfig
-} from './types'
+} from './types.js'
 
 // Export context utilities
-export * from './context'
+export * from './context.js'
 
 // Export priorities
-export * from './priorities'
+export * from './priorities.js'
 
 // Export the synchronous early truncator
 export {
@@ -30,13 +30,13 @@ export {
   // are different from those in types.ts, so we export them with aliases
   type TruncationMetrics as EarlyTruncationMetrics,
   type TruncationResult as EarlyTruncationResult
-} from './EarlyTruncator'
+} from './EarlyTruncator.js'
 
 // Export utilities
-export * from './utils'
+export * from './utils.js'
 
 // Export metrics tracker
-export * from './MetricsTracker'
+export * from './MetricsTracker.js'
 
 // Export late truncator
-export { LateTruncator } from './LateTruncator'
+export { LateTruncator } from './LateTruncator.js'

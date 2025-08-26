@@ -14,7 +14,7 @@ export type {
   TestError,
   ErrorContext,
   AssertionValue
-} from './types/schema'
+} from './types/schema.js'
 
 // Export validation module
 export {
@@ -22,38 +22,38 @@ export {
   type ValidationConfig,
   type ValidationResult,
   DEFAULT_CONFIG
-} from './validation/validator'
+} from './validation/validator.js'
 
 // Export sanitization module
 export {
   JsonSanitizer,
   type JsonSanitizerConfig,
   DEFAULT_JSON_SANITIZER_CONFIG
-} from './sanitization/json-sanitizer'
+} from './sanitization/json-sanitizer.js'
 
 // Export processor module (primary API)
 export {
   SchemaProcessor,
   type ProcessingOptions,
   type ProcessingResult
-} from './processor/processor'
+} from './processor/processor.js'
 
 // Export reporter class and types
-export { LLMReporter } from './reporter/reporter'
-export type { LLMReporterConfig } from './types/reporter'
+export { LLMReporter } from './reporter/reporter.js'
+export type { LLMReporterConfig } from './types/reporter.js'
 
 // Export streaming components
-export { StreamingReporter } from './streaming/StreamingReporter'
-export type { StreamingReporterConfig } from './streaming/StreamingReporter'
+export { StreamingReporter } from './streaming/StreamingReporter.js'
+export type { StreamingReporterConfig } from './streaming/StreamingReporter.js'
 
 // Export deduplication module
-export { DeduplicationService, createDeduplicationService } from './deduplication'
+export { DeduplicationService, createDeduplicationService } from './deduplication/index.js'
 export type {
   DeduplicationConfig,
   DeduplicationResult,
   DeduplicationStats,
   IDeduplicationService
-} from './types/deduplication'
+} from './types/deduplication.js'
 
 // Default export for Vitest to use
 import { LLMReporter } from './reporter/reporter.js'

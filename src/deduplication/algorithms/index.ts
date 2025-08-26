@@ -35,4 +35,4 @@ export {
   fuzzyMatch,
   findBestMatch,
   clusterSimilarStrings
-} from './similarity'
+} from './similarity.js'

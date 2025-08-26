@@ -14,7 +14,7 @@ import {
   normalizeAssertionValue,
   extractStringProperty,
   extractNumberProperty
-} from '../utils/type-guards'
+} from '../utils/type-guards.js'
 import { extractLineNumber } from '../reporter/helpers.js'
 import { ContextExtractor } from './ContextExtractor.js'
 import type {
