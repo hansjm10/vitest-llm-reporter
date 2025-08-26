@@ -28,14 +28,6 @@ export type {
   ConsoleCaptureConfig
 } from './console'
 
-// Environment types
-export type {
-  CIEnvironmentInfo,
-  TTYInfo,
-  EnvironmentInfo,
-  EnvironmentDetectionOptions
-} from './environment'
-
 // Extraction types
 export type {
   NormalizedError,
@@ -46,9 +38,6 @@ export type {
   ExtractionConfig,
   ContextExtractionOptions
 } from './extraction'
-
-// Output mode types
-export type { OutputMode, OutputModeConfig, OutputModeSelection } from './output-modes'
 
 // Internal reporter types
 export type {
@@ -64,41 +53,3 @@ export type { StateConfig, TestResults, ModuleTiming, StateSnapshot, TestStatist
 
 // Vitest object types
 export type { ExtractedError, VitestErrorContext } from './vitest-objects'
-
-// Deduplication types
-export type {
-  // Core interfaces
-  IDeduplicationService,
-  IPatternMatcher,
-  IPatternExtractor,
-
-  // Configuration
-  DeduplicationConfig,
-  DeduplicationStrategy,
-
-  // Pattern types
-  PatternType,
-  SimilarityLevel,
-  SimilarityScore,
-  ExtractedPattern,
-  PatternComponent,
-
-  // Groups and references
-  DeduplicationGroup,
-  DeduplicationReference,
-  DuplicateEntry,
-
-  // Templates and compression
-  FailureTemplate,
-  TemplateVariable,
-  CompressedOutput,
-  CompressedGroup,
-  CompressedReference,
-
-  // Results and stats
-  DeduplicationResult,
-  DeduplicationStats,
-
-  // Cache
-  CacheEntry
-} from './deduplication'

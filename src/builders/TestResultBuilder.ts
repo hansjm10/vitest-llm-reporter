@@ -7,7 +7,13 @@
  * @module builders
  */
 
-import type { TestResult, TestFailure, TestBase, TestError, ConsoleOutput } from '../types/schema.js'
+import type {
+  TestResult,
+  TestFailure,
+  TestBase,
+  TestError,
+  ConsoleOutput
+} from '../types/schema.js'
 import type { ExtractedTestCase, NormalizedError } from '../types/extraction.js'
 
 /**

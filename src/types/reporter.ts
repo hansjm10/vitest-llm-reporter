@@ -7,7 +7,6 @@
  * @module reporter-types
  */
 
-import type { DeduplicationConfig } from './deduplication.js'
 import type { PerformanceConfig } from '../monitoring/types.js'
 
 /**
@@ -40,8 +39,6 @@ export interface LLMReporterConfig {
   enableStreaming?: boolean
   /** Truncation configuration options */
   truncation?: TruncationConfig
-  /** Deduplication configuration options */
-  deduplication?: DeduplicationConfig
   /** Performance optimization configuration */
   performance?: PerformanceConfig
   /** Add separator frames around console output (default: false) */

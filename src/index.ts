@@ -31,29 +31,12 @@ export {
   DEFAULT_JSON_SANITIZER_CONFIG
 } from './sanitization/json-sanitizer.js'
 
-// Export processor module (primary API)
-export {
-  SchemaProcessor,
-  type ProcessingOptions,
-  type ProcessingResult
-} from './processor/processor.js'
-
 // Export reporter class and types
 export { LLMReporter } from './reporter/reporter.js'
 export type { LLMReporterConfig } from './types/reporter.js'
 
-// Export streaming components
-export { StreamingReporter } from './streaming/StreamingReporter.js'
-export type { StreamingReporterConfig } from './streaming/StreamingReporter.js'
-
-// Export deduplication module
-export { DeduplicationService, createDeduplicationService } from './deduplication/index.js'
-export type {
-  DeduplicationConfig,
-  DeduplicationResult,
-  DeduplicationStats,
-  IDeduplicationService
-} from './types/deduplication.js'
+// Export output writer
+export { OutputWriter } from './output/OutputWriter.js'
 
 // Default export for Vitest to use
 import { LLMReporter } from './reporter/reporter.js'

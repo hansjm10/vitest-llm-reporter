@@ -52,11 +52,10 @@ import { OutputBuilder } from '../output/OutputBuilder.js'
 import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
-import { detectEnvironment, hasTTY } from '../utils/environment.js'
+import { isTTY } from '../utils/environment.js'
 import {
   PerformanceManager,
   createPerformanceManager,
-  type PerformanceConfig,
   type MonitoringConfig
 } from '../monitoring/index.js'
 
@@ -89,8 +88,7 @@ export class LLMReporter implements Reporter {
     this.validateConfig(config)
 
     // Detect streaming mode if not explicitly configured
-    const envInfo = detectEnvironment()
-    const shouldEnableStreaming = config.enableStreaming ?? hasTTY(envInfo)
+    const shouldEnableStreaming = config.enableStreaming ?? isTTY
 
     // Properly resolve config without unsafe casting
     this.config = {
@@ -496,20 +494,20 @@ export class LLMReporter implements Reporter {
           try {
             // Write to console with proper formatting
             const jsonOutput = JSON.stringify(this.output, null, 2)
-            
+
             // Only add framing if framedOutput is enabled
             if (this.config.framedOutput) {
               process.stdout.write('\n' + '='.repeat(80) + '\n')
               process.stdout.write('LLM Reporter Output:\n')
               process.stdout.write('='.repeat(80) + '\n')
             }
-            
+
             process.stdout.write(jsonOutput + '\n')
-            
+
             if (this.config.framedOutput) {
               process.stdout.write('='.repeat(80) + '\n')
             }
-            
+
             this.debug('Output written to console')
           } catch (consoleError) {
             this.debugError('Failed to write to console: %O', consoleError)

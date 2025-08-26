@@ -232,7 +232,6 @@ export class ConsoleBuffer {
     }
   }
 
-
   /**
    * Flush buffer contents
    */
