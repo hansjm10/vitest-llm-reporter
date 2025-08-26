@@ -30,8 +30,6 @@ export interface LLMReporterConfig {
   maxConsoleLines?: number
   /** Include debug and trace console output (default: false) */
   includeDebugOutput?: boolean
-  /** Enable streaming mode for real-time output (default: false) */
-  streamingMode?: boolean
   /** Enable token counting for test results (default: false) */
   tokenCountingEnabled?: boolean
   /** Maximum number of tokens to include in output (default: undefined) */
@@ -40,8 +38,6 @@ export interface LLMReporterConfig {
   tokenCountingModel?: string
   /** Enable streaming mode for real-time output (default: auto-detect based on TTY) */
   enableStreaming?: boolean
-  /** Streaming-specific configuration options */
-  streaming?: StreamingConfig
   /** Truncation configuration options */
   truncation?: TruncationConfig
   /** Deduplication configuration options */
@@ -66,42 +62,8 @@ export interface TruncationConfig {
   featureFlag?: boolean
   /** Enable truncation at early stage (EventOrchestrator) */
   enableEarlyTruncation?: boolean
-  /** Enable truncation in streaming (OutputSynchronizer) */
-  enableStreamingTruncation?: boolean
   /** Enable truncation at late stage (OutputBuilder) */
   enableLateTruncation?: boolean
   /** Enable truncation metrics tracking */
   enableMetrics?: boolean
-}
-
-/**
- * Configuration for streaming mode
- */
-export interface StreamingConfig {
-  /** Maximum concurrent test outputs to synchronize */
-  maxConcurrentTests?: number
-  /** Enable test output grouping */
-  enableTestGrouping?: boolean
-  /** Deadlock detection interval in milliseconds */
-  deadlockCheckInterval?: number
-  /** Enable performance monitoring */
-  enableMonitoring?: boolean
-  /** Queue configuration */
-  queue?: {
-    /** Maximum queue size */
-    maxSize?: number
-    /** Default operation timeout in milliseconds */
-    defaultTimeout?: number
-    /** Enable operation batching */
-    enableBatching?: boolean
-    /** Maximum operations per batch */
-    maxBatchSize?: number
-  }
-  /** Lock configuration */
-  locks?: {
-    /** Lock acquisition timeout in milliseconds */
-    timeout?: number
-    /** Enable deadlock detection */
-    deadlockDetection?: boolean
-  }
 }

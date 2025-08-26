@@ -99,6 +99,20 @@ If the reporter isn't working as expected, enable debug output:
 DEBUG=vitest:llm-reporter:* npm test
 ```
 
+## Migration from Previous Versions
+
+### Removed Configuration Options
+
+The following configuration options have been removed in the latest version:
+
+- **`streamingMode`**: This legacy flag has been removed. Use `enableStreaming` instead.
+- **`streaming`** config object and **`StreamingConfig`** type: This unimplemented configuration block has been removed. Streaming behavior is now controlled solely by the `enableStreaming` boolean flag.
+- **`TruncationConfig.enableStreamingTruncation`**: This unused option has been removed from truncation configuration.
+
+**Migration Guide:**
+- If you were using `streamingMode`, replace it with `enableStreaming`
+- If you had any `streaming: { ... }` configuration, it can be safely removed as it was not being used
+- Streaming behavior continues to work via the single `enableStreaming` boolean, which defaults to auto-detection based on TTY
 
 ## Contributing
 

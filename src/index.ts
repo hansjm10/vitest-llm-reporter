@@ -40,7 +40,7 @@ export {
 
 // Export reporter class and types
 export { LLMReporter } from './reporter/reporter'
-export type { LLMReporterConfig, StreamingConfig } from './types/reporter'
+export type { LLMReporterConfig } from './types/reporter'
 
 // Export streaming components
 export { StreamingReporter } from './streaming/StreamingReporter'

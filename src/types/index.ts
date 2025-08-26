@@ -18,7 +18,7 @@ export type {
 } from './schema'
 
 // Reporter configuration types
-export type { LLMReporterConfig, StreamingConfig, TruncationConfig } from './reporter'
+export type { LLMReporterConfig, TruncationConfig } from './reporter'
 
 // Console types
 export type {

@@ -10,12 +10,12 @@
 import type { Vitest, SerializedError, Reporter, UserConsoleLog } from 'vitest'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
-import type { LLMReporterConfig, StreamingConfig } from '../types/reporter'
+import type { LLMReporterConfig } from '../types/reporter'
 import type { LLMReporterOutput } from '../types/schema'
 
 // Type for resolved configuration with explicit undefined handling
 interface ResolvedLLMReporterConfig
-  extends Omit<LLMReporterConfig, 'outputFile' | 'enableStreaming' | 'streaming'> {
+  extends Omit<LLMReporterConfig, 'outputFile' | 'enableStreaming'> {
   verbose: boolean
   outputFile: string | undefined // Explicitly undefined, not optional
   includePassedTests: boolean
@@ -24,12 +24,10 @@ interface ResolvedLLMReporterConfig
   maxConsoleBytes: number
   maxConsoleLines: number
   includeDebugOutput: boolean
-  streamingMode: boolean
   tokenCountingEnabled: boolean
   maxTokens: number | undefined
   tokenCountingModel: string
   enableStreaming: boolean
-  streaming: Required<StreamingConfig>
   performance: Required<MonitoringConfig>
 }
 
@@ -93,27 +91,10 @@ export class LLMReporter implements Reporter {
       maxConsoleBytes: config.maxConsoleBytes ?? 50_000,
       maxConsoleLines: config.maxConsoleLines ?? 100,
       includeDebugOutput: config.includeDebugOutput ?? false,
-      streamingMode: config.streamingMode ?? false,
       tokenCountingEnabled: config.tokenCountingEnabled ?? false,
       maxTokens: config.maxTokens ?? undefined,
       tokenCountingModel: config.tokenCountingModel ?? 'gpt-4',
       enableStreaming: shouldEnableStreaming,
-      streaming: {
-        maxConcurrentTests: config.streaming?.maxConcurrentTests ?? 10,
-        enableTestGrouping: config.streaming?.enableTestGrouping ?? true,
-        deadlockCheckInterval: config.streaming?.deadlockCheckInterval ?? 5000,
-        enableMonitoring: config.streaming?.enableMonitoring ?? true,
-        queue: {
-          maxSize: config.streaming?.queue?.maxSize ?? 1000,
-          defaultTimeout: config.streaming?.queue?.defaultTimeout ?? 5000,
-          enableBatching: config.streaming?.queue?.enableBatching ?? true,
-          maxBatchSize: config.streaming?.queue?.maxBatchSize ?? 10
-        },
-        locks: {
-          timeout: config.streaming?.locks?.timeout ?? 5000,
-          deadlockDetection: config.streaming?.locks?.deadlockDetection ?? true
-        }
-      },
       performance: {
         enabled: config.performance?.enabled ?? true,
         cacheSize: config.performance?.cacheSize ?? 1000,

@@ -71,7 +71,6 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
     strategy: 'smart',
     featureFlag: false,
     enableEarlyTruncation: false,
-    enableStreamingTruncation: false,
     enableLateTruncation: false,
     enableMetrics: false
   }

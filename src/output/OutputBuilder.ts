@@ -43,7 +43,6 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
     strategy: 'smart',
     featureFlag: false,
     enableEarlyTruncation: false,
-    enableStreamingTruncation: false,
     enableLateTruncation: false,
     enableMetrics: false
   }

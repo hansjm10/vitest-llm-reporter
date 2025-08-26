@@ -37,27 +37,10 @@ describe('LLMReporter', () => {
         maxConsoleBytes: 50_000,
         maxConsoleLines: 100,
         includeDebugOutput: false,
-        streamingMode: false,
         tokenCountingEnabled: false,
         maxTokens: undefined,
         tokenCountingModel: 'gpt-4',
-        enableStreaming: false,
-        streaming: {
-          maxConcurrentTests: 10,
-          enableTestGrouping: true,
-          deadlockCheckInterval: 5000,
-          enableMonitoring: true,
-          queue: {
-            maxSize: 1000,
-            defaultTimeout: 5000,
-            enableBatching: true,
-            maxBatchSize: 10
-          },
-          locks: {
-            timeout: 5000,
-            deadlockDetection: true
-          }
-        }
+        enableStreaming: false
       })
     })
 
@@ -74,13 +57,11 @@ describe('LLMReporter', () => {
 
     it('should accept new configuration properties with proper defaults', () => {
       const customReporter = new LLMReporter({
-        streamingMode: true,
         tokenCountingEnabled: true,
         maxTokens: 4000,
         tokenCountingModel: 'gpt-3.5-turbo'
       })
       expect(customReporter.getConfig()).toMatchObject({
-        streamingMode: true,
         tokenCountingEnabled: true,
         maxTokens: 4000,
         tokenCountingModel: 'gpt-3.5-turbo'
