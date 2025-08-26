@@ -117,6 +117,9 @@ If the reporter isn't working as expected, enable debug output:
 DEBUG=vitest:llm-reporter:* npm test
 ```
 
+This prints internal diagnostics to stderr, including a formatted view of any
+unhandled errors. Stdout remains clean, machine‑parseable JSON.
+
 ## Migration from Previous Versions
 
 ### Removed Configuration Options
