@@ -10,20 +10,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import type { LLMReporterOutput } from '../types/schema.js'
+import type { OutputWriterConfig } from './types.js'
 
-/**
- * Output writer configuration
- */
-export interface OutputWriterConfig {
-  /** Whether to create directories if they don't exist */
-  createDirectories?: boolean
-  /** JSON stringification spacing */
-  jsonSpacing?: number
-  /** Whether to handle circular references */
-  handleCircularRefs?: boolean
-  /** Whether to handle errors gracefully */
-  gracefulErrorHandling?: boolean
-}
 
 /**
  * Default writer configuration

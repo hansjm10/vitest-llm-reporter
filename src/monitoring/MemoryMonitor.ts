@@ -46,7 +46,8 @@ export class MemoryMonitor {
         heapUsed: 0,
         heapTotal: 0,
         external: 0,
-        rss: 0
+        rss: 0,
+        arrayBuffers: 0
       }
     }
 

@@ -10,25 +10,11 @@
 import type { LLMReporterOutput, TestSummary, TestResult, TestFailure } from '../types/schema.js'
 import type { SerializedError } from 'vitest'
 import type { TruncationConfig } from '../types/reporter.js'
+import type { OutputBuilderConfig, BuildOptions } from './types.js'
 import { LateTruncator } from '../truncation/LateTruncator.js'
 import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
 import { normalizeAssertionValue } from '../utils/type-guards.js'
 
-/**
- * Output builder configuration
- */
-export interface OutputBuilderConfig {
-  /** Whether to include passed tests in output */
-  includePassedTests?: boolean
-  /** Whether to include skipped tests in output */
-  includeSkippedTests?: boolean
-  /** Whether to use verbose output (includes all categories) */
-  verbose?: boolean
-  /** Enable streaming mode for real-time output */
-  enableStreaming?: boolean
-  /** Truncation configuration */
-  truncation?: TruncationConfig
-}
 
 /**
  * Default output builder configuration
@@ -50,23 +36,6 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
   }
 }
 
-/**
- * Build options for output assembly
- */
-export interface BuildOptions {
-  /** Test results categorized by status */
-  testResults: {
-    passed: TestResult[]
-    failed: TestFailure[]
-    skipped: TestResult[]
-  }
-  /** Test run duration in milliseconds */
-  duration: number
-  /** Test run start time */
-  startTime?: number
-  /** Unhandled errors from the test run */
-  unhandledErrors?: ReadonlyArray<SerializedError>
-}
 
 /**
  * Builds the final reporter output

@@ -5,15 +5,8 @@
  * boundary detection, and content analysis.
  */
 
-/**
- * Options for safe text trimming
- */
-export interface SafeTrimOptions {
-  /** Prefer natural boundaries (spaces, newlines) */
-  preferBoundaries?: boolean
-  /** Safety margin as percentage (0-1) */
-  safety?: number
-}
+import type { SafeTrimOptions } from './types.js'
+
 
 /**
  * Safely trim text to target character count

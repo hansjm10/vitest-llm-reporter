@@ -9,17 +9,8 @@
  * Suitable for budgeting and thresholds, not for exact billing.
  */
 
-/**
- * Configuration options for token estimation
- */
-export interface TokenEstimatorOptions {
-  /**
-   * Number of characters per token (default: 4)
-   * Lower values = more conservative (higher token estimates)
-   * Higher values = more optimistic (lower token estimates)
-   */
-  charsPerToken?: number
-}
+import type { TokenEstimatorOptions } from './types.js'
+
 
 /**
  * Estimate token count for a single text string

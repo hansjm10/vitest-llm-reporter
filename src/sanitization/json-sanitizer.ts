@@ -16,18 +16,13 @@ import type {
   ErrorContext,
   AssertionValue
 } from '../types/schema'
+import type { JsonSanitizerConfig } from './types.js'
 
 import { escapeJsonString, escapeJsonArray, createSafeObject } from '../utils/sanitization.js'
 
-/**
- * JSON sanitization configuration
- */
-export interface JsonSanitizerConfig {
-  /** Whether to sanitize file paths to remove user information */
-  sanitizeFilePaths?: boolean
-  /** Maximum depth for nested object sanitization */
-  maxDepth?: number
-}
+// Re-export types for public API
+export type { JsonSanitizerConfig } from './types.js'
+
 
 /**
  * Default sanitization configuration

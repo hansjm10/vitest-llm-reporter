@@ -28,3 +28,15 @@ export interface TokenizationResult {
   /** Whether result was retrieved from cache */
   fromCache: boolean
 }
+
+/**
+ * Configuration options for token estimation
+ */
+export interface TokenEstimatorOptions {
+  /**
+   * Number of characters per token (default: 4)
+   * Lower values = more conservative (higher token estimates)
+   * Higher values = more optimistic (lower token estimates)
+   */
+  charsPerToken?: number
+}

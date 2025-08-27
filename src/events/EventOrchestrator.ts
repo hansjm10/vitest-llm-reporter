@@ -8,6 +8,7 @@
  */
 
 import type { SerializedError, UserConsoleLog } from 'vitest'
+import type { OrchestratorConfig } from './types.js'
 import { StateManager } from '../state/StateManager.js'
 import { TestCaseExtractor } from '../extraction/TestCaseExtractor.js'
 import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
@@ -22,26 +23,6 @@ import { consoleMerger } from '../console/merge.js'
 import type { TruncationConfig } from '../types/reporter.js'
 // Truncation handled by LateTruncator in OutputBuilder
 
-/**
- * Event orchestrator configuration
- */
-export interface OrchestratorConfig {
-  /** Whether to handle errors gracefully */
-  gracefulErrorHandling?: boolean
-  /** Whether to log errors to console */
-  logErrors?: boolean
-  /** Whether to capture console output for failing tests */
-  captureConsoleOnFailure?: boolean
-  /** Maximum bytes of console output to capture per test */
-  maxConsoleBytes?: number
-  /** Maximum lines of console output to capture per test */
-  maxConsoleLines?: number
-  /** Include debug/trace console output */
-  includeDebugOutput?: boolean
-  // Streaming removed - simplified implementation
-  /** Truncation configuration */
-  truncationConfig?: TruncationConfig
-}
 
 /**
  * Default orchestrator configuration

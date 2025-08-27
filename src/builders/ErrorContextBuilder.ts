@@ -9,17 +9,9 @@
 
 import type { ErrorContext } from '../types/schema.js'
 import type { NormalizedError } from '../types/extraction.js'
+import type { ErrorContextConfig } from './types.js'
 import { isAssertionError, normalizeAssertionValue } from '../utils/type-guards.js'
 
-/**
- * Error context builder configuration
- */
-export interface ErrorContextConfig {
-  /** Maximum number of code lines to include */
-  maxCodeLines?: number
-  /** Whether to include line numbers in context */
-  includeLineNumbers?: boolean
-}
 
 /**
  * Default error context configuration

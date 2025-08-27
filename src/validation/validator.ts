@@ -17,27 +17,16 @@ import type {
   ErrorContext,
   AssertionValue
 } from '../types/schema'
+import type { ValidationConfig, ValidationError, ValidationResult } from './types.js'
 
 import { validateFilePath, createSafeObject } from '../utils/sanitization.js'
 import { hasProperty } from '../utils/type-guards.js'
 
 import { ErrorMessages, BYTES_PER_MB, MAX_TIMESTAMP_LENGTH, MAX_ARRAY_SIZE } from './errors.js'
 
-/**
- * Validation configuration options
- * All values are optional and will use defaults if not specified
- */
-export interface ValidationConfig {
-  maxCodeLines?: number
-  maxTotalCodeSize?: number
-  maxStringLength?: number
-  maxFailures?: number
-  maxPassed?: number
-  maxSkipped?: number
-  minLineNumber?: number
-  minColumnNumber?: number
-  minDuration?: number
-}
+// Re-export types for public API
+export type { ValidationConfig, ValidationError, ValidationResult } from './types.js'
+
 
 /**
  * Default validation configuration
@@ -54,14 +43,6 @@ export const DEFAULT_CONFIG: Required<ValidationConfig> = {
   minDuration: 0
 }
 
-/**
- * Detailed validation error with path information
- */
-export interface ValidationError {
-  path: string
-  message: string
-  value?: unknown
-}
 
 /**
  * Internal validation context for stateless validation
@@ -78,14 +59,6 @@ interface ValidationContext {
   config: Required<ValidationConfig>
 }
 
-/**
- * Validation result type
- */
-export interface ValidationResult {
-  valid: boolean
-  errors: ValidationError[]
-  data?: LLMReporterOutput
-}
 
 /**
  * Optimized ISO 8601 regex pattern - compiled once for performance
@@ -174,7 +147,7 @@ export class SchemaValidator {
     return {
       valid: true,
       errors: [],
-      data: output
+      data: output as LLMReporterOutput
     }
   }
 

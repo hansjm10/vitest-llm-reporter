@@ -9,6 +9,7 @@
 import type { LLMReporterOutput, TestFailure, ConsoleOutput, TestError } from '../types/schema.js'
 import type { TruncationConfig } from '../types/reporter.js'
 import type { SupportedModel } from '../tokenization/types.js'
+import type { LateTruncationMetrics } from './types.js'
 import { estimateTokens } from '../tokenization/estimator.js'
 import { getEffectiveMaxTokens } from './context.js'
 import {
@@ -19,16 +20,6 @@ import {
   safeTrimToChars
 } from './utils.js'
 
-/**
- * Late truncation metrics
- */
-export interface LateTruncationMetrics {
-  originalTokens: number
-  truncatedTokens: number
-  tokensRemoved: number
-  phasesApplied: string[]
-  timestamp: number
-}
 
 /**
  * Console output limits for different phases

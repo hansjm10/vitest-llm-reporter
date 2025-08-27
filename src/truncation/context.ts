@@ -6,7 +6,7 @@
  */
 
 import type { SupportedModel } from '../tokenization/types.js'
-import type { TruncationContext } from './types.js'
+import type { TruncationContext, ModelContextInfo } from './types.js'
 import { ContentPriority } from './types.js'
 
 /**
@@ -163,24 +163,6 @@ export function calculateTruncationTarget(
   return Math.floor(currentTokens * reductionFactor)
 }
 
-/**
- * Context window information for a specific model
- */
-export interface ModelContextInfo {
-  /** Model name */
-  model: SupportedModel
-  /** Total context window size */
-  contextWindow: number
-  /** Safety margin percentage */
-  safetyMargin: number
-  /** Effective maximum tokens for content */
-  effectiveMaxTokens: number
-  /** Recommended truncation thresholds */
-  truncationThresholds: {
-    warning: number // Warn when approaching this limit
-    required: number // Must truncate beyond this point
-  }
-}
 
 /**
  * Get comprehensive context information for a model

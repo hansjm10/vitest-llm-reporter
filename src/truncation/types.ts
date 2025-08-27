@@ -168,3 +168,43 @@ export interface ContentTypeConfig {
   /** Maximum truncation percentage allowed */
   maxTruncationPercent?: number
 }
+
+/**
+ * Late truncation metrics
+ */
+export interface LateTruncationMetrics {
+  originalTokens: number
+  truncatedTokens: number
+  tokensRemoved: number
+  phasesApplied: string[]
+  timestamp: number
+}
+
+/**
+ * Context window information for a specific model
+ */
+export interface ModelContextInfo {
+  /** Model name */
+  model: SupportedModel
+  /** Total context window size */
+  contextWindow: number
+  /** Safety margin percentage */
+  safetyMargin: number
+  /** Effective maximum tokens for content */
+  effectiveMaxTokens: number
+  /** Recommended truncation thresholds */
+  truncationThresholds: {
+    warning: number // Warn when approaching this limit
+    required: number // Must truncate beyond this point
+  }
+}
+
+/**
+ * Options for safe text trimming
+ */
+export interface SafeTrimOptions {
+  /** Prefer natural boundaries (spaces, newlines) */
+  preferBoundaries?: boolean
+  /** Safety margin as percentage (0-1) */
+  safety?: number
+}

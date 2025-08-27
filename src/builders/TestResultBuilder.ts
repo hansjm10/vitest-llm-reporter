@@ -15,16 +15,8 @@ import type {
   ConsoleOutput
 } from '../types/schema.js'
 import type { ExtractedTestCase, NormalizedError } from '../types/extraction.js'
+import type { BuilderConfig } from './types.js'
 
-/**
- * Builder configuration
- */
-export interface BuilderConfig {
-  /** Whether to include suite information in results */
-  includeSuite?: boolean
-  /** Whether to include duration in passed/skipped tests */
-  includeDuration?: boolean
-}
 
 /**
  * Default builder configuration
