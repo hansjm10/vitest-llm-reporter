@@ -409,8 +409,8 @@ describe('LateTruncator', () => {
         if (result.failures) {
           for (const failure of result.failures) {
             // Console should be heavily truncated or missing
-            if (failure.console) {
-              const totalConsole = JSON.stringify(failure.console).length
+            if (failure.consoleEvents) {
+              const totalConsole = JSON.stringify(failure.consoleEvents).length
               expect(totalConsole).toBeLessThan(200)
             }
 
@@ -465,8 +465,8 @@ describe('LateTruncator', () => {
           expect(failure.error.message).toBeDefined()
 
           // Everything else should be heavily truncated or removed
-          if (failure.console) {
-            const consoleStr = JSON.stringify(failure.console)
+          if (failure.consoleEvents) {
+            const consoleStr = JSON.stringify(failure.consoleEvents)
             expect(consoleStr.length).toBeLessThan(100)
           }
         }
@@ -703,7 +703,7 @@ describe('LateTruncator', () => {
         if (result.failures) {
           // Check that truncation is applied fairly
           const consoleSizes = result.failures.map((f) =>
-            f.console ? JSON.stringify(f.console).length : 0
+            f.consoleEvents ? JSON.stringify(f.consoleEvents).length : 0
           )
 
           // Sizes should be relatively similar (within 2x of each other)

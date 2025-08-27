@@ -155,6 +155,6 @@ describe('LLMReporter Console Capture Integration', () => {
     expect(output?.failures?.length).toBe(1)
 
     const failure = output?.failures?.[0]
-    expect(failure?.console).toBeUndefined()
+    expect(failure?.consoleEvents).toBeUndefined()
   })
 })
