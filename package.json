@@ -8,7 +8,9 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:demo": "LLM_REPORTER_DEMO=1 vitest run",
     "test:ui": "vitest --ui",
     "test:bench": "vitest -c vitest.bench.config.ts run tests/benchmarks",
     "bench": "npm run test:bench",

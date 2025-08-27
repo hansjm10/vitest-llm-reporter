@@ -158,6 +158,15 @@ DEBUG=vitest:llm-reporter:* npm test
 This prints internal diagnostics to stderr, including a formatted view of any
 unhandled errors. Stdout remains clean, machine‑parseable JSON.
 
+### Demo: Intentional Failure With Console Logs
+
+You can enable a small demo test that intentionally fails and emits console output to showcase how the reporter captures logs:
+
+- Run demo: `npm run test:demo` (equivalent to `LLM_REPORTER_DEMO=1 vitest run`)
+- Normal run (demo off): `npm test`
+
+The demo test lives in `tests/demo/reporter-demo.test.ts` and only runs when the `LLM_REPORTER_DEMO=1` environment variable is set.
+
 ## Migration from Previous Versions
 
 ### Removed Configuration Options

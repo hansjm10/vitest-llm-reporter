@@ -16,20 +16,19 @@ export default defineConfig({
     // Add teardown timeout
     teardownTimeout: 1000,
     reporters: [
-      // Keep default reporter for human-readable output
-      'default',
-      // Add LLM reporter for structured output
+      // Only emit LLM reporter output (no default Vitest output)
       new LLMReporter({
         outputFile: undefined, // Display to console instead of file
         verbose: false, // Reduce verbosity for cleaner output
         includePassedTests: false, // Don't include passed tests in final report
         includeSkippedTests: false, // Don't include skipped tests in final report
-        enableStreaming: false  // Disable streaming - focus on final JSON output
+        enableStreaming: false // Disable streaming - focus on final JSON output
       })
     ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html']
+      // Remove 'text' to avoid extra console output; keep non-console reporters
+      reporter: ['json', 'html']
     }
   }
 });

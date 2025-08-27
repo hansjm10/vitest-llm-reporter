@@ -17,7 +17,7 @@ describe('LLMReporter stdout JSON purity', () => {
   })
 
   it('writes pure JSON to stdout when DEBUG is off', async () => {
-    const reporter = new LLMReporter({ framedOutput: false })
+    const reporter = new LLMReporter({ framedOutput: false, forceConsoleOutput: true })
 
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true as any)
 

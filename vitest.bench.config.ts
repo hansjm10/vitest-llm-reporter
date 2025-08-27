@@ -8,9 +8,7 @@ export default defineConfig({
     // Enable location tracking for line numbers
     includeTaskLocation: true,
     reporters: [
-      // Keep default reporter for human-readable output
-      'default',
-      // Add LLM reporter for structured output
+      // Only emit LLM reporter output for benches
       new LLMReporter({
         outputFile: 'test-output.json',
         verbose: true,
@@ -20,7 +18,7 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html']
+      reporter: ['json', 'html']
     }
   }
 });

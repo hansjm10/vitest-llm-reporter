@@ -38,6 +38,13 @@ interface ResolvedLLMReporterConfig
     enableMetrics: boolean
   }
   framedOutput: boolean // Gate for console separator frames
+  forceConsoleOutput: boolean // Force console write when used standalone
+  spinner: {
+    enabled: boolean
+    intervalMs: number
+    stream: 'stdout' | 'stderr'
+    prefix: string
+  }
 }
 
 // Import new components
@@ -75,6 +82,13 @@ export class LLMReporter implements Reporter {
   private outputWriter: OutputWriter
   private orchestrator: EventOrchestrator
   private performanceManager?: PerformanceManager
+  // Spinner state
+  private spinnerTimer?: NodeJS.Timeout
+  private spinnerActive = false
+  private spinnerIndex = 0
+  private spinnerStartTime = 0
+  private spinnerLastLength = 0
+  private readonly spinnerFrames = ['|', '/', '-', '\\']
 
   /**
    * Creates a new instance of the LLM Reporter
@@ -115,7 +129,14 @@ export class LLMReporter implements Reporter {
         enableLateTruncation: config.truncation?.enableLateTruncation ?? false,
         enableMetrics: config.truncation?.enableMetrics ?? false
       },
-      framedOutput: config.framedOutput ?? false
+      framedOutput: config.framedOutput ?? false,
+      forceConsoleOutput: config.forceConsoleOutput ?? false,
+      spinner: {
+        enabled: isTTY,
+        intervalMs: 80,
+        stream: 'stderr',
+        prefix: 'Running tests'
+      }
     }
 
     // Initialize components
@@ -193,6 +214,7 @@ export class LLMReporter implements Reporter {
    * Cleanup resources (always called in finally blocks)
    */
   private cleanup(): void {
+    this.stopSpinner()
     this.orchestrator.reset()
     this.isTestRunActive = false
 
@@ -313,6 +335,9 @@ export class LLMReporter implements Reporter {
     this.isTestRunActive = true
 
     try {
+      // Start spinner if enabled
+      this.startSpinner()
+
       // Start performance monitoring
       if (this.performanceManager) {
         this.performanceManager.start()
@@ -404,6 +429,8 @@ export class LLMReporter implements Reporter {
     reason: TestRunEndReason
   ): Promise<void> {
     try {
+      // Stop spinner before emitting final output
+      this.stopSpinner()
       // Delegate to orchestrator with error handling
       try {
         this.orchestrator.handleTestRunEnd(testModules, unhandledErrors, reason)
@@ -495,7 +522,12 @@ export class LLMReporter implements Reporter {
         }
 
         // Also write to console if no file is specified or streaming is enabled
-        if (!this.config.outputFile || this.config.enableStreaming) {
+        // Only when running as an actual Vitest reporter (context set) during a test run.
+        // This prevents unit tests that directly new LLMReporter() from emitting output.
+        if (
+          (!this.config.outputFile || this.config.enableStreaming) &&
+          ((this.context && this.isTestRunActive) || this.config.forceConsoleOutput)
+        ) {
           try {
             // Write to console with proper formatting
             const jsonOutput = JSON.stringify(this.output, null, 2)
@@ -536,5 +568,50 @@ export class LLMReporter implements Reporter {
     } catch (error) {
       this.debugError('Error in onUserConsoleLog: %O', error)
     }
+  }
+
+  /**
+   * Start spinner animation on selected stream
+   */
+  private startSpinner(): void {
+    if (this.spinnerActive || !this.config.spinner.enabled) return
+    const stream = this.config.spinner.stream === 'stdout' ? process.stdout : process.stderr
+    if (!stream.isTTY) return
+    this.spinnerActive = true
+    this.spinnerIndex = 0
+    this.spinnerStartTime = Date.now()
+    this.spinnerLastLength = 0
+
+    const render = (): void => {
+      const elapsedMs = Date.now() - this.spinnerStartTime
+      const seconds = Math.max(0, Math.round(elapsedMs / 1000))
+      const frame = this.spinnerFrames[this.spinnerIndex % this.spinnerFrames.length]
+      const message = `${this.config.spinner.prefix} ${frame} ${seconds}s`
+
+      if (this.spinnerLastLength > 0) {
+        stream.write('\r' + ' '.repeat(this.spinnerLastLength) + '\r')
+      }
+      stream.write(message)
+      this.spinnerLastLength = message.length
+      this.spinnerIndex++
+    }
+
+    render()
+    this.spinnerTimer = setInterval(render, this.config.spinner.intervalMs)
+  }
+
+  /**
+   * Stop spinner and clear line
+   */
+  private stopSpinner(): void {
+    if (!this.spinnerActive) return
+    if (this.spinnerTimer) clearInterval(this.spinnerTimer)
+    this.spinnerTimer = undefined
+    const stream = this.config.spinner.stream === 'stdout' ? process.stdout : process.stderr
+    if (this.spinnerLastLength > 0 && stream.isTTY) {
+      stream.write('\r' + ' '.repeat(this.spinnerLastLength) + '\r')
+    }
+    this.spinnerActive = false
+    this.spinnerLastLength = 0
   }
 }

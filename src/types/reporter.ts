@@ -41,6 +41,12 @@ export interface LLMReporterConfig {
   performance?: PerformanceConfig
   /** Add separator frames around console output (default: false) */
   framedOutput?: boolean
+  /**
+   * Force console output even when the reporter is used standalone in tests
+   * without a Vitest context. Useful for unit tests that spy on stdout.
+   * Default: false
+   */
+  forceConsoleOutput?: boolean
 }
 
 /**
