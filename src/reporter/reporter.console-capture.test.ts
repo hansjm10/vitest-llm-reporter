@@ -58,10 +58,22 @@ describe('LLMReporter Console Capture Integration', () => {
     expect(output?.failures?.length).toBe(1)
 
     const failure = output?.failures?.[0]
-    expect(failure?.console).toBeDefined()
-    expect(failure?.console?.logs).toContain('Starting test')
-    expect(failure?.console?.errors).toContain('Something went wrong')
-    expect(failure?.console?.warns).toContain('Warning message')
+    expect(failure?.consoleEvents).toBeDefined()
+    expect(failure?.consoleEvents?.length).toBe(3)
+
+    // Check individual events
+    const events = failure?.consoleEvents || []
+    expect(events[0]).toMatchObject({ level: 'log', text: 'Starting test', origin: 'intercepted' })
+    expect(events[1]).toMatchObject({
+      level: 'error',
+      text: 'Something went wrong',
+      origin: 'intercepted'
+    })
+    expect(events[2]).toMatchObject({
+      level: 'warn',
+      text: 'Warning message',
+      origin: 'intercepted'
+    })
   })
 
   it('should not capture console output for passing tests', () => {

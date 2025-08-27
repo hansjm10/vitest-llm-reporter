@@ -7,17 +7,10 @@
  * @module builders
  */
 
-import type {
-  TestResult,
-  TestFailure,
-  TestBase,
-  TestError,
-  ConsoleOutput
-} from '../types/schema.js'
+import type { TestResult, TestFailure, TestBase, TestError, ConsoleEvent } from '../types/schema.js'
 import type { ExtractedTestCase, NormalizedError } from '../types/extraction.js'
 import type { BuilderConfig } from './types.js'
 import { processFilePath } from '../utils/paths.js'
-
 
 /**
  * Default builder configuration
@@ -76,7 +69,7 @@ export class TestResultBuilder {
     }
 
     return base
-}
+  }
 
   /**
    * Builds a passed test result
@@ -117,7 +110,7 @@ export class TestResultBuilder {
     extracted: ExtractedTestCase,
     error: NormalizedError,
     errorContext?: TestError['context'],
-    consoleOutput?: ConsoleOutput
+    consoleEvents?: ConsoleEvent[]
   ): TestFailure {
     const testError: TestError = {
       message: error.message,
@@ -145,8 +138,8 @@ export class TestResultBuilder {
       error: testError
     }
 
-    if (consoleOutput) {
-      failure.console = consoleOutput
+    if (consoleEvents && consoleEvents.length > 0) {
+      failure.consoleEvents = consoleEvents
     }
 
     return failure
@@ -159,7 +152,7 @@ export class TestResultBuilder {
     extracted: ExtractedTestCase,
     error?: NormalizedError,
     errorContext?: TestError['context'],
-    consoleOutput?: ConsoleOutput
+    consoleEvents?: ConsoleEvent[]
   ): TestResult | TestFailure {
     switch (extracted.state) {
       case 'passed':
@@ -173,7 +166,7 @@ export class TestResultBuilder {
             type: 'TestFailure'
           }
         }
-        return this.buildFailedTest(extracted, error, errorContext, consoleOutput)
+        return this.buildFailedTest(extracted, error, errorContext, consoleEvents)
 
       case 'skipped':
         return this.buildSkippedTest(extracted)

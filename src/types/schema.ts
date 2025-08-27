@@ -126,19 +126,24 @@ export interface TestBase {
 }
 
 /**
- * Console output captured during test execution
+ * Console method level types
  */
-export interface ConsoleOutput {
-  /** console.log output */
-  logs?: string[]
-  /** console.error output */
-  errors?: string[]
-  /** console.warn output */
-  warns?: string[]
-  /** console.info output */
-  info?: string[]
-  /** console.debug and console.trace output */
-  debug?: string[]
+export type ConsoleLevel = 'log' | 'error' | 'warn' | 'info' | 'debug' | 'trace'
+
+/**
+ * Individual console event with metadata
+ */
+export interface ConsoleEvent {
+  /** Console method level */
+  level: ConsoleLevel
+  /** Serialized text representation of the console call */
+  text: string
+  /** Timestamp in milliseconds since test start (optional) */
+  timestampMs?: number
+  /** Array of individually serialized arguments (optional) */
+  args?: string[]
+  /** Origin of the console event */
+  origin?: 'intercepted' | 'task'
 }
 
 /**
@@ -147,8 +152,8 @@ export interface ConsoleOutput {
 export interface TestFailure extends TestBase {
   /** Error details */
   error: TestError
-  /** Console output captured during test (optional) */
-  console?: ConsoleOutput
+  /** Console events captured during test (optional) */
+  consoleEvents?: ConsoleEvent[]
 }
 
 /**

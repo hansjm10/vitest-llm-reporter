@@ -12,7 +12,6 @@ import type { NormalizedError } from '../types/extraction.js'
 import type { ErrorContextConfig } from './types.js'
 import { isAssertionError, normalizeAssertionValue } from '../utils/type-guards.js'
 
-
 /**
  * Default error context configuration
  */

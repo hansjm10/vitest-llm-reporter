@@ -66,7 +66,13 @@ export type {
 } from './reporter-internal.js'
 
 // State types
-export type { StateConfig, TestResults, ModuleTiming, StateSnapshot, TestStatistics } from './state.js'
+export type {
+  StateConfig,
+  TestResults,
+  ModuleTiming,
+  StateSnapshot,
+  TestStatistics
+} from './state.js'
 
 // Vitest object types
 export type { ExtractedError, VitestErrorContext } from './vitest-objects.js'

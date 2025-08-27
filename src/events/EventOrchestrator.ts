@@ -17,12 +17,12 @@ import { ErrorContextBuilder } from '../builders/ErrorContextBuilder.js'
 import { isTestModule, isTestCase, hasProperty } from '../utils/type-guards.js'
 import { extractSuiteNames } from '../utils/suites.js'
 import type { ConsoleMethod } from '../types/console.js'
+import type { ConsoleEvent, ConsoleLevel } from '../types/schema.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import { consoleCapture } from '../console/index.js'
 import { consoleMerger } from '../console/merge.js'
 import type { TruncationConfig } from '../types/reporter.js'
 // Truncation handled by LateTruncator in OutputBuilder
-
 
 /**
  * Default orchestrator configuration
@@ -271,8 +271,8 @@ export class EventOrchestrator {
     // Also try our custom capture
     const consoleFromCapture = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
 
-    // Intelligently merge both console sources instead of choosing one
-    const consoleOutput = consoleMerger.merge(consoleFromTask, consoleFromCapture)
+    // Intelligently merge both console sources
+    const consoleEvents = consoleMerger.merge(consoleFromTask, consoleFromCapture)
 
     // Extract and normalize error with full context including code snippets
     const normalizedError = this.errorExtractor.extractWithContext(extracted.error)
@@ -280,12 +280,12 @@ export class EventOrchestrator {
     // Build error context from the normalized error
     const errorContext = this.contextBuilder.buildFromError(normalizedError)
 
-    // Build failure result with console output
+    // Build failure result with console events
     const failure = this.resultBuilder.buildFailedTest(
       extracted,
       normalizedError,
       errorContext,
-      consoleOutput
+      consoleEvents
     )
 
     // Record in state
@@ -296,15 +296,7 @@ export class EventOrchestrator {
   /**
    * Extract console output directly from Vitest task if available
    */
-  private extractConsoleFromTask(testCase: unknown):
-    | {
-        logs?: string[]
-        errors?: string[]
-        warns?: string[]
-        info?: string[]
-        debug?: string[]
-      }
-    | undefined {
+  private extractConsoleFromTask(testCase: unknown): ConsoleEvent[] | undefined {
     if (!testCase || typeof testCase !== 'object') return undefined
 
     // Safe property access for logs
@@ -313,13 +305,7 @@ export class EventOrchestrator {
     const logs = (testCase as Record<string, unknown>).logs
     if (!Array.isArray(logs) || logs.length === 0) return undefined
 
-    const out: {
-      logs?: string[]
-      errors?: string[]
-      warns?: string[]
-      info?: string[]
-      debug?: string[]
-    } = {}
+    const events: ConsoleEvent[] = []
     for (const entry of logs as Array<unknown>) {
       if (!entry || typeof entry !== 'object') continue
       const entryObj = entry as Record<string, unknown>
@@ -329,30 +315,45 @@ export class EventOrchestrator {
 
       if (typeof content !== 'string' || typeof type !== 'string') continue
 
-      // Add timestamp if available (for better correlation with custom capture)
-      const formattedContent = typeof time === 'number' ? `[${time}ms] ${content}` : content
-
-      // Map Vitest console types to our output structure
-      // Vitest uses 'stdout' and 'stderr' for raw output
-      // But console methods might be captured differently
+      // Map Vitest console types to our level structure
+      let level: ConsoleLevel
       if (type === 'stdout' || type === 'log') {
-        if (!out.logs) out.logs = []
-        out.logs.push(formattedContent)
+        level = 'log'
       } else if (type === 'stderr' || type === 'error') {
-        if (!out.errors) out.errors = []
-        out.errors.push(formattedContent)
+        level = 'error'
       } else if (type === 'warn' || type === 'warning') {
-        if (!out.warns) out.warns = []
-        out.warns.push(formattedContent)
+        level = 'warn'
       } else if (type === 'info') {
-        if (!out.info) out.info = []
-        out.info.push(formattedContent)
-      } else if (type === 'debug' || type === 'trace') {
-        if (!out.debug) out.debug = []
-        out.debug.push(formattedContent)
+        level = 'info'
+      } else if (type === 'debug') {
+        level = 'debug'
+      } else if (type === 'trace') {
+        level = 'trace'
+      } else {
+        // Unknown type, default to log
+        level = 'log'
       }
+
+      // Skip debug/trace if not included
+      if (!this.config.includeDebugOutput && (level === 'debug' || level === 'trace')) {
+        continue
+      }
+
+      // Create the event
+      const event: ConsoleEvent = {
+        level,
+        text: content,
+        origin: 'task'
+      }
+
+      // Add timestamp if available
+      if (typeof time === 'number') {
+        event.timestampMs = time
+      }
+
+      events.push(event)
     }
-    return Object.keys(out).length ? out : undefined
+    return events.length > 0 ? events : undefined
   }
 
   /**

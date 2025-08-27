@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { ConsoleBuffer } from './buffer.js'
 import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console.js'
+import type { ConsoleEvent } from '../types/schema.js'
 import { ConsoleInterceptor } from './interceptor.js'
 import { createLogger } from '../utils/logger.js'
 
@@ -116,7 +117,7 @@ export class ConsoleCapture {
   /**
    * Stop capturing and retrieve output for a test
    */
-  stopCapture(testId: string): ReturnType<ConsoleBuffer['getSimplifiedOutput']> | undefined {
+  stopCapture(testId: string): ConsoleEvent[] | undefined {
     if (!this.config.enabled) {
       return undefined
     }
@@ -129,13 +130,13 @@ export class ConsoleCapture {
       return undefined
     }
 
-    // Get the output before clearing
-    const output = buffer.getSimplifiedOutput()
+    // Get the events before scheduling cleanup
+    const events = buffer.getEvents()
 
     // Schedule cleanup after grace period (for async console output)
     this.scheduleCleanup(testId)
 
-    return output
+    return events
   }
 
   /**
@@ -170,7 +171,7 @@ export class ConsoleCapture {
         const buffer = this.buffers.get(context.testId)
         if (buffer) {
           const elapsed = Date.now() - context.startTime
-          buffer.add(method, args, elapsed)
+          buffer.add(method, args, elapsed, 'intercepted')
         }
       }
       // Note: When there's no context (helper functions), we rely on Vitest's
@@ -274,7 +275,7 @@ export class ConsoleCapture {
       this.buffers.set(testId, buffer)
     }
 
-    buffer.add(method, args, elapsed)
+    buffer.add(method, args, elapsed, 'task')
   }
 
   /**

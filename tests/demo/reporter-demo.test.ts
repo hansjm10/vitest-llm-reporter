@@ -16,4 +16,3 @@ describe.runIf(DEMO_ENABLED)('LLM Reporter Demo', () => {
     expect(1).toBe(2)
   })
 })
-

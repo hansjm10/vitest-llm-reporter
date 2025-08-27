@@ -84,23 +84,56 @@ describe('LateTruncator', () => {
       // Add console output based on size
       if (consoleSize !== 'small') {
         const logCount = consoleSize === 'large' ? 100 : 20
-        failure.console = {
-          logs: Array(logCount)
-            .fill(0)
-            .map((_, j) => `Log message ${j + 1} from test ${i + 1}`),
-          errors: Array(Math.floor(logCount / 2))
-            .fill(0)
-            .map((_, j) => `Error ${j + 1} from test ${i + 1}`),
-          warns: Array(Math.floor(logCount / 4))
-            .fill(0)
-            .map((_, j) => `Warning ${j + 1} from test ${i + 1}`),
-          info: Array(Math.floor(logCount / 4))
-            .fill(0)
-            .map((_, j) => `Info ${j + 1} from test ${i + 1}`),
-          debug: Array(Math.floor(logCount / 10))
-            .fill(0)
-            .map((_, j) => `Debug ${j + 1} from test ${i + 1}`)
+        const events = []
+
+        // Add log events
+        for (let j = 0; j < logCount; j++) {
+          events.push({
+            level: 'log' as const,
+            text: `Log message ${j + 1} from test ${i + 1}`,
+            timestampMs: j * 10
+          })
         }
+
+        // Add error events
+        for (let j = 0; j < Math.floor(logCount / 2); j++) {
+          events.push({
+            level: 'error' as const,
+            text: `Error ${j + 1} from test ${i + 1}`,
+            timestampMs: (logCount + j) * 10
+          })
+        }
+
+        // Add warn events
+        for (let j = 0; j < Math.floor(logCount / 4); j++) {
+          events.push({
+            level: 'warn' as const,
+            text: `Warning ${j + 1} from test ${i + 1}`,
+            timestampMs: (logCount * 1.5 + j) * 10
+          })
+        }
+
+        // Add info events
+        for (let j = 0; j < Math.floor(logCount / 4); j++) {
+          events.push({
+            level: 'info' as const,
+            text: `Info ${j + 1} from test ${i + 1}`,
+            timestampMs: (logCount * 1.75 + j) * 10
+          })
+        }
+
+        // Add debug events
+        for (let j = 0; j < Math.floor(logCount / 10); j++) {
+          events.push({
+            level: 'debug' as const,
+            text: `Debug ${j + 1} from test ${i + 1}`,
+            timestampMs: (logCount * 2 + j) * 10
+          })
+        }
+
+        // Sort by timestamp
+        events.sort((a, b) => a.timestampMs - b.timestampMs)
+        failure.consoleEvents = events
       }
 
       failures.push(failure)
@@ -244,7 +277,8 @@ describe('LateTruncator', () => {
 
         const result = truncator.apply(output, config)
 
-        expect(result.failures?.[0]?.console?.debug).toBeUndefined()
+        const debugEvents = result.failures?.[0]?.consoleEvents?.filter((e) => e.level === 'debug')
+        expect(debugEvents).toHaveLength(0)
       })
 
       it('should cap info and warn console output', () => {
@@ -255,15 +289,18 @@ describe('LateTruncator', () => {
         })
 
         const result = truncator.apply(output, config)
-        const console = result.failures?.[0]?.console
+        const events = result.failures?.[0]?.consoleEvents || []
 
-        if (console?.info) {
-          const infoText = console.info.join('\n')
+        const infoEvents = events.filter((e) => e.level === 'info')
+        const warnEvents = events.filter((e) => e.level === 'warn')
+
+        if (infoEvents.length > 0) {
+          const infoText = infoEvents.map((e) => e.text).join('\n')
           expect(infoText.length).toBeLessThanOrEqual(150) // Rough check for capping
         }
 
-        if (console?.warns) {
-          const warnText = console.warns.join('\n')
+        if (warnEvents.length > 0) {
+          const warnText = warnEvents.map((e) => e.text).join('\n')
           expect(warnText.length).toBeLessThanOrEqual(150)
         }
       })
@@ -276,12 +313,13 @@ describe('LateTruncator', () => {
         })
 
         const result = truncator.apply(output, config)
-        const console = result.failures?.[0]?.console
+        const events = result.failures?.[0]?.consoleEvents || []
 
         // Errors should be preserved better than other categories
-        expect(console?.errors).toBeDefined()
-        if (console?.errors) {
-          const errorText = console.errors.join('\n')
+        const errorEvents = events.filter((e) => e.level === 'error')
+        expect(errorEvents.length).toBeGreaterThan(0)
+        if (errorEvents.length > 0) {
+          const errorText = errorEvents.map((e) => e.text).join('\n')
           expect(errorText.length).toBeGreaterThan(0)
         }
       })
@@ -446,23 +484,25 @@ describe('LateTruncator', () => {
             duration: 100,
             timestamp: '2024-01-15T10:30:00Z'
           },
-          failures: [{
-            test: 'should equal numbers',
-            fileRelative: '/test.ts',
-            startLine: 10,
-            endLine: 20,
-            error: {
-              message: 'Expected 2 to equal 1',
-              type: 'AssertionError',
-              assertion: {
-                expected: 2,
-                actual: 1,
-                expectedType: 'number',
-                actualType: 'number',
-                operator: 'toBe'
+          failures: [
+            {
+              test: 'should equal numbers',
+              fileRelative: '/test.ts',
+              startLine: 10,
+              endLine: 20,
+              error: {
+                message: 'Expected 2 to equal 1',
+                type: 'AssertionError',
+                assertion: {
+                  expected: 2,
+                  actual: 1,
+                  expectedType: 'number',
+                  actualType: 'number',
+                  operator: 'toBe'
+                }
               }
             }
-          }]
+          ]
         }
 
         const config: TruncationConfig = { ...defaultConfig, maxTokens: 500 }
@@ -488,23 +528,25 @@ describe('LateTruncator', () => {
             duration: 100,
             timestamp: '2024-01-15T10:30:00Z'
           },
-          failures: [{
-            test: 'should be true',
-            fileRelative: '/test.ts',
-            startLine: 10,
-            endLine: 20,
-            error: {
-              message: 'Expected false to be true',
-              type: 'AssertionError',
-              assertion: {
-                expected: true,
-                actual: false,
-                expectedType: 'boolean',
-                actualType: 'boolean',
-                operator: 'toBe'
+          failures: [
+            {
+              test: 'should be true',
+              fileRelative: '/test.ts',
+              startLine: 10,
+              endLine: 20,
+              error: {
+                message: 'Expected false to be true',
+                type: 'AssertionError',
+                assertion: {
+                  expected: true,
+                  actual: false,
+                  expectedType: 'boolean',
+                  actualType: 'boolean',
+                  operator: 'toBe'
+                }
               }
             }
-          }]
+          ]
         }
 
         const config: TruncationConfig = { ...defaultConfig, maxTokens: 500 }
@@ -527,23 +569,25 @@ describe('LateTruncator', () => {
             duration: 100,
             timestamp: '2024-01-15T10:30:00Z'
           },
-          failures: [{
-            test: 'should be null',
-            fileRelative: '/test.ts',
-            startLine: 10,
-            endLine: 20,
-            error: {
-              message: 'Expected value to be null',
-              type: 'AssertionError',
-              assertion: {
-                expected: null,
-                actual: 'not null',
-                expectedType: 'null',
-                actualType: 'string',
-                operator: 'toBeNull'
+          failures: [
+            {
+              test: 'should be null',
+              fileRelative: '/test.ts',
+              startLine: 10,
+              endLine: 20,
+              error: {
+                message: 'Expected value to be null',
+                type: 'AssertionError',
+                assertion: {
+                  expected: null,
+                  actual: 'not null',
+                  expectedType: 'null',
+                  actualType: 'string',
+                  operator: 'toBeNull'
+                }
               }
             }
-          }]
+          ]
         }
 
         const config: TruncationConfig = { ...defaultConfig, maxTokens: 500 }
@@ -557,12 +601,12 @@ describe('LateTruncator', () => {
       })
 
       it('should truncate but preserve structure for large objects', () => {
-        const largeObject = { 
-          a: 'x'.repeat(100), 
-          b: 'y'.repeat(100), 
-          c: 'z'.repeat(100) 
+        const largeObject = {
+          a: 'x'.repeat(100),
+          b: 'y'.repeat(100),
+          c: 'z'.repeat(100)
         }
-        
+
         const output: LLMReporterOutput = {
           summary: {
             total: 1,
@@ -572,23 +616,25 @@ describe('LateTruncator', () => {
             duration: 100,
             timestamp: '2024-01-15T10:30:00Z'
           },
-          failures: [{
-            test: 'large object test',
-            fileRelative: '/test.ts',
-            startLine: 10,
-            endLine: 20,
-            error: {
-              message: 'Object mismatch',
-              type: 'AssertionError',
-              assertion: {
-                expected: largeObject,
-                actual: { small: 'value' },
-                expectedType: 'Record<string, unknown>',
-                actualType: 'Record<string, unknown>',
-                operator: 'toEqual'
+          failures: [
+            {
+              test: 'large object test',
+              fileRelative: '/test.ts',
+              startLine: 10,
+              endLine: 20,
+              error: {
+                message: 'Object mismatch',
+                type: 'AssertionError',
+                assertion: {
+                  expected: largeObject,
+                  actual: { small: 'value' },
+                  expectedType: 'Record<string, unknown>',
+                  actualType: 'Record<string, unknown>',
+                  operator: 'toEqual'
+                }
               }
             }
-          }]
+          ]
         }
 
         const config: TruncationConfig = { ...defaultConfig, maxTokens: 200 }

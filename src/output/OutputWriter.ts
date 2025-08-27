@@ -12,7 +12,6 @@ import * as path from 'path'
 import type { LLMReporterOutput } from '../types/schema.js'
 import type { OutputWriterConfig } from './types.js'
 
-
 /**
  * Default writer configuration
  */

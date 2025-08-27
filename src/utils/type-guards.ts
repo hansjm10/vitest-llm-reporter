@@ -137,7 +137,7 @@ export function extractErrorProperties(error: unknown): ExtractedError {
       }
     }
   }
-  
+
   // Fallback to direct expected/actual values
   if (result.expected === undefined && safeHasProperty(error, 'expected')) {
     result.expected = (error as Record<'expected', unknown>).expected

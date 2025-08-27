@@ -11,9 +11,6 @@ import { performance } from 'node:perf_hooks'
 import type { Task, TaskResult, File } from 'vitest'
 import type { BenchmarkConfig, BenchmarkResult, MemorySnapshot } from './types.js'
 
-
-
-
 /**
  * Baseline performance metrics for comparison
  */

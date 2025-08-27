@@ -16,7 +16,8 @@ import type {
   ErrorContext,
   AssertionValue,
   AssertionDetails,
-  StackFrame
+  StackFrame,
+  ConsoleEvent
 } from '../types/schema.js'
 import type { JsonSanitizerConfig } from './types.js'
 
@@ -24,7 +25,6 @@ import { escapeJsonString, escapeJsonArray, createSafeObject } from '../utils/sa
 
 // Re-export types for public API
 export type { JsonSanitizerConfig } from './types.js'
-
 
 /**
  * Default sanitization configuration
@@ -110,8 +110,8 @@ export class JsonSanitizer {
       result.suite = failure.suite.map((s) => escapeJsonString(s))
     }
 
-    if (failure.console) {
-      result.console = failure.console
+    if (failure.consoleEvents) {
+      result.consoleEvents = failure.consoleEvents.map((event) => this.sanitizeConsoleEvent(event))
     }
 
     return result
@@ -290,6 +290,30 @@ export class JsonSanitizer {
   }
 
   /**
+   * Sanitizes a console event
+   */
+  private sanitizeConsoleEvent(event: ConsoleEvent): ConsoleEvent {
+    const sanitized: ConsoleEvent = {
+      level: event.level,
+      text: escapeJsonString(event.text)
+    }
+
+    if (event.timestampMs !== undefined) {
+      sanitized.timestampMs = event.timestampMs
+    }
+
+    if (event.args) {
+      sanitized.args = event.args.map((arg) => escapeJsonString(arg))
+    }
+
+    if (event.origin) {
+      sanitized.origin = event.origin
+    }
+
+    return sanitized
+  }
+
+  /**
    * Sanitizes file paths
    */
   private sanitizeFilePath(filePath: string): string {
@@ -301,7 +325,7 @@ export class JsonSanitizer {
 
     // Remove user-specific information from paths
     // Handle paths with or without leading slash
-    return escapedPath.replace(/(?:^|\/)(?:Users|home)\/[^/]+/, (match) => 
+    return escapedPath.replace(/(?:^|\/)(?:Users|home)\/[^/]+/, (match) =>
       match.startsWith('/') ? '/Users/***' : 'Users/***'
     )
   }

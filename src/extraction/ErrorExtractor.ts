@@ -246,7 +246,10 @@ export class ErrorExtractor {
     const columnNumber = this.getColumnNumber(error)
 
     // Parse stack trace to get frames
-    const stackFrames = this.contextExtractor.parseStackTrace(stack, this.config.includeAbsolutePaths)
+    const stackFrames = this.contextExtractor.parseStackTrace(
+      stack,
+      this.config.includeAbsolutePaths
+    )
 
     // Extract code context with proper typing (do not merge assertion values here)
     const codeContext = this.extractCodeContext(filePath, lineNumber, columnNumber, stackFrames)
@@ -281,11 +284,7 @@ export class ErrorExtractor {
       const firstFrame = stackFrames[0]
       // Use fileAbsolute if available, otherwise fileRelative
       const filePath = firstFrame.fileAbsolute || firstFrame.fileRelative
-      return this.contextExtractor.extractCodeContext(
-        filePath,
-        firstFrame.line,
-        firstFrame.column
-      )
+      return this.contextExtractor.extractCodeContext(filePath, firstFrame.line, firstFrame.column)
     }
 
     return undefined
@@ -304,7 +303,9 @@ export class ErrorExtractor {
   /**
    * Determines the type of an assertion value
    */
-  private getAssertionValueType(value: unknown): 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array' {
+  private getAssertionValueType(
+    value: unknown
+  ): 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array' {
     if (value === null) return 'null'
     if (typeof value === 'string') return 'string'
     if (typeof value === 'number') return 'number'
@@ -326,7 +327,7 @@ export class ErrorExtractor {
       // Try to parse string numbers/booleans/null back to their proper types
       let expectedValue = basicError.expected
       let actualValue = basicError.actual
-      
+
       // Convert string numbers back to numbers
       if (typeof expectedValue === 'string' && /^-?\d+(\.\d+)?$/.test(expectedValue)) {
         const num = Number(expectedValue)
@@ -334,27 +335,27 @@ export class ErrorExtractor {
           expectedValue = num
         }
       }
-      
+
       if (typeof actualValue === 'string' && /^-?\d+(\.\d+)?$/.test(actualValue)) {
         const num = Number(actualValue)
         if (!isNaN(num)) {
           actualValue = num
         }
       }
-      
+
       // Convert string booleans back to booleans
       if (expectedValue === 'true') expectedValue = true
       if (expectedValue === 'false') expectedValue = false
       if (actualValue === 'true') actualValue = true
       if (actualValue === 'false') actualValue = false
-      
+
       // Convert string null back to null
       if (expectedValue === 'null') expectedValue = null
       if (actualValue === 'null') actualValue = null
-      
+
       const normalizedExpected = normalizeAssertionValue(expectedValue)
       const normalizedActual = normalizeAssertionValue(actualValue)
-      
+
       return {
         expected: normalizedExpected,
         actual: normalizedActual,
@@ -371,7 +372,10 @@ export class ErrorExtractor {
    */
   public extractStackFrames(error: unknown): { stackFrames?: StackFrame[] } {
     const stack = this.getStackString(error)
-    const stackFrames = this.contextExtractor.parseStackTrace(stack, this.config.includeAbsolutePaths)
+    const stackFrames = this.contextExtractor.parseStackTrace(
+      stack,
+      this.config.includeAbsolutePaths
+    )
     // Return empty array for malformed stack traces to match test expectations
     return { stackFrames: stackFrames.length > 0 ? stackFrames : [] }
   }
@@ -385,11 +389,11 @@ export class ErrorExtractor {
     }
 
     const extracted = extractErrorProperties(error)
-    
+
     // Try to parse string numbers back to numbers if they look like numbers
     let expectedValue = extracted.expected
     let actualValue = extracted.actual
-    
+
     // Convert string numbers back to numbers
     if (typeof expectedValue === 'string' && /^-?\d+(\.\d+)?$/.test(expectedValue)) {
       const num = Number(expectedValue)
@@ -397,20 +401,20 @@ export class ErrorExtractor {
         expectedValue = num
       }
     }
-    
+
     if (typeof actualValue === 'string' && /^-?\d+(\.\d+)?$/.test(actualValue)) {
       const num = Number(actualValue)
       if (!isNaN(num)) {
         actualValue = num
       }
     }
-    
+
     // Convert string booleans back to booleans
     if (expectedValue === 'true') expectedValue = true
     if (expectedValue === 'false') expectedValue = false
     if (actualValue === 'true') actualValue = true
     if (actualValue === 'false') actualValue = false
-    
+
     // Convert string null back to null
     if (expectedValue === 'null') expectedValue = null
     if (actualValue === 'null') actualValue = null
@@ -418,7 +422,7 @@ export class ErrorExtractor {
     if (extracted.expected !== undefined || extracted.actual !== undefined) {
       const normalizedExpected = normalizeAssertionValue(expectedValue)
       const normalizedActual = normalizeAssertionValue(actualValue)
-      
+
       return {
         assertion: {
           expected: normalizedExpected,

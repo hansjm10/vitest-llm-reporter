@@ -398,9 +398,9 @@ Fourth line`
       const result = extractor.extractAssertionDetails(mixedAssertion)
 
       expect(result.assertion?.expected).toBe(123)
-      expect(result.assertion?.actual).toBe(123)  // String '123' gets converted to number 123
+      expect(result.assertion?.actual).toBe(123) // String '123' gets converted to number 123
       expect(result.assertion?.expectedType).toBe('number')
-      expect(result.assertion?.actualType).toBe('number')  // After conversion, both are numbers
+      expect(result.assertion?.actualType).toBe('number') // After conversion, both are numbers
     })
 
     it('should tag objects and arrays with correct type metadata', () => {

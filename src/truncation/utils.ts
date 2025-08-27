@@ -7,7 +7,6 @@
 
 import type { SafeTrimOptions } from './types.js'
 
-
 /**
  * Safely trim text to target character count
  *
@@ -385,7 +384,7 @@ export function truncateAssertionValue(value: unknown, maxChars = 200): unknown 
   if (Array.isArray(value) || typeof value === 'object') {
     try {
       const str = JSON.stringify(value, null, 2)
-      
+
       if (str.length <= maxChars) {
         return value // Return original if within limits
       }
@@ -396,10 +395,12 @@ export function truncateAssertionValue(value: unknown, maxChars = 200): unknown 
         const truncated = str.substring(0, maxChars - 10)
         const lastNewline = truncated.lastIndexOf('\n')
         if (lastNewline > maxChars * 0.5) {
-          return truncated.substring(0, lastNewline) + '\n  ...\n' + (str.startsWith('{') ? '}' : ']')
+          return (
+            truncated.substring(0, lastNewline) + '\n  ...\n' + (str.startsWith('{') ? '}' : ']')
+          )
         }
       }
-      
+
       return safeTrimToChars(str, maxChars - 3) + '...'
     } catch {
       // For objects without proper toString, provide a fallback

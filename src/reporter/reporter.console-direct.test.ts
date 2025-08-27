@@ -67,14 +67,16 @@ describe('LLMReporter Console Capture - Direct Test', () => {
     const failure = output?.failures?.[0]
     expect(failure).toBeDefined()
 
-    expect(failure?.console).toBeDefined()
+    expect(failure?.consoleEvents).toBeDefined()
 
     // Check console content
-    expect(failure?.console?.logs).toBeInstanceOf(Array)
-    expect(failure?.console?.logs).toContainEqual('Test log message')
+    expect(failure?.consoleEvents).toBeInstanceOf(Array)
 
-    expect(failure?.console?.errors).toBeInstanceOf(Array)
-    expect(failure?.console?.errors).toContainEqual('Test error message')
+    const logEvents = failure?.consoleEvents?.filter((e) => e.level === 'log') || []
+    const errorEvents = failure?.consoleEvents?.filter((e) => e.level === 'error') || []
+
+    expect(logEvents.some((e) => e.text === 'Test log message')).toBe(true)
+    expect(errorEvents.some((e) => e.text === 'Test error message')).toBe(true)
   })
 
   it('should not capture console for passing tests', () => {

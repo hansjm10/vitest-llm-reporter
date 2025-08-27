@@ -13,7 +13,6 @@ import type { StreamingReporterConfig } from './types.js'
 import { LLMReporter } from '../reporter/reporter.js'
 import { coreLogger } from '../utils/logger.js'
 
-
 /**
  * Simple streaming reporter that extends base LLMReporter
  * with optional real-time test result output.

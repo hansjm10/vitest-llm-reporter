@@ -1,5 +1,6 @@
 import { inspect } from 'node:util'
 import type { ConsoleMethod, ConsoleBufferConfig } from '../types/console.js'
+import type { ConsoleEvent, ConsoleLevel } from '../types/schema.js'
 
 /**
  * Console Buffer
@@ -21,114 +22,123 @@ const DEFAULT_CONFIG: Required<ConsoleBufferConfig> = {
  * Manages console output buffer for a single test
  */
 export class ConsoleBuffer {
-  private entries: Map<ConsoleMethod, string[]> = new Map()
+  private events: ConsoleEvent[] = []
   private totalBytes = 0
-  private totalLines = 0
   private config: Required<ConsoleBufferConfig>
   private truncated = false
 
   constructor(config: ConsoleBufferConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
-
-    // Initialize empty arrays for each method
-    const methods: ConsoleMethod[] = ['log', 'error', 'warn', 'debug', 'info', 'trace']
-    methods.forEach((method) => this.entries.set(method, []))
   }
 
   /**
    * Add a console output entry
    */
-  add(method: ConsoleMethod, args: unknown[], timestamp?: number): boolean {
+  add(
+    method: ConsoleMethod,
+    args: unknown[],
+    timestamp?: number,
+    origin: 'intercepted' | 'task' = 'intercepted'
+  ): boolean {
     // Check if we've already hit limits
     if (this.truncated) {
       return false
     }
 
-    // Serialize the arguments safely
-    const message = this.serialize(args)
+    // Serialize arguments individually
+    const serializedArgs = args.map((arg) => this.serializeArg(arg))
+
+    // Create combined text representation
+    const message = serializedArgs.join(' ')
 
     // Strip ANSI codes if configured
-    const cleaned = this.config.stripAnsi ? this.stripAnsiCodes(message) : message
+    const text = this.config.stripAnsi ? this.stripAnsiCodes(message) : message
 
-    // Add timestamp if configured
-    const final =
-      this.config.includeTimestamp && timestamp !== undefined
-        ? `[${timestamp}ms] ${cleaned}`
-        : cleaned
-
-    // Check byte limit
-    const bytes = Buffer.byteLength(final, 'utf8')
+    // Check byte limit (based on text content)
+    const bytes = Buffer.byteLength(text, 'utf8')
     if (this.totalBytes + bytes > this.config.maxBytes) {
-      this.addTruncationMessage(method)
+      this.addTruncationEvent()
       return false
     }
 
-    // Check line limit
-    if (this.totalLines >= this.config.maxLines) {
-      this.addTruncationMessage(method)
+    // Check line/event limit
+    if (this.events.length >= this.config.maxLines) {
+      this.addTruncationEvent()
       return false
     }
 
-    // Add the entry
-    const methodEntries = this.entries.get(method) || []
-    methodEntries.push(final)
-    this.entries.set(method, methodEntries)
+    // Map console method to level (trace becomes debug)
+    const level: ConsoleLevel = method === 'trace' ? 'debug' : method
 
+    // Create the event
+    const event: ConsoleEvent = {
+      level,
+      text,
+      origin
+    }
+
+    // Add timestamp if available
+    if (timestamp !== undefined) {
+      event.timestampMs = timestamp
+    }
+
+    // Add args if they provide value beyond text
+    if (args.length > 1 || (args.length === 1 && typeof args[0] === 'object')) {
+      event.args = serializedArgs
+    }
+
+    // Add the event
+    this.events.push(event)
     this.totalBytes += bytes
-    this.totalLines++
 
     return true
   }
 
   /**
-   * Serialize arguments safely, handling circular references and large objects
+   * Serialize a single argument safely
    */
-  private serialize(args: unknown[]): string {
+  private serializeArg(arg: unknown): string {
     try {
-      return args
-        .map((arg) => {
-          if (arg === undefined) return 'undefined'
-          if (arg === null) return 'null'
+      if (arg === undefined) return 'undefined'
+      if (arg === null) return 'null'
 
-          if (typeof arg === 'string') {
-            // Truncate very long strings
-            return arg.length > 1000 ? arg.substring(0, 1000) + '... [truncated]' : arg
-          }
+      if (typeof arg === 'string') {
+        // Truncate very long strings
+        return arg.length > 1000 ? arg.substring(0, 1000) + '... [truncated]' : arg
+      }
 
-          if (typeof arg === 'number' || typeof arg === 'boolean') {
-            return String(arg)
-          }
+      if (typeof arg === 'number' || typeof arg === 'boolean') {
+        return String(arg)
+      }
 
-          if (typeof arg === 'bigint') {
-            return `${arg}n`
-          }
+      if (typeof arg === 'bigint') {
+        return `${arg}n`
+      }
 
-          if (typeof arg === 'symbol') {
-            return arg.toString()
-          }
+      if (typeof arg === 'symbol') {
+        return arg.toString()
+      }
 
-          if (typeof arg === 'function') {
-            return '[Function]'
-          }
+      if (typeof arg === 'function') {
+        return '[Function]'
+      }
 
-          if (typeof arg === 'object') {
-            // Use util.inspect for safe object serialization
-            return inspect(arg, {
-              depth: 3,
-              compact: true,
-              maxArrayLength: 10,
-              maxStringLength: 200,
-              breakLength: 120,
-              sorted: true
-            })
-          }
-
-          // Fallback for any missed types
-          return '[unknown]'
+      if (typeof arg === 'object') {
+        // Use util.inspect for safe object serialization
+        return inspect(arg, {
+          depth: 3,
+          compact: true,
+          maxArrayLength: 10,
+          maxStringLength: 200,
+          breakLength: 120,
+          sorted: true
         })
-        .join(' ')
+      }
+
+      // Fallback for any missed types
+      return '[unknown]'
     } catch (_error) {
-      return '[Failed to serialize console output]'
+      return '[Failed to serialize]'
     }
   }
 
@@ -143,91 +153,42 @@ export class ConsoleBuffer {
   }
 
   /**
-   * Add a truncation message
+   * Add a truncation event
    */
-  private addTruncationMessage(method: ConsoleMethod): void {
+  private addTruncationEvent(): void {
     if (!this.truncated) {
-      const msg = '[Console output truncated - limit reached]'
-      const methodEntries = this.entries.get(method) || []
-      methodEntries.push(msg)
-      this.entries.set(method, methodEntries)
+      const event: ConsoleEvent = {
+        level: 'warn',
+        text: '[Console output truncated - limit reached]'
+      }
+      this.events.push(event)
       this.truncated = true
     }
   }
 
   /**
-   * Get the buffer contents organized by method
+   * Get the console events
    */
-  getOutput(): Record<ConsoleMethod, string[]> {
-    const output: Partial<Record<ConsoleMethod, string[]>> = {}
-
-    for (const [method, lines] of this.entries) {
-      if (lines.length > 0) {
-        output[method] = [...lines] // Return a copy
-      }
-    }
-
-    return output as Record<ConsoleMethod, string[]>
-  }
-
-  /**
-   * Get a simplified output format for JSON serialization
-   */
-  getSimplifiedOutput(): {
-    logs?: string[]
-    errors?: string[]
-    warns?: string[]
-    info?: string[]
-    debug?: string[]
-  } {
-    const output: {
-      logs?: string[]
-      errors?: string[]
-      warns?: string[]
-      info?: string[]
-      debug?: string[]
-    } = {}
-
-    const mapping: Record<ConsoleMethod, string> = {
-      log: 'logs',
-      error: 'errors',
-      warn: 'warns',
-      info: 'info',
-      debug: 'debug',
-      trace: 'debug' // Map trace to debug
-    }
-
-    for (const [method, lines] of this.entries) {
-      if (lines.length > 0) {
-        const key = mapping[method] as keyof typeof output
-        if (!output[key]) {
-          output[key] = []
-        }
-        // TypeScript now knows output[key] is defined and is string[]
-        output[key].push(...lines)
-      }
-    }
-
-    return output
+  getEvents(): ConsoleEvent[] {
+    return [...this.events] // Return a copy
   }
 
   /**
    * Clear the buffer
    */
   clear(): void {
-    this.entries.clear()
+    this.events = []
     this.totalBytes = 0
-    this.totalLines = 0
     this.truncated = false
   }
 
   /**
    * Get current buffer statistics
    */
-  getStats(): { bytes: number; lines: number; truncated: boolean } {
+  getStats(): { bytes: number; events: number; truncated: boolean } {
     return {
       bytes: this.totalBytes,
-      lines: this.totalLines,
+      events: this.events.length,
       truncated: this.truncated
     }
   }
@@ -235,7 +196,7 @@ export class ConsoleBuffer {
   /**
    * Flush buffer contents
    */
-  flush(): ReturnType<typeof this.getSimplifiedOutput> {
-    return this.getSimplifiedOutput()
+  flush(): ConsoleEvent[] {
+    return this.getEvents()
   }
 }

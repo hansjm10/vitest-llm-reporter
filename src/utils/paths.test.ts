@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  normalizeFileUrlOrPath,
-  toRepoRelative,
-  classify,
-  processFilePath
-} from './paths.js'
+import { normalizeFileUrlOrPath, toRepoRelative, classify, processFilePath } from './paths.js'
 
 describe('Path Utilities', () => {
   describe('normalizeFileUrlOrPath', () => {
@@ -117,7 +112,10 @@ describe('Path Utilities', () => {
     })
 
     it.skipIf(process.platform !== 'win32')('should handle Windows paths with node_modules', () => {
-      const result = classify('C:\\Users\\project\\node_modules\\lib\\index.js', 'C:\\Users\\project')
+      const result = classify(
+        'C:\\Users\\project\\node_modules\\lib\\index.js',
+        'C:\\Users\\project'
+      )
       expect(result.inProject).toBe(false)
       expect(result.inNodeModules).toBe(true)
     })
@@ -181,12 +179,19 @@ describe('Path Utilities', () => {
       expect(result.inNodeModules).toBe(false)
     })
 
-    it.skipIf(process.platform !== 'win32')('should handle Windows file URLs with absolute paths', () => {
-      const result = processFilePath('file:///C:/Users/project/src/test.ts', 'C:\\Users\\project', true)
-      expect(result.fileRelative).toBe('src/test.ts')
-      expect(result.fileAbsolute).toBe('C:/Users/project/src/test.ts')
-      expect(result.inProject).toBe(true)
-      expect(result.inNodeModules).toBe(false)
-    })
+    it.skipIf(process.platform !== 'win32')(
+      'should handle Windows file URLs with absolute paths',
+      () => {
+        const result = processFilePath(
+          'file:///C:/Users/project/src/test.ts',
+          'C:\\Users\\project',
+          true
+        )
+        expect(result.fileRelative).toBe('src/test.ts')
+        expect(result.fileAbsolute).toBe('C:/Users/project/src/test.ts')
+        expect(result.inProject).toBe(true)
+        expect(result.inNodeModules).toBe(false)
+      }
+    )
   })
 })

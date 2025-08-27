@@ -27,7 +27,6 @@ import { ErrorMessages, BYTES_PER_MB, MAX_TIMESTAMP_LENGTH, MAX_ARRAY_SIZE } fro
 // Re-export types for public API
 export type { ValidationConfig, ValidationError, ValidationResult } from './types.js'
 
-
 /**
  * Default validation configuration
  */
@@ -43,7 +42,6 @@ export const DEFAULT_CONFIG: Required<ValidationConfig> = {
   minDuration: 0
 }
 
-
 /**
  * Internal validation context for stateless validation
  *
@@ -58,7 +56,6 @@ interface ValidationContext {
   errors: ValidationError[]
   config: Required<ValidationConfig>
 }
-
 
 /**
  * Optimized ISO 8601 regex pattern - compiled once for performance
@@ -147,7 +144,7 @@ export class SchemaValidator {
     return {
       valid: true,
       errors: [],
-      data: output as LLMReporterOutput
+      data: output
     }
   }
 
@@ -425,7 +422,11 @@ export class SchemaValidator {
     }
 
     if (!hasProperty(obj, 'fileRelative')) {
-      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.fileRelative`), `${path}.fileRelative`)
+      this.addError(
+        context,
+        ErrorMessages.REQUIRED_FIELD(`${path}.fileRelative`),
+        `${path}.fileRelative`
+      )
       return false
     }
     if (typeof obj.fileRelative !== 'string') {

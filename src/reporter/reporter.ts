@@ -328,9 +328,9 @@ export class LLMReporter implements Reporter {
   onInit(ctx: Vitest): void {
     this.context = ctx
     this.rootDir = ctx.config.root
-    
+
     // Update components with root directory and config
-    this.resultBuilder.updateConfig({ 
+    this.resultBuilder.updateConfig({
       rootDir: this.rootDir,
       includeAbsolutePaths: this.config.includeAbsolutePaths
     })

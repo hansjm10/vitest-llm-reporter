@@ -26,14 +26,14 @@ export function normalizeFileUrlOrPath(input: string): string {
     // Convert file URL to path
     // Handle both Unix and Windows file URLs
     let path = input.slice(7) // Remove 'file://' prefix
-    
+
     // Windows file URLs may have an extra slash: file:///C:/...
     // Unix file URLs: file:///home/...
     if (path.startsWith('/') && /^\/[A-Za-z]:/.test(path)) {
       // Windows path with leading slash: /C:/...
       path = path.slice(1)
     }
-    
+
     // Clean up multiple slashes
     return path.replace(/\/+/g, '/')
   }
@@ -44,7 +44,7 @@ export function normalizeFileUrlOrPath(input: string): string {
     // Windows path - normalize backslashes but don't change them to forward slashes yet
     return input.replace(/\\+/g, '\\')
   }
-  
+
   // Unix path - clean up multiple forward slashes
   return input.replace(/\/+/g, '/')
 }
@@ -77,17 +77,17 @@ export function toRepoRelative(absPath: string, rootDir: string): string {
   if (pathForComparison.startsWith(rootForComparison)) {
     // Get the relative part
     let relativePath = pathForComparison.slice(rootForComparison.length)
-    
+
     // Remove leading slash
     if (relativePath.startsWith('/')) {
       relativePath = relativePath.slice(1)
     }
-    
+
     // Handle empty relative path (same directory)
     if (!relativePath) {
       relativePath = '.'
     }
-    
+
     // Always return with forward slashes
     return relativePath
   }
@@ -116,8 +116,8 @@ export function classify(
   const normalizedRoot = rootDir.replace(/\\/g, '/')
 
   // Check if path is in node_modules (cross-platform)
-  const inNodeModules = normalizedPath.includes('/node_modules/') ||
-                        normalizedPath.includes('node_modules')
+  const inNodeModules =
+    normalizedPath.includes('/node_modules/') || normalizedPath.includes('node_modules')
 
   // Check if path is in project (under root and not in node_modules)
   const inProject = normalizedPath.startsWith(normalizedRoot) && !inNodeModules
@@ -154,17 +154,16 @@ export function processFilePath(
 
   // Normalize the path (handle file:// URLs)
   const absolutePath = normalizeFileUrlOrPath(filePath)
-  
+
   // Check if it's a Windows absolute path (C:\... or C:/...)
   const isWindowsAbsolute = /^[A-Za-z]:[\\\/]/.test(absolutePath)
-  
+
   // Get classification
   const { inProject, inNodeModules } = classify(absolutePath, rootDir)
-  
+
   // Convert to repo-relative if possible
-  const fileRelative = (isAbsolute(absolutePath) || isWindowsAbsolute)
-    ? toRepoRelative(absolutePath, rootDir)
-    : filePath // Keep original if not absolute
+  const fileRelative =
+    isAbsolute(absolutePath) || isWindowsAbsolute ? toRepoRelative(absolutePath, rootDir) : filePath // Keep original if not absolute
 
   const result: ReturnType<typeof processFilePath> = {
     fileRelative,

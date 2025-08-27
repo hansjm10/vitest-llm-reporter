@@ -15,7 +15,6 @@ import { LateTruncator } from '../truncation/LateTruncator.js'
 import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
 import { normalizeAssertionValue } from '../utils/type-guards.js'
 
-
 /**
  * Default output builder configuration
  */
@@ -34,7 +33,6 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
     enableMetrics: false
   }
 }
-
 
 /**
  * Builds the final reporter output

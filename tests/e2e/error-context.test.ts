@@ -206,8 +206,8 @@ export default defineConfig({
     expect(firstFailure.error).toHaveProperty('assertion')
     expect(firstFailure.error.assertion).toHaveProperty('expected')
     expect(firstFailure.error.assertion).toHaveProperty('actual')
-    expect(firstFailure.error.assertion.expected).toBe(20)  // Now preserved as number
-    expect(firstFailure.error.assertion.actual).toBe(4)     // Now preserved as number
+    expect(firstFailure.error.assertion.expected).toBe(20) // Now preserved as number
+    expect(firstFailure.error.assertion.actual).toBe(4) // Now preserved as number
 
     // Console capture in subprocess E2E tests is limited
     // When running tests via subprocess, console output isn't always captured

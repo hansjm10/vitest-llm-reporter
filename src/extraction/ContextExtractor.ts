@@ -133,7 +133,7 @@ export class ContextExtractor {
 
         // Process the file path to get relative/absolute and classification
         const pathInfo = processFilePath(file, this.options.rootDir, includeAbsolute)
-        
+
         // Optionally filter external node_modules (but we want to keep them for classification)
         // Only filter if explicitly set to filter AND it's a node_modules path
         // By default, we keep node_modules frames to show proper classification
@@ -167,7 +167,7 @@ export class ContextExtractor {
 
         // Process the file path to get relative/absolute and classification
         const pathInfo = processFilePath(file, this.options.rootDir, includeAbsolute)
-        
+
         // Optionally filter external node_modules (but we want to keep them for classification)
         // Only filter if explicitly set to filter AND it's a node_modules path
         // By default, we keep node_modules frames to show proper classification
@@ -239,7 +239,6 @@ export class ContextExtractor {
     return file.trim()
   }
 
-
   /**
    * Checks if a file path is an internal node module
    */
@@ -250,7 +249,7 @@ export class ContextExtractor {
       /^\[.*\]$/, // [eval], [stdin], etc.
       /^<anonymous>$/
     ]
-    
+
     return internalPatterns.some((pattern) => pattern.test(file))
   }
 

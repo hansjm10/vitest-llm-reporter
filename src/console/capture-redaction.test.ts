@@ -58,14 +58,16 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
 
       const output = capture.stopCapture(testId)
 
-      expect(output?.logs).toBeDefined()
-      expect(output?.logs).toHaveLength(4)
+      expect(output).toBeDefined()
+      expect(output).toBeInstanceOf(Array)
+      const logEvents = output?.filter((e) => e.level === 'log') || []
+      expect(logEvents).toHaveLength(4)
 
       // Verify exact preservation of user's redaction
-      expect(output?.logs?.[0]).toBe('API Key: [REDACTED]')
-      expect(output?.logs?.[1]).toBe('Password: ***HIDDEN***')
-      expect(output?.logs?.[2]).toBe('Token: <SANITIZED>')
-      expect(output?.logs?.[3]).toBe('Secret: [REMOVED_BY_USER]')
+      expect(logEvents[0]?.text).toBe('API Key: [REDACTED]')
+      expect(logEvents[1]?.text).toBe('Password: ***HIDDEN***')
+      expect(logEvents[2]?.text).toBe('Token: <SANITIZED>')
+      expect(logEvents[3]?.text).toBe('Secret: [REMOVED_BY_USER]')
     })
 
     it('should preserve redaction in multi-line strings', async () => {
@@ -82,8 +84,9 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
 
       const output = capture.stopCapture(testId)
 
-      expect(output?.logs?.[0]).toContain('password: [REDACTED]')
-      expect(output?.logs?.[0]).toContain('host: localhost') // Other data preserved
+      const logEvents = output?.filter((e) => e.level === 'log') || []
+      expect(logEvents[0]?.text).toContain('password: [REDACTED]')
+      expect(logEvents[0]?.text).toContain('host: localhost') // Other data preserved
     })
   })
 
@@ -105,8 +108,9 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
 
       const output = capture.stopCapture(testId)
 
-      expect(output?.logs).toBeDefined()
-      const logOutput = output?.logs?.[0] || ''
+      expect(output).toBeDefined()
+      const logEvents = output?.filter((e) => e.level === 'log') || []
+      const logOutput = logEvents[0]?.text || ''
 
       // Verify redacted values are preserved in the object output
       expect(logOutput).toContain("apiKey: '[REDACTED]'")
@@ -134,7 +138,8 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
       })
 
       const output = capture.stopCapture(testId)
-      const logOutput = output?.logs?.[0] || ''
+      const logEvents = output?.filter((e) => e.level === 'log') || []
+      const logOutput = logEvents[0]?.text || ''
 
       expect(logOutput).toContain('[REDACTED_BY_LOGGER]')
       expect(logOutput).toContain("apiKey: '***'")
@@ -156,9 +161,12 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
       const output = capture.stopCapture(testId)
 
       // Check each method preserved redaction
-      expect(output?.logs?.[0]).toBe('User: john@example.com Password: [REDACTED]')
-      expect(output?.errors?.[0]).toBe('Auth failed for token: [SANITIZED]')
-      expect(output?.warns?.[0]).toBe('Sensitive operation on key: ***')
+      const logEvents = output?.filter((e) => e.level === 'log') || []
+      const errorEvents = output?.filter((e) => e.level === 'error') || []
+      const warnEvents = output?.filter((e) => e.level === 'warn') || []
+      expect(logEvents[0]?.text).toBe('User: john@example.com Password: [REDACTED]')
+      expect(errorEvents[0]?.text).toBe('Auth failed for token: [SANITIZED]')
+      expect(warnEvents[0]?.text).toBe('Sensitive operation on key: ***')
     })
   })
 
@@ -182,7 +190,9 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
       const output = capture.stopCapture(testId)
 
       // All patterns should be preserved exactly
-      expect(output?.logs).toEqual([
+      const logEvents2 = output?.filter((e) => e.level === 'log') || []
+      const logTexts = logEvents2.map((e) => e.text)
+      expect(logTexts).toEqual([
         'fastRedact style: [REDACTED]',
         'Winston style: ***',
         'Pino style: [Redacted]',
@@ -208,9 +218,10 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
 
       const output = capture.stopCapture(testId)
 
-      expect(output?.logs?.[0]).toBe('Password: ')
-      expect(output?.logs?.[1]).toBe('Token: []')
-      expect(output?.logs?.[2]).toBe('Secret: ()')
+      const logEvents3 = output?.filter((e) => e.level === 'log') || []
+      expect(logEvents3[0]?.text).toBe('Password: ')
+      expect(logEvents3[1]?.text).toBe('Token: []')
+      expect(logEvents3[2]?.text).toBe('Secret: ()')
     })
 
     it('should preserve redaction in error objects', async () => {
@@ -226,7 +237,8 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
       })
 
       const output = capture.stopCapture(testId)
-      const errorOutput = output?.errors?.[0] || ''
+      const errorEvents = output?.filter((e) => e.level === 'error') || []
+      const errorOutput = errorEvents[0]?.text || ''
 
       expect(errorOutput).toContain('[REDACTED]')
       expect(errorOutput).toContain('***REMOVED***')
@@ -247,9 +259,10 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
       const output = capture.stopCapture(testId)
 
       // Should capture exactly what user logged - no added redaction
-      expect(output?.logs?.[0]).toBe('password: myPassword123')
-      expect(output?.logs?.[1]).toBe('apiKey: sk_test_realkey')
-      expect(output?.logs?.[2]).toContain('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')
+      const logEvents4 = output?.filter((e) => e.level === 'log') || []
+      expect(logEvents4[0]?.text).toBe('password: myPassword123')
+      expect(logEvents4[1]?.text).toBe('apiKey: sk_test_realkey')
+      expect(logEvents4[2]?.text).toContain('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')
     })
   })
 
@@ -264,7 +277,8 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
       })
 
       const output = capture.stopCapture(testId)
-      const logOutput = output?.logs?.[0] || ''
+      const logEvents = output?.filter((e) => e.level === 'log') || []
+      const logOutput = logEvents[0]?.text || ''
 
       // Even if truncated, the redaction marker should be preserved if it's within the limit
       expect(logOutput).toContain('[REDACTED]')

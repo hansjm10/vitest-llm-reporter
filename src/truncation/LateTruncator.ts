@@ -6,7 +6,13 @@
  * to progressively reduce content while preserving essential information.
  */
 
-import type { LLMReporterOutput, TestFailure, ConsoleOutput, TestError, AssertionValue } from '../types/schema.js'
+import type {
+  LLMReporterOutput,
+  TestFailure,
+  ConsoleEvent,
+  TestError,
+  AssertionValue
+} from '../types/schema.js'
 import type { TruncationConfig } from '../types/reporter.js'
 import type { LateTruncationMetrics } from './types.js'
 import { estimateTokens } from '../tokenization/estimator.js'
@@ -14,20 +20,19 @@ import {
   truncateStackTrace,
   truncateCodeContext,
   truncateAssertionValue,
-  applyFairCaps,
   safeTrimToChars
 } from './utils.js'
 
-
 /**
- * Console output limits for different phases
+ * Console event limits for different phases
  */
-interface ConsoleOutputLimits {
-  debug: number
-  info: number
-  warns: number
-  logs: number
-  errors: number
+interface ConsoleEventLimits {
+  maxDebug: number
+  maxInfo: number
+  maxWarn: number
+  maxLog: number
+  maxError: number
+  maxTotal: number
 }
 
 /**
@@ -36,8 +41,7 @@ interface ConsoleOutputLimits {
 export class LateTruncator {
   private metrics: LateTruncationMetrics[] = []
 
-  constructor() {
-  }
+  constructor() {}
 
   /**
    * Apply late truncation to the complete output
@@ -172,13 +176,14 @@ export class LateTruncator {
       return result
     }
 
-    // Define console output limits for this phase
-    const consoleLimits: ConsoleOutputLimits = {
-      debug: 0, // Remove debug entirely
-      info: 100, // 25 lines * 4 chars/token estimate
-      warns: 100, // 25 lines * 4 chars/token estimate
-      logs: 100, // 25 lines * 4 chars/token estimate
-      errors: 400 // 100 lines * 4 chars/token estimate
+    // Define console event limits for this phase
+    const consoleLimits: ConsoleEventLimits = {
+      maxDebug: 0, // Remove debug entirely
+      maxInfo: 10, // Limit info events
+      maxWarn: 10, // Limit warn events
+      maxLog: 20, // Limit log events
+      maxError: 40, // Preserve more error events
+      maxTotal: 80 // Total event limit
     }
 
     // Apply truncation to each failure
@@ -208,12 +213,13 @@ export class LateTruncator {
       // Progressively tighter limits each iteration
       const tightnessRatio = 1 - iteration * 0.2 // 80%, 60%, 40%, 20%, 0%
 
-      const consoleLimits: ConsoleOutputLimits = {
-        debug: 0,
-        info: Math.floor(50 * tightnessRatio),
-        warns: Math.floor(50 * tightnessRatio),
-        logs: Math.floor(50 * tightnessRatio),
-        errors: Math.floor(200 * tightnessRatio)
+      const consoleLimits: ConsoleEventLimits = {
+        maxDebug: 0,
+        maxInfo: Math.floor(5 * tightnessRatio),
+        maxWarn: Math.floor(5 * tightnessRatio),
+        maxLog: Math.floor(10 * tightnessRatio),
+        maxError: Math.floor(20 * tightnessRatio), // Keep errors longer
+        maxTotal: Math.floor(40 * tightnessRatio)
       }
 
       // Apply increasingly aggressive truncation
@@ -258,12 +264,12 @@ export class LateTruncator {
   /**
    * Truncate a single failure
    */
-  private truncateFailure(failure: TestFailure, consoleLimits: ConsoleOutputLimits): TestFailure {
+  private truncateFailure(failure: TestFailure, consoleLimits: ConsoleEventLimits): TestFailure {
     const result: TestFailure = { ...failure }
 
-    // Truncate console output
-    if (result.console) {
-      result.console = this.truncateFailureConsole(result.console, consoleLimits)
+    // Truncate console events
+    if (result.consoleEvents) {
+      result.consoleEvents = this.truncateConsoleEvents(result.consoleEvents, consoleLimits)
     }
 
     // Truncate error details
@@ -275,62 +281,53 @@ export class LateTruncator {
   }
 
   /**
-   * Truncate console output for a failure
+   * Truncate console events for a failure
    */
-  private truncateFailureConsole(
-    console: ConsoleOutput,
-    limits: ConsoleOutputLimits
-  ): ConsoleOutput {
-    const result: ConsoleOutput = {}
-
-    // Remove debug entirely if limit is 0
-    if (console.debug && limits.debug > 0) {
-      result.debug = this.capConsoleCategory(console.debug, limits.debug)
+  private truncateConsoleEvents(
+    events: ConsoleEvent[],
+    limits: ConsoleEventLimits
+  ): ConsoleEvent[] {
+    const result: ConsoleEvent[] = []
+    const counts = {
+      debug: 0,
+      trace: 0,
+      info: 0,
+      warn: 0,
+      log: 0,
+      error: 0
     }
 
-    // Cap other categories
-    if (console.info) {
-      result.info = this.capConsoleCategory(console.info, limits.info)
-    }
+    for (const event of events) {
+      // Skip debug/trace entirely if limit is 0
+      if ((event.level === 'debug' || event.level === 'trace') && limits.maxDebug === 0) {
+        continue
+      }
 
-    if (console.warns) {
-      result.warns = this.capConsoleCategory(console.warns, limits.warns)
-    }
+      // Check level-specific limits
+      const levelKey = event.level === 'trace' ? 'debug' : event.level
+      if (levelKey === 'debug' && counts.debug >= limits.maxDebug) continue
+      if (levelKey === 'info' && counts.info >= limits.maxInfo) continue
+      if (levelKey === 'warn' && counts.warn >= limits.maxWarn) continue
+      if (levelKey === 'log' && counts.log >= limits.maxLog) continue
+      if (levelKey === 'error' && counts.error >= limits.maxError) continue
 
-    if (console.logs) {
-      result.logs = this.capConsoleCategory(console.logs, limits.logs)
-    }
+      // Check total limit
+      if (result.length >= limits.maxTotal) {
+        // Add truncation event if we're cutting off
+        if (result.length === limits.maxTotal) {
+          result.push({
+            level: 'warn',
+            text: '[Console output truncated - limit reached]'
+          })
+        }
+        break
+      }
 
-    // Preserve errors more generously
-    if (console.errors) {
-      result.errors = this.capConsoleCategory(console.errors, limits.errors)
+      result.push(event)
+      counts[levelKey]++
     }
 
     return result
-  }
-
-  /**
-   * Cap a console category to a character limit
-   */
-  private capConsoleCategory(logs: string[], charLimit: number): string[] {
-    if (charLimit <= 0) return []
-
-    const combined = logs.join('\n')
-    if (combined.length <= charLimit) {
-      return logs
-    }
-
-    // Use fair capping to distribute budget
-    const capped = applyFairCaps(logs, charLimit, 50)
-
-    // If still over, just truncate the combined string
-    const cappedCombined = capped.join('\n')
-    if (cappedCombined.length > charLimit) {
-      const truncated = safeTrimToChars(cappedCombined, charLimit - 20, { preferBoundaries: true })
-      return [truncated + '\n...[truncated]']
-    }
-
-    return capped
   }
 
   /**
@@ -352,7 +349,10 @@ export class LateTruncator {
 
       // Truncate assertion values while preserving types
       if (result.context.expected !== undefined) {
-        result.context.expected = truncateAssertionValue(result.context.expected, 200) as AssertionValue
+        result.context.expected = truncateAssertionValue(
+          result.context.expected,
+          200
+        ) as AssertionValue
       }
 
       if (result.context.actual !== undefined) {
@@ -363,13 +363,19 @@ export class LateTruncator {
     // Similar for assertion details
     if (result.assertion) {
       if (result.assertion.expected !== undefined) {
-        result.assertion.expected = truncateAssertionValue(result.assertion.expected, 200) as AssertionValue
+        result.assertion.expected = truncateAssertionValue(
+          result.assertion.expected,
+          200
+        ) as AssertionValue
       }
 
       if (result.assertion.actual !== undefined) {
-        result.assertion.actual = truncateAssertionValue(result.assertion.actual, 200) as AssertionValue
+        result.assertion.actual = truncateAssertionValue(
+          result.assertion.actual,
+          200
+        ) as AssertionValue
       }
-      
+
       // Type metadata should already be set by ErrorExtractor
       // but if we need to update it after truncation for complex values:
       if (result.assertion.expectedType === undefined && result.assertion.expected !== undefined) {
@@ -386,7 +392,9 @@ export class LateTruncator {
   /**
    * Determines the type of a value for metadata
    */
-  private getValueType(value: unknown): 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array' {
+  private getValueType(
+    value: unknown
+  ): 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array' {
     if (value === null) return 'null'
     if (typeof value === 'string') return 'string'
     if (typeof value === 'number') return 'number'
@@ -430,7 +438,7 @@ export class LateTruncator {
   /**
    * Update configuration (model)
    */
-  updateConfig(config: TruncationConfig): void {
+  updateConfig(_config: TruncationConfig): void {
     // No-op for now; kept for future extension
   }
 }

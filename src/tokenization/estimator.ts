@@ -11,7 +11,6 @@
 
 import type { TokenEstimatorOptions } from '../types/tokenization.js'
 
-
 /**
  * Estimate token count for a single text string
  *

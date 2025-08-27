@@ -50,4 +50,3 @@ export interface MonitoringMetrics {
 // Backward compatibility type aliases
 export type PerformanceConfig = MonitoringConfig
 export type PerformanceMetrics = MonitoringMetrics
-
