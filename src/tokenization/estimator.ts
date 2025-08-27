@@ -9,7 +9,7 @@
  * Suitable for budgeting and thresholds, not for exact billing.
  */
 
-import type { TokenEstimatorOptions } from './types.js'
+import type { TokenEstimatorOptions } from '../types/tokenization.js'
 
 
 /**

@@ -326,7 +326,7 @@ export class ConsoleCapture {
  *
  * @example
  * ```typescript
- * import { consoleCapture } from './console/capture'
+ * import { consoleCapture } from './console/capture.js'
  *
  * // Start capturing for a test
  * consoleCapture.startCapture('test-id')

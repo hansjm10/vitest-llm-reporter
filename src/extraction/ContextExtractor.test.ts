@@ -10,7 +10,7 @@ vi.mock('node:fs', () => ({
 }))
 
 // Mock PathValidator to bypass filesystem checks
-vi.mock('../utils/path-validator', () => {
+vi.mock('../utils/path-validator.js', () => {
   return {
     PathValidator: class {
       constructor() {

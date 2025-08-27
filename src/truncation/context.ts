@@ -5,7 +5,7 @@
  * for managing token limits across different language models.
  */
 
-import type { SupportedModel } from '../tokenization/types.js'
+import type { SupportedModel } from '../types/tokenization.js'
 import type { TruncationContext, ModelContextInfo } from './types.js'
 import { ContentPriority } from './types.js'
 

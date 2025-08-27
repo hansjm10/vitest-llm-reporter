@@ -5,7 +5,7 @@
  * including the strategy pattern interface and context management types.
  */
 
-import type { SupportedModel } from '../tokenization/types.js'
+import type { SupportedModel } from '../types/tokenization.js'
 
 /**
  * Priority levels for content preservation during truncation
@@ -65,7 +65,7 @@ export interface TruncationResult {
  * Implementations define specific approaches to truncating content
  * while preserving important information based on context.
  */
-export interface ITruncationStrategy {
+export interface TruncationStrategy {
   /** Strategy name for identification */
   readonly name: string
 
@@ -102,6 +102,9 @@ export interface ITruncationStrategy {
    */
   estimateSavings(content: string, maxTokens: number, context: TruncationContext): Promise<number>
 }
+
+// Backward compatibility alias
+export type ITruncationStrategy = TruncationStrategy
 
 /**
  * Configuration for the truncation engine

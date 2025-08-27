@@ -6,7 +6,7 @@
  */
 
 import { MonitoringService } from './MonitoringService.js'
-import type { MonitoringConfig } from './types.js'
+import type { MonitoringConfig } from '../types/monitoring.js'
 
 export { Cache } from './Cache.js'
 export { MemoryMonitor } from './MemoryMonitor.js'
@@ -23,7 +23,7 @@ export type {
   // Backward compatibility aliases
   PerformanceConfig,
   PerformanceMetrics
-} from './types.js'
+} from '../types/monitoring.js'
 
 // For backward compatibility during migration
 export { MonitoringService as PerformanceManager } from './MonitoringService.js'

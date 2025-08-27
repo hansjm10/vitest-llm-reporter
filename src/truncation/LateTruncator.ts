@@ -8,7 +8,7 @@
 
 import type { LLMReporterOutput, TestFailure, ConsoleOutput, TestError } from '../types/schema.js'
 import type { TruncationConfig } from '../types/reporter.js'
-import type { SupportedModel } from '../tokenization/types.js'
+import type { SupportedModel } from '../types/tokenization.js'
 import type { LateTruncationMetrics } from './types.js'
 import { estimateTokens } from '../tokenization/estimator.js'
 import { getEffectiveMaxTokens } from './context.js'

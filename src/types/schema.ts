@@ -2,7 +2,7 @@
  * JSON Schema Type Definitions for LLM-Optimized Test Results
  *
  * This file contains ONLY type definitions.
- * For validation logic, use the SchemaValidator class from '../validation/validator'
+ * For validation logic, use the SchemaValidator class from '../validation/validator.js'
  *
  * @module schema
  */

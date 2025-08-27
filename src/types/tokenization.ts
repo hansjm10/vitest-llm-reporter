@@ -1,7 +1,12 @@
 /**
+ * Tokenization Types (shared)
+ *
+ * Public/shared tokenization type definitions used across modules.
+ */
+
+/**
  * Supported language models for tokenization
- * NOTE: Model is now a pass-through string, no model-specific logic is applied.
- * Token estimation is the same for all models.
+ * NOTE: Model is a pass-through string; no model-specific logic is applied.
  */
 export type SupportedModel = string
 
@@ -40,3 +45,4 @@ export interface TokenEstimatorOptions {
    */
   charsPerToken?: number
 }
+

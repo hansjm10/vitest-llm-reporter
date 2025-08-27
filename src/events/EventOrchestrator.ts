@@ -29,7 +29,7 @@ import type { TruncationConfig } from '../types/reporter.js'
  *
  * @example
  * ```typescript
- * import { DEFAULT_ORCHESTRATOR_CONFIG } from './events/EventOrchestrator'
+ * import { DEFAULT_ORCHESTRATOR_CONFIG } from './events/EventOrchestrator.js'
  *
  * const customConfig = {
  *   ...DEFAULT_ORCHESTRATOR_CONFIG,

@@ -230,7 +230,7 @@ export class ConsoleMerger {
  *
  * @example
  * ```typescript
- * import { consoleMerger } from './console/merge'
+ * import { consoleMerger } from './console/merge.js'
  *
  * // Merge console outputs from different sources
  * const merged = consoleMerger.merge(vitestOutput, customOutput)

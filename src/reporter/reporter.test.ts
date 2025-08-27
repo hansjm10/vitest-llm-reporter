@@ -7,7 +7,7 @@ import {
   createMockTestCase,
   createMockTestModule,
   createMockTestSpecification
-} from '../test-utils/mock-data'
+} from '../test-utils/mock-data.js'
 
 describe('LLMReporter', () => {
   let reporter: LLMReporter

@@ -6,7 +6,7 @@
  */
 
 import { DEFAULT_MEMORY_WARNING_THRESHOLD } from './constants.js'
-import type { MemoryInfo } from './types.js'
+import type { MemoryInfo } from '../types/monitoring.js'
 
 export class MemoryMonitor {
   private warningThreshold = DEFAULT_MEMORY_WARNING_THRESHOLD

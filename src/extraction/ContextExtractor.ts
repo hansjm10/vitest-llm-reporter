@@ -8,7 +8,8 @@
  */
 
 import { readFileSync } from 'node:fs'
-import type { StackFrame, ContextExtractionOptions } from '../types/extraction.js'
+import type { ContextExtractionOptions } from '../types/extraction.js'
+import type { StackFrame } from '../types/schema.js'
 import type { ErrorContext } from '../types/schema.js'
 import { PathValidator } from '../utils/path-validator.js'
 import { extractionLogger, errorLogger, securityLogger } from '../utils/logger.js'

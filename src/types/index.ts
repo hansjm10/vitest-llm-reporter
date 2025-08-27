@@ -15,10 +15,10 @@ export type {
   TestError,
   ErrorContext,
   AssertionValue
-} from './schema'
+} from './schema.js'
 
 // Reporter configuration types
-export type { LLMReporterConfig, TruncationConfig } from './reporter'
+export type { LLMReporterConfig, TruncationConfig } from './reporter.js'
 
 // Console types
 export type {
@@ -26,18 +26,36 @@ export type {
   ConsoleEntry,
   ConsoleBufferConfig,
   ConsoleCaptureConfig
-} from './console'
+} from './console.js'
 
 // Extraction types
 export type {
   NormalizedError,
   ErrorExtractionConfig,
-  StackFrame,
-  AssertionDetails,
   ExtractedTestCase,
   ExtractionConfig,
   ContextExtractionOptions
-} from './extraction'
+} from './extraction.js'
+
+// Shared stack/asserion types now live in schema
+export type { StackFrame, AssertionDetails } from './schema.js'
+
+// Monitoring types
+export type {
+  MonitoringConfig,
+  MonitoringMetrics,
+  CacheStats,
+  MemoryInfo,
+  OperationRecord
+} from './monitoring.js'
+
+// Tokenization types
+export type {
+  SupportedModel,
+  TokenizationConfig,
+  TokenizationResult,
+  TokenEstimatorOptions
+} from './tokenization.js'
 
 // Internal reporter types
 export type {
@@ -46,10 +64,10 @@ export type {
   TestBase,
   VitestSuite,
   TestCaseData
-} from './reporter-internal'
+} from './reporter-internal.js'
 
 // State types
-export type { StateConfig, TestResults, ModuleTiming, StateSnapshot, TestStatistics } from './state'
+export type { StateConfig, TestResults, ModuleTiming, StateSnapshot, TestStatistics } from './state.js'
 
 // Vitest object types
-export type { ExtractedError, VitestErrorContext } from './vitest-objects'
+export type { ExtractedError, VitestErrorContext } from './vitest-objects.js'

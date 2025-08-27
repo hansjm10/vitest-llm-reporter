@@ -16,7 +16,7 @@ import type {
   TestError,
   ErrorContext,
   AssertionValue
-} from '../types/schema'
+} from '../types/schema.js'
 import type { ValidationConfig, ValidationError, ValidationResult } from './types.js'
 
 import { validateFilePath, createSafeObject } from '../utils/sanitization.js'

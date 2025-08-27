@@ -5,7 +5,7 @@ import {
   isValidTestSummary,
   isValidTestFailure,
   isValidTestResult
-} from '../test-utils/validation-helpers'
+} from '../test-utils/validation-helpers.js'
 
 describe('LLM Reporter Schema', () => {
   const validator = new SchemaValidator()

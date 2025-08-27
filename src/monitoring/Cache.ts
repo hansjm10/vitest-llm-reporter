@@ -5,7 +5,7 @@
  */
 
 import { CACHE_TTL_MS, DEFAULT_CACHE_SIZE } from './constants.js'
-import type { CacheStats } from './types.js'
+import type { CacheStats } from '../types/monitoring.js'
 
 export class Cache<T> {
   private cache = new Map<string, { value: T; timestamp: number }>()

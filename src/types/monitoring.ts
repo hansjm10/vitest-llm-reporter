@@ -1,8 +1,7 @@
 /**
- * Monitoring Types
+ * Monitoring Types (shared)
  *
- * Simple type definitions for the monitoring system.
- * No complex hierarchies or over-engineered interfaces.
+ * Public/shared monitoring type definitions used across modules.
  */
 
 export interface MonitoringConfig {
@@ -51,3 +50,4 @@ export interface MonitoringMetrics {
 // Backward compatibility type aliases
 export type PerformanceConfig = MonitoringConfig
 export type PerformanceMetrics = MonitoringMetrics
+

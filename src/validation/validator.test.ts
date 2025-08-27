@@ -6,7 +6,7 @@ import {
   createOutputWithPassed,
   createOutputWithCode,
   createXSSTestOutput
-} from '../test-utils'
+} from '../test-utils/index.js'
 
 describe('SchemaValidator', () => {
   describe('Concurrent Validation', () => {

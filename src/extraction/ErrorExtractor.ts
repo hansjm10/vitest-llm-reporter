@@ -17,20 +17,15 @@ import {
 } from '../utils/type-guards.js'
 import { extractLineNumber } from '../reporter/helpers.js'
 import { ContextExtractor } from './ContextExtractor.js'
-import type {
-  NormalizedError,
-  ErrorExtractionConfig,
-  StackFrame,
-  AssertionDetails
-} from '../types/extraction'
-import type { ErrorContext } from '../types/schema.js'
+import type { NormalizedError, ErrorExtractionConfig } from '../types/extraction.js'
+import type { StackFrame, AssertionDetails, ErrorContext } from '../types/schema.js'
 
 /**
  * Default error extraction configuration
  *
  * @example
  * ```typescript
- * import { DEFAULT_ERROR_CONFIG } from './extraction/ErrorExtractor'
+ * import { DEFAULT_ERROR_CONFIG } from './extraction/ErrorExtractor.js'
  *
  * const customConfig = {
  *   ...DEFAULT_ERROR_CONFIG,

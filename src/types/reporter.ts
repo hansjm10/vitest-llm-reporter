@@ -7,7 +7,7 @@
  * @module reporter-types
  */
 
-import type { PerformanceConfig } from '../monitoring/types.js'
+import type { PerformanceConfig } from './monitoring.js'
 
 /**
  * Configuration options for the LLM Reporter

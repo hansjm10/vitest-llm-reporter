@@ -8,7 +8,7 @@
 import { Cache } from './Cache.js'
 import { MemoryMonitor } from './MemoryMonitor.js'
 import { Metrics } from './Metrics.js'
-import type { MonitoringConfig, MonitoringMetrics } from './types.js'
+import type { MonitoringConfig, MonitoringMetrics } from '../types/monitoring.js'
 import { DEFAULT_CACHE_SIZE } from './constants.js'
 
 export class MonitoringService {

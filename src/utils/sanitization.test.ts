@@ -4,7 +4,7 @@ import {
   escapeJsonArray,
   validateFilePath,
   createSafeObject
-} from './sanitization'
+} from './sanitization.js'
 
 describe('Sanitization Utilities', () => {
   describe('escapeJsonString', () => {

@@ -6,6 +6,7 @@
  *
  * @module extraction-types
  */
+import type { StackFrame, AssertionDetails } from './schema.js'
 
 /**
  * Normalized error information
@@ -51,21 +52,7 @@ export interface ErrorExtractionConfig {
 /**
  * Stack frame information from error stack traces
  */
-export interface StackFrame {
-  file: string
-  line: number
-  column?: number
-  function?: string
-}
-
-/**
- * Assertion details for test failures
- */
-export interface AssertionDetails {
-  expected: unknown
-  actual: unknown
-  operator?: string
-}
+// StackFrame and AssertionDetails are unified in schema types
 
 /**
  * Extracted test case information

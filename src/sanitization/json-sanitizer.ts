@@ -15,7 +15,7 @@ import type {
   TestError,
   ErrorContext,
   AssertionValue
-} from '../types/schema'
+} from '../types/schema.js'
 import type { JsonSanitizerConfig } from './types.js'
 
 import { escapeJsonString, escapeJsonArray, createSafeObject } from '../utils/sanitization.js'

@@ -10,7 +10,7 @@ import type { File, Test } from '@vitest/runner'
 import { ExtractedError, VitestErrorContext } from '../types/vitest-objects.js'
 import type { AssertionValue } from '../types/schema.js'
 
-export type { ExtractedError } from '../types/vitest-objects'
+export type { ExtractedError } from '../types/vitest-objects.js'
 
 // ============================================================================
 // Safe Property Access Helpers (Internal)

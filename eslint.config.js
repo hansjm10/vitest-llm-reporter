@@ -94,6 +94,22 @@ export default [
     }
   },
   {
+    files: ['src/types/**/*.ts'],
+    rules: {
+      // Prevent shared types from depending on module-local type files
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            '../*/types.js',
+            '../../*/types.js',
+            '../../../*/types.js'
+          ]
+        }
+      ]
+    }
+  },
+  {
     ignores: [
       'dist/',
       'node_modules/',
