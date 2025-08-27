@@ -39,6 +39,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
   ] as const)('Reporter processes %s tests', (_label, count, maxMs, maxMemMB) => {
     it(`completes within ${maxMs}ms`, async () => {
       const tests = TestDataGenerator.generateTests(count)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const module = TestDataGenerator.wrapTasksInModule(tests)
 
       const result = await runner.run(`large_suite_${_label}`, async () => {
         const outputFile = join(tmpdir(), `bench-${_label}-${Date.now()}.json`)
@@ -52,8 +54,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
           maxTokens: count > 1000 ? 10000 : undefined
         })
 
-        reporter.onInit({} as unknown as Vitest)
-        await reporter.onTestRunEnd(tests as unknown as TestModule[], [], 'passed')
+        reporter.onInit({ config: { root: '/test' } } as unknown as Vitest)
+        await reporter.onTestRunEnd([module] as unknown as TestModule[], [], 'passed')
       })
 
       PerformanceAssertions.assertPerformance(result, maxMs, `Large suite ${_label}`)
@@ -71,6 +73,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
       consoleEvery: 10,
       complexErrorsEvery: 15
     })
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const module = TestDataGenerator.wrapTasksInModule(tests)
 
     const result = await runner.run('large_suite_memory_pressure', async () => {
       const outputFile = join(tmpdir(), `bench-memory-${Date.now()}.json`)
@@ -84,8 +88,8 @@ describe('Large Test Suite Performance Benchmarks', () => {
         maxTokens: 8000
       })
 
-      reporter.onInit({} as unknown as Vitest)
-      await reporter.onTestRunEnd(tests as unknown as TestModule[], [], 'passed')
+      reporter.onInit({ config: { root: '/test' } } as unknown as Vitest)
+      await reporter.onTestRunEnd([module] as unknown as TestModule[], [], 'passed')
     })
 
     PerformanceAssertions.assertPerformance(result, 12000, 'Memory pressure suite')

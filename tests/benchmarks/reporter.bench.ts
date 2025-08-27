@@ -35,14 +35,16 @@ describe('Reporter Performance Benchmarks', () => {
   ] as const)('Reporter %s suite', (_label, count, maxMs) => {
     it(`processes ${count} test(s) within ${maxMs}ms`, async () => {
       const tasks = TestDataGenerator.generateTests(count)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const module = TestDataGenerator.wrapTasksInModule(tasks)
 
       const result = await runner.run(`reporter_${_label}_suite`, async () => {
         const outputFile = join(tmpdir(), `bench-${_label}-${Date.now()}.json`)
         tempFiles.push(outputFile)
 
         const reporter = new LLMReporter({ outputFile, verbose: false, includePassedTests: true })
-        reporter.onInit({} as unknown as Vitest)
-        await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
+        reporter.onInit({ config: { root: '/test' } } as unknown as Vitest)
+        await reporter.onTestRunEnd([module] as unknown as TestModule[], [], 'passed')
       })
 
       PerformanceAssertions.assertPerformance(result, maxMs, `Reporter ${_label}`)
@@ -55,6 +57,8 @@ describe('Reporter Performance Benchmarks', () => {
 
   it('reflects configuration impact', async () => {
     const tasks = TestDataGenerator.generateTests(50)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const module = TestDataGenerator.wrapTasksInModule(tasks)
 
     const verboseTrunc = await runner.run('reporter_verbose_trunc', async () => {
       const outputFile = join(tmpdir(), `bench-verbose-trunc-${Date.now()}.json`)
@@ -67,8 +71,8 @@ describe('Reporter Performance Benchmarks', () => {
         truncation: { enabled: true, maxTokens: 5000 }
       })
 
-      reporter.onInit({} as unknown as Vitest)
-      await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
+      reporter.onInit({ config: { root: '/test' } } as unknown as Vitest)
+      await reporter.onTestRunEnd([module] as unknown as TestModule[], [], 'passed')
     })
 
     const simple = await runner.run('reporter_simple', async () => {
@@ -76,8 +80,8 @@ describe('Reporter Performance Benchmarks', () => {
       tempFiles.push(outputFile)
 
       const reporter = new LLMReporter({ outputFile, verbose: false, includePassedTests: false })
-      reporter.onInit({} as unknown as Vitest)
-      await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
+      reporter.onInit({ config: { root: '/test' } } as unknown as Vitest)
+      await reporter.onTestRunEnd([module] as unknown as TestModule[], [], 'passed')
     })
 
     // Expect performance difference to be within a reasonable factor (direction-agnostic)
@@ -91,14 +95,16 @@ describe('Reporter Performance Benchmarks', () => {
 
   it('handles error-heavy suites efficiently', async () => {
     const tasks = TestDataGenerator.generateTests(30, { failureRate: 0.5, complexErrorsEvery: 3 })
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const module = TestDataGenerator.wrapTasksInModule(tasks)
 
     const result = await runner.run('reporter_errors', async () => {
       const outputFile = join(tmpdir(), `bench-errors-${Date.now()}.json`)
       tempFiles.push(outputFile)
 
       const reporter = new LLMReporter({ outputFile, verbose: true, includePassedTests: true })
-      reporter.onInit({} as unknown as Vitest)
-      await reporter.onTestRunEnd(tasks as unknown as TestModule[], [], 'passed')
+      reporter.onInit({ config: { root: '/test' } } as unknown as Vitest)
+      await reporter.onTestRunEnd([module] as unknown as TestModule[], [], 'passed')
     })
 
     PerformanceAssertions.assertPerformance(result, 800, 'Error handling')

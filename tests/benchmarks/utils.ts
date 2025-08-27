@@ -79,7 +79,11 @@ export class BenchmarkRunner {
 
         iterations.push(endTime - startTime)
         successCount++
-      } catch (_error) {
+      } catch (error) {
+        // Log first error for debugging
+        if (successCount === 0 && i === 0) {
+          console.error(`First iteration error in ${name}:`, error)
+        }
         // Record failure but continue
         iterations.push(Number.MAX_SAFE_INTEGER)
       }
@@ -286,6 +290,25 @@ export class TestDataGenerator {
   }
 
   // Removed granular generators in favor of unified generateTests()
+
+  /**
+   * Wrap tasks in a TestModule structure that the reporter expects
+   * @param tasks - Array of tasks to wrap
+   * @param filepath - Optional filepath for the module
+   * @returns A TestModule-like object with children() function
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static wrapTasksInModule(tasks: Task[], filepath = '/test/benchmark.test.ts'): any {
+    return {
+      id: filepath,
+      filepath,
+      type: 'module',
+      state: () => 'completed',
+      children: () => tasks,
+      errors: () => [],
+      diagnostics: () => []
+    }
+  }
 
   /**
    * Generate memory-intensive test data
