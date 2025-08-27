@@ -39,14 +39,11 @@ export interface TestSummary {
 
 /**
  * Error context with relevant code
+ * Note: Assertion values (expected/actual) are stored in error.assertion, not in context
  */
 export interface ErrorContext {
   /** Relevant code lines around the error */
   code: string[]
-  /** Expected value in assertion (optional) */
-  expected?: AssertionValue
-  /** Actual value in assertion (optional) */
-  actual?: AssertionValue
   /** Line number in the code (optional) */
   lineNumber?: number
   /** Column number in the code (optional) */

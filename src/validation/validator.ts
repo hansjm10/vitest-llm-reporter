@@ -855,18 +855,6 @@ export class SchemaValidator {
       }
     }
 
-    // Validate assertion values
-    if (hasProperty(ctx, 'expected') && ctx.expected !== undefined) {
-      if (!this.isValidAssertionValue(ctx.expected, context, `${path}.expected`)) {
-        return false
-      }
-    }
-
-    if (hasProperty(ctx, 'actual') && ctx.actual !== undefined) {
-      if (!this.isValidAssertionValue(ctx.actual, context, `${path}.actual`)) {
-        return false
-      }
-    }
 
     return true
   }

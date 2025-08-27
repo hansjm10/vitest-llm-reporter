@@ -253,8 +253,8 @@ describe('LLMReporter', () => {
 
         const state = reporter.getState()
         const failure = state.testResults.failed[0]
-        expect(failure.error.context?.expected).toBe(5)
-        expect(failure.error.context?.actual).toBe(3)
+        expect(failure.error.assertion?.expected).toBe(5)
+        expect(failure.error.assertion?.actual).toBe(3)
         expect(failure.error.context?.lineNumber).toBe(12)
       })
     })

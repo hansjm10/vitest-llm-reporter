@@ -79,8 +79,6 @@ describe('LLM Reporter Schema', () => {
               '16:   return result;',
               '17: }'
             ],
-            expected: 5,
-            actual: 4,
             lineNumber: 15,
             columnNumber: 12
           }
@@ -187,8 +185,6 @@ describe('LLM Reporter Schema', () => {
                   '45: expect(calculateTax(price)).toBe(105.50);',
                   '46: // Tax should be 5.5%'
                 ],
-                expected: 105.5,
-                actual: 105.0,
                 lineNumber: 45
               }
             }

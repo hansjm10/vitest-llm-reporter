@@ -296,9 +296,8 @@ export class ErrorExtractor {
    * 2. Existing error context (from error object)
    * 3. Assertion-only context (when only test values available)
    */
-  // Note: Assertion values are intentionally not merged into context here.
-  // ErrorContextBuilder is responsible for enriching context with expected/actual
-  // to keep a single point of truth for context shaping.
+  // Note: Assertion values (expected/actual) are stored separately in error.assertion,
+  // not in error.context, to avoid duplication. Context only contains code and location info.
 
   /**
    * Determines the type of an assertion value

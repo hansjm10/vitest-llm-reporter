@@ -181,14 +181,6 @@ export class JsonSanitizer {
       code: escapeJsonArray(safeContext.code as string[])
     }
 
-    if (safeContext.expected !== undefined) {
-      sanitized.expected = this.sanitizeAssertionValue(safeContext.expected as AssertionValue)
-    }
-
-    if (safeContext.actual !== undefined) {
-      sanitized.actual = this.sanitizeAssertionValue(safeContext.actual as AssertionValue)
-    }
-
     if (safeContext.lineNumber !== undefined) {
       sanitized.lineNumber = safeContext.lineNumber as number
     }

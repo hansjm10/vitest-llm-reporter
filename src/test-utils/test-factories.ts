@@ -109,8 +109,6 @@ export const createFailureWithContext = (testName: string, codeLines: string[]):
     stack: `AssertionError: ${testName} failed\n    at /test/context.test.ts:15:10`,
     context: {
       code: codeLines,
-      expected: 'expected value',
-      actual: 'actual value',
       lineNumber: 15,
       columnNumber: 10
     }

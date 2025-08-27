@@ -346,18 +346,6 @@ export class LateTruncator {
       if (result.context.code) {
         result.context.code = truncateCodeContext(result.context.code, result.context.lineNumber, 2)
       }
-
-      // Truncate assertion values while preserving types
-      if (result.context.expected !== undefined) {
-        result.context.expected = truncateAssertionValue(
-          result.context.expected,
-          200
-        ) as AssertionValue
-      }
-
-      if (result.context.actual !== undefined) {
-        result.context.actual = truncateAssertionValue(result.context.actual, 200) as AssertionValue
-      }
     }
 
     // Similar for assertion details

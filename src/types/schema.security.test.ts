@@ -498,8 +498,6 @@ describe('Security Validation Tests', () => {
               type: 'AssertionError',
               context: {
                 code: ['test code'],
-                expected: circular,
-                actual: { normal: 'value' },
                 lineNumber: 5
               }
             }
@@ -534,8 +532,6 @@ describe('Security Validation Tests', () => {
               type: 'AssertionError',
               context: {
                 code: ['test code'],
-                expected: { nested: { value: 123 } },
-                actual: { nested: { value: 456 } },
                 lineNumber: 5
               }
             }
@@ -1014,15 +1010,7 @@ describe('Security Validation Tests', () => {
               message: 'Complex error',
               type: 'Error',
               context: {
-                code: ['line1', 'line2'],
-                expected: {
-                  nested: {
-                    deeply: {
-                      value: 'x'.repeat(1000)
-                    }
-                  }
-                },
-                actual: [1, 2, 3, { arr: Array(100).fill('item') }]
+                code: ['line1', 'line2']
               }
             }
           }

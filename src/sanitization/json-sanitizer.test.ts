@@ -327,8 +327,7 @@ describe('JsonSanitizer', () => {
             error: {
               message: 'error',
               type: 'Error',
-              context: {
-                code: [],
+              assertion: {
                 expected: {
                   value: 'expected "value"',
                   nested: {
@@ -336,6 +335,9 @@ describe('JsonSanitizer', () => {
                   }
                 },
                 actual: ['array', 'with', '"quotes"']
+              },
+              context: {
+                code: []
               }
             }
           }
@@ -344,10 +346,10 @@ describe('JsonSanitizer', () => {
 
       const result = sanitizer.sanitize(input)
 
-      const context = result.failures![0].error.context!
-      expect((context.expected as any).value).toBe('expected \\"value\\"')
-      expect((context.expected as any).nested.field).toBe('with\\nnewline')
-      expect((context.actual as string[])[2]).toBe('\\"quotes\\"')
+      const assertion = result.failures![0].error.assertion!
+      expect((assertion.expected as any).value).toBe('expected \\"value\\"')
+      expect((assertion.expected as any).nested.field).toBe('with\\nnewline')
+      expect((assertion.actual as string[])[2]).toBe('\\"quotes\\"')
     })
 
     it('should handle max depth for nested objects', () => {
@@ -381,9 +383,12 @@ describe('JsonSanitizer', () => {
             error: {
               message: 'error',
               type: 'Error',
+              assertion: {
+                expected: deeplyNested,
+                actual: null
+              },
               context: {
-                code: [],
-                expected: deeplyNested
+                code: []
               }
             }
           }
@@ -391,7 +396,7 @@ describe('JsonSanitizer', () => {
       }
 
       const result = sanitizer.sanitize(input)
-      const expected = result.failures![0].error.context!.expected as any
+      const expected = result.failures![0].error.assertion!.expected as any
       expect(expected.level1.level2.level3).toBe('[Max depth exceeded]')
     })
   })

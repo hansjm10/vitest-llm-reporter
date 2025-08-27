@@ -13,7 +13,6 @@ import type { TruncationConfig } from '../types/reporter.js'
 import type { OutputBuilderConfig, BuildOptions } from './types.js'
 import { LateTruncator } from '../truncation/LateTruncator.js'
 import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
-import { normalizeAssertionValue } from '../utils/type-guards.js'
 
 /**
  * Default output builder configuration
@@ -140,15 +139,7 @@ export class OutputBuilder {
         ? {
             code: Array.isArray(normalized.context.code) ? normalized.context.code : [],
             lineNumber: normalized.context.lineNumber,
-            columnNumber: normalized.context.columnNumber,
-            expected:
-              normalized.expected !== undefined
-                ? normalizeAssertionValue(normalized.expected)
-                : undefined,
-            actual:
-              normalized.actual !== undefined
-                ? normalizeAssertionValue(normalized.actual)
-                : undefined
+            columnNumber: normalized.context.columnNumber
           }
         : undefined
 

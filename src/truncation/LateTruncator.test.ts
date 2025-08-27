@@ -69,9 +69,7 @@ describe('LateTruncator', () => {
               '  });',
               '});'
             ],
-            lineNumber: 3,
-            expected: true,
-            actual: false
+            lineNumber: 3
           },
           assertion: {
             expected: true,
