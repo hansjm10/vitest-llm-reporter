@@ -27,7 +27,6 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
   truncation: {
     enabled: false,
     maxTokens: undefined,
-    model: 'gpt-4',
     strategy: 'smart',
     featureFlag: false,
     enableEarlyTruncation: false,

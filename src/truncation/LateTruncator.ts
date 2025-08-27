@@ -8,10 +8,8 @@
 
 import type { LLMReporterOutput, TestFailure, ConsoleOutput, TestError } from '../types/schema.js'
 import type { TruncationConfig } from '../types/reporter.js'
-import type { SupportedModel } from '../types/tokenization.js'
 import type { LateTruncationMetrics } from './types.js'
 import { estimateTokens } from '../tokenization/estimator.js'
-import { getEffectiveMaxTokens } from './context.js'
 import {
   truncateStackTrace,
   truncateCodeContext,
@@ -36,11 +34,9 @@ interface ConsoleOutputLimits {
  * Late truncator for global output enforcement
  */
 export class LateTruncator {
-  private model: SupportedModel
   private metrics: LateTruncationMetrics[] = []
 
   constructor() {
-    this.model = 'gpt-4' // Default model
   }
 
   /**
@@ -50,11 +46,6 @@ export class LateTruncator {
     // Check if truncation is enabled
     if (!config.enabled || !config.enableLateTruncation) {
       return output
-    }
-
-    // Update model if specified
-    if (config.model) {
-      this.model = config.model
     }
 
     // Calculate budget and check if truncation is needed
@@ -89,7 +80,8 @@ export class LateTruncator {
    * Calculate the token budget
    */
   private calculateBudget(config: TruncationConfig): number {
-    return getEffectiveMaxTokens(this.model, config.maxTokens)
+    const DEFAULT_MAX_TOKENS = 100_000
+    return config.maxTokens ?? DEFAULT_MAX_TOKENS
   }
 
   /**
@@ -423,8 +415,6 @@ export class LateTruncator {
    * Update configuration (model)
    */
   updateConfig(config: TruncationConfig): void {
-    if (config.model) {
-      this.model = config.model
-    }
+    // No-op for now; kept for future extension
   }
 }

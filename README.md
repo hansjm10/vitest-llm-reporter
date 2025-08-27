@@ -109,6 +109,44 @@ The reporter generates concise JSON with only the essential information for unde
 
 The output focuses on failures with their context, keeping passed tests minimal to save tokens.
 
+## Configuration
+
+You can tune what the reporter includes and how aggressively it trims output.
+
+- `verbose`: Include passed and skipped tests in the final JSON.
+- `includePassedTests` / `includeSkippedTests`: Include specific categories without enabling full verbose mode.
+- `outputFile`: Write the JSON to a file path.
+- `truncation`: Enable late-stage truncation to cap the output size.
+
+Example truncation config:
+
+```ts
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    reporters: [
+      [
+        'vitest-llm-reporter',
+        {
+          truncation: {
+            enabled: true,
+            enableLateTruncation: true,
+            // Token budget for the final JSON output
+            // If unset, defaults to 100_000 estimated tokens
+            maxTokens: 8_000
+          }
+        }
+      ]
+    ]
+  }
+})
+```
+
+Notes on truncation:
+- The reporter does not use model-specific context windows; it only respects your explicit `maxTokens` (or a default of 100,000 if unset).
+- Token counts are estimates based on a simple character-to-token heuristic, suitable for budgeting and thresholds.
+
 ## Debugging
 
 If the reporter isn't working as expected, enable debug output:
@@ -129,11 +167,17 @@ The following configuration options have been removed in the latest version:
 - **`streamingMode`**: This legacy flag has been removed. Use `enableStreaming` instead.
 - **`streaming`** config object and **`StreamingConfig`** type: This unimplemented configuration block has been removed. Streaming behavior is now controlled solely by the `enableStreaming` boolean flag.
 - **`TruncationConfig.enableStreamingTruncation`**: This unused option has been removed from truncation configuration.
+- **`TruncationConfig.model`**: Removed. Truncation no longer varies by model and only respects `maxTokens`.
+- **`tokenCountingModel`**: Removed from reporter config. The reporter performs model-agnostic token estimation.
+
+Additionally, model-based context utilities were removed:
+- `getEffectiveMaxTokens`, `MODEL_CONTEXT_WINDOWS`, and related helpers are no longer exported.
 
 **Migration Guide:**
 - If you were using `streamingMode`, replace it with `enableStreaming`
 - If you had any `streaming: { ... }` configuration, it can be safely removed as it was not being used
 - Streaming behavior continues to work via the single `enableStreaming` boolean, which defaults to auto-detection based on TTY
+- If you previously relied on model-specific context windows, set an explicit `truncation.maxTokens` to control output size.
 
 ## Contributing
 

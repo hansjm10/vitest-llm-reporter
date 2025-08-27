@@ -26,13 +26,11 @@ interface ResolvedLLMReporterConfig
   includeDebugOutput: boolean
   tokenCountingEnabled: boolean
   maxTokens: number | undefined
-  tokenCountingModel: string
   enableStreaming: boolean
   performance: Required<MonitoringConfig>
   truncation: {
     enabled: boolean
     maxTokens: number | undefined
-    model: string
     strategy: 'simple' | 'smart' | 'priority'
     featureFlag: boolean
     enableEarlyTruncation: boolean
@@ -102,7 +100,6 @@ export class LLMReporter implements Reporter {
       includeDebugOutput: config.includeDebugOutput ?? false,
       tokenCountingEnabled: config.tokenCountingEnabled ?? false,
       maxTokens: config.maxTokens ?? undefined,
-      tokenCountingModel: config.tokenCountingModel ?? 'gpt-4',
       enableStreaming: shouldEnableStreaming,
       performance: {
         enabled: config.performance?.enabled ?? false,
@@ -112,7 +109,6 @@ export class LLMReporter implements Reporter {
       truncation: {
         enabled: config.truncation?.enabled ?? false,
         maxTokens: config.truncation?.maxTokens ?? undefined,
-        model: config.truncation?.model ?? 'gpt-4',
         strategy: config.truncation?.strategy ?? 'smart',
         featureFlag: config.truncation?.featureFlag ?? false,
         enableEarlyTruncation: config.truncation?.enableEarlyTruncation ?? false,
@@ -190,9 +186,6 @@ export class LLMReporter implements Reporter {
     }
     if (config.maxTokens !== undefined && config.maxTokens < 0) {
       throw new Error('maxTokens must be a positive number')
-    }
-    if (config.tokenCountingModel !== undefined && typeof config.tokenCountingModel !== 'string') {
-      throw new Error('tokenCountingModel must be a string')
     }
   }
 

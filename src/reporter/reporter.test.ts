@@ -39,7 +39,6 @@ describe('LLMReporter', () => {
         includeDebugOutput: false,
         tokenCountingEnabled: false,
         maxTokens: undefined,
-        tokenCountingModel: 'gpt-4',
         enableStreaming: false
       })
     })
@@ -58,13 +57,11 @@ describe('LLMReporter', () => {
     it('should accept new configuration properties with proper defaults', () => {
       const customReporter = new LLMReporter({
         tokenCountingEnabled: true,
-        maxTokens: 4000,
-        tokenCountingModel: 'gpt-3.5-turbo'
+        maxTokens: 4000
       })
       expect(customReporter.getConfig()).toMatchObject({
         tokenCountingEnabled: true,
-        maxTokens: 4000,
-        tokenCountingModel: 'gpt-3.5-turbo'
+        maxTokens: 4000
       })
     })
 
@@ -621,11 +618,7 @@ describe('LLMReporter', () => {
       )
     })
 
-    it('should validate tokenCountingModel is a string', () => {
-      expect(() => new LLMReporter({ tokenCountingModel: 123 as any })).toThrow(
-        'tokenCountingModel must be a string'
-      )
-    })
+    // tokenCountingModel removed; no validation needed
 
     it('should allow valid maxTokens values', () => {
       expect(() => new LLMReporter({ maxTokens: 0 })).not.toThrow()

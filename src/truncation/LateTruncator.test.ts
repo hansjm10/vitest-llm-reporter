@@ -12,7 +12,6 @@ describe('LateTruncator', () => {
   const defaultConfig: TruncationConfig = {
     enabled: true,
     maxTokens: 1000,
-    model: 'gpt-4',
     enableLateTruncation: true
   }
 
@@ -541,24 +540,5 @@ describe('LateTruncator', () => {
     })
   })
 
-  describe('updateConfig', () => {
-    it('should update the model configuration', () => {
-      const config1: TruncationConfig = { ...defaultConfig, model: 'gpt-4', maxTokens: 300 }
-      const config2: TruncationConfig = { ...defaultConfig, model: 'gpt-3.5-turbo', maxTokens: 300 }
-
-      const output = createTestOutput({ consoleSize: 'large', failureCount: 5 })
-
-      // Apply with first model
-      const result1 = truncator.apply(output, config1)
-
-      // Update config and apply with second model
-      truncator.updateConfig(config2)
-      const result2 = truncator.apply(output, config2)
-
-      // Results might differ due to different model token calculations
-      // Just verify both are valid
-      expect(result1.summary).toBeDefined()
-      expect(result2.summary).toBeDefined()
-    })
-  })
+  // updateConfig no longer changes model; explicit maxTokens controls budget
 })

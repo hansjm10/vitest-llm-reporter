@@ -5,17 +5,9 @@
  */
 
 /**
- * Supported language models for tokenization
- * NOTE: Model is a pass-through string; no model-specific logic is applied.
- */
-export type SupportedModel = string
-
-/**
  * Configuration options for the tokenization service
  */
 export interface TokenizationConfig {
-  /** Default model to use for tokenization */
-  defaultModel?: SupportedModel
   /** Maximum cache size for LRU cache */
   cacheSize?: number
   /** Whether to enable lazy loading of tokenizers */
@@ -28,8 +20,6 @@ export interface TokenizationConfig {
 export interface TokenizationResult {
   /** Number of tokens */
   tokenCount: number
-  /** Model used for tokenization */
-  model: SupportedModel
   /** Whether result was retrieved from cache */
   fromCache: boolean
 }
@@ -45,4 +35,3 @@ export interface TokenEstimatorOptions {
    */
   charsPerToken?: number
 }
-

@@ -11,5 +11,4 @@ export { LateTruncator } from './LateTruncator.js'
 export { ContentPriority } from './types.js'
 export type { TruncationContext } from './types.js'
 
-// Export only the context utility that's actually used
-export { getEffectiveMaxTokens } from './context.js'
+// Context utilities removed; truncation uses explicit maxTokens

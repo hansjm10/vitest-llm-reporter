@@ -47,7 +47,6 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
   truncationConfig: {
     enabled: false,
     maxTokens: undefined,
-    model: 'gpt-4',
     strategy: 'smart',
     featureFlag: false,
     enableEarlyTruncation: false,

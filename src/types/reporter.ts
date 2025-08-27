@@ -33,8 +33,6 @@ export interface LLMReporterConfig {
   tokenCountingEnabled?: boolean
   /** Maximum number of tokens to include in output (default: undefined) */
   maxTokens?: number
-  /** Model to use for token counting (default: 'gpt-4') */
-  tokenCountingModel?: string
   /** Enable streaming mode for real-time output (default: auto-detect based on TTY) */
   enableStreaming?: boolean
   /** Truncation configuration options */
@@ -53,8 +51,6 @@ export interface TruncationConfig {
   enabled?: boolean
   /** Maximum tokens to allow in output (default: undefined = no limit) */
   maxTokens?: number
-  /** Model to use for token counting (default: 'gpt-4') */
-  model?: string
   /** Truncation strategy (default: 'smart') */
   strategy?: 'simple' | 'smart' | 'priority'
   /** Feature flag for gradual rollout (default: false) */

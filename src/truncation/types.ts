@@ -5,7 +5,7 @@
  * including the strategy pattern interface and context management types.
  */
 
-import type { SupportedModel } from '../types/tokenization.js'
+// Model-specific typing removed from truncation; explicit caps are used
 
 /**
  * Priority levels for content preservation during truncation
@@ -27,8 +27,6 @@ export enum ContentPriority {
  * Context information for truncation operations
  */
 export interface TruncationContext {
-  /** Target LLM model */
-  model: SupportedModel
   /** Maximum allowed tokens */
   maxTokens: number
   /** Content type being truncated */
@@ -110,8 +108,6 @@ export type ITruncationStrategy = TruncationStrategy
  * Configuration for the truncation engine
  */
 export interface TruncationEngineConfig {
-  /** Default model for token counting */
-  defaultModel?: SupportedModel
   /** Maximum number of truncation attempts before giving up */
   maxAttempts?: number
   /** Whether to enable aggressive truncation as a fallback */
@@ -186,21 +182,7 @@ export interface LateTruncationMetrics {
 /**
  * Context window information for a specific model
  */
-export interface ModelContextInfo {
-  /** Model name */
-  model: SupportedModel
-  /** Total context window size */
-  contextWindow: number
-  /** Safety margin percentage */
-  safetyMargin: number
-  /** Effective maximum tokens for content */
-  effectiveMaxTokens: number
-  /** Recommended truncation thresholds */
-  truncationThresholds: {
-    warning: number // Warn when approaching this limit
-    required: number // Must truncate beyond this point
-  }
-}
+// ModelContextInfo removed as truncation no longer infers limits by model
 
 /**
  * Options for safe text trimming

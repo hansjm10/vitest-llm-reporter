@@ -51,7 +51,6 @@ export type {
 
 // Tokenization types
 export type {
-  SupportedModel,
   TokenizationConfig,
   TokenizationResult,
   TokenEstimatorOptions
