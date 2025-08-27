@@ -299,6 +299,20 @@ export class ErrorExtractor {
   // to keep a single point of truth for context shaping.
 
   /**
+   * Determines the type of an assertion value
+   */
+  private getAssertionValueType(value: unknown): 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array' {
+    if (value === null) return 'null'
+    if (typeof value === 'string') return 'string'
+    if (typeof value === 'number') return 'number'
+    if (typeof value === 'boolean') return 'boolean'
+    if (Array.isArray(value)) return 'array'
+    if (typeof value === 'object') return 'Record<string, unknown>'
+    // For functions, symbols, undefined, etc., treat as string since normalizeAssertionValue converts them
+    return 'string'
+  }
+
+  /**
    * Builds assertion details if present
    */
   private buildAssertionDetails(
@@ -306,10 +320,44 @@ export class ErrorExtractor {
     error: unknown
   ): AssertionDetails | undefined {
     if (basicError.expected !== undefined || basicError.actual !== undefined) {
+      // Try to parse string numbers/booleans/null back to their proper types
+      let expectedValue = basicError.expected
+      let actualValue = basicError.actual
+      
+      // Convert string numbers back to numbers
+      if (typeof expectedValue === 'string' && /^-?\d+(\.\d+)?$/.test(expectedValue)) {
+        const num = Number(expectedValue)
+        if (!isNaN(num)) {
+          expectedValue = num
+        }
+      }
+      
+      if (typeof actualValue === 'string' && /^-?\d+(\.\d+)?$/.test(actualValue)) {
+        const num = Number(actualValue)
+        if (!isNaN(num)) {
+          actualValue = num
+        }
+      }
+      
+      // Convert string booleans back to booleans
+      if (expectedValue === 'true') expectedValue = true
+      if (expectedValue === 'false') expectedValue = false
+      if (actualValue === 'true') actualValue = true
+      if (actualValue === 'false') actualValue = false
+      
+      // Convert string null back to null
+      if (expectedValue === 'null') expectedValue = null
+      if (actualValue === 'null') actualValue = null
+      
+      const normalizedExpected = normalizeAssertionValue(expectedValue)
+      const normalizedActual = normalizeAssertionValue(actualValue)
+      
       return {
-        expected: basicError.expected,
-        actual: basicError.actual,
-        operator: this.extractOperator(error)
+        expected: normalizedExpected,
+        actual: normalizedActual,
+        operator: this.extractOperator(error),
+        expectedType: this.getAssertionValueType(normalizedExpected),
+        actualType: this.getAssertionValueType(normalizedActual)
       }
     }
     return undefined
@@ -334,13 +382,47 @@ export class ErrorExtractor {
     }
 
     const extracted = extractErrorProperties(error)
+    
+    // Try to parse string numbers back to numbers if they look like numbers
+    let expectedValue = extracted.expected
+    let actualValue = extracted.actual
+    
+    // Convert string numbers back to numbers
+    if (typeof expectedValue === 'string' && /^-?\d+(\.\d+)?$/.test(expectedValue)) {
+      const num = Number(expectedValue)
+      if (!isNaN(num)) {
+        expectedValue = num
+      }
+    }
+    
+    if (typeof actualValue === 'string' && /^-?\d+(\.\d+)?$/.test(actualValue)) {
+      const num = Number(actualValue)
+      if (!isNaN(num)) {
+        actualValue = num
+      }
+    }
+    
+    // Convert string booleans back to booleans
+    if (expectedValue === 'true') expectedValue = true
+    if (expectedValue === 'false') expectedValue = false
+    if (actualValue === 'true') actualValue = true
+    if (actualValue === 'false') actualValue = false
+    
+    // Convert string null back to null
+    if (expectedValue === 'null') expectedValue = null
+    if (actualValue === 'null') actualValue = null
 
     if (extracted.expected !== undefined || extracted.actual !== undefined) {
+      const normalizedExpected = normalizeAssertionValue(expectedValue)
+      const normalizedActual = normalizeAssertionValue(actualValue)
+      
       return {
         assertion: {
-          expected: extracted.expected,
-          actual: extracted.actual,
-          operator: this.extractOperator(error)
+          expected: normalizedExpected,
+          actual: normalizedActual,
+          operator: this.extractOperator(error),
+          expectedType: this.getAssertionValueType(normalizedExpected),
+          actualType: this.getAssertionValueType(normalizedActual)
         }
       }
     }

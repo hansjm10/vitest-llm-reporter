@@ -328,6 +328,93 @@ Fourth line`
       expect(result.assertion?.expected).toEqual([1, 2, 3])
       expect(result.assertion?.actual).toEqual([1, 2])
     })
+
+    it('should preserve type fidelity for number assertions', () => {
+      const numberAssertion = {
+        name: 'AssertionError',
+        message: 'expected 2 to equal 1',
+        expected: 2,
+        actual: 1,
+        operator: 'toBe'
+      }
+
+      const result = extractor.extractAssertionDetails(numberAssertion)
+
+      expect(result.assertion?.expected).toBe(2)
+      expect(result.assertion?.actual).toBe(1)
+      expect(typeof result.assertion?.expected).toBe('number')
+      expect(typeof result.assertion?.actual).toBe('number')
+      expect(result.assertion?.expectedType).toBe('number')
+      expect(result.assertion?.actualType).toBe('number')
+    })
+
+    it('should preserve type fidelity for boolean assertions', () => {
+      const booleanAssertion = {
+        name: 'AssertionError',
+        message: 'expected false to be true',
+        expected: true,
+        actual: false,
+        operator: 'toBe'
+      }
+
+      const result = extractor.extractAssertionDetails(booleanAssertion)
+
+      expect(result.assertion?.expected).toBe(true)
+      expect(result.assertion?.actual).toBe(false)
+      expect(typeof result.assertion?.expected).toBe('boolean')
+      expect(typeof result.assertion?.actual).toBe('boolean')
+      expect(result.assertion?.expectedType).toBe('boolean')
+      expect(result.assertion?.actualType).toBe('boolean')
+    })
+
+    it('should preserve type fidelity for null assertions', () => {
+      const nullAssertion = {
+        name: 'AssertionError',
+        message: 'expected null to not be null',
+        expected: 'not null',
+        actual: null,
+        operator: 'not.toBe'
+      }
+
+      const result = extractor.extractAssertionDetails(nullAssertion)
+
+      expect(result.assertion?.expected).toBe('not null')
+      expect(result.assertion?.actual).toBe(null)
+      expect(result.assertion?.expectedType).toBe('string')
+      expect(result.assertion?.actualType).toBe('null')
+    })
+
+    it('should handle mixed types correctly', () => {
+      const mixedAssertion = {
+        name: 'AssertionError',
+        message: 'type mismatch',
+        expected: 123,
+        actual: '123',
+        operator: 'toStrictEqual'
+      }
+
+      const result = extractor.extractAssertionDetails(mixedAssertion)
+
+      expect(result.assertion?.expected).toBe(123)
+      expect(result.assertion?.actual).toBe(123)  // String '123' gets converted to number 123
+      expect(result.assertion?.expectedType).toBe('number')
+      expect(result.assertion?.actualType).toBe('number')  // After conversion, both are numbers
+    })
+
+    it('should tag objects and arrays with correct type metadata', () => {
+      const objectAssertion = {
+        name: 'AssertionError',
+        message: 'object mismatch',
+        expected: { foo: 'bar' },
+        actual: [1, 2, 3],
+        operator: 'toEqual'
+      }
+
+      const result = extractor.extractAssertionDetails(objectAssertion)
+
+      expect(result.assertion?.expectedType).toBe('Record<string, unknown>')
+      expect(result.assertion?.actualType).toBe('array')
+    })
   })
 
   describe('Error Type Detection', () => {

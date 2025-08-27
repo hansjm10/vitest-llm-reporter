@@ -3,6 +3,142 @@ import { JsonSanitizer } from './json-sanitizer.js'
 import type { LLMReporterOutput } from '../types/schema.js'
 
 describe('JsonSanitizer', () => {
+  describe('Type Preservation', () => {
+    it('should preserve primitive types in assertion values', () => {
+      const sanitizer = new JsonSanitizer()
+
+      const input: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        failures: [
+          {
+            test: 'type test',
+            file: '/test.ts',
+            startLine: 1,
+            endLine: 1,
+            error: {
+              message: 'Type mismatch',
+              type: 'AssertionError',
+              assertion: {
+                expected: 42,
+                actual: true,
+                expectedType: 'number',
+                actualType: 'boolean',
+                operator: 'toBe'
+              }
+            }
+          }
+        ]
+      }
+
+      const result = sanitizer.sanitize(input)
+      const assertion = result.failures![0].error.assertion!
+
+      // Numbers should remain numbers
+      expect(assertion.expected).toBe(42)
+      expect(typeof assertion.expected).toBe('number')
+
+      // Booleans should remain booleans
+      expect(assertion.actual).toBe(true)
+      expect(typeof assertion.actual).toBe('boolean')
+
+      // Type metadata should be preserved
+      expect(assertion.expectedType).toBe('number')
+      expect(assertion.actualType).toBe('boolean')
+    })
+
+    it('should preserve null values in assertions', () => {
+      const sanitizer = new JsonSanitizer()
+
+      const input: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        failures: [
+          {
+            test: 'null test',
+            file: '/test.ts',
+            startLine: 1,
+            endLine: 1,
+            error: {
+              message: 'Null check',
+              type: 'AssertionError',
+              assertion: {
+                expected: null,
+                actual: 'not null',
+                expectedType: 'null',
+                actualType: 'string',
+                operator: 'toBeNull'
+              }
+            }
+          }
+        ]
+      }
+
+      const result = sanitizer.sanitize(input)
+      const assertion = result.failures![0].error.assertion!
+
+      expect(assertion.expected).toBe(null)
+      expect(assertion.actual).toBe('not null')
+      expect(assertion.expectedType).toBe('null')
+      expect(assertion.actualType).toBe('string')
+    })
+
+    it('should sanitize strings but preserve type', () => {
+      const sanitizer = new JsonSanitizer()
+
+      const input: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        failures: [
+          {
+            test: 'string test',
+            file: '/test.ts',
+            startLine: 1,
+            endLine: 1,
+            error: {
+              message: 'String check',
+              type: 'AssertionError',
+              assertion: {
+                expected: 'string with "quotes"',
+                actual: 'string with\nnewline',
+                expectedType: 'string',
+                actualType: 'string',
+                operator: 'toBe'
+              }
+            }
+          }
+        ]
+      }
+
+      const result = sanitizer.sanitize(input)
+      const assertion = result.failures![0].error.assertion!
+
+      // Strings should be escaped but remain strings
+      expect(assertion.expected).toBe('string with \\"quotes\\"')
+      expect(assertion.actual).toBe('string with\\nnewline')
+      expect(typeof assertion.expected).toBe('string')
+      expect(typeof assertion.actual).toBe('string')
+    })
+  })
+
   describe('JSON String Escaping', () => {
     it('should escape JSON special characters', () => {
       const sanitizer = new JsonSanitizer()

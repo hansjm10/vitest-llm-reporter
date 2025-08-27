@@ -435,6 +435,173 @@ describe('LateTruncator', () => {
       })
     })
 
+    describe('Type preservation', () => {
+      it('should preserve primitive types in assertion values', () => {
+        const output: LLMReporterOutput = {
+          summary: {
+            total: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            duration: 100,
+            timestamp: '2024-01-15T10:30:00Z'
+          },
+          failures: [{
+            test: 'should equal numbers',
+            file: '/test.ts',
+            startLine: 10,
+            endLine: 20,
+            error: {
+              message: 'Expected 2 to equal 1',
+              type: 'AssertionError',
+              assertion: {
+                expected: 2,
+                actual: 1,
+                expectedType: 'number',
+                actualType: 'number',
+                operator: 'toBe'
+              }
+            }
+          }]
+        }
+
+        const config: TruncationConfig = { ...defaultConfig, maxTokens: 500 }
+        const result = truncator.apply(output, config)
+
+        // Check that numbers remain numbers after truncation
+        const assertion = result.failures?.[0]?.error?.assertion
+        expect(assertion?.expected).toBe(2)
+        expect(assertion?.actual).toBe(1)
+        expect(typeof assertion?.expected).toBe('number')
+        expect(typeof assertion?.actual).toBe('number')
+        expect(assertion?.expectedType).toBe('number')
+        expect(assertion?.actualType).toBe('number')
+      })
+
+      it('should preserve boolean values in assertions', () => {
+        const output: LLMReporterOutput = {
+          summary: {
+            total: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            duration: 100,
+            timestamp: '2024-01-15T10:30:00Z'
+          },
+          failures: [{
+            test: 'should be true',
+            file: '/test.ts',
+            startLine: 10,
+            endLine: 20,
+            error: {
+              message: 'Expected false to be true',
+              type: 'AssertionError',
+              assertion: {
+                expected: true,
+                actual: false,
+                expectedType: 'boolean',
+                actualType: 'boolean',
+                operator: 'toBe'
+              }
+            }
+          }]
+        }
+
+        const config: TruncationConfig = { ...defaultConfig, maxTokens: 500 }
+        const result = truncator.apply(output, config)
+
+        const assertion = result.failures?.[0]?.error?.assertion
+        expect(assertion?.expected).toBe(true)
+        expect(assertion?.actual).toBe(false)
+        expect(typeof assertion?.expected).toBe('boolean')
+        expect(typeof assertion?.actual).toBe('boolean')
+      })
+
+      it('should preserve null values in assertions', () => {
+        const output: LLMReporterOutput = {
+          summary: {
+            total: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            duration: 100,
+            timestamp: '2024-01-15T10:30:00Z'
+          },
+          failures: [{
+            test: 'should be null',
+            file: '/test.ts',
+            startLine: 10,
+            endLine: 20,
+            error: {
+              message: 'Expected value to be null',
+              type: 'AssertionError',
+              assertion: {
+                expected: null,
+                actual: 'not null',
+                expectedType: 'null',
+                actualType: 'string',
+                operator: 'toBeNull'
+              }
+            }
+          }]
+        }
+
+        const config: TruncationConfig = { ...defaultConfig, maxTokens: 500 }
+        const result = truncator.apply(output, config)
+
+        const assertion = result.failures?.[0]?.error?.assertion
+        expect(assertion?.expected).toBe(null)
+        expect(assertion?.actual).toBe('not null')
+        expect(assertion?.expectedType).toBe('null')
+        expect(assertion?.actualType).toBe('string')
+      })
+
+      it('should truncate but preserve structure for large objects', () => {
+        const largeObject = { 
+          a: 'x'.repeat(100), 
+          b: 'y'.repeat(100), 
+          c: 'z'.repeat(100) 
+        }
+        
+        const output: LLMReporterOutput = {
+          summary: {
+            total: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            duration: 100,
+            timestamp: '2024-01-15T10:30:00Z'
+          },
+          failures: [{
+            test: 'large object test',
+            file: '/test.ts',
+            startLine: 10,
+            endLine: 20,
+            error: {
+              message: 'Object mismatch',
+              type: 'AssertionError',
+              assertion: {
+                expected: largeObject,
+                actual: { small: 'value' },
+                expectedType: 'Record<string, unknown>',
+                actualType: 'Record<string, unknown>',
+                operator: 'toEqual'
+              }
+            }
+          }]
+        }
+
+        const config: TruncationConfig = { ...defaultConfig, maxTokens: 200 }
+        const result = truncator.apply(output, config)
+
+        const assertion = result.failures?.[0]?.error?.assertion
+        // For large objects, we expect truncation to string representation
+        expect(assertion?.expected).toBeDefined()
+        expect(assertion?.actual).toEqual({ small: 'value' })
+        expect(assertion?.expectedType).toBe('Record<string, unknown>')
+      })
+    })
+
     describe('JSON validity', () => {
       it('should always produce valid JSON output', () => {
         const configs = [

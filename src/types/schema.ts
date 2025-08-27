@@ -72,11 +72,15 @@ export interface StackFrame {
  */
 export interface AssertionDetails {
   /** Expected value */
-  expected: unknown
+  expected: AssertionValue
   /** Actual value */
-  actual: unknown
+  actual: AssertionValue
   /** Assertion operator (e.g., "toBe", "toEqual") */
   operator?: string
+  /** Type of the expected value */
+  expectedType?: 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array'
+  /** Type of the actual value */
+  actualType?: 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array'
 }
 
 /**

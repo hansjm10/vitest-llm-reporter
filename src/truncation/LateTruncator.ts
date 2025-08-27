@@ -6,7 +6,7 @@
  * to progressively reduce content while preserving essential information.
  */
 
-import type { LLMReporterOutput, TestFailure, ConsoleOutput, TestError } from '../types/schema.js'
+import type { LLMReporterOutput, TestFailure, ConsoleOutput, TestError, AssertionValue } from '../types/schema.js'
 import type { TruncationConfig } from '../types/reporter.js'
 import type { LateTruncationMetrics } from './types.js'
 import { estimateTokens } from '../tokenization/estimator.js'
@@ -350,34 +350,50 @@ export class LateTruncator {
         result.context.code = truncateCodeContext(result.context.code, result.context.lineNumber, 2)
       }
 
-      // Truncate assertion values - convert to string representation
+      // Truncate assertion values while preserving types
       if (result.context.expected !== undefined) {
-        const expectedStr = truncateAssertionValue(result.context.expected, 200)
-        // After truncation, we have a string representation
-        result.context.expected = expectedStr
+        result.context.expected = truncateAssertionValue(result.context.expected, 200) as AssertionValue
       }
 
       if (result.context.actual !== undefined) {
-        const actualStr = truncateAssertionValue(result.context.actual, 200)
-        // After truncation, we have a string representation
-        result.context.actual = actualStr
+        result.context.actual = truncateAssertionValue(result.context.actual, 200) as AssertionValue
       }
     }
 
     // Similar for assertion details
     if (result.assertion) {
       if (result.assertion.expected !== undefined) {
-        const expectedStr = truncateAssertionValue(result.assertion.expected, 200)
-        result.assertion.expected = expectedStr
+        result.assertion.expected = truncateAssertionValue(result.assertion.expected, 200) as AssertionValue
       }
 
       if (result.assertion.actual !== undefined) {
-        const actualStr = truncateAssertionValue(result.assertion.actual, 200)
-        result.assertion.actual = actualStr
+        result.assertion.actual = truncateAssertionValue(result.assertion.actual, 200) as AssertionValue
+      }
+      
+      // Type metadata should already be set by ErrorExtractor
+      // but if we need to update it after truncation for complex values:
+      if (result.assertion.expectedType === undefined && result.assertion.expected !== undefined) {
+        result.assertion.expectedType = this.getValueType(result.assertion.expected)
+      }
+      if (result.assertion.actualType === undefined && result.assertion.actual !== undefined) {
+        result.assertion.actualType = this.getValueType(result.assertion.actual)
       }
     }
 
     return result
+  }
+
+  /**
+   * Determines the type of a value for metadata
+   */
+  private getValueType(value: unknown): 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array' {
+    if (value === null) return 'null'
+    if (typeof value === 'string') return 'string'
+    if (typeof value === 'number') return 'number'
+    if (typeof value === 'boolean') return 'boolean'
+    if (Array.isArray(value)) return 'array'
+    if (typeof value === 'object') return 'Record<string, unknown>'
+    return 'string'
   }
 
   /**

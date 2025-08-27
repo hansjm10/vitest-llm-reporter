@@ -124,11 +124,25 @@ export function extractErrorProperties(error: unknown): ExtractedError {
     }
   }
 
-  // Extract comparison values (can be any type)
-  if (safeHasProperty(error, 'expected')) {
+  // Check for matcherResult first (Vitest's native format)
+  if (safeHasProperty(error, 'matcherResult')) {
+    const matcherResult = (error as Record<'matcherResult', unknown>).matcherResult
+    if (matcherResult && typeof matcherResult === 'object') {
+      const mr = matcherResult as Record<string, unknown>
+      if (safeHasProperty(mr, 'expected')) {
+        result.expected = mr.expected
+      }
+      if (safeHasProperty(mr, 'actual')) {
+        result.actual = mr.actual
+      }
+    }
+  }
+  
+  // Fallback to direct expected/actual values
+  if (result.expected === undefined && safeHasProperty(error, 'expected')) {
     result.expected = (error as Record<'expected', unknown>).expected
   }
-  if (safeHasProperty(error, 'actual')) {
+  if (result.actual === undefined && safeHasProperty(error, 'actual')) {
     result.actual = (error as Record<'actual', unknown>).actual
   }
 

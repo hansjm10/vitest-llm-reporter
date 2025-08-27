@@ -362,40 +362,53 @@ export function truncateCodeContext(
  *
  * @param value - Value to truncate
  * @param maxChars - Maximum characters
- * @returns Truncated value as string
+ * @returns Truncated value preserving type when possible
  */
-export function truncateAssertionValue(value: unknown, maxChars = 200): string {
-  let str: string
+export function truncateAssertionValue(value: unknown, maxChars = 200): unknown {
+  // Preserve primitive types unchanged
+  if (value === null || value === undefined) {
+    return value
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value // Never truncate primitives
+  }
 
   if (typeof value === 'string') {
-    str = value
-  } else if (value === undefined) {
-    return 'undefined'
-  } else if (value === null) {
-    return 'null'
-  } else {
+    if (value.length <= maxChars) {
+      return value
+    }
+    return safeTrimToChars(value, maxChars - 3) + '...'
+  }
+
+  // For arrays and objects, we need to truncate
+  if (Array.isArray(value) || typeof value === 'object') {
     try {
-      str = JSON.stringify(value, null, 2)
+      const str = JSON.stringify(value, null, 2)
+      
+      if (str.length <= maxChars) {
+        return value // Return original if within limits
+      }
+
+      // For truncated complex values, return a truncated string representation
+      // This is a compromise - we lose type but show structure
+      if (str.startsWith('{') || str.startsWith('[')) {
+        const truncated = str.substring(0, maxChars - 10)
+        const lastNewline = truncated.lastIndexOf('\n')
+        if (lastNewline > maxChars * 0.5) {
+          return truncated.substring(0, lastNewline) + '\n  ...\n' + (str.startsWith('{') ? '}' : ']')
+        }
+      }
+      
+      return safeTrimToChars(str, maxChars - 3) + '...'
     } catch {
       // For objects without proper toString, provide a fallback
-      str = '[object]'
+      return '[object]'
     }
   }
 
-  if (str.length <= maxChars) {
-    return str
-  }
-
-  // For JSON objects/arrays, try to preserve structure
-  if (str.startsWith('{') || str.startsWith('[')) {
-    const truncated = str.substring(0, maxChars - 10)
-    const lastNewline = truncated.lastIndexOf('\n')
-    if (lastNewline > maxChars * 0.5) {
-      return truncated.substring(0, lastNewline) + '\n  ...\n' + (str.startsWith('{') ? '}' : ']')
-    }
-  }
-
-  return safeTrimToChars(str, maxChars - 3) + '...'
+  // For functions, symbols, etc.
+  return String(value)
 }
 
 /**

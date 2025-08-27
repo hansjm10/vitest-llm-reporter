@@ -14,7 +14,8 @@ import type {
   TestResult,
   TestError,
   ErrorContext,
-  AssertionValue
+  AssertionValue,
+  AssertionDetails
 } from '../types/schema.js'
 import type { JsonSanitizerConfig } from './types.js'
 
@@ -119,6 +120,10 @@ export class JsonSanitizer {
       sanitized.context = this.sanitizeErrorContext(error.context)
     }
 
+    if (error.assertion) {
+      sanitized.assertion = this.sanitizeAssertionDetails(error.assertion)
+    }
+
     return sanitized
   }
 
@@ -164,6 +169,31 @@ export class JsonSanitizer {
       status: result.status,
       suite: result.suite?.map((s) => escapeJsonString(s))
     }
+  }
+
+  /**
+   * Sanitizes assertion details
+   */
+  private sanitizeAssertionDetails(assertion: AssertionDetails): AssertionDetails {
+    const sanitized: AssertionDetails = {
+      expected: this.sanitizeAssertionValue(assertion.expected),
+      actual: this.sanitizeAssertionValue(assertion.actual)
+    }
+
+    if (assertion.operator) {
+      sanitized.operator = escapeJsonString(assertion.operator)
+    }
+
+    // Pass through type metadata unchanged
+    if (assertion.expectedType) {
+      sanitized.expectedType = assertion.expectedType
+    }
+
+    if (assertion.actualType) {
+      sanitized.actualType = assertion.actualType
+    }
+
+    return sanitized
   }
 
   /**
