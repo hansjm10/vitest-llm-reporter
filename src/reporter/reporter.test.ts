@@ -373,7 +373,12 @@ describe('LLMReporter', () => {
       expect(failure.endLine).toBe(30)
       expect(failure.error.message).toBe('Expected true to be false')
       expect(failure.error.type).toBe('Error')
-      expect(failure.error.stack).toContain('/test/file.ts:25:10')
+      // By default, stack string should not be included
+      expect(failure.error.stack).toBeUndefined()
+      // Check stackFrames instead
+      expect(failure.error.stackFrames).toBeDefined()
+      expect(failure.error.stackFrames![0].fileRelative).toContain('test/file.ts')
+      expect(failure.error.stackFrames![0].line).toBe(25)
     })
 
     it('should include passed tests in verbose mode', async () => {
@@ -478,7 +483,10 @@ describe('LLMReporter', () => {
 
       const output = reporter.getOutput()
       expect(output!.failures![0].error.message).toBe('Promise rejected')
-      expect(output!.failures![0].error.stack).toContain('async')
+      // By default, stack string should not be included
+      expect(output!.failures![0].error.stack).toBeUndefined()
+      // Check stackFrames exist
+      expect(output!.failures![0].error.stackFrames).toBeDefined()
     })
 
     it('should handle tests with multiple assertions', async () => {
@@ -862,6 +870,59 @@ describe('LLMReporter', () => {
 
       // Verify they are different instances
       expect(secondOutput).not.toBe(firstOutput)
+    })
+  })
+
+  describe('includeStackString configuration', () => {
+    it('should include stack strings when includeStackString is true', async () => {
+      const reporter = new LLMReporter({ includeStackString: true })
+      reporter.onTestRunStart([])
+
+      const error = new Error('Expected true to be false')
+      error.stack = 'Error: Expected true to be false\n    at /test/file.ts:25:10'
+
+      const failedTest = {
+        ...createMockTestCase({ name: 'failing-test', state: 'fail', error }),
+        location: { start: { line: 20 }, end: { line: 30 } }
+      }
+
+      reporter.onTestCaseResult(failedTest)
+      await reporter.onTestRunEnd([], [], 'failed')
+
+      const output = reporter.getOutput()
+      const failure = output!.failures![0]
+
+      // When includeStackString is true, both stack and stackFrames should be present
+      expect(failure.error.stack).toBeDefined()
+      expect(failure.error.stack).toContain('/test/file.ts:25:10')
+      expect(failure.error.stackFrames).toBeDefined()
+      expect(failure.error.stackFrames![0].fileRelative).toContain('test/file.ts')
+      expect(failure.error.stackFrames![0].line).toBe(25)
+    })
+
+    it('should not include stack strings by default', async () => {
+      const reporter = new LLMReporter() // No config, should default to false
+      reporter.onTestRunStart([])
+
+      const error = new Error('Expected true to be false')
+      error.stack = 'Error: Expected true to be false\n    at /test/file.ts:25:10'
+
+      const failedTest = {
+        ...createMockTestCase({ name: 'failing-test', state: 'fail', error }),
+        location: { start: { line: 20 }, end: { line: 30 } }
+      }
+
+      reporter.onTestCaseResult(failedTest)
+      await reporter.onTestRunEnd([], [], 'failed')
+
+      const output = reporter.getOutput()
+      const failure = output!.failures![0]
+
+      // By default, only stackFrames should be present
+      expect(failure.error.stack).toBeUndefined()
+      expect(failure.error.stackFrames).toBeDefined()
+      expect(failure.error.stackFrames![0].fileRelative).toContain('test/file.ts')
+      expect(failure.error.stackFrames![0].line).toBe(25)
     })
   })
 })

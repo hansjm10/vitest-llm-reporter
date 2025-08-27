@@ -7,9 +7,14 @@
  * @module output
  */
 
-import type { LLMReporterOutput, TestSummary, TestResult, TestFailure } from '../types/schema.js'
+import type {
+  LLMReporterOutput,
+  TestSummary,
+  TestResult,
+  TestFailure,
+  TestError
+} from '../types/schema.js'
 import type { SerializedError } from 'vitest'
-import type { TruncationConfig } from '../types/reporter.js'
 import type { OutputBuilderConfig, BuildOptions } from './types.js'
 import { LateTruncator } from '../truncation/LateTruncator.js'
 import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
@@ -22,6 +27,8 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
   includeSkippedTests: false,
   verbose: false,
   enableStreaming: false,
+  filterNodeModules: true, // Default to filtering node_modules from stack frames
+  includeStackString: false,
   truncation: {
     enabled: false,
     maxTokens: undefined,
@@ -129,7 +136,10 @@ export class OutputBuilder {
    * Converts unhandled errors to test failures
    */
   private convertUnhandledErrors(errors: SerializedError[]): TestFailure[] {
-    const extractor = new ErrorExtractor({ includeSourceCode: true })
+    const extractor = new ErrorExtractor({
+      includeSourceCode: true,
+      filterNodeModules: this.config.filterNodeModules
+    })
 
     return errors.map((err) => {
       const normalized = extractor.extractWithContext(err)
@@ -143,14 +153,17 @@ export class OutputBuilder {
           }
         : undefined
 
-      const testError = {
+      const testError: TestError = {
         message: normalized.message || err.message || 'Unhandled error',
         // Preserve the semantic that this originated outside a test failure
         type: 'UnhandledError' as const,
-        stack: normalized.stack ?? err.stack,
         stackFrames: normalized.stackFrames,
         assertion: normalized.assertion,
-        context
+        context,
+        // Only include stack if configured to do so
+        ...(this.config.includeStackString && (normalized.stack ?? err.stack)
+          ? { stack: normalized.stack ?? err.stack }
+          : {})
       }
 
       return {

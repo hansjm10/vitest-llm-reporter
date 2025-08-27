@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import type { Vitest } from 'vitest'
 import { LLMReporter } from './reporter.js'
-import {
-  createMockTestCase,
-  createMockTestModule,
-  createMockTestSpecification
-} from '../test-utils/mock-data.js'
+import { createMockTestCase, createMockTestSpecification } from '../test-utils/mock-data.js'
 
 describe('Reporter Path Hygiene', () => {
   let reporter: LLMReporter
@@ -119,6 +115,8 @@ describe('Reporter Path Hygiene', () => {
     })
 
     it('should detect node_modules in stack frames', async () => {
+      // Configure reporter to not filter node_modules for this test
+      reporter = new LLMReporter({ filterNodeModules: false })
       reporter.onInit(mockVitest as Vitest)
       reporter.onTestRunStart([])
 
@@ -141,12 +139,49 @@ describe('Reporter Path Hygiene', () => {
 
       // Check stack frames
       if (failure.error.stackFrames) {
+        // When filterNodeModules is false, we should see both frames
+        expect(failure.error.stackFrames).toHaveLength(2)
+
         const nodeModuleFrame = failure.error.stackFrames[0]
         expect(nodeModuleFrame.fileRelative).toBe('node_modules/some-lib/index.js')
         expect(nodeModuleFrame.inProject).toBe(false)
         expect(nodeModuleFrame.inNodeModules).toBe(true)
 
         const userFrame = failure.error.stackFrames[1]
+        expect(userFrame.fileRelative).toBe('src/app.ts')
+        expect(userFrame.inProject).toBe(true)
+        expect(userFrame.inNodeModules).toBe(false)
+      }
+    })
+
+    it('should filter node_modules from stack frames by default', async () => {
+      // Use default reporter config (filterNodeModules should be true by default)
+      reporter = new LLMReporter({})
+      reporter.onInit(mockVitest as Vitest)
+      reporter.onTestRunStart([])
+
+      const error = new Error('Module error')
+      error.stack = `Error: Module error
+  at moduleCode (/home/project/node_modules/some-lib/index.js:10:5)
+  at userCode (/home/project/src/app.ts:20:10)`
+
+      const testCase = {
+        ...createMockTestCase({ name: 'module test', state: 'fail', error }),
+        file: { filepath: '/home/project/tests/module.test.ts' },
+        location: { start: { line: 1 }, end: { line: 5 } }
+      }
+
+      reporter.onTestCaseResult(testCase)
+      await reporter.onTestRunEnd([], [], 'failed')
+
+      const output = reporter.getOutput()
+      const failure = output!.failures![0]
+
+      // Check that node_modules frames are filtered out
+      if (failure.error.stackFrames) {
+        expect(failure.error.stackFrames).toHaveLength(1)
+
+        const userFrame = failure.error.stackFrames[0]
         expect(userFrame.fileRelative).toBe('src/app.ts')
         expect(userFrame.inProject).toBe(true)
         expect(userFrame.inNodeModules).toBe(false)

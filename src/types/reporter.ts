@@ -37,6 +37,8 @@ export interface LLMReporterConfig {
   enableStreaming?: boolean
   /** Include absolute paths in output (default: false) */
   includeAbsolutePaths?: boolean
+  /** Filter out node_modules from stack frames (default: true) */
+  filterNodeModules?: boolean
   /** Truncation configuration options */
   truncation?: TruncationConfig
   /** Performance optimization configuration */
@@ -49,6 +51,8 @@ export interface LLMReporterConfig {
    * Default: false
    */
   forceConsoleOutput?: boolean
+  /** Include raw stack strings in error output (default: false, only stackFrames included) */
+  includeStackString?: boolean
 }
 
 /**

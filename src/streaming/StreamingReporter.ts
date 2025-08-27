@@ -8,7 +8,6 @@
  */
 
 import type { TestCase } from 'vitest/node'
-import type { LLMReporterConfig } from '../types/reporter.js'
 import type { StreamingReporterConfig } from './types.js'
 import { LLMReporter } from '../reporter/reporter.js'
 import { coreLogger } from '../utils/logger.js'

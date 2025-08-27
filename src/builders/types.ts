@@ -20,4 +20,6 @@ export interface BuilderConfig {
   rootDir?: string
   /** Whether to include absolute paths in output */
   includeAbsolutePaths?: boolean
+  /** Whether to include raw stack strings in error output */
+  includeStackString?: boolean
 }

@@ -7,7 +7,7 @@
  * @module utils/paths
  */
 
-import { relative, isAbsolute, normalize } from 'node:path'
+import { isAbsolute } from 'node:path'
 
 /**
  * Normalizes file URLs or file system paths to absolute paths.
@@ -63,7 +63,7 @@ export function toRepoRelative(absPath: string, rootDir: string): string {
   }
 
   // Normalize Windows paths to Unix-style for comparison
-  const normalizeForComparison = (p: string) => {
+  const normalizeForComparison = (p: string): string => {
     // Convert Windows backslashes to forward slashes
     let normalized = p.replace(/\\/g, '/')
     // Remove Windows drive letter if present for root comparison
@@ -156,7 +156,7 @@ export function processFilePath(
   const absolutePath = normalizeFileUrlOrPath(filePath)
 
   // Check if it's a Windows absolute path (C:\... or C:/...)
-  const isWindowsAbsolute = /^[A-Za-z]:[\\\/]/.test(absolutePath)
+  const isWindowsAbsolute = /^[A-Za-z]:[\\/]/.test(absolutePath)
 
   // Get classification
   const { inProject, inNodeModules } = classify(absolutePath, rootDir)

@@ -39,7 +39,7 @@ export const DEFAULT_ERROR_CONFIG: Required<ErrorExtractionConfig> = {
   extractLineFromStack: true,
   maxContextLines: 3,
   includeSourceCode: true,
-  filterNodeModules: false, // Keep external node_modules for classification, internal ones are always filtered
+  filterNodeModules: true, // Filter node_modules from stack frames by default
   rootDir: process.cwd(),
   includeAbsolutePaths: false
 }

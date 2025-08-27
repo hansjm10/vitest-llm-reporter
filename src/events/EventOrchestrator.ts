@@ -21,7 +21,6 @@ import type { ConsoleEvent, ConsoleLevel } from '../types/schema.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import { consoleCapture } from '../console/index.js'
 import { consoleMerger } from '../console/merge.js'
-import type { TruncationConfig } from '../types/reporter.js'
 // Truncation handled by LateTruncator in OutputBuilder
 
 /**

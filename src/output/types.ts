@@ -14,8 +14,12 @@ export interface OutputBuilderConfig {
   verbose?: boolean
   /** Enable streaming mode for real-time output */
   enableStreaming?: boolean
+  /** Filter out node_modules from stack frames */
+  filterNodeModules?: boolean
   /** Truncation configuration */
   truncation?: TruncationConfig
+  /** Whether to include raw stack strings in error output */
+  includeStackString?: boolean
 }
 
 /**

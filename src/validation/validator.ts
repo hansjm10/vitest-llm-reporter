@@ -855,7 +855,6 @@ export class SchemaValidator {
       }
     }
 
-
     return true
   }
 

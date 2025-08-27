@@ -19,7 +19,8 @@ export const DEFAULT_BUILDER_CONFIG: Required<BuilderConfig> = {
   includeSuite: true,
   includeDuration: true,
   rootDir: process.cwd(),
-  includeAbsolutePaths: false
+  includeAbsolutePaths: false,
+  includeStackString: false
 }
 
 /**
@@ -117,7 +118,7 @@ export class TestResultBuilder {
       type: error.type
     }
 
-    if (error.stack) {
+    if (this.config.includeStackString && error.stack) {
       testError.stack = error.stack
     }
 
@@ -189,7 +190,7 @@ export class TestResultBuilder {
       error: {
         message: error.message,
         type: 'UnhandledError',
-        stack: error.stack
+        ...(this.config.includeStackString && error.stack ? { stack: error.stack } : {})
       }
     }
   }

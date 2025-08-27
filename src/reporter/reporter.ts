@@ -40,6 +40,7 @@ interface ResolvedLLMReporterConfig
   }
   framedOutput: boolean // Gate for console separator frames
   forceConsoleOutput: boolean // Force console write when used standalone
+  includeStackString: boolean // Include raw stack strings in error output
   spinner: {
     enabled: boolean
     intervalMs: number
@@ -118,6 +119,7 @@ export class LLMReporter implements Reporter {
       maxTokens: config.maxTokens ?? undefined,
       enableStreaming: shouldEnableStreaming,
       includeAbsolutePaths: config.includeAbsolutePaths ?? false,
+      filterNodeModules: config.filterNodeModules ?? true,
       performance: {
         enabled: config.performance?.enabled ?? false,
         cacheSize: config.performance?.cacheSize ?? 1000,
@@ -134,6 +136,7 @@ export class LLMReporter implements Reporter {
       },
       framedOutput: config.framedOutput ?? false,
       forceConsoleOutput: config.forceConsoleOutput ?? false,
+      includeStackString: config.includeStackString ?? false,
       spinner: {
         enabled: isTTY,
         intervalMs: 80,
@@ -146,10 +149,12 @@ export class LLMReporter implements Reporter {
     this.stateManager = new StateManager()
     this.testExtractor = new TestCaseExtractor()
     this.errorExtractor = new ErrorExtractor({
-      includeAbsolutePaths: false // Will be updated in onInit with actual config
+      includeAbsolutePaths: false, // Will be updated in onInit with actual config
+      filterNodeModules: this.config.filterNodeModules ?? true // Use config value or default to true
     })
     this.resultBuilder = new TestResultBuilder({
-      includeAbsolutePaths: false // Will be updated in onInit with actual config
+      includeAbsolutePaths: false, // Will be updated in onInit with actual config
+      includeStackString: this.config.includeStackString
     })
     this.contextBuilder = new ErrorContextBuilder()
     this.outputBuilder = new OutputBuilder({
@@ -157,6 +162,8 @@ export class LLMReporter implements Reporter {
       includePassedTests: this.config.includePassedTests,
       includeSkippedTests: this.config.includeSkippedTests,
       enableStreaming: this.config.enableStreaming,
+      filterNodeModules: this.config.filterNodeModules ?? true,
+      includeStackString: this.config.includeStackString,
       truncation: this.config.truncation
     })
     this.outputWriter = new OutputWriter()
@@ -332,12 +339,14 @@ export class LLMReporter implements Reporter {
     // Update components with root directory and config
     this.resultBuilder.updateConfig({
       rootDir: this.rootDir,
-      includeAbsolutePaths: this.config.includeAbsolutePaths
+      includeAbsolutePaths: this.config.includeAbsolutePaths,
+      includeStackString: this.config.includeStackString
     })
     // Recreate ErrorExtractor with updated rootDir and config
     this.errorExtractor = new ErrorExtractor({
       rootDir: this.rootDir,
-      includeAbsolutePaths: this.config.includeAbsolutePaths
+      includeAbsolutePaths: this.config.includeAbsolutePaths,
+      filterNodeModules: this.config.filterNodeModules ?? true // Default to true if not specified
     })
     // Update the orchestrator's error extractor reference
     this.orchestrator.updateErrorExtractor(this.errorExtractor)

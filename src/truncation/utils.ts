@@ -408,8 +408,19 @@ export function truncateAssertionValue(value: unknown, maxChars = 200): unknown 
     }
   }
 
-  // For functions, symbols, etc.
-  return String(value)
+  // For functions, symbols, bigint, etc.
+  // This branch should never receive objects (handled above), but be defensive
+  if (typeof value === 'function') {
+    return '[function]'
+  }
+  if (typeof value === 'symbol') {
+    return value.toString()
+  }
+  if (typeof value === 'bigint') {
+    return value.toString()
+  }
+  // Fallback for any edge cases
+  return '[unknown]'
 }
 
 /**

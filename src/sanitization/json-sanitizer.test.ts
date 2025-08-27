@@ -173,7 +173,7 @@ describe('JsonSanitizer', () => {
       expect(result.failures![0].test).toBe('test with \\"quotes\\" and \\\\backslash')
       // Check that newlines and tabs are escaped
       expect(result.failures![0].error.message).toBe('Error with \\n newline and \\t tab')
-      // Check that carriage return is escaped
+      // Check that carriage return is escaped (when stack is present)
       expect(result.failures![0].error.stack).toBe('Stack with \\r carriage return')
     })
 
