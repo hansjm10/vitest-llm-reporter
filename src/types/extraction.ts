@@ -47,6 +47,8 @@ export interface ErrorExtractionConfig {
   filterNodeModules?: boolean
   /** Root directory for resolving relative paths */
   rootDir?: string
+  /** Whether to include absolute paths in stack frames */
+  includeAbsolutePaths?: boolean
 }
 
 /**

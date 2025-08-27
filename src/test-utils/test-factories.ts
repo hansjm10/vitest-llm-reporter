@@ -44,7 +44,7 @@ export const createOutputWithFailures = (
 ): LLMReporterOutput => {
   const failures: TestFailure[] = Array.from({ length: failureCount }, (_, i) => ({
     test: `Test ${i + 1}`,
-    file: `/test/file${i + 1}.ts`,
+    fileRelative: `test/file${i + 1}.ts`,
     startLine: (i + 1) * 10,
     endLine: (i + 1) * 10 + 5,
     error: {
@@ -74,7 +74,7 @@ export const createOutputWithFailures = (
 export const createOutputWithPassed = (passCount: number): LLMReporterOutput => {
   const passed: TestResult[] = Array.from({ length: passCount }, (_, i) => ({
     test: `Test ${i + 1}`,
-    file: `/test/file${i + 1}.ts`,
+    fileRelative: `test/file${i + 1}.ts`,
     startLine: (i + 1) * 10,
     endLine: (i + 1) * 10 + 5,
     status: 'passed' as const,
@@ -100,7 +100,7 @@ export const createOutputWithPassed = (passCount: number): LLMReporterOutput => 
  */
 export const createFailureWithContext = (testName: string, codeLines: string[]): TestFailure => ({
   test: testName,
-  file: '/test/context.test.ts',
+  fileRelative: 'test/context.test.ts',
   startLine: 15,
   endLine: 20,
   error: {
@@ -191,7 +191,7 @@ export const createXSSTestOutput = (): LLMReporterOutput => ({
   failures: [
     {
       test: '<script>alert("XSS")</script>',
-      file: '/test/file.ts',
+      fileRelative: 'test/file.ts',
       startLine: 1,
       endLine: 1,
       error: {
@@ -223,7 +223,7 @@ export const createOutputWithFilePath = (filePath: string, passed = true): LLMRe
       passed: [
         {
           test: 'test',
-          file: filePath,
+          fileRelative: filePath,
           startLine: 1,
           endLine: 1,
           status: 'passed'
@@ -241,7 +241,7 @@ export const createOutputWithFilePath = (filePath: string, passed = true): LLMRe
       failures: [
         {
           test: 'test',
-          file: filePath,
+          fileRelative: filePath,
           startLine: 1,
           endLine: 1,
           error: {
@@ -262,7 +262,7 @@ export const createOutputWithFilePath = (filePath: string, passed = true): LLMRe
  */
 export const createNestedSuiteFailure = (suitePath: string[], testName: string): TestFailure => ({
   test: [...suitePath, testName].join(' > '),
-  file: '/test/nested.test.ts',
+  fileRelative: '/test/nested.test.ts',
   startLine: 25,
   endLine: 30,
   suite: suitePath,
@@ -302,7 +302,7 @@ export const createMixedOutput = (
   if (passed > 0) {
     output.passed = Array.from({ length: passed }, (_, i) => ({
       test: `Passed test ${i + 1}`,
-      file: '/test/mixed.test.ts',
+      fileRelative: '/test/mixed.test.ts',
       startLine: i * 10,
       endLine: i * 10 + 5,
       status: 'passed' as const
@@ -312,7 +312,7 @@ export const createMixedOutput = (
   if (skipped > 0) {
     output.skipped = Array.from({ length: skipped }, (_, i) => ({
       test: `Skipped test ${i + 1}`,
-      file: '/test/mixed.test.ts',
+      fileRelative: '/test/mixed.test.ts',
       startLine: i * 10,
       endLine: i * 10 + 5,
       status: 'skipped' as const

@@ -368,7 +368,7 @@ describe('LLMReporter', () => {
 
       const failure = output!.failures![0]
       expect(failure.test).toBe('failing-test')
-      expect(failure.file).toBe('/test/file.ts')
+      expect(failure.fileRelative).toBe('/test/file.ts')
       expect(failure.startLine).toBe(20)
       expect(failure.endLine).toBe(30)
       expect(failure.error.message).toBe('Expected true to be false')
@@ -429,7 +429,7 @@ describe('LLMReporter', () => {
 
       const output = verboseReporter.getOutput()
       const passedTest = output!.passed![0]
-      expect(passedTest.file).toBe('/src/components/Button.test.ts')
+      expect(passedTest.fileRelative).toBe('/src/components/Button.test.ts')
       expect(passedTest.startLine).toBe(42)
       expect(passedTest.endLine).toBe(47)
     })
@@ -540,7 +540,7 @@ describe('LLMReporter', () => {
       const malformedTest = {
         id: 'malformed',
         name: null, // Invalid name
-        file: undefined, // Missing file
+        fileRelative: undefined, // Missing file
         result: { state: 'unknown' } // Unknown state
       }
 

@@ -424,38 +424,69 @@ export class SchemaValidator {
       return false
     }
 
-    if (!hasProperty(obj, 'file')) {
-      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.file`), `${path}.file`)
+    if (!hasProperty(obj, 'fileRelative')) {
+      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.fileRelative`), `${path}.fileRelative`)
       return false
     }
-    if (typeof obj.file !== 'string') {
+    if (typeof obj.fileRelative !== 'string') {
       this.addError(
         context,
-        ErrorMessages.TYPE_STRING(`${path}.file`, typeof obj.file),
-        `${path}.file`,
-        obj.file
+        ErrorMessages.TYPE_STRING(`${path}.fileRelative`, typeof obj.fileRelative),
+        `${path}.fileRelative`,
+        obj.fileRelative
       )
       return false
     }
-    if (obj.file.length > context.config.maxStringLength) {
+    if (obj.fileRelative.length > context.config.maxStringLength) {
       this.addError(
         context,
         `Exceeds maximum string length of ${context.config.maxStringLength}`,
-        `${path}.file`,
-        obj.file.length
+        `${path}.fileRelative`,
+        obj.fileRelative.length
       )
       return false
     }
 
     // Validate file path security
-    if (!validateFilePath(obj.file)) {
+    if (!validateFilePath(obj.fileRelative)) {
       this.addError(
         context,
-        ErrorMessages.INVALID_FILE_PATH(`${path}.file`, String(obj.file)),
-        `${path}.file`,
-        obj.file
+        ErrorMessages.INVALID_FILE_PATH(`${path}.fileRelative`, String(obj.fileRelative)),
+        `${path}.fileRelative`,
+        obj.fileRelative
       )
       return false
+    }
+
+    // Validate optional fileAbsolute field
+    if (hasProperty(obj, 'fileAbsolute')) {
+      if (typeof obj.fileAbsolute !== 'string') {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_STRING(`${path}.fileAbsolute`, typeof obj.fileAbsolute),
+          `${path}.fileAbsolute`,
+          obj.fileAbsolute
+        )
+        return false
+      }
+      if (obj.fileAbsolute.length > context.config.maxStringLength) {
+        this.addError(
+          context,
+          `Exceeds maximum string length of ${context.config.maxStringLength}`,
+          `${path}.fileAbsolute`,
+          obj.fileAbsolute.length
+        )
+        return false
+      }
+      if (!validateFilePath(obj.fileAbsolute)) {
+        this.addError(
+          context,
+          ErrorMessages.INVALID_FILE_PATH(`${path}.fileAbsolute`, String(obj.fileAbsolute)),
+          `${path}.fileAbsolute`,
+          obj.fileAbsolute
+        )
+        return false
+      }
     }
 
     // Check startLine

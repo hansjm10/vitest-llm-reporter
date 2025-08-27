@@ -195,10 +195,12 @@ export default defineConfig({
     expect(firstFailure.error.stackFrames.length).toBeGreaterThan(0)
 
     const firstFrame = firstFailure.error.stackFrames[0]
-    expect(firstFrame).toHaveProperty('file')
+    expect(firstFrame).toHaveProperty('fileRelative')
     expect(firstFrame).toHaveProperty('line')
     expect(firstFrame).toHaveProperty('column')
-    expect(firstFrame.file).toContain('.tmp-e2e-test-fixture.test.ts')
+    expect(firstFrame).toHaveProperty('inProject')
+    expect(firstFrame).toHaveProperty('inNodeModules')
+    expect(firstFrame.fileRelative).toContain('.tmp-e2e-test-fixture.test.ts')
 
     // Check assertion details
     expect(firstFailure.error).toHaveProperty('assertion')

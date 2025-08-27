@@ -43,7 +43,7 @@ describe('LateTruncator', () => {
     for (let i = 0; i < failureCount; i++) {
       const failure: TestFailure = {
         test: `Test ${i + 1}`,
-        file: `/path/to/test${i + 1}.ts`,
+        fileRelative: `/path/to/test${i + 1}.ts`,
         startLine: 10,
         endLine: 20,
         error: {
@@ -110,7 +110,7 @@ describe('LateTruncator', () => {
     for (let i = 0; i < passedCount; i++) {
       passed.push({
         test: `Passed Test ${i + 1}`,
-        file: `/path/to/passed${i + 1}.ts`,
+        fileRelative: `/path/to/passed${i + 1}.ts`,
         startLine: 5,
         endLine: 10,
         status: 'passed',
@@ -122,7 +122,7 @@ describe('LateTruncator', () => {
     for (let i = 0; i < skippedCount; i++) {
       skipped.push({
         test: `Skipped Test ${i + 1}`,
-        file: `/path/to/skipped${i + 1}.ts`,
+        fileRelative: `/path/to/skipped${i + 1}.ts`,
         startLine: 5,
         endLine: 10,
         status: 'skipped'
@@ -448,7 +448,7 @@ describe('LateTruncator', () => {
           },
           failures: [{
             test: 'should equal numbers',
-            file: '/test.ts',
+            fileRelative: '/test.ts',
             startLine: 10,
             endLine: 20,
             error: {
@@ -490,7 +490,7 @@ describe('LateTruncator', () => {
           },
           failures: [{
             test: 'should be true',
-            file: '/test.ts',
+            fileRelative: '/test.ts',
             startLine: 10,
             endLine: 20,
             error: {
@@ -529,7 +529,7 @@ describe('LateTruncator', () => {
           },
           failures: [{
             test: 'should be null',
-            file: '/test.ts',
+            fileRelative: '/test.ts',
             startLine: 10,
             endLine: 20,
             error: {
@@ -574,7 +574,7 @@ describe('LateTruncator', () => {
           },
           failures: [{
             test: 'large object test',
-            file: '/test.ts',
+            fileRelative: '/test.ts',
             startLine: 10,
             endLine: 20,
             error: {
@@ -634,7 +634,7 @@ describe('LateTruncator', () => {
           if (result.failures) {
             for (const failure of result.failures) {
               expect(failure.test).toBeTypeOf('string')
-              expect(failure.file).toBeTypeOf('string')
+              expect(failure.fileRelative).toBeTypeOf('string')
               expect(failure.error).toBeDefined()
               expect(failure.error.message).toBeTypeOf('string')
               expect(failure.error.type).toBeTypeOf('string')

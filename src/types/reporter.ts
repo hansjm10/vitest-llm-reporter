@@ -35,6 +35,8 @@ export interface LLMReporterConfig {
   maxTokens?: number
   /** Enable streaming mode for real-time output (default: auto-detect based on TTY) */
   enableStreaming?: boolean
+  /** Include absolute paths in output (default: false) */
+  includeAbsolutePaths?: boolean
   /** Truncation configuration options */
   truncation?: TruncationConfig
   /** Performance optimization configuration */

@@ -18,7 +18,7 @@ describe('LLMReporter Console Capture Integration', () => {
     const testCase = {
       id: 'test-1',
       name: 'failing test',
-      file: { filepath: '/test.ts' },
+      fileRelative: { filepath: '/test.ts' },
       location: {
         start: { line: 1 },
         end: { line: 5 }
@@ -68,7 +68,7 @@ describe('LLMReporter Console Capture Integration', () => {
     const testCase = {
       id: 'test-2',
       name: 'passing test',
-      file: { filepath: '/test.ts' },
+      fileRelative: { filepath: '/test.ts' },
       location: {
         start: { line: 1 },
         end: { line: 5 }
@@ -107,7 +107,7 @@ describe('LLMReporter Console Capture Integration', () => {
     const testCase = {
       id: 'test-3',
       name: 'failing test without capture',
-      file: { filepath: '/test.ts' },
+      fileRelative: { filepath: '/test.ts' },
       location: {
         start: { line: 1 },
         end: { line: 5 }

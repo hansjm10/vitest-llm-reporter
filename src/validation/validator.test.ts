@@ -110,7 +110,7 @@ describe('SchemaValidator', () => {
         failures: [
           {
             test: 'Test with "quotes" and \'apostrophes\' and /slashes/ and \\backslashes\\',
-            file: '/test/file.js',
+            fileRelative: '/test/file.js',
             startLine: 10,
             endLine: 10,
             error: {
@@ -388,7 +388,7 @@ describe('SchemaValidator', () => {
           failures: [
             {
               test: 'test',
-              file: '/test/file.ts',
+              fileRelative: '/test/file.ts',
               startLine: 1,
               endLine: 1,
               error: {
@@ -427,7 +427,7 @@ describe('SchemaValidator', () => {
           failures: [
             {
               test: 'test',
-              file: '/test/file.ts',
+              fileRelative: '/test/file.ts',
               startLine: 1,
               endLine: 1,
               error: {
@@ -460,7 +460,7 @@ describe('SchemaValidator', () => {
           failures: [
             {
               test: 'test',
-              file: '/test/file.ts',
+              fileRelative: '/test/file.ts',
               startLine: 1,
               endLine: 1,
               error: {
@@ -514,7 +514,7 @@ describe('SchemaValidator', () => {
           failures: [
             {
               test: 'test',
-              file: '/test/file.ts',
+              fileRelative: '/test/file.ts',
               startLine: 1,
               endLine: 1,
               error: {

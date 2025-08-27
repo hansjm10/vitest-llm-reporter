@@ -15,7 +15,8 @@ import type {
   TestError,
   ErrorContext,
   AssertionValue,
-  AssertionDetails
+  AssertionDetails,
+  StackFrame
 } from '../types/schema.js'
 import type { JsonSanitizerConfig } from './types.js'
 
@@ -93,14 +94,27 @@ export class JsonSanitizer {
    * Sanitizes a test failure object
    */
   private sanitizeTestFailure(failure: TestFailure): TestFailure {
-    return {
+    const result: TestFailure = {
       test: escapeJsonString(failure.test),
-      file: this.sanitizeFilePath(failure.file),
+      fileRelative: this.sanitizeFilePath(failure.fileRelative),
       startLine: failure.startLine,
       endLine: failure.endLine,
-      suite: failure.suite?.map((s) => escapeJsonString(s)),
       error: this.sanitizeTestError(failure.error)
     }
+
+    if (failure.fileAbsolute) {
+      result.fileAbsolute = this.sanitizeFilePath(failure.fileAbsolute)
+    }
+
+    if (failure.suite) {
+      result.suite = failure.suite.map((s) => escapeJsonString(s))
+    }
+
+    if (failure.console) {
+      result.console = failure.console
+    }
+
+    return result
   }
 
   /**
@@ -116,12 +130,42 @@ export class JsonSanitizer {
       sanitized.stack = escapeJsonString(error.stack)
     }
 
+    if (error.stackFrames) {
+      sanitized.stackFrames = error.stackFrames.map((frame) => this.sanitizeStackFrame(frame))
+    }
+
     if (error.context) {
       sanitized.context = this.sanitizeErrorContext(error.context)
     }
 
     if (error.assertion) {
       sanitized.assertion = this.sanitizeAssertionDetails(error.assertion)
+    }
+
+    return sanitized
+  }
+
+  /**
+   * Sanitizes a stack frame object
+   */
+  private sanitizeStackFrame(frame: StackFrame): StackFrame {
+    const sanitized: StackFrame = {
+      fileRelative: this.sanitizeFilePath(frame.fileRelative),
+      line: frame.line,
+      inProject: frame.inProject,
+      inNodeModules: frame.inNodeModules
+    }
+
+    if (frame.column !== undefined) {
+      sanitized.column = frame.column
+    }
+
+    if (frame.function) {
+      sanitized.function = escapeJsonString(frame.function)
+    }
+
+    if (frame.fileAbsolute) {
+      sanitized.fileAbsolute = this.sanitizeFilePath(frame.fileAbsolute)
     }
 
     return sanitized
@@ -160,15 +204,27 @@ export class JsonSanitizer {
    * Sanitizes a test result object
    */
   private sanitizeTestResult(result: TestResult): TestResult {
-    return {
+    const sanitized: TestResult = {
       test: escapeJsonString(result.test),
-      file: this.sanitizeFilePath(result.file),
+      fileRelative: this.sanitizeFilePath(result.fileRelative),
       startLine: result.startLine,
       endLine: result.endLine,
-      duration: result.duration,
-      status: result.status,
-      suite: result.suite?.map((s) => escapeJsonString(s))
+      status: result.status
     }
+
+    if (result.fileAbsolute) {
+      sanitized.fileAbsolute = this.sanitizeFilePath(result.fileAbsolute)
+    }
+
+    if (result.duration !== undefined) {
+      sanitized.duration = result.duration
+    }
+
+    if (result.suite) {
+      sanitized.suite = result.suite.map((s) => escapeJsonString(s))
+    }
+
+    return sanitized
   }
 
   /**
@@ -244,6 +300,9 @@ export class JsonSanitizer {
     }
 
     // Remove user-specific information from paths
-    return escapedPath.replace(/\/(?:Users|home)\/[^/]+/, '/Users/***')
+    // Handle paths with or without leading slash
+    return escapedPath.replace(/(?:^|\/)(?:Users|home)\/[^/]+/, (match) => 
+      match.startsWith('/') ? '/Users/***' : 'Users/***'
+    )
   }
 }

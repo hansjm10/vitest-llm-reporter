@@ -166,7 +166,7 @@ export class OutputBuilder {
 
       return {
         test: 'Unhandled Error',
-        file: '',
+        fileRelative: '',
         startLine: 0,
         endLine: 0,
         error: testError

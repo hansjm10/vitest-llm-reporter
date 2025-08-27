@@ -28,7 +28,7 @@ describe('LLMReporter Console Capture - Direct Test', () => {
         state: 'fail',
         error: new Error('Test failed')
       },
-      file: '/test/file.ts',
+      fileRelative: '/test/file.ts',
       location: { start: { line: 10 }, end: { line: 20 } }
     } as unknown as TestCase
 
@@ -85,7 +85,7 @@ describe('LLMReporter Console Capture - Direct Test', () => {
       result: {
         state: 'pass'
       },
-      file: '/test/file.ts',
+      fileRelative: '/test/file.ts',
       location: { start: { line: 10 }, end: { line: 20 } }
     } as unknown as TestCase
 

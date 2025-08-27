@@ -27,6 +27,7 @@ interface ResolvedLLMReporterConfig
   tokenCountingEnabled: boolean
   maxTokens: number | undefined
   enableStreaming: boolean
+  includeAbsolutePaths: boolean // Whether to include absolute paths in output
   performance: Required<MonitoringConfig>
   truncation: {
     enabled: boolean
@@ -71,6 +72,7 @@ export class LLMReporter implements Reporter {
   private debug = coreLogger()
   private debugError = errorLogger()
   private isTestRunActive = false // Track if a test run is in progress (watch mode)
+  private rootDir?: string // Root directory from Vitest config
 
   // Component instances
   private stateManager: StateManager
@@ -115,6 +117,7 @@ export class LLMReporter implements Reporter {
       tokenCountingEnabled: config.tokenCountingEnabled ?? false,
       maxTokens: config.maxTokens ?? undefined,
       enableStreaming: shouldEnableStreaming,
+      includeAbsolutePaths: config.includeAbsolutePaths ?? false,
       performance: {
         enabled: config.performance?.enabled ?? false,
         cacheSize: config.performance?.cacheSize ?? 1000,
@@ -142,8 +145,12 @@ export class LLMReporter implements Reporter {
     // Initialize components
     this.stateManager = new StateManager()
     this.testExtractor = new TestCaseExtractor()
-    this.errorExtractor = new ErrorExtractor()
-    this.resultBuilder = new TestResultBuilder()
+    this.errorExtractor = new ErrorExtractor({
+      includeAbsolutePaths: false // Will be updated in onInit with actual config
+    })
+    this.resultBuilder = new TestResultBuilder({
+      includeAbsolutePaths: false // Will be updated in onInit with actual config
+    })
     this.contextBuilder = new ErrorContextBuilder()
     this.outputBuilder = new OutputBuilder({
       verbose: this.config.verbose,
@@ -320,6 +327,20 @@ export class LLMReporter implements Reporter {
    */
   onInit(ctx: Vitest): void {
     this.context = ctx
+    this.rootDir = ctx.config.root
+    
+    // Update components with root directory and config
+    this.resultBuilder.updateConfig({ 
+      rootDir: this.rootDir,
+      includeAbsolutePaths: this.config.includeAbsolutePaths
+    })
+    // Recreate ErrorExtractor with updated rootDir and config
+    this.errorExtractor = new ErrorExtractor({
+      rootDir: this.rootDir,
+      includeAbsolutePaths: this.config.includeAbsolutePaths
+    })
+    // Update the orchestrator's error extractor reference
+    this.orchestrator.updateErrorExtractor(this.errorExtractor)
   }
 
   /**

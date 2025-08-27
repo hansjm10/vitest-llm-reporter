@@ -19,7 +19,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'type test',
-            file: '/test.ts',
+            fileRelative: '/test.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -68,7 +68,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'null test',
-            file: '/test.ts',
+            fileRelative: '/test.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -110,7 +110,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'string test',
-            file: '/test.ts',
+            fileRelative: '/test.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -155,7 +155,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test with "quotes" and \\backslash',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -192,7 +192,7 @@ describe('JsonSanitizer', () => {
         passed: [
           {
             test: 'test with \x00 null and \x1f unit separator',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             status: 'passed'
@@ -222,7 +222,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -265,7 +265,7 @@ describe('JsonSanitizer', () => {
         passed: [
           {
             test: 'test',
-            file: '/Users/johndoe/projects/test.ts',
+            fileRelative: 'Users/johndoe/projects/test.ts',
             startLine: 1,
             endLine: 1,
             status: 'passed'
@@ -274,7 +274,7 @@ describe('JsonSanitizer', () => {
       }
 
       const result = sanitizer.sanitize(input)
-      expect(result.passed![0].file).toBe('/Users/***/projects/test.ts')
+      expect(result.passed![0].fileRelative).toBe('Users/***/projects/test.ts')
     })
 
     it('should not sanitize file paths by default', () => {
@@ -292,7 +292,7 @@ describe('JsonSanitizer', () => {
         passed: [
           {
             test: 'test',
-            file: '/Users/johndoe/projects/test.ts',
+            fileRelative: 'Users/johndoe/projects/test.ts',
             startLine: 1,
             endLine: 1,
             status: 'passed'
@@ -301,7 +301,7 @@ describe('JsonSanitizer', () => {
       }
 
       const result = sanitizer.sanitize(input)
-      expect(result.passed![0].file).toBe('/Users/johndoe/projects/test.ts')
+      expect(result.passed![0].fileRelative).toBe('Users/johndoe/projects/test.ts')
     })
   })
 
@@ -321,7 +321,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -375,7 +375,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -412,7 +412,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             suite: ['Parent "Suite"', 'Child\\Suite'],
@@ -446,7 +446,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {

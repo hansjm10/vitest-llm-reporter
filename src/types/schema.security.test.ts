@@ -21,7 +21,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'XSS with parentheses',
-            file: '/test/xss.test.ts',
+            fileRelative: '/test/xss.test.ts',
             startLine: 10,
             endLine: 10,
             error: {
@@ -69,7 +69,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'XSS test',
-            file: '/test/xss.test.ts',
+            fileRelative: '/test/xss.test.ts',
             startLine: 10,
             endLine: 10,
             error: {
@@ -120,7 +120,7 @@ describe('Security Validation Tests', () => {
           failures: [
             {
               test: 'XSS test',
-              file: '/test/xss.test.ts',
+              fileRelative: '/test/xss.test.ts',
               startLine: 10,
               endLine: 10,
               error: {
@@ -287,7 +287,7 @@ describe('Security Validation Tests', () => {
       traversalPaths.forEach((path) => {
         const failure: TestFailure = {
           test: 'Path traversal test',
-          file: path,
+          fileRelative: path,
           startLine: 10,
           endLine: 10,
           error: {
@@ -306,7 +306,7 @@ describe('Security Validation Tests', () => {
       relativePaths.forEach((path) => {
         const failure: TestFailure = {
           test: 'Relative path test',
-          file: path,
+          fileRelative: path,
           startLine: 10,
           endLine: 10,
           error: {
@@ -330,7 +330,7 @@ describe('Security Validation Tests', () => {
       validPaths.forEach((path) => {
         const failure: TestFailure = {
           test: 'Valid path test',
-          file: path,
+          fileRelative: path,
           startLine: 10,
           endLine: 10,
           error: {
@@ -348,7 +348,7 @@ describe('Security Validation Tests', () => {
 
       const failure: TestFailure = {
         test: 'Null byte test',
-        file: nullBytePath,
+        fileRelative: nullBytePath,
         startLine: 10,
         endLine: 10,
         error: {
@@ -377,7 +377,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'Memory test',
-            file: '/test/memory.test.ts',
+            fileRelative: '/test/memory.test.ts',
             startLine: 10,
             endLine: 10,
             error: {
@@ -404,7 +404,7 @@ describe('Security Validation Tests', () => {
       for (let i = 0; i < 110; i++) {
         failures.push({
           test: `Memory test ${i}`,
-          file: `/test/memory${i}.test.ts`,
+          fileRelative: `/test/memory${i}.test.ts`,
           startLine: 10,
           endLine: 10,
           error: {
@@ -454,7 +454,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'Reasonable test',
-            file: '/test/reasonable.test.ts',
+            fileRelative: '/test/reasonable.test.ts',
             startLine: 10,
             endLine: 10,
             error: {
@@ -490,7 +490,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'Circular test',
-            file: '/test/circular.test.ts',
+            fileRelative: '/test/circular.test.ts',
             startLine: 10,
             endLine: 10,
             error: {
@@ -526,7 +526,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'Normal test',
-            file: '/test/normal.test.ts',
+            fileRelative: '/test/normal.test.ts',
             startLine: 10,
             endLine: 10,
             error: {
@@ -561,7 +561,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'Large line test',
-            file: '/test/large.test.ts',
+            fileRelative: '/test/large.test.ts',
             startLine: Number.MAX_SAFE_INTEGER - 10,
             endLine: Number.MAX_SAFE_INTEGER,
             error: {
@@ -601,7 +601,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'Unicode test',
-            file: '/test/unicode.test.ts',
+            fileRelative: '/test/unicode.test.ts',
             startLine: 10,
             endLine: 10,
             error: {
@@ -656,7 +656,7 @@ describe('Security Validation Tests', () => {
         },
         failures: Array.from({ length: 20 }, (_, i) => ({
           test: `x${i}`,
-          file: `/test/x${i}.ts`,
+          fileRelative: `/test/x${i}.ts`,
           startLine: 1,
           endLine: 1,
           error: {
@@ -685,7 +685,7 @@ describe('Security Validation Tests', () => {
     it('should handle actual content size calculation', () => {
       const largeArray = Array(1000).fill({
         test: 'test',
-        file: '/test/file.ts',
+        fileRelative: '/test/file.ts',
         startLine: 1,
         endLine: 1,
         error: {
@@ -729,7 +729,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -767,7 +767,7 @@ describe('Security Validation Tests', () => {
       // Create circular reference
       const failure: any = {
         test: 'test',
-        file: '/test/file.ts',
+        fileRelative: '/test/file.ts',
         startLine: 1,
         endLine: 1,
         error: {
@@ -802,7 +802,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -848,7 +848,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -883,7 +883,7 @@ describe('Security Validation Tests', () => {
         // Each failure has 100KB of code (100 lines × 1KB each)
         const createFailure = (index: number) => ({
           test: `test ${index}`,
-          file: `/test/file${index}.ts`,
+          fileRelative: `/test/file${index}.ts`,
           startLine: index,
           endLine: index,
           error: {
@@ -946,7 +946,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -977,7 +977,7 @@ describe('Security Validation Tests', () => {
         passed: [
           {
             test: 'small test',
-            file: '/test/small.ts',
+            fileRelative: '/test/small.ts',
             startLine: 1,
             endLine: 1,
             status: 'passed'
@@ -1007,7 +1007,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'complex test',
-            file: '/test/complex.ts',
+            fileRelative: '/test/complex.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -1030,7 +1030,7 @@ describe('Security Validation Tests', () => {
         passed: [
           {
             test: 'passed test',
-            file: '/test/pass.ts',
+            fileRelative: '/test/pass.ts',
             startLine: 1,
             endLine: 1,
             status: 'passed'
@@ -1039,7 +1039,7 @@ describe('Security Validation Tests', () => {
         skipped: [
           {
             test: 'skipped test',
-            file: '/test/skip.ts',
+            fileRelative: '/test/skip.ts',
             startLine: 1,
             endLine: 1,
             status: 'skipped'
@@ -1072,7 +1072,7 @@ describe('Security Validation Tests', () => {
         failures: [
           {
             test: 'tricky',
-            file: '/test/tricky.ts',
+            fileRelative: '/test/tricky.ts',
             startLine: 1,
             endLine: 1,
             error: {

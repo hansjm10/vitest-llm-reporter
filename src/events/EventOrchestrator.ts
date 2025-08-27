@@ -466,4 +466,11 @@ export class EventOrchestrator {
     // Truncation config updates are now handled in OutputBuilder
     // No need for config updates here
   }
+
+  /**
+   * Updates the error extractor instance
+   */
+  public updateErrorExtractor(errorExtractor: ErrorExtractor): void {
+    this.errorExtractor = errorExtractor
+  }
 }

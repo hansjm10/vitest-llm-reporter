@@ -39,8 +39,9 @@ export const DEFAULT_ERROR_CONFIG: Required<ErrorExtractionConfig> = {
   extractLineFromStack: true,
   maxContextLines: 3,
   includeSourceCode: true,
-  filterNodeModules: true,
-  rootDir: process.cwd()
+  filterNodeModules: false, // Keep external node_modules for classification, internal ones are always filtered
+  rootDir: process.cwd(),
+  includeAbsolutePaths: false
 }
 
 /**
@@ -245,7 +246,7 @@ export class ErrorExtractor {
     const columnNumber = this.getColumnNumber(error)
 
     // Parse stack trace to get frames
-    const stackFrames = this.contextExtractor.parseStackTrace(stack)
+    const stackFrames = this.contextExtractor.parseStackTrace(stack, this.config.includeAbsolutePaths)
 
     // Extract code context with proper typing (do not merge assertion values here)
     const codeContext = this.extractCodeContext(filePath, lineNumber, columnNumber, stackFrames)
@@ -278,8 +279,10 @@ export class ErrorExtractor {
     if (stackFrames.length > 0) {
       // Otherwise use the first relevant stack frame
       const firstFrame = stackFrames[0]
+      // Use fileAbsolute if available, otherwise fileRelative
+      const filePath = firstFrame.fileAbsolute || firstFrame.fileRelative
       return this.contextExtractor.extractCodeContext(
-        firstFrame.file,
+        filePath,
         firstFrame.line,
         firstFrame.column
       )
@@ -368,7 +371,7 @@ export class ErrorExtractor {
    */
   public extractStackFrames(error: unknown): { stackFrames?: StackFrame[] } {
     const stack = this.getStackString(error)
-    const stackFrames = this.contextExtractor.parseStackTrace(stack)
+    const stackFrames = this.contextExtractor.parseStackTrace(stack, this.config.includeAbsolutePaths)
     // Return empty array for malformed stack traces to match test expectations
     return { stackFrames: stackFrames.length > 0 ? stackFrames : [] }
   }

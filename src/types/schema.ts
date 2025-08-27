@@ -57,14 +57,20 @@ export interface ErrorContext {
  * Stack frame information from parsed stack traces
  */
 export interface StackFrame {
-  /** File path */
-  file: string
+  /** Repo-relative file path */
+  fileRelative: string
   /** Line number */
   line: number
   /** Column number (optional) */
   column?: number
   /** Function name (optional) */
   function?: string
+  /** Whether the frame is in the project (not external) */
+  inProject: boolean
+  /** Whether the frame is in node_modules */
+  inNodeModules: boolean
+  /** Absolute file path (optional, for tooling) */
+  fileAbsolute?: string
 }
 
 /**
@@ -107,14 +113,16 @@ export interface TestError {
 export interface TestBase {
   /** Test name */
   test: string
-  /** File path where the test is defined */
-  file: string
+  /** Repo-relative file path where the test is defined */
+  fileRelative: string
   /** Line number where the test starts */
   startLine: number
   /** Line number where the test ends */
   endLine: number
   /** Test suite hierarchy (optional) */
   suite?: string[]
+  /** Absolute file path (optional, for tooling) */
+  fileAbsolute?: string
 }
 
 /**

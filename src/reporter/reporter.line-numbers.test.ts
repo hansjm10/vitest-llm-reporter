@@ -24,7 +24,7 @@ describe('LLMReporter Line Number Extraction', () => {
     const mockTestCase = {
       id: 'test-1',
       name: 'test with line numbers',
-      file: { filepath: __filename },
+      fileRelative: { filepath: __filename },
       location: {
         start: { line: 22 }, // Line where this test starts
         end: { line: 50 } // Approximate end line
@@ -55,7 +55,7 @@ describe('LLMReporter Line Number Extraction', () => {
     const mockTestCase = {
       id: 'test-2',
       name: 'test without location',
-      file: { filepath: __filename },
+      fileRelative: { filepath: __filename },
       // No location property
       result: {
         state: 'pass',
