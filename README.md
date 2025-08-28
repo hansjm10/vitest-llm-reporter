@@ -183,38 +183,6 @@ You can enable a small demo test that intentionally fails and emits console outp
 
 The demo test lives in `tests/demo/reporter-demo.test.ts` and only runs when the `LLM_REPORTER_DEMO=1` environment variable is set.
 
-## Migration from Previous Versions
-
-### Latest Changes
-
-#### Deprecated Configuration Options
-- **`enableStreaming`**: Deprecated. Use `enableConsoleOutput` instead for controlling end-of-run console JSON emission. Note: This is distinct from `StreamingReporter.enableStreaming` which controls live per-test output.
-
-#### Removed Configuration Options
-The following unused truncation configuration options have been removed:
-- **`TruncationConfig.strategy`**: This field was never used and has been removed.
-- **`TruncationConfig.featureFlag`**: This field was never used and has been removed.
-
-### Previously Removed Options
-
-The following configuration options were removed in earlier versions:
-
-- **`streamingMode`**: This legacy flag has been removed. Use `enableConsoleOutput` instead.
-- **`streaming`** config object and **`StreamingConfig`** type: This unimplemented configuration block has been removed. 
-- **`TruncationConfig.enableStreamingTruncation`**: This unused option has been removed from truncation configuration.
-- **`TruncationConfig.model`**: Removed. Truncation no longer varies by model and only respects `maxTokens`.
-- **`tokenCountingModel`**: Removed from reporter config. The reporter performs model-agnostic token estimation.
-
-Additionally, model-based context utilities were removed:
-- `getEffectiveMaxTokens`, `MODEL_CONTEXT_WINDOWS`, and related helpers are no longer exported.
-
-**Migration Guide:**
-- If you were using `enableStreaming` for console output control, replace it with `enableConsoleOutput`
-- If you had `truncation.strategy` or `truncation.featureFlag` in your config, these can be safely removed
-- Spinner now defaults to off in CI environments. Use `LLM_REPORTER_SPINNER=0` environment variable to force disable
-- Use `fileJsonSpacing` and `consoleJsonSpacing` to control JSON formatting separately for file and console output
-- If you previously relied on model-specific context windows, set an explicit `truncation.maxTokens` to control output size.
-
 ## Contributing
 
 Contributions are welcome! Please check the [GitHub issues](https://github.com/hansjm10/vitest-llm-reporter/issues) for current tasks.
