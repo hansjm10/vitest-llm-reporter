@@ -75,43 +75,86 @@ Note: `StreamingReporter` is a thin wrapper around the base reporter that prints
 
 ## Output Format
 
-The reporter generates concise JSON with only the essential information for understanding test results:
+The reporter generates concise JSON with only the essential information for understanding test results.
 
+### Success Output
+When all tests pass:
 ```json
 {
   "summary": {
-    "total": 10,
-    "passed": 8,
-    "failed": 2,
-    "skipped": 0,
-    "duration": 1234,
-    "timestamp": "2024-01-15T10:30:00Z"
+    "total": 432,
+    "passed": 427,
+    "failed": 0,
+    "skipped": 5,
+    "duration": 5264,
+    "timestamp": "2025-08-28T14:06:21.581Z"
+  }
+}
+```
+
+### Failure Output
+When tests fail, detailed context is included:
+```json
+{
+  "summary": {
+    "total": 432,
+    "passed": 427,
+    "failed": 1,
+    "skipped": 4,
+    "duration": 7294,
+    "timestamp": "2025-08-28T14:05:34.313Z"
   },
   "failures": [
     {
       "test": "should calculate tax correctly",
-      "file": "/src/tax.test.ts",
-      "line": 45,
+      "fileRelative": "tests/tax.test.ts",
+      "startLine": 9,
+      "endLine": 9,
+      "suite": ["Tax Calculator"],
       "error": {
-        "message": "Expected 105.50 but got 105.00",
+        "message": "expected 105.00 to be 105.50 // Object.is equality",
         "type": "AssertionError",
-        "context": {
-          "code": [
-            "44: const price = 100;",
-            "45: expect(calculateTax(price)).toBe(105.50);",
-            "46: // Tax should be 5.5%"
-          ],
+        "stackFrames": [
+          {
+            "fileRelative": "tests/tax.test.ts",
+            "line": 18,
+            "column": 15,
+            "inProject": true,
+            "inNodeModules": false
+          }
+        ],
+        "assertion": {
           "expected": 105.50,
           "actual": 105.00,
-          "lineNumber": 45
+          "operator": "strictEqual",
+          "expectedType": "number",
+          "actualType": "number"
+        },
+        "context": {
+          "code": [
+            " 16:   it('should calculate tax correctly', () => {",
+            " 17:     const price = 100;",
+            " 18:     expect(calculateTax(price)).toBe(105.50);",
+            " 19:     // Tax should be 5.5%",
+            " 20:   })"
+          ],
+          "lineNumber": 18,
+          "columnNumber": 15
         }
-      }
+      },
+      "consoleEvents": [
+        {
+          "level": "error",
+          "text": "Tax calculation failed\n",
+          "origin": "task"
+        }
+      ]
     }
   ]
 }
 ```
 
-The output focuses on failures with their context, keeping passed tests minimal to save tokens.
+The output focuses on failures with their context, keeping passed tests minimal to save tokens. Console output from failing tests is captured in `consoleEvents`.
 
 ## Configuration
 
