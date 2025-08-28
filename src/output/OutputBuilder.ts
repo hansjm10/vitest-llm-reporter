@@ -26,14 +26,11 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
   includePassedTests: false,
   includeSkippedTests: false,
   verbose: false,
-  enableStreaming: false,
   filterNodeModules: true, // Default to filtering node_modules from stack frames
   includeStackString: false,
   truncation: {
     enabled: false,
     maxTokens: undefined,
-    strategy: 'smart',
-    featureFlag: false,
     enableEarlyTruncation: false,
     enableLateTruncation: false,
     enableMetrics: false

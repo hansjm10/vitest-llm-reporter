@@ -33,8 +33,12 @@ export interface LLMReporterConfig {
   tokenCountingEnabled?: boolean
   /** Maximum number of tokens to include in output (default: undefined) */
   maxTokens?: number
-  /** Enable streaming mode for real-time output (default: auto-detect based on TTY) */
+  /**
+   * @deprecated Use enableConsoleOutput instead
+   */
   enableStreaming?: boolean
+  /** Enable console output at end of test run (default: true when no outputFile or when enableStreaming is true) */
+  enableConsoleOutput?: boolean
   /** Include absolute paths in output (default: false) */
   includeAbsolutePaths?: boolean
   /** Filter out node_modules from stack frames (default: true) */
@@ -53,6 +57,10 @@ export interface LLMReporterConfig {
   forceConsoleOutput?: boolean
   /** Include raw stack strings in error output (default: false, only stackFrames included) */
   includeStackString?: boolean
+  /** JSON spacing for file output (default: 0 for compact) */
+  fileJsonSpacing?: number
+  /** JSON spacing for console output (default: 2 for readability) */
+  consoleJsonSpacing?: number
 }
 
 /**
@@ -63,10 +71,6 @@ export interface TruncationConfig {
   enabled?: boolean
   /** Maximum tokens to allow in output (default: undefined = no limit) */
   maxTokens?: number
-  /** Truncation strategy (default: 'smart') */
-  strategy?: 'simple' | 'smart' | 'priority'
-  /** Feature flag for gradual rollout (default: false) */
-  featureFlag?: boolean
   /** Enable truncation at early stage (EventOrchestrator) */
   enableEarlyTruncation?: boolean
   /** Enable truncation at late stage (OutputBuilder) */

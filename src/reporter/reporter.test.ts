@@ -39,7 +39,7 @@ describe('LLMReporter', () => {
         includeDebugOutput: false,
         tokenCountingEnabled: false,
         maxTokens: undefined,
-        enableStreaming: false
+        enableConsoleOutput: true // Changed from enableStreaming
       })
     })
 

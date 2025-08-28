@@ -15,7 +15,10 @@ import type { LLMReporterOutput } from '../types/schema.js'
 
 // Type for resolved configuration with explicit undefined handling
 interface ResolvedLLMReporterConfig
-  extends Omit<LLMReporterConfig, 'outputFile' | 'enableStreaming' | 'truncation'> {
+  extends Omit<
+    LLMReporterConfig,
+    'outputFile' | 'enableStreaming' | 'enableConsoleOutput' | 'truncation'
+  > {
   verbose: boolean
   outputFile: string | undefined // Explicitly undefined, not optional
   includePassedTests: boolean
@@ -26,14 +29,12 @@ interface ResolvedLLMReporterConfig
   includeDebugOutput: boolean
   tokenCountingEnabled: boolean
   maxTokens: number | undefined
-  enableStreaming: boolean
+  enableConsoleOutput: boolean
   includeAbsolutePaths: boolean // Whether to include absolute paths in output
   performance: Required<MonitoringConfig>
   truncation: {
     enabled: boolean
     maxTokens: number | undefined
-    strategy: 'simple' | 'smart' | 'priority'
-    featureFlag: boolean
     enableEarlyTruncation: boolean
     enableLateTruncation: boolean
     enableMetrics: boolean
@@ -41,6 +42,8 @@ interface ResolvedLLMReporterConfig
   framedOutput: boolean // Gate for console separator frames
   forceConsoleOutput: boolean // Force console write when used standalone
   includeStackString: boolean // Include raw stack strings in error output
+  fileJsonSpacing: number
+  consoleJsonSpacing: number
   spinner: {
     enabled: boolean
     intervalMs: number
@@ -59,7 +62,7 @@ import { OutputBuilder } from '../output/OutputBuilder.js'
 import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
-import { isTTY } from '../utils/environment.js'
+import { isTTY, isCI } from '../utils/environment.js'
 import {
   PerformanceManager,
   createPerformanceManager,
@@ -102,8 +105,19 @@ export class LLMReporter implements Reporter {
     // Validate config before using it
     this.validateConfig(config)
 
-    // Detect streaming mode if not explicitly configured
-    const shouldEnableStreaming = config.enableStreaming ?? isTTY
+    // Handle backward compatibility for enableStreaming -> enableConsoleOutput
+    let enableConsoleOutput = config.enableConsoleOutput
+    if (enableConsoleOutput === undefined && config.enableStreaming !== undefined) {
+      enableConsoleOutput = config.enableStreaming
+      this.debug('enableStreaming is deprecated. Use enableConsoleOutput instead.')
+    }
+    // Default to true when no outputFile specified or when explicitly enabled
+    if (enableConsoleOutput === undefined) {
+      enableConsoleOutput = !config.outputFile || isTTY
+    }
+
+    // Check for spinner environment override
+    const spinnerEnvOverride = process.env.LLM_REPORTER_SPINNER === '0'
 
     // Properly resolve config without unsafe casting
     this.config = {
@@ -117,7 +131,7 @@ export class LLMReporter implements Reporter {
       includeDebugOutput: config.includeDebugOutput ?? false,
       tokenCountingEnabled: config.tokenCountingEnabled ?? false,
       maxTokens: config.maxTokens ?? undefined,
-      enableStreaming: shouldEnableStreaming,
+      enableConsoleOutput,
       includeAbsolutePaths: config.includeAbsolutePaths ?? false,
       filterNodeModules: config.filterNodeModules ?? true,
       performance: {
@@ -128,8 +142,6 @@ export class LLMReporter implements Reporter {
       truncation: {
         enabled: config.truncation?.enabled ?? false,
         maxTokens: config.truncation?.maxTokens ?? undefined,
-        strategy: config.truncation?.strategy ?? 'smart',
-        featureFlag: config.truncation?.featureFlag ?? false,
         enableEarlyTruncation: config.truncation?.enableEarlyTruncation ?? false,
         enableLateTruncation: config.truncation?.enableLateTruncation ?? false,
         enableMetrics: config.truncation?.enableMetrics ?? false
@@ -137,8 +149,10 @@ export class LLMReporter implements Reporter {
       framedOutput: config.framedOutput ?? false,
       forceConsoleOutput: config.forceConsoleOutput ?? false,
       includeStackString: config.includeStackString ?? false,
+      fileJsonSpacing: config.fileJsonSpacing ?? 0,
+      consoleJsonSpacing: config.consoleJsonSpacing ?? 2,
       spinner: {
-        enabled: isTTY,
+        enabled: spinnerEnvOverride ? false : isTTY && !isCI,
         intervalMs: 80,
         stream: 'stderr',
         prefix: 'Running tests'
@@ -161,7 +175,6 @@ export class LLMReporter implements Reporter {
       verbose: this.config.verbose,
       includePassedTests: this.config.includePassedTests,
       includeSkippedTests: this.config.includeSkippedTests,
-      enableStreaming: this.config.enableStreaming,
       filterNodeModules: this.config.filterNodeModules ?? true,
       includeStackString: this.config.includeStackString,
       truncation: this.config.truncation
@@ -539,6 +552,8 @@ export class LLMReporter implements Reporter {
         // Write to file if configured
         if (this.config.outputFile) {
           try {
+            // Update OutputWriter config with file spacing
+            this.outputWriter.updateConfig({ jsonSpacing: this.config.fileJsonSpacing })
             this.outputWriter.write(this.config.outputFile, this.output)
             this.debug('Output written to %s', this.config.outputFile)
           } catch (writeError) {
@@ -551,16 +566,16 @@ export class LLMReporter implements Reporter {
           }
         }
 
-        // Also write to console if no file is specified or streaming is enabled
+        // Also write to console if no file is specified or console output is enabled
         // Only when running as an actual Vitest reporter (context set) during a test run.
         // This prevents unit tests that directly new LLMReporter() from emitting output.
         if (
-          (!this.config.outputFile || this.config.enableStreaming) &&
+          (!this.config.outputFile || this.config.enableConsoleOutput) &&
           ((this.context && this.isTestRunActive) || this.config.forceConsoleOutput)
         ) {
           try {
             // Write to console with proper formatting
-            const jsonOutput = JSON.stringify(this.output, null, 2)
+            const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
 
             // Only add framing if framedOutput is enabled
             if (this.config.framedOutput) {
