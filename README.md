@@ -1,5 +1,9 @@
 # Vitest LLM Reporter
 
+[![npm version](https://img.shields.io/npm/v/vitest-llm-reporter.svg)](https://www.npmjs.com/package/vitest-llm-reporter)
+[![npm downloads](https://img.shields.io/npm/dm/vitest-llm-reporter.svg)](https://www.npmjs.com/package/vitest-llm-reporter)
+[![license](https://img.shields.io/npm/l/vitest-llm-reporter.svg)](https://github.com/jordan-hans/vitest-llm-reporter/blob/main/LICENSE)
+
 A zero-config Vitest reporter that outputs concise, structured JSON optimized for LLM consumption.
 
 ## Features
