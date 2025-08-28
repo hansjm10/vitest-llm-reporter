@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { LLMReporter } from './reporter'
+import { LLMReporter } from './reporter.js'
 import type { TestCase } from 'vitest/node'
 
 describe('LLMReporter Line Number Extraction', () => {
@@ -24,7 +24,7 @@ describe('LLMReporter Line Number Extraction', () => {
     const mockTestCase = {
       id: 'test-1',
       name: 'test with line numbers',
-      file: { filepath: __filename },
+      fileRelative: { filepath: __filename },
       location: {
         start: { line: 22 }, // Line where this test starts
         end: { line: 50 } // Approximate end line
@@ -39,7 +39,7 @@ describe('LLMReporter Line Number Extraction', () => {
     reporter.onTestCaseResult(mockTestCase)
 
     // Get the output
-    reporter.onTestRunEnd([], [], 'passed')
+    void reporter.onTestRunEnd([], [], 'passed')
     const output = reporter.getOutput()
 
     expect(output).toBeDefined()
@@ -55,7 +55,7 @@ describe('LLMReporter Line Number Extraction', () => {
     const mockTestCase = {
       id: 'test-2',
       name: 'test without location',
-      file: { filepath: __filename },
+      fileRelative: { filepath: __filename },
       // No location property
       result: {
         state: 'pass',
@@ -64,7 +64,7 @@ describe('LLMReporter Line Number Extraction', () => {
     } as unknown as TestCase
 
     reporter.onTestCaseResult(mockTestCase)
-    reporter.onTestRunEnd([], [], 'passed')
+    void reporter.onTestRunEnd([], [], 'passed')
     const output = reporter.getOutput()
 
     const testResult = output?.passed?.[0]

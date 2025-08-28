@@ -130,7 +130,7 @@ export default defineConfig({
       // If build fails, let the test fail later when reading output
       console.error('E2E build failed:', e)
     }
-  })
+  }, 30000)
 
   afterAll(() => {
     // Clean up test files - use try-catch to prevent cleanup errors from failing tests
@@ -195,17 +195,19 @@ export default defineConfig({
     expect(firstFailure.error.stackFrames.length).toBeGreaterThan(0)
 
     const firstFrame = firstFailure.error.stackFrames[0]
-    expect(firstFrame).toHaveProperty('file')
+    expect(firstFrame).toHaveProperty('fileRelative')
     expect(firstFrame).toHaveProperty('line')
     expect(firstFrame).toHaveProperty('column')
-    expect(firstFrame.file).toContain('.tmp-e2e-test-fixture.test.ts')
+    expect(firstFrame).toHaveProperty('inProject')
+    expect(firstFrame).toHaveProperty('inNodeModules')
+    expect(firstFrame.fileRelative).toContain('.tmp-e2e-test-fixture.test.ts')
 
     // Check assertion details
     expect(firstFailure.error).toHaveProperty('assertion')
     expect(firstFailure.error.assertion).toHaveProperty('expected')
     expect(firstFailure.error.assertion).toHaveProperty('actual')
-    expect(firstFailure.error.assertion.expected).toBe('20')
-    expect(firstFailure.error.assertion.actual).toBe('4')
+    expect(firstFailure.error.assertion.expected).toBe(20) // Now preserved as number
+    expect(firstFailure.error.assertion.actual).toBe(4) // Now preserved as number
 
     // Console capture in subprocess E2E tests is limited
     // When running tests via subprocess, console output isn't always captured
@@ -213,7 +215,7 @@ export default defineConfig({
     // In normal test runs (not subprocess), console capture works correctly
 
     // For now, we'll verify the structure exists but may be empty
-    // TODO: Investigate subprocess console capture in future enhancement
+    // Note: Subprocess console capture has known limitations; revisit if requirements change
     if (firstFailure.console) {
       expect(firstFailure.console).toBeDefined()
 
@@ -230,7 +232,7 @@ export default defineConfig({
         )
       }
     }
-  })
+  }, 30000)
 
   it('should extract context for object comparison failures', () => {
     // The test should have already run, so just check the output

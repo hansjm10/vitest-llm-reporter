@@ -14,7 +14,7 @@ export type {
   TestError,
   ErrorContext,
   AssertionValue
-} from './types/schema'
+} from './types/schema.js'
 
 // Export validation module
 export {
@@ -22,26 +22,23 @@ export {
   type ValidationConfig,
   type ValidationResult,
   DEFAULT_CONFIG
-} from './validation/validator'
+} from './validation/validator.js'
 
 // Export sanitization module
 export {
   JsonSanitizer,
   type JsonSanitizerConfig,
   DEFAULT_JSON_SANITIZER_CONFIG
-} from './sanitization/json-sanitizer'
-
-// Export processor module (primary API)
-export {
-  SchemaProcessor,
-  type ProcessingOptions,
-  type ProcessingResult
-} from './processor/processor'
+} from './sanitization/json-sanitizer.js'
 
 // Export reporter class and types
-export { LLMReporter } from './reporter/reporter'
-export type { LLMReporterConfig } from './types/reporter'
+export { LLMReporter } from './reporter/reporter.js'
+export type { LLMReporterConfig } from './types/reporter.js'
+export { StreamingReporter } from './streaming/StreamingReporter.js'
+
+// Export output writer
+export { OutputWriter } from './output/OutputWriter.js'
 
 // Default export for Vitest to use
-import { LLMReporter } from './reporter/reporter'
+import { LLMReporter } from './reporter/reporter.js'
 export default LLMReporter

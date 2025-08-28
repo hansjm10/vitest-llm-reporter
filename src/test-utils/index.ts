@@ -11,7 +11,7 @@ export {
   isValidTestSummary,
   isValidTestFailure,
   isValidTestResult
-} from './validation-helpers'
+} from './validation-helpers.js'
 
 // Mock data generators for Vitest objects
 export {
@@ -21,7 +21,7 @@ export {
   createMockVitestContext,
   createMockError,
   createMockAssertionError
-} from './mock-data'
+} from './mock-data.js'
 
 // Factory functions for test objects
 export {
@@ -36,4 +36,4 @@ export {
   createOutputWithCode,
   createXSSTestOutput,
   createOutputWithFilePath
-} from './test-factories'
+} from './test-factories.js'

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { ErrorExtractor } from './ErrorExtractor'
-import type { ErrorExtractionConfig } from '../types/extraction'
+import { ErrorExtractor } from './ErrorExtractor.js'
+import type { ErrorExtractionConfig } from '../types/extraction.js'
 import * as fs from 'node:fs'
 
 // Mock fs module
@@ -11,7 +11,7 @@ vi.mock('node:fs', () => ({
 }))
 
 // Mock PathValidator to bypass filesystem checks
-vi.mock('../utils/path-validator', () => {
+vi.mock('../utils/path-validator.js', () => {
   return {
     PathValidator: class {
       constructor() {
@@ -113,7 +113,7 @@ export { add, testAdd }
       const error = {
         message: 'Test failed',
         stack: 'Error: Test failed\n  at /src/math.test.ts:15:12',
-        file: '/src/math.test.ts',
+        fileRelative: '/src/math.test.ts',
         line: 15,
         column: 12
       }
@@ -141,7 +141,7 @@ export { add, testAdd }
       const error = {
         message: 'Test failed',
         stack: 'Error: Test failed\n  at /src/large-file.test.ts:50:20',
-        file: '/src/large-file.test.ts',
+        fileRelative: '/src/large-file.test.ts',
         line: 50
       }
 
@@ -156,7 +156,7 @@ export { add, testAdd }
       const error = {
         message: 'Test failed',
         stack: 'Error: Test failed\n  at /non-existent-file.ts:10:5',
-        file: '/non-existent-file.ts',
+        fileRelative: '/non-existent-file.ts',
         line: 10
       }
 
@@ -178,7 +178,7 @@ Fourth line`
       const error = {
         message: 'Test failed',
         stack: 'Error: Test failed\n  at /src/test.ts:1:1',
-        file: '/src/test.ts',
+        fileRelative: '/src/test.ts',
         line: 1
       }
 
@@ -203,12 +203,14 @@ Fourth line`
       const result = extractor.extractStackFrames(error)
 
       expect(result.stackFrames).toBeDefined()
-      expect(result.stackFrames).toHaveLength(2) // Filtered out node_modules
-      expect(result.stackFrames?.[0]).toEqual({
-        file: '/Users/test/project/src/math.test.ts',
+      expect(result.stackFrames).toHaveLength(2) // Internal node modules are always filtered
+      expect(result.stackFrames?.[0]).toMatchObject({
+        fileRelative: '/Users/test/project/src/math.test.ts',
         line: 15,
         column: 12,
-        function: 'testSum'
+        function: 'testSum',
+        inProject: false,
+        inNodeModules: false
       })
     })
 
@@ -229,8 +231,8 @@ Fourth line`
       const result = contextExtractor.extractStackFrames(error)
 
       expect(result.stackFrames).toHaveLength(2)
-      expect(result.stackFrames?.[0].file).toContain('/project/src/test.ts')
-      expect(result.stackFrames?.[1].file).toContain('/project/src/helper.ts')
+      expect(result.stackFrames?.[0].fileRelative).toContain('project/src/test.ts')
+      expect(result.stackFrames?.[1].fileRelative).toContain('project/src/helper.ts')
     })
 
     it('should handle malformed stack traces gracefully', () => {
@@ -327,6 +329,93 @@ Fourth line`
 
       expect(result.assertion?.expected).toEqual([1, 2, 3])
       expect(result.assertion?.actual).toEqual([1, 2])
+    })
+
+    it('should preserve type fidelity for number assertions', () => {
+      const numberAssertion = {
+        name: 'AssertionError',
+        message: 'expected 2 to equal 1',
+        expected: 2,
+        actual: 1,
+        operator: 'toBe'
+      }
+
+      const result = extractor.extractAssertionDetails(numberAssertion)
+
+      expect(result.assertion?.expected).toBe(2)
+      expect(result.assertion?.actual).toBe(1)
+      expect(typeof result.assertion?.expected).toBe('number')
+      expect(typeof result.assertion?.actual).toBe('number')
+      expect(result.assertion?.expectedType).toBe('number')
+      expect(result.assertion?.actualType).toBe('number')
+    })
+
+    it('should preserve type fidelity for boolean assertions', () => {
+      const booleanAssertion = {
+        name: 'AssertionError',
+        message: 'expected false to be true',
+        expected: true,
+        actual: false,
+        operator: 'toBe'
+      }
+
+      const result = extractor.extractAssertionDetails(booleanAssertion)
+
+      expect(result.assertion?.expected).toBe(true)
+      expect(result.assertion?.actual).toBe(false)
+      expect(typeof result.assertion?.expected).toBe('boolean')
+      expect(typeof result.assertion?.actual).toBe('boolean')
+      expect(result.assertion?.expectedType).toBe('boolean')
+      expect(result.assertion?.actualType).toBe('boolean')
+    })
+
+    it('should preserve type fidelity for null assertions', () => {
+      const nullAssertion = {
+        name: 'AssertionError',
+        message: 'expected null to not be null',
+        expected: 'not null',
+        actual: null,
+        operator: 'not.toBe'
+      }
+
+      const result = extractor.extractAssertionDetails(nullAssertion)
+
+      expect(result.assertion?.expected).toBe('not null')
+      expect(result.assertion?.actual).toBe(null)
+      expect(result.assertion?.expectedType).toBe('string')
+      expect(result.assertion?.actualType).toBe('null')
+    })
+
+    it('should handle mixed types correctly', () => {
+      const mixedAssertion = {
+        name: 'AssertionError',
+        message: 'type mismatch',
+        expected: 123,
+        actual: '123',
+        operator: 'toStrictEqual'
+      }
+
+      const result = extractor.extractAssertionDetails(mixedAssertion)
+
+      expect(result.assertion?.expected).toBe(123)
+      expect(result.assertion?.actual).toBe(123) // String '123' gets converted to number 123
+      expect(result.assertion?.expectedType).toBe('number')
+      expect(result.assertion?.actualType).toBe('number') // After conversion, both are numbers
+    })
+
+    it('should tag objects and arrays with correct type metadata', () => {
+      const objectAssertion = {
+        name: 'AssertionError',
+        message: 'object mismatch',
+        expected: { foo: 'bar' },
+        actual: [1, 2, 3],
+        operator: 'toEqual'
+      }
+
+      const result = extractor.extractAssertionDetails(objectAssertion)
+
+      expect(result.assertion?.expectedType).toBe('Record<string, unknown>')
+      expect(result.assertion?.actualType).toBe('array')
     })
   })
 

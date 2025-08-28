@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasProperty, extractStringProperty, extractNumberProperty } from './type-guards'
+import { hasProperty, extractStringProperty, extractNumberProperty } from './type-guards.js'
 
 describe('Type Guards - Safe Property Access', () => {
   describe('hasProperty', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { LLMReporter } from './reporter'
-import { consoleCapture } from '../console'
+import { LLMReporter } from './reporter.js'
+import { consoleCapture } from '../console/index.js'
 import type { TestCase, TestRunEndReason } from 'vitest/node'
 
 describe('LLMReporter Console Capture Integration', () => {
@@ -18,7 +18,7 @@ describe('LLMReporter Console Capture Integration', () => {
     const testCase = {
       id: 'test-1',
       name: 'failing test',
-      file: { filepath: '/test.ts' },
+      fileRelative: { filepath: '/test.ts' },
       location: {
         start: { line: 1 },
         end: { line: 5 }
@@ -48,7 +48,7 @@ describe('LLMReporter Console Capture Integration', () => {
     reporter.onTestCaseResult(testCase)
 
     // End test run
-    reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
+    void reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
 
     // Get output
     const output = reporter.getOutput()
@@ -58,17 +58,29 @@ describe('LLMReporter Console Capture Integration', () => {
     expect(output?.failures?.length).toBe(1)
 
     const failure = output?.failures?.[0]
-    expect(failure?.console).toBeDefined()
-    expect(failure?.console?.logs).toContain('Starting test')
-    expect(failure?.console?.errors).toContain('Something went wrong')
-    expect(failure?.console?.warns).toContain('Warning message')
+    expect(failure?.consoleEvents).toBeDefined()
+    expect(failure?.consoleEvents?.length).toBe(3)
+
+    // Check individual events
+    const events = failure?.consoleEvents || []
+    expect(events[0]).toMatchObject({ level: 'log', text: 'Starting test', origin: 'intercepted' })
+    expect(events[1]).toMatchObject({
+      level: 'error',
+      text: 'Something went wrong',
+      origin: 'intercepted'
+    })
+    expect(events[2]).toMatchObject({
+      level: 'warn',
+      text: 'Warning message',
+      origin: 'intercepted'
+    })
   })
 
   it('should not capture console output for passing tests', () => {
     const testCase = {
       id: 'test-2',
       name: 'passing test',
-      file: { filepath: '/test.ts' },
+      fileRelative: { filepath: '/test.ts' },
       location: {
         start: { line: 1 },
         end: { line: 5 }
@@ -90,7 +102,7 @@ describe('LLMReporter Console Capture Integration', () => {
     reporter.onTestCaseResult(testCase)
 
     // End test run
-    reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
+    void reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
 
     // Get output
     const output = reporter.getOutput()
@@ -107,7 +119,7 @@ describe('LLMReporter Console Capture Integration', () => {
     const testCase = {
       id: 'test-3',
       name: 'failing test without capture',
-      file: { filepath: '/test.ts' },
+      fileRelative: { filepath: '/test.ts' },
       location: {
         start: { line: 1 },
         end: { line: 5 }
@@ -133,7 +145,7 @@ describe('LLMReporter Console Capture Integration', () => {
     reporter.onTestCaseResult(testCase)
 
     // End test run
-    reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
+    void reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
 
     // Get output
     const output = reporter.getOutput()
@@ -143,6 +155,6 @@ describe('LLMReporter Console Capture Integration', () => {
     expect(output?.failures?.length).toBe(1)
 
     const failure = output?.failures?.[0]
-    expect(failure?.console).toBeUndefined()
+    expect(failure?.consoleEvents).toBeUndefined()
   })
 })

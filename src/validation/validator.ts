@@ -16,27 +16,16 @@ import type {
   TestError,
   ErrorContext,
   AssertionValue
-} from '../types/schema'
+} from '../types/schema.js'
+import type { ValidationConfig, ValidationError, ValidationResult } from './types.js'
 
-import { validateFilePath, createSafeObject, hasOwnProperty } from '../utils/sanitization'
+import { validateFilePath, createSafeObject } from '../utils/sanitization.js'
+import { hasProperty } from '../utils/type-guards.js'
 
-import { ErrorMessages, BYTES_PER_MB, MAX_TIMESTAMP_LENGTH, MAX_ARRAY_SIZE } from './errors'
+import { ErrorMessages, BYTES_PER_MB, MAX_TIMESTAMP_LENGTH, MAX_ARRAY_SIZE } from './errors.js'
 
-/**
- * Validation configuration options
- * All values are optional and will use defaults if not specified
- */
-export interface ValidationConfig {
-  maxCodeLines?: number
-  maxTotalCodeSize?: number
-  maxStringLength?: number
-  maxFailures?: number
-  maxPassed?: number
-  maxSkipped?: number
-  minLineNumber?: number
-  minColumnNumber?: number
-  minDuration?: number
-}
+// Re-export types for public API
+export type { ValidationConfig, ValidationError, ValidationResult } from './types.js'
 
 /**
  * Default validation configuration
@@ -54,15 +43,6 @@ export const DEFAULT_CONFIG: Required<ValidationConfig> = {
 }
 
 /**
- * Detailed validation error with path information
- */
-export interface ValidationError {
-  path: string
-  message: string
-  value?: unknown
-}
-
-/**
  * Internal validation context for stateless validation
  *
  * Note: Each validate() call creates its own context instance, ensuring thread-safety.
@@ -75,15 +55,6 @@ interface ValidationContext {
   totalCodeSize: number
   errors: ValidationError[]
   config: Required<ValidationConfig>
-}
-
-/**
- * Validation result type
- */
-export interface ValidationResult {
-  valid: boolean
-  errors: ValidationError[]
-  data?: LLMReporterOutput
 }
 
 /**
@@ -192,7 +163,7 @@ export class SchemaValidator {
     const obj = createSafeObject(output as unknown as Record<string, unknown>)
 
     // Validate summary (required)
-    if (!hasOwnProperty(obj, 'summary')) {
+    if (!hasProperty(obj, 'summary')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD('summary'), 'summary')
       return false
     }
@@ -201,7 +172,7 @@ export class SchemaValidator {
     }
 
     // Validate failures array if present
-    if (hasOwnProperty(obj, 'failures') && obj.failures !== undefined) {
+    if (hasProperty(obj, 'failures') && obj.failures !== undefined) {
       if (!Array.isArray(obj.failures)) {
         this.addError(
           context,
@@ -242,7 +213,7 @@ export class SchemaValidator {
     }
 
     // Validate passed array if present
-    if (hasOwnProperty(obj, 'passed') && obj.passed !== undefined) {
+    if (hasProperty(obj, 'passed') && obj.passed !== undefined) {
       if (!Array.isArray(obj.passed)) {
         this.addError(
           context,
@@ -279,7 +250,7 @@ export class SchemaValidator {
     }
 
     // Validate skipped array if present
-    if (hasOwnProperty(obj, 'skipped') && obj.skipped !== undefined) {
+    if (hasProperty(obj, 'skipped') && obj.skipped !== undefined) {
       if (!Array.isArray(obj.skipped)) {
         this.addError(
           context,
@@ -340,7 +311,7 @@ export class SchemaValidator {
     // Check required numeric fields
     const requiredNumbers = ['total', 'passed', 'failed', 'skipped', 'duration']
     for (const field of requiredNumbers) {
-      if (!hasOwnProperty(obj, field)) {
+      if (!hasProperty(obj, field)) {
         this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.${field}`), `${path}.${field}`)
         return false
       }
@@ -427,7 +398,7 @@ export class SchemaValidator {
     const obj = createSafeObject(test as Record<string, unknown>)
 
     // Check required string fields with length limits
-    if (!hasOwnProperty(obj, 'test')) {
+    if (!hasProperty(obj, 'test')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.test`), `${path}.test`)
       return false
     }
@@ -450,42 +421,77 @@ export class SchemaValidator {
       return false
     }
 
-    if (!hasOwnProperty(obj, 'file')) {
-      this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.file`), `${path}.file`)
-      return false
-    }
-    if (typeof obj.file !== 'string') {
+    if (!hasProperty(obj, 'fileRelative')) {
       this.addError(
         context,
-        ErrorMessages.TYPE_STRING(`${path}.file`, typeof obj.file),
-        `${path}.file`,
-        obj.file
+        ErrorMessages.REQUIRED_FIELD(`${path}.fileRelative`),
+        `${path}.fileRelative`
       )
       return false
     }
-    if (obj.file.length > context.config.maxStringLength) {
+    if (typeof obj.fileRelative !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.fileRelative`, typeof obj.fileRelative),
+        `${path}.fileRelative`,
+        obj.fileRelative
+      )
+      return false
+    }
+    if (obj.fileRelative.length > context.config.maxStringLength) {
       this.addError(
         context,
         `Exceeds maximum string length of ${context.config.maxStringLength}`,
-        `${path}.file`,
-        obj.file.length
+        `${path}.fileRelative`,
+        obj.fileRelative.length
       )
       return false
     }
 
     // Validate file path security
-    if (!validateFilePath(obj.file)) {
+    if (!validateFilePath(obj.fileRelative)) {
       this.addError(
         context,
-        ErrorMessages.INVALID_FILE_PATH(`${path}.file`, String(obj.file)),
-        `${path}.file`,
-        obj.file
+        ErrorMessages.INVALID_FILE_PATH(`${path}.fileRelative`, String(obj.fileRelative)),
+        `${path}.fileRelative`,
+        obj.fileRelative
       )
       return false
     }
 
+    // Validate optional fileAbsolute field
+    if (hasProperty(obj, 'fileAbsolute')) {
+      if (typeof obj.fileAbsolute !== 'string') {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_STRING(`${path}.fileAbsolute`, typeof obj.fileAbsolute),
+          `${path}.fileAbsolute`,
+          obj.fileAbsolute
+        )
+        return false
+      }
+      if (obj.fileAbsolute.length > context.config.maxStringLength) {
+        this.addError(
+          context,
+          `Exceeds maximum string length of ${context.config.maxStringLength}`,
+          `${path}.fileAbsolute`,
+          obj.fileAbsolute.length
+        )
+        return false
+      }
+      if (!validateFilePath(obj.fileAbsolute)) {
+        this.addError(
+          context,
+          ErrorMessages.INVALID_FILE_PATH(`${path}.fileAbsolute`, String(obj.fileAbsolute)),
+          `${path}.fileAbsolute`,
+          obj.fileAbsolute
+        )
+        return false
+      }
+    }
+
     // Check startLine
-    if (!hasOwnProperty(obj, 'startLine')) {
+    if (!hasProperty(obj, 'startLine')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.startLine`), `${path}.startLine`)
       return false
     }
@@ -509,7 +515,7 @@ export class SchemaValidator {
     }
 
     // Check endLine
-    if (!hasOwnProperty(obj, 'endLine')) {
+    if (!hasProperty(obj, 'endLine')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.endLine`), `${path}.endLine`)
       return false
     }
@@ -544,7 +550,7 @@ export class SchemaValidator {
     }
 
     // Check optional suite array
-    if (hasOwnProperty(obj, 'suite') && obj.suite !== undefined) {
+    if (hasProperty(obj, 'suite') && obj.suite !== undefined) {
       if (!Array.isArray(obj.suite)) {
         this.addError(
           context,
@@ -600,7 +606,7 @@ export class SchemaValidator {
     const obj = createSafeObject(failure as unknown as Record<string, unknown>)
 
     // Check error object (TestFailure-specific property)
-    if (!hasOwnProperty(obj, 'error')) {
+    if (!hasProperty(obj, 'error')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.error`), `${path}.error`)
       return false
     }
@@ -725,7 +731,7 @@ export class SchemaValidator {
     const ctx = createSafeObject(errorCtx as Record<string, unknown>)
 
     // Validate required code array
-    if (!hasOwnProperty(ctx, 'code')) {
+    if (!hasProperty(ctx, 'code')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.code`), `${path}.code`)
       return false
     }
@@ -799,7 +805,7 @@ export class SchemaValidator {
     context.totalCodeSize = newTotal
 
     // Validate optional numeric fields
-    if (hasOwnProperty(ctx, 'lineNumber') && ctx.lineNumber !== undefined) {
+    if (hasProperty(ctx, 'lineNumber') && ctx.lineNumber !== undefined) {
       if (typeof ctx.lineNumber !== 'number') {
         this.addError(
           context,
@@ -824,7 +830,7 @@ export class SchemaValidator {
       }
     }
 
-    if (hasOwnProperty(ctx, 'columnNumber') && ctx.columnNumber !== undefined) {
+    if (hasProperty(ctx, 'columnNumber') && ctx.columnNumber !== undefined) {
       if (typeof ctx.columnNumber !== 'number') {
         this.addError(
           context,
@@ -849,19 +855,6 @@ export class SchemaValidator {
       }
     }
 
-    // Validate assertion values
-    if (hasOwnProperty(ctx, 'expected') && ctx.expected !== undefined) {
-      if (!this.isValidAssertionValue(ctx.expected, context, `${path}.expected`)) {
-        return false
-      }
-    }
-
-    if (hasOwnProperty(ctx, 'actual') && ctx.actual !== undefined) {
-      if (!this.isValidAssertionValue(ctx.actual, context, `${path}.actual`)) {
-        return false
-      }
-    }
-
     return true
   }
 
@@ -881,7 +874,7 @@ export class SchemaValidator {
     const obj = createSafeObject(result as unknown as Record<string, unknown>)
 
     // Check status (TestResult-specific property)
-    if (!hasOwnProperty(obj, 'status')) {
+    if (!hasProperty(obj, 'status')) {
       this.addError(context, ErrorMessages.REQUIRED_FIELD(`${path}.status`), `${path}.status`)
       return false
     }
@@ -896,7 +889,7 @@ export class SchemaValidator {
     }
 
     // Check optional duration (TestResult-specific property)
-    if (hasOwnProperty(obj, 'duration') && obj.duration !== undefined) {
+    if (hasProperty(obj, 'duration') && obj.duration !== undefined) {
       if (typeof obj.duration !== 'number') {
         this.addError(
           context,
@@ -961,7 +954,7 @@ export class SchemaValidator {
     if (Array.isArray(value) || (type === 'object' && value !== null)) {
       try {
         const seen = new WeakSet()
-        const json = JSON.stringify(value, (key, val) => {
+        const json = JSON.stringify(value, (_key, val) => {
           if (typeof val === 'object' && val !== null) {
             if (seen.has(val as WeakKey)) {
               return '[Circular]'

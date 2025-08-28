@@ -1,10 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { ConsoleBuffer } from './buffer'
-import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console'
-import { ConsoleInterceptor } from './interceptor'
-import { createLogger } from '../utils/logger'
-import { consoleStreamAdapter } from '../streaming/ConsoleStreamAdapter'
-import type { ConsoleStreamData } from '../streaming/types'
+import { ConsoleBuffer } from './buffer.js'
+import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console.js'
+import type { ConsoleEvent } from '../types/schema.js'
+import { ConsoleInterceptor } from './interceptor.js'
+import { createLogger } from '../utils/logger.js'
 
 /**
  * Console Capture
@@ -118,7 +117,7 @@ export class ConsoleCapture {
   /**
    * Stop capturing and retrieve output for a test
    */
-  stopCapture(testId: string): ReturnType<ConsoleBuffer['getSimplifiedOutput']> | undefined {
+  stopCapture(testId: string): ConsoleEvent[] | undefined {
     if (!this.config.enabled) {
       return undefined
     }
@@ -131,13 +130,13 @@ export class ConsoleCapture {
       return undefined
     }
 
-    // Get the output before clearing
-    const output = buffer.getSimplifiedOutput()
+    // Get the events before scheduling cleanup
+    const events = buffer.getEvents()
 
     // Schedule cleanup after grace period (for async console output)
     this.scheduleCleanup(testId)
 
-    return output
+    return events
   }
 
   /**
@@ -172,10 +171,7 @@ export class ConsoleCapture {
         const buffer = this.buffers.get(context.testId)
         if (buffer) {
           const elapsed = Date.now() - context.startTime
-          buffer.add(method, args, elapsed)
-
-          // Stream console data in real-time if adapter is ready
-          this.streamConsoleData(method, context.testId, args, elapsed, context.startTime)
+          buffer.add(method, args, elapsed, 'intercepted')
         }
       }
       // Note: When there's no context (helper functions), we rely on Vitest's
@@ -279,44 +275,7 @@ export class ConsoleCapture {
       this.buffers.set(testId, buffer)
     }
 
-    buffer.add(method, args, elapsed)
-
-    // Stream console data for ingested events too
-    this.streamConsoleData(method, testId, args, elapsed)
-  }
-
-  /**
-   * Stream console data in real-time through the ConsoleStreamAdapter
-   */
-  private streamConsoleData(
-    method: ConsoleMethod, 
-    testId: string, 
-    args: unknown[], 
-    elapsed?: number,
-    startTime?: number
-  ): void {
-    // Only stream if adapter is ready and configured
-    if (!consoleStreamAdapter.isReady()) {
-      return
-    }
-
-    // Respect debug/trace filtering for streaming too
-    if (!this.config.includeDebugOutput && (method === 'debug' || method === 'trace')) {
-      return
-    }
-
-    const streamData: ConsoleStreamData = {
-      method,
-      testId,
-      args,
-      timestamp: Date.now(),
-      elapsed
-    }
-
-    // Fire and forget - don't block console operations for streaming
-    consoleStreamAdapter.streamConsoleData(streamData).catch((error) => {
-      this.debug('Failed to stream console data: %o', error)
-    })
+    buffer.add(method, args, elapsed, 'task')
   }
 
   /**
@@ -368,7 +327,7 @@ export class ConsoleCapture {
  *
  * @example
  * ```typescript
- * import { consoleCapture } from './console/capture'
+ * import { consoleCapture } from './console/capture.js'
  *
  * // Start capturing for a test
  * consoleCapture.startCapture('test-id')

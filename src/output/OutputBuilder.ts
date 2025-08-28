@@ -7,20 +7,17 @@
  * @module output
  */
 
-import type { LLMReporterOutput, TestSummary, TestResult, TestFailure } from '../types/schema'
+import type {
+  LLMReporterOutput,
+  TestSummary,
+  TestResult,
+  TestFailure,
+  TestError
+} from '../types/schema.js'
 import type { SerializedError } from 'vitest'
-
-/**
- * Output builder configuration
- */
-export interface OutputBuilderConfig {
-  /** Whether to include passed tests in output */
-  includePassedTests?: boolean
-  /** Whether to include skipped tests in output */
-  includeSkippedTests?: boolean
-  /** Whether to use verbose output (includes all categories) */
-  verbose?: boolean
-}
+import type { OutputBuilderConfig, BuildOptions } from './types.js'
+import { LateTruncator } from '../truncation/LateTruncator.js'
+import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
 
 /**
  * Default output builder configuration
@@ -28,25 +25,16 @@ export interface OutputBuilderConfig {
 export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
   includePassedTests: false,
   includeSkippedTests: false,
-  verbose: false
-}
-
-/**
- * Build options for output assembly
- */
-export interface BuildOptions {
-  /** Test results categorized by status */
-  testResults: {
-    passed: TestResult[]
-    failed: TestFailure[]
-    skipped: TestResult[]
+  verbose: false,
+  filterNodeModules: true, // Default to filtering node_modules from stack frames
+  includeStackString: false,
+  truncation: {
+    enabled: false,
+    maxTokens: undefined,
+    enableEarlyTruncation: false,
+    enableLateTruncation: false,
+    enableMetrics: false
   }
-  /** Test run duration in milliseconds */
-  duration: number
-  /** Test run start time */
-  startTime?: number
-  /** Unhandled errors from the test run */
-  unhandledErrors?: ReadonlyArray<SerializedError>
 }
 
 /**
@@ -66,9 +54,15 @@ export interface BuildOptions {
  */
 export class OutputBuilder {
   private config: Required<OutputBuilderConfig>
+  private lateTruncator?: LateTruncator
 
   constructor(config: OutputBuilderConfig = {}) {
     this.config = { ...DEFAULT_OUTPUT_CONFIG, ...config }
+
+    // Initialize late truncator if enabled
+    if (this.config.truncation.enabled && this.config.truncation.enableLateTruncation) {
+      this.lateTruncator = new LateTruncator()
+    }
   }
 
   /**
@@ -98,7 +92,8 @@ export class OutputBuilder {
       output.skipped = options.testResults.skipped
     }
 
-    return output
+    // Apply late-stage truncation if enabled
+    return this.applyLateTruncation(output)
   }
 
   /**
@@ -138,17 +133,44 @@ export class OutputBuilder {
    * Converts unhandled errors to test failures
    */
   private convertUnhandledErrors(errors: SerializedError[]): TestFailure[] {
-    return errors.map((error) => ({
-      test: 'Unhandled Error',
-      file: '',
-      startLine: 0,
-      endLine: 0,
-      error: {
-        message: error.message || 'Unhandled error',
-        type: 'UnhandledError',
-        stack: error.stack
+    const extractor = new ErrorExtractor({
+      includeSourceCode: true,
+      filterNodeModules: this.config.filterNodeModules
+    })
+
+    return errors.map((err) => {
+      const normalized = extractor.extractWithContext(err)
+
+      // Map normalized context to schema ErrorContext when available
+      const context = normalized.context
+        ? {
+            code: Array.isArray(normalized.context.code) ? normalized.context.code : [],
+            lineNumber: normalized.context.lineNumber,
+            columnNumber: normalized.context.columnNumber
+          }
+        : undefined
+
+      const testError: TestError = {
+        message: normalized.message || err.message || 'Unhandled error',
+        // Preserve the semantic that this originated outside a test failure
+        type: 'UnhandledError' as const,
+        stackFrames: normalized.stackFrames,
+        assertion: normalized.assertion,
+        context,
+        // Only include stack if configured to do so
+        ...(this.config.includeStackString && (normalized.stack ?? err.stack)
+          ? { stack: normalized.stack ?? err.stack }
+          : {})
       }
-    }))
+
+      return {
+        test: 'Unhandled Error',
+        fileRelative: '',
+        startLine: 0,
+        endLine: 0,
+        error: testError
+      }
+    })
   }
 
   /**
@@ -174,73 +196,32 @@ export class OutputBuilder {
   }
 
   /**
-   * Builds a minimal output (summary only)
+   * Applies late-stage truncation to the complete output
    */
-  private buildMinimal(options: BuildOptions): LLMReporterOutput {
-    return {
-      summary: this.buildSummary(options)
+  private applyLateTruncation(output: LLMReporterOutput): LLMReporterOutput {
+    if (
+      !this.lateTruncator ||
+      !this.config.truncation.enabled ||
+      !this.config.truncation.enableLateTruncation
+    ) {
+      return output
     }
+
+    return this.lateTruncator.apply(output, this.config.truncation)
   }
 
   /**
-   * Builds a failure-only output
+   * Gets truncation metrics if available
    */
-  public buildFailuresOnly(options: BuildOptions): LLMReporterOutput {
-    const output = this.buildMinimal(options)
-
-    const allFailures = this.collectAllFailures(options.testResults.failed, options.unhandledErrors)
-
-    if (allFailures.length > 0) {
-      output.failures = allFailures
-    }
-
-    return output
+  public getTruncationMetrics(): unknown[] {
+    return this.lateTruncator?.getMetrics() || []
   }
 
   /**
-   * Merges multiple outputs into one
+   * Check if truncation is enabled
    */
-  public merge(outputs: LLMReporterOutput[]): LLMReporterOutput {
-    if (outputs.length === 0) {
-      return this.buildMinimal({
-        testResults: { passed: [], failed: [], skipped: [] },
-        duration: 0
-      })
-    }
-
-    if (outputs.length === 1) {
-      return outputs[0]
-    }
-
-    // Aggregate results
-    const aggregated: BuildOptions = {
-      testResults: {
-        passed: [],
-        failed: [],
-        skipped: []
-      },
-      duration: 0
-    }
-
-    for (const output of outputs) {
-      // Add to duration
-      aggregated.duration += output.summary.duration
-
-      // Collect test results
-      if (output.passed) {
-        aggregated.testResults.passed.push(...output.passed)
-      }
-
-      if (output.failures) {
-        aggregated.testResults.failed.push(...output.failures)
-      }
-
-      if (output.skipped) {
-        aggregated.testResults.skipped.push(...output.skipped)
-      }
-    }
-
-    return this.build(aggregated)
+  public get hasTruncation(): boolean {
+    return Boolean(this.lateTruncator)
   }
 
   /**
@@ -248,5 +229,21 @@ export class OutputBuilder {
    */
   public updateConfig(config: OutputBuilderConfig): void {
     this.config = { ...this.config, ...config }
+
+    // Update late truncator configuration
+    if (this.lateTruncator && config.truncation) {
+      this.lateTruncator.updateConfig(config.truncation)
+    }
+
+    // Initialize or destroy late truncator based on config changes
+    if (
+      config.truncation?.enabled &&
+      config.truncation?.enableLateTruncation &&
+      !this.lateTruncator
+    ) {
+      this.lateTruncator = new LateTruncator()
+    } else if (!config.truncation?.enabled && this.lateTruncator) {
+      this.lateTruncator = undefined
+    }
   }
 }

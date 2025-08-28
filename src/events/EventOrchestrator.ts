@@ -8,42 +8,27 @@
  */
 
 import type { SerializedError, UserConsoleLog } from 'vitest'
-import type { VitestSuite } from '../types/reporter-internal'
-import { StateManager } from '../state/StateManager'
-import { TestCaseExtractor } from '../extraction/TestCaseExtractor'
-import { ErrorExtractor } from '../extraction/ErrorExtractor'
-import { TestResultBuilder } from '../builders/TestResultBuilder'
-import { ErrorContextBuilder } from '../builders/ErrorContextBuilder'
-import { isTestModule, isTestCase, isStringArray } from '../utils/type-guards'
-import type { ConsoleMethod } from '../types/console'
-import { coreLogger, errorLogger } from '../utils/logger'
-import { consoleCapture } from '../console'
-import { consoleMerger } from '../console/merge'
-
-/**
- * Event orchestrator configuration
- */
-export interface OrchestratorConfig {
-  /** Whether to handle errors gracefully */
-  gracefulErrorHandling?: boolean
-  /** Whether to log errors to console */
-  logErrors?: boolean
-  /** Whether to capture console output for failing tests */
-  captureConsoleOnFailure?: boolean
-  /** Maximum bytes of console output to capture per test */
-  maxConsoleBytes?: number
-  /** Maximum lines of console output to capture per test */
-  maxConsoleLines?: number
-  /** Include debug/trace console output */
-  includeDebugOutput?: boolean
-}
+import type { OrchestratorConfig } from './types.js'
+import { StateManager } from '../state/StateManager.js'
+import { TestCaseExtractor } from '../extraction/TestCaseExtractor.js'
+import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
+import { TestResultBuilder } from '../builders/TestResultBuilder.js'
+import { ErrorContextBuilder } from '../builders/ErrorContextBuilder.js'
+import { isTestModule, isTestCase, hasProperty } from '../utils/type-guards.js'
+import { extractSuiteNames } from '../utils/suites.js'
+import type { ConsoleMethod } from '../types/console.js'
+import type { ConsoleEvent, ConsoleLevel } from '../types/schema.js'
+import { coreLogger, errorLogger } from '../utils/logger.js'
+import { consoleCapture } from '../console/index.js'
+import { consoleMerger } from '../console/merge.js'
+// Truncation handled by LateTruncator in OutputBuilder
 
 /**
  * Default orchestrator configuration
  *
  * @example
  * ```typescript
- * import { DEFAULT_ORCHESTRATOR_CONFIG } from './events/EventOrchestrator'
+ * import { DEFAULT_ORCHESTRATOR_CONFIG } from './events/EventOrchestrator.js'
  *
  * const customConfig = {
  *   ...DEFAULT_ORCHESTRATOR_CONFIG,
@@ -57,7 +42,14 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
   captureConsoleOnFailure: true,
   maxConsoleBytes: 50_000,
   maxConsoleLines: 100,
-  includeDebugOutput: false
+  includeDebugOutput: false,
+  truncationConfig: {
+    enabled: false,
+    maxTokens: undefined,
+    enableEarlyTruncation: false,
+    enableLateTruncation: false,
+    enableMetrics: false
+  }
 }
 
 /**
@@ -88,6 +80,7 @@ export class EventOrchestrator {
   private contextBuilder: ErrorContextBuilder
   private debug = coreLogger()
   private debugError = errorLogger()
+  // Truncator removed - simplified truncation in OutputBuilder
 
   constructor(
     stateManager: StateManager,
@@ -112,35 +105,20 @@ export class EventOrchestrator {
       gracePeriodMs: 100,
       includeDebugOutput: this.config.includeDebugOutput
     })
-  }
 
-  /**
-   * Extracts suite names from a Vitest suite object
-   */
-  private extractSuiteNames(suite: unknown): string[] | undefined {
-    // Handle case where suite is already a string array
-    if (isStringArray(suite)) {
-      return suite
-    }
+    // Initialize truncator if enabled
+    if (
+      this.config.truncationConfig.enabled &&
+      this.config.truncationConfig.enableEarlyTruncation
+    ) {
+      // Truncation now handled in OutputBuilder
+      this.debug('Early truncation enabled')
 
-    // Handle Vitest suite object structure
-    if (suite && typeof suite === 'object') {
-      const names: string[] = []
-      let current = suite as VitestSuite
-
-      // Traverse up the suite hierarchy collecting names
-      while (current && typeof current === 'object') {
-        if (current.name && typeof current.name === 'string') {
-          // Add to beginning since we're traversing from child to parent
-          names.unshift(current.name)
-        }
-        current = current.suite as VitestSuite
+      // Enable global metrics if configured
+      if (this.config.truncationConfig.enableMetrics) {
+        // Metrics tracking removed
       }
-
-      return names.length > 0 ? names : undefined
     }
-
-    return undefined
   }
 
   /**
@@ -163,26 +141,42 @@ export class EventOrchestrator {
    * Handles test module collected event
    */
   public handleTestModuleCollected(module: unknown): void {
-    const mod = module as { children?: () => unknown; filepath?: string; id?: string }
+    if (!module || typeof module !== 'object') {
+      return
+    }
 
-    if (mod.children && typeof mod.children === 'function') {
-      const tests = mod.children() as Array<{
-        id?: string
-        name?: string
-        mode?: string
-        file?: { filepath?: string }
-        suite?: string[]
-      }>
+    // Safe property access with type guards
+    if (hasProperty(module, 'children')) {
+      const children = (module as Record<string, unknown>).children
+      if (typeof children === 'function') {
+        try {
+          const tests = (children as () => unknown)() as Array<{
+            id?: string
+            name?: string
+            mode?: string
+            file?: { filepath?: string }
+            suite?: string[]
+          }>
 
-      const collectedTests = tests.map((test) => ({
-        id: test.id,
-        name: test.name,
-        mode: test.mode,
-        file: mod.filepath || test.file?.filepath,
-        suite: this.extractSuiteNames(test.suite)
-      }))
+          const filepath =
+            hasProperty(module, 'filepath') &&
+            typeof (module as Record<string, unknown>).filepath === 'string'
+              ? ((module as Record<string, unknown>).filepath as string)
+              : undefined
 
-      this.stateManager.recordCollectedTests(collectedTests)
+          const collectedTests = tests.map((test) => ({
+            id: test.id,
+            name: test.name,
+            mode: test.mode,
+            file: filepath || test.file?.filepath,
+            suite: extractSuiteNames(test.suite)
+          }))
+
+          this.stateManager.recordCollectedTests(collectedTests)
+        } catch (err) {
+          this.debugError('Failed to collect tests from module children(): %O', err)
+        }
+      }
     }
   }
 
@@ -212,6 +206,8 @@ export class EventOrchestrator {
       this.stateManager.markTestReady(testCase.id)
       // Start console capture for this test
       consoleCapture.startCapture(testCase.id)
+
+      // Streaming removed - simplified implementation
     }
   }
 
@@ -244,6 +240,7 @@ export class EventOrchestrator {
       }
       const result = this.resultBuilder.buildPassedTest(extracted)
       this.stateManager.recordPassedTest(result)
+      this.unregisterTestFromStreaming(extracted.id)
     } else if (this.testExtractor.isFailedTest(extracted)) {
       this.processFailedTest(extracted, testCase)
     } else if (this.testExtractor.isSkippedTest(extracted)) {
@@ -253,6 +250,7 @@ export class EventOrchestrator {
       }
       const result = this.resultBuilder.buildSkippedTest(extracted)
       this.stateManager.recordSkippedTest(result)
+      this.unregisterTestFromStreaming(extracted.id)
     }
   }
 
@@ -270,8 +268,8 @@ export class EventOrchestrator {
     // Also try our custom capture
     const consoleFromCapture = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
 
-    // Intelligently merge both console sources instead of choosing one
-    const consoleOutput = consoleMerger.merge(consoleFromTask, consoleFromCapture)
+    // Intelligently merge both console sources
+    const consoleEvents = consoleMerger.merge(consoleFromTask, consoleFromCapture)
 
     // Extract and normalize error with full context including code snippets
     const normalizedError = this.errorExtractor.extractWithContext(extracted.error)
@@ -279,78 +277,80 @@ export class EventOrchestrator {
     // Build error context from the normalized error
     const errorContext = this.contextBuilder.buildFromError(normalizedError)
 
-    // Build failure result with console output
+    // Build failure result with console events
     const failure = this.resultBuilder.buildFailedTest(
       extracted,
       normalizedError,
       errorContext,
-      consoleOutput
+      consoleEvents
     )
 
     // Record in state
     this.stateManager.recordFailedTest(failure)
+    this.unregisterTestFromStreaming(extracted.id)
   }
 
   /**
    * Extract console output directly from Vitest task if available
    */
-  private extractConsoleFromTask(testCase: unknown):
-    | {
-        logs?: string[]
-        errors?: string[]
-        warns?: string[]
-        info?: string[]
-        debug?: string[]
-      }
-    | undefined {
+  private extractConsoleFromTask(testCase: unknown): ConsoleEvent[] | undefined {
     if (!testCase || typeof testCase !== 'object') return undefined
-    // Vitest augments TaskBase with `logs?: UserConsoleLog[]`
-    const logs = (
-      testCase as {
-        logs?: Array<{ content: string; type: string; taskId?: string; time?: number }>
-      }
-    ).logs
 
+    // Safe property access for logs
+    if (!hasProperty(testCase, 'logs')) return undefined
+
+    const logs = (testCase as Record<string, unknown>).logs
     if (!Array.isArray(logs) || logs.length === 0) return undefined
 
-    const out: {
-      logs?: string[]
-      errors?: string[]
-      warns?: string[]
-      info?: string[]
-      debug?: string[]
-    } = {}
-    for (const entry of logs) {
-      const content = entry?.content
-      const type = entry?.type
-      const time = entry?.time
+    const events: ConsoleEvent[] = []
+    for (const entry of logs as Array<unknown>) {
+      if (!entry || typeof entry !== 'object') continue
+      const entryObj = entry as Record<string, unknown>
+      const content = entryObj.content
+      const type = entryObj.type
+      const time = entryObj.time
 
       if (typeof content !== 'string' || typeof type !== 'string') continue
 
-      // Add timestamp if available (for better correlation with custom capture)
-      const formattedContent = time !== undefined ? `[${time}ms] ${content}` : content
-
-      // Map Vitest console types to our output structure
-      // Vitest uses 'stdout' and 'stderr' for raw output
-      // But console methods might be captured differently
+      // Map Vitest console types to our level structure
+      let level: ConsoleLevel
       if (type === 'stdout' || type === 'log') {
-        if (!out.logs) out.logs = []
-        out.logs.push(formattedContent)
+        level = 'log'
       } else if (type === 'stderr' || type === 'error') {
-        if (!out.errors) out.errors = []
-        out.errors.push(formattedContent)
+        level = 'error'
       } else if (type === 'warn' || type === 'warning') {
-        if (!out.warns) out.warns = []
-        out.warns.push(formattedContent)
+        level = 'warn'
       } else if (type === 'info') {
-        if (!out.info) out.info = []
-        out.info.push(formattedContent)
-      } else if (type === 'debug' || type === 'trace') {
-        if (!out.debug) out.debug = []
-        out.debug.push(formattedContent)
+        level = 'info'
+      } else if (type === 'debug') {
+        level = 'debug'
+      } else if (type === 'trace') {
+        level = 'trace'
+      } else {
+        // Unknown type, default to log
+        level = 'log'
       }
+
+      // Skip debug/trace if not included
+      if (!this.config.includeDebugOutput && (level === 'debug' || level === 'trace')) {
+        continue
+      }
+
+      // Create the event
+      const event: ConsoleEvent = {
+        level,
+        text: content,
+        origin: 'task'
+      }
+
+      // Add timestamp if available
+      if (typeof time === 'number') {
+        event.timestampMs = time
+      }
+
+      events.push(event)
     }
-    return Object.keys(out).length ? out : undefined
+    return events.length > 0 ? events : undefined
   }
 
   /**
@@ -416,11 +416,35 @@ export class EventOrchestrator {
   }
 
   /**
+   * Unregisters a test from streaming synchronizer
+   */
+  private unregisterTestFromStreaming(_testId?: string): void {
+    // Streaming removed - simplified implementation
+  }
+
+  /**
    * Resets all components
    */
   public reset(): void {
     this.stateManager.reset()
     consoleCapture.reset()
+
+    // Streaming removed - simplified implementation
+    // this.activeTests.clear() // Removed with streaming
+  }
+
+  /**
+   * Gets truncation metrics if available
+   */
+  public getTruncationMetrics(): unknown[] {
+    return [] // Metrics removed
+  }
+
+  /**
+   * Gets global truncation metrics summary
+   */
+  public getGlobalTruncationMetrics(): unknown {
+    return { totalTruncations: 0, totalCharsSaved: 0 } // Metrics removed
   }
 
   /**
@@ -428,6 +452,7 @@ export class EventOrchestrator {
    */
   public updateConfig(config: OrchestratorConfig): void {
     this.config = { ...this.config, ...config }
+
     // Propagate to console capture
     consoleCapture.updateConfig({
       enabled: this.config.captureConsoleOnFailure,
@@ -435,5 +460,15 @@ export class EventOrchestrator {
       maxLines: this.config.maxConsoleLines,
       includeDebugOutput: this.config.includeDebugOutput
     })
+
+    // Truncation config updates are now handled in OutputBuilder
+    // No need for config updates here
+  }
+
+  /**
+   * Updates the error extractor instance
+   */
+  public updateErrorExtractor(errorExtractor: ErrorExtractor): void {
+    this.errorExtractor = errorExtractor
   }
 }

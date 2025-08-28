@@ -1,8 +1,144 @@
 import { describe, it, expect } from 'vitest'
-import { JsonSanitizer } from './json-sanitizer'
-import type { LLMReporterOutput } from '../types/schema'
+import { JsonSanitizer } from './json-sanitizer.js'
+import type { LLMReporterOutput } from '../types/schema.js'
 
 describe('JsonSanitizer', () => {
+  describe('Type Preservation', () => {
+    it('should preserve primitive types in assertion values', () => {
+      const sanitizer = new JsonSanitizer()
+
+      const input: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        failures: [
+          {
+            test: 'type test',
+            fileRelative: '/test.ts',
+            startLine: 1,
+            endLine: 1,
+            error: {
+              message: 'Type mismatch',
+              type: 'AssertionError',
+              assertion: {
+                expected: 42,
+                actual: true,
+                expectedType: 'number',
+                actualType: 'boolean',
+                operator: 'toBe'
+              }
+            }
+          }
+        ]
+      }
+
+      const result = sanitizer.sanitize(input)
+      const assertion = result.failures![0].error.assertion!
+
+      // Numbers should remain numbers
+      expect(assertion.expected).toBe(42)
+      expect(typeof assertion.expected).toBe('number')
+
+      // Booleans should remain booleans
+      expect(assertion.actual).toBe(true)
+      expect(typeof assertion.actual).toBe('boolean')
+
+      // Type metadata should be preserved
+      expect(assertion.expectedType).toBe('number')
+      expect(assertion.actualType).toBe('boolean')
+    })
+
+    it('should preserve null values in assertions', () => {
+      const sanitizer = new JsonSanitizer()
+
+      const input: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        failures: [
+          {
+            test: 'null test',
+            fileRelative: '/test.ts',
+            startLine: 1,
+            endLine: 1,
+            error: {
+              message: 'Null check',
+              type: 'AssertionError',
+              assertion: {
+                expected: null,
+                actual: 'not null',
+                expectedType: 'null',
+                actualType: 'string',
+                operator: 'toBeNull'
+              }
+            }
+          }
+        ]
+      }
+
+      const result = sanitizer.sanitize(input)
+      const assertion = result.failures![0].error.assertion!
+
+      expect(assertion.expected).toBe(null)
+      expect(assertion.actual).toBe('not null')
+      expect(assertion.expectedType).toBe('null')
+      expect(assertion.actualType).toBe('string')
+    })
+
+    it('should sanitize strings but preserve type', () => {
+      const sanitizer = new JsonSanitizer()
+
+      const input: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        failures: [
+          {
+            test: 'string test',
+            fileRelative: '/test.ts',
+            startLine: 1,
+            endLine: 1,
+            error: {
+              message: 'String check',
+              type: 'AssertionError',
+              assertion: {
+                expected: 'string with "quotes"',
+                actual: 'string with\nnewline',
+                expectedType: 'string',
+                actualType: 'string',
+                operator: 'toBe'
+              }
+            }
+          }
+        ]
+      }
+
+      const result = sanitizer.sanitize(input)
+      const assertion = result.failures![0].error.assertion!
+
+      // Strings should be escaped but remain strings
+      expect(assertion.expected).toBe('string with \\"quotes\\"')
+      expect(assertion.actual).toBe('string with\\nnewline')
+      expect(typeof assertion.expected).toBe('string')
+      expect(typeof assertion.actual).toBe('string')
+    })
+  })
+
   describe('JSON String Escaping', () => {
     it('should escape JSON special characters', () => {
       const sanitizer = new JsonSanitizer()
@@ -19,7 +155,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test with "quotes" and \\backslash',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -37,7 +173,7 @@ describe('JsonSanitizer', () => {
       expect(result.failures![0].test).toBe('test with \\"quotes\\" and \\\\backslash')
       // Check that newlines and tabs are escaped
       expect(result.failures![0].error.message).toBe('Error with \\n newline and \\t tab')
-      // Check that carriage return is escaped
+      // Check that carriage return is escaped (when stack is present)
       expect(result.failures![0].error.stack).toBe('Stack with \\r carriage return')
     })
 
@@ -56,7 +192,7 @@ describe('JsonSanitizer', () => {
         passed: [
           {
             test: 'test with \x00 null and \x1f unit separator',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             status: 'passed'
@@ -86,7 +222,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
@@ -129,7 +265,7 @@ describe('JsonSanitizer', () => {
         passed: [
           {
             test: 'test',
-            file: '/Users/johndoe/projects/test.ts',
+            fileRelative: 'Users/johndoe/projects/test.ts',
             startLine: 1,
             endLine: 1,
             status: 'passed'
@@ -138,7 +274,7 @@ describe('JsonSanitizer', () => {
       }
 
       const result = sanitizer.sanitize(input)
-      expect(result.passed![0].file).toBe('/Users/***/projects/test.ts')
+      expect(result.passed![0].fileRelative).toBe('Users/***/projects/test.ts')
     })
 
     it('should not sanitize file paths by default', () => {
@@ -156,7 +292,7 @@ describe('JsonSanitizer', () => {
         passed: [
           {
             test: 'test',
-            file: '/Users/johndoe/projects/test.ts',
+            fileRelative: 'Users/johndoe/projects/test.ts',
             startLine: 1,
             endLine: 1,
             status: 'passed'
@@ -165,7 +301,7 @@ describe('JsonSanitizer', () => {
       }
 
       const result = sanitizer.sanitize(input)
-      expect(result.passed![0].file).toBe('/Users/johndoe/projects/test.ts')
+      expect(result.passed![0].fileRelative).toBe('Users/johndoe/projects/test.ts')
     })
   })
 
@@ -185,14 +321,13 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
-              context: {
-                code: [],
+              assertion: {
                 expected: {
                   value: 'expected "value"',
                   nested: {
@@ -200,6 +335,9 @@ describe('JsonSanitizer', () => {
                   }
                 },
                 actual: ['array', 'with', '"quotes"']
+              },
+              context: {
+                code: []
               }
             }
           }
@@ -208,10 +346,10 @@ describe('JsonSanitizer', () => {
 
       const result = sanitizer.sanitize(input)
 
-      const context = result.failures![0].error.context!
-      expect((context.expected as any).value).toBe('expected \\"value\\"')
-      expect((context.expected as any).nested.field).toBe('with\\nnewline')
-      expect((context.actual as string[])[2]).toBe('\\"quotes\\"')
+      const assertion = result.failures![0].error.assertion!
+      expect((assertion.expected as any).value).toBe('expected \\"value\\"')
+      expect((assertion.expected as any).nested.field).toBe('with\\nnewline')
+      expect((assertion.actual as string[])[2]).toBe('\\"quotes\\"')
     })
 
     it('should handle max depth for nested objects', () => {
@@ -239,15 +377,18 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {
               message: 'error',
               type: 'Error',
+              assertion: {
+                expected: deeplyNested,
+                actual: null
+              },
               context: {
-                code: [],
-                expected: deeplyNested
+                code: []
               }
             }
           }
@@ -255,7 +396,7 @@ describe('JsonSanitizer', () => {
       }
 
       const result = sanitizer.sanitize(input)
-      const expected = result.failures![0].error.context!.expected as any
+      const expected = result.failures![0].error.assertion!.expected as any
       expect(expected.level1.level2.level3).toBe('[Max depth exceeded]')
     })
   })
@@ -276,7 +417,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             suite: ['Parent "Suite"', 'Child\\Suite'],
@@ -310,7 +451,7 @@ describe('JsonSanitizer', () => {
         failures: [
           {
             test: 'test',
-            file: '/test/file.ts',
+            fileRelative: '/test/file.ts',
             startLine: 1,
             endLine: 1,
             error: {

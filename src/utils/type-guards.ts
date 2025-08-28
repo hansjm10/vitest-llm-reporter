@@ -7,11 +7,10 @@
  */
 
 import type { File, Test } from '@vitest/runner'
-import type { ConsoleMethod } from '../types/console'
-import { ExtractedError, VitestErrorContext } from '../types/vitest-objects'
-import type { AssertionValue } from '../types/schema'
+import { ExtractedError, VitestErrorContext } from '../types/vitest-objects.js'
+import type { AssertionValue } from '../types/schema.js'
 
-export type { ExtractedError } from '../types/vitest-objects'
+export type { ExtractedError } from '../types/vitest-objects.js'
 
 // ============================================================================
 // Safe Property Access Helpers (Internal)
@@ -43,16 +42,17 @@ function safeHasProperty(obj: object, key: string): boolean {
 /**
  * Safely get a property value from an object
  * Protects against throwing getters and Proxy traps
+ * Accesses both own and inherited properties (needed for Error.name, etc.)
  */
 function safeGetProperty(obj: object, key: string): unknown {
   try {
-    // Only access if property exists
-    if (safeHasProperty(obj, key)) {
+    // Check if property exists (own or inherited)
+    if (key in obj) {
       return (obj as Record<string, unknown>)[key]
     }
     return undefined
   } catch {
-    // Property getter threw
+    // Property getter threw or proxy trap failed
     return undefined
   }
 }
@@ -106,24 +106,6 @@ export function isTestCase(obj: unknown): obj is Pick<Test, 'id'> {
 }
 
 /**
- * Type guard for console method strings
- */
-export function isConsoleMethod(value: unknown): value is ConsoleMethod {
-  if (typeof value !== 'string') return false
-  switch (value) {
-    case 'log':
-    case 'error':
-    case 'warn':
-    case 'info':
-    case 'debug':
-    case 'trace':
-      return true
-    default:
-      return false
-  }
-}
-
-/**
  * Safely extract error properties with proper validation
  */
 export function extractErrorProperties(error: unknown): ExtractedError {
@@ -133,28 +115,39 @@ export function extractErrorProperties(error: unknown): ExtractedError {
 
   const result: ExtractedError = {}
 
-  // Extract string properties
+  // Extract string properties (including inherited ones like 'name' for Error objects)
   const stringProps = ['message', 'name', 'type', 'stack'] as const
   for (const prop of stringProps) {
-    if (prop in error) {
-      const errorWithProp = error as Record<typeof prop, unknown>
-      const value = errorWithProp[prop]
-      if (typeof value === 'string') {
-        result[prop] = value
+    const value = safeGetProperty(error, prop)
+    if (typeof value === 'string') {
+      result[prop] = value
+    }
+  }
+
+  // Check for matcherResult first (Vitest's native format)
+  if (safeHasProperty(error, 'matcherResult')) {
+    const matcherResult = (error as Record<'matcherResult', unknown>).matcherResult
+    if (matcherResult && typeof matcherResult === 'object') {
+      const mr = matcherResult as Record<string, unknown>
+      if (safeHasProperty(mr, 'expected')) {
+        result.expected = mr.expected
+      }
+      if (safeHasProperty(mr, 'actual')) {
+        result.actual = mr.actual
       }
     }
   }
 
-  // Extract comparison values (can be any type)
-  if ('expected' in error) {
+  // Fallback to direct expected/actual values
+  if (result.expected === undefined && safeHasProperty(error, 'expected')) {
     result.expected = (error as Record<'expected', unknown>).expected
   }
-  if ('actual' in error) {
+  if (result.actual === undefined && safeHasProperty(error, 'actual')) {
     result.actual = (error as Record<'actual', unknown>).actual
   }
 
   // Extract line number
-  if ('lineNumber' in error) {
+  if (safeHasProperty(error, 'lineNumber')) {
     const lineNumber = (error as Record<'lineNumber', unknown>).lineNumber
     if (typeof lineNumber === 'number') {
       result.lineNumber = lineNumber
@@ -162,9 +155,9 @@ export function extractErrorProperties(error: unknown): ExtractedError {
   }
 
   // Extract constructor name
-  if ('constructor' in error) {
+  if (safeHasProperty(error, 'constructor')) {
     const constructor = (error as Record<'constructor', unknown>).constructor
-    if (constructor && typeof constructor === 'object' && 'name' in constructor) {
+    if (constructor && typeof constructor === 'object' && safeHasProperty(constructor, 'name')) {
       const name = (constructor as Record<'name', unknown>).name
       if (typeof name === 'string') {
         result.constructorName = name
@@ -173,19 +166,19 @@ export function extractErrorProperties(error: unknown): ExtractedError {
   }
 
   // Extract context if it exists
-  if ('context' in error) {
+  if (safeHasProperty(error, 'context')) {
     const context = (error as Record<'context', unknown>).context
     if (context && typeof context === 'object') {
       const extractedContext: VitestErrorContext = {}
       const contextObj = context as Record<string, unknown>
 
-      if ('code' in contextObj && typeof contextObj.code === 'string') {
+      if (safeHasProperty(contextObj, 'code') && typeof contextObj.code === 'string') {
         extractedContext.code = contextObj.code
       }
-      if ('line' in contextObj && typeof contextObj.line === 'number') {
+      if (safeHasProperty(contextObj, 'line') && typeof contextObj.line === 'number') {
         extractedContext.line = contextObj.line
       }
-      if ('column' in contextObj && typeof contextObj.column === 'number') {
+      if (safeHasProperty(contextObj, 'column') && typeof contextObj.column === 'number') {
         extractedContext.column = contextObj.column
       }
 
@@ -208,8 +201,7 @@ export function isAssertionError(error: unknown): boolean {
     return false
   }
 
-  const errorObj = error as Record<string, unknown>
-  return 'expected' in errorObj || 'actual' in errorObj
+  return safeHasProperty(error, 'expected') || safeHasProperty(error, 'actual')
 }
 
 /**
@@ -227,6 +219,19 @@ export function normalizeAssertionValue(value: unknown): AssertionValue {
     return value
   }
 
+  // Handle functions and symbols explicitly to avoid lossy JSON.stringify
+  if (typeof value === 'function') {
+    return '[Function]'
+  }
+
+  if (typeof value === 'symbol') {
+    try {
+      return value.toString()
+    } catch {
+      return 'Symbol(?)'
+    }
+  }
+
   // Handle arrays
   if (Array.isArray(value)) {
     return value as unknown[]
@@ -238,30 +243,20 @@ export function normalizeAssertionValue(value: unknown): AssertionValue {
   }
 
   // Fallback: convert to string representation
+  // Note: This is only used for display/formatting, not persisted
+  // so we use a safe stringify that handles cycles
   try {
     return JSON.stringify(value)
   } catch {
+    // Handle cyclic references or other serialization errors
     return '[object]'
-  }
-}
-
-/**
- * Assert that an object has a required property
- * Throws a descriptive error if the property is missing
- */
-export function assertHasProperty<K extends string>(
-  obj: unknown,
-  key: K,
-  context: string
-): asserts obj is Record<K, unknown> {
-  if (!hasProperty(obj, key)) {
-    throw new Error(`Missing required property "${key}" in ${context}`)
   }
 }
 
 /**
  * Safely extract a string property from an object by checking multiple candidate keys
  * Returns the first valid string value found, or undefined if none match
+ * Only checks own properties to prevent prototype pollution
  */
 export function extractStringProperty(
   obj: unknown,
@@ -272,9 +267,16 @@ export function extractStringProperty(
   }
 
   for (const key of candidates) {
-    const value = safeGetProperty(obj, key)
-    if (typeof value === 'string' && value.length > 0) {
-      return value
+    // Only check own properties for safety in public API
+    if (safeHasProperty(obj, key)) {
+      try {
+        const value = (obj as Record<string, unknown>)[key]
+        if (typeof value === 'string' && value.length > 0) {
+          return value
+        }
+      } catch {
+        // Property getter threw - continue to next candidate
+      }
     }
   }
 
@@ -284,6 +286,7 @@ export function extractStringProperty(
 /**
  * Safely extract a number property from an object by checking multiple candidate keys
  * Handles both number and string number values
+ * Only checks own properties to prevent prototype pollution
  *
  * @param obj - Object to extract from
  * @param candidates - Property names to check
@@ -299,20 +302,27 @@ export function extractNumberProperty(
   }
 
   for (const key of candidates) {
-    const value = safeGetProperty(obj, key)
+    // Only check own properties for safety in public API
+    if (safeHasProperty(obj, key)) {
+      try {
+        const value = (obj as Record<string, unknown>)[key]
 
-    // Handle direct number values
-    if (typeof value === 'number') {
-      if (!validator || validator(value)) {
-        return value
-      }
-    }
+        // Handle direct number values
+        if (typeof value === 'number') {
+          if (!validator || validator(value)) {
+            return value
+          }
+        }
 
-    // Handle string numbers (some error objects store numbers as strings)
-    if (typeof value === 'string') {
-      const parsed = parseInt(value, 10)
-      if (!isNaN(parsed) && (!validator || validator(parsed))) {
-        return parsed
+        // Handle string numbers (some error objects store numbers as strings)
+        if (typeof value === 'string') {
+          const parsed = parseInt(value, 10)
+          if (!isNaN(parsed) && (!validator || validator(parsed))) {
+            return parsed
+          }
+        }
+      } catch {
+        // Property getter threw - continue to next candidate
       }
     }
   }

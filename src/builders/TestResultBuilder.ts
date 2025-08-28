@@ -7,25 +7,20 @@
  * @module builders
  */
 
-import type { TestResult, TestFailure, TestBase, TestError, ConsoleOutput } from '../types/schema'
-import type { ExtractedTestCase, NormalizedError } from '../types/extraction'
-
-/**
- * Builder configuration
- */
-export interface BuilderConfig {
-  /** Whether to include suite information in results */
-  includeSuite?: boolean
-  /** Whether to include duration in passed/skipped tests */
-  includeDuration?: boolean
-}
+import type { TestResult, TestFailure, TestBase, TestError, ConsoleEvent } from '../types/schema.js'
+import type { ExtractedTestCase, NormalizedError } from '../types/extraction.js'
+import type { BuilderConfig } from './types.js'
+import { processFilePath } from '../utils/paths.js'
 
 /**
  * Default builder configuration
  */
 export const DEFAULT_BUILDER_CONFIG: Required<BuilderConfig> = {
   includeSuite: true,
-  includeDuration: true
+  includeDuration: true,
+  rootDir: process.cwd(),
+  includeAbsolutePaths: false,
+  includeStackString: false
 }
 
 /**
@@ -52,11 +47,22 @@ export class TestResultBuilder {
    * Builds the base test information common to all test types
    */
   private buildBase(extracted: ExtractedTestCase): TestBase {
+    // Process the file path to get repo-relative path
+    const pathInfo = processFilePath(
+      extracted.filepath,
+      this.config.rootDir,
+      this.config.includeAbsolutePaths
+    )
+
     const base: TestBase = {
       test: extracted.name,
-      file: extracted.filepath,
+      fileRelative: pathInfo.fileRelative,
       startLine: extracted.startLine,
       endLine: extracted.endLine
+    }
+
+    if (this.config.includeAbsolutePaths && pathInfo.fileAbsolute) {
+      base.fileAbsolute = pathInfo.fileAbsolute
     }
 
     if (this.config.includeSuite && extracted.suite) {
@@ -105,14 +111,14 @@ export class TestResultBuilder {
     extracted: ExtractedTestCase,
     error: NormalizedError,
     errorContext?: TestError['context'],
-    consoleOutput?: ConsoleOutput
+    consoleEvents?: ConsoleEvent[]
   ): TestFailure {
     const testError: TestError = {
       message: error.message,
       type: error.type
     }
 
-    if (error.stack) {
+    if (this.config.includeStackString && error.stack) {
       testError.stack = error.stack
     }
 
@@ -133,8 +139,8 @@ export class TestResultBuilder {
       error: testError
     }
 
-    if (consoleOutput) {
-      failure.console = consoleOutput
+    if (consoleEvents && consoleEvents.length > 0) {
+      failure.consoleEvents = consoleEvents
     }
 
     return failure
@@ -147,7 +153,7 @@ export class TestResultBuilder {
     extracted: ExtractedTestCase,
     error?: NormalizedError,
     errorContext?: TestError['context'],
-    consoleOutput?: ConsoleOutput
+    consoleEvents?: ConsoleEvent[]
   ): TestResult | TestFailure {
     switch (extracted.state) {
       case 'passed':
@@ -161,7 +167,7 @@ export class TestResultBuilder {
             type: 'TestFailure'
           }
         }
-        return this.buildFailedTest(extracted, error, errorContext, consoleOutput)
+        return this.buildFailedTest(extracted, error, errorContext, consoleEvents)
 
       case 'skipped':
         return this.buildSkippedTest(extracted)
@@ -178,13 +184,13 @@ export class TestResultBuilder {
   public buildUnhandledError(error: NormalizedError): TestFailure {
     return {
       test: 'Unhandled Error',
-      file: '',
+      fileRelative: '',
       startLine: 0,
       endLine: 0,
       error: {
         message: error.message,
         type: 'UnhandledError',
-        stack: error.stack
+        ...(this.config.includeStackString && error.stack ? { stack: error.stack } : {})
       }
     }
   }

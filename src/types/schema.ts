@@ -2,7 +2,7 @@
  * JSON Schema Type Definitions for LLM-Optimized Test Results
  *
  * This file contains ONLY type definitions.
- * For validation logic, use the SchemaValidator class from '../validation/validator'
+ * For validation logic, use the SchemaValidator class from '../validation/validator.js'
  *
  * @module schema
  */
@@ -39,14 +39,11 @@ export interface TestSummary {
 
 /**
  * Error context with relevant code
+ * Note: Assertion values (expected/actual) are stored in error.assertion, not in context
  */
 export interface ErrorContext {
   /** Relevant code lines around the error */
   code: string[]
-  /** Expected value in assertion (optional) */
-  expected?: AssertionValue
-  /** Actual value in assertion (optional) */
-  actual?: AssertionValue
   /** Line number in the code (optional) */
   lineNumber?: number
   /** Column number in the code (optional) */
@@ -57,14 +54,20 @@ export interface ErrorContext {
  * Stack frame information from parsed stack traces
  */
 export interface StackFrame {
-  /** File path */
-  file: string
+  /** Repo-relative file path */
+  fileRelative: string
   /** Line number */
   line: number
   /** Column number (optional) */
   column?: number
   /** Function name (optional) */
   function?: string
+  /** Whether the frame is in the project (not external) */
+  inProject: boolean
+  /** Whether the frame is in node_modules */
+  inNodeModules: boolean
+  /** Absolute file path (optional, for tooling) */
+  fileAbsolute?: string
 }
 
 /**
@@ -72,11 +75,15 @@ export interface StackFrame {
  */
 export interface AssertionDetails {
   /** Expected value */
-  expected: unknown
+  expected: AssertionValue
   /** Actual value */
-  actual: unknown
+  actual: AssertionValue
   /** Assertion operator (e.g., "toBe", "toEqual") */
   operator?: string
+  /** Type of the expected value */
+  expectedType?: 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array'
+  /** Type of the actual value */
+  actualType?: 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array'
 }
 
 /**
@@ -103,30 +110,37 @@ export interface TestError {
 export interface TestBase {
   /** Test name */
   test: string
-  /** File path where the test is defined */
-  file: string
+  /** Repo-relative file path where the test is defined */
+  fileRelative: string
   /** Line number where the test starts */
   startLine: number
   /** Line number where the test ends */
   endLine: number
   /** Test suite hierarchy (optional) */
   suite?: string[]
+  /** Absolute file path (optional, for tooling) */
+  fileAbsolute?: string
 }
 
 /**
- * Console output captured during test execution
+ * Console method level types
  */
-export interface ConsoleOutput {
-  /** console.log output */
-  logs?: string[]
-  /** console.error output */
-  errors?: string[]
-  /** console.warn output */
-  warns?: string[]
-  /** console.info output */
-  info?: string[]
-  /** console.debug and console.trace output */
-  debug?: string[]
+export type ConsoleLevel = 'log' | 'error' | 'warn' | 'info' | 'debug' | 'trace'
+
+/**
+ * Individual console event with metadata
+ */
+export interface ConsoleEvent {
+  /** Console method level */
+  level: ConsoleLevel
+  /** Serialized text representation of the console call */
+  text: string
+  /** Timestamp in milliseconds since test start (optional) */
+  timestampMs?: number
+  /** Array of individually serialized arguments (optional) */
+  args?: string[]
+  /** Origin of the console event */
+  origin?: 'intercepted' | 'task'
 }
 
 /**
@@ -135,8 +149,8 @@ export interface ConsoleOutput {
 export interface TestFailure extends TestBase {
   /** Error details */
   error: TestError
-  /** Console output captured during test (optional) */
-  console?: ConsoleOutput
+  /** Console events captured during test (optional) */
+  consoleEvents?: ConsoleEvent[]
 }
 
 /**

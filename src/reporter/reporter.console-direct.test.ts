@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { LLMReporter } from './reporter'
+import { LLMReporter } from './reporter.js'
 import type { TestCase } from 'vitest/node'
 
 describe('LLMReporter Console Capture - Direct Test', () => {
@@ -14,7 +14,7 @@ describe('LLMReporter Console Capture - Direct Test', () => {
   })
 
   afterEach(() => {
-    reporter.onTestRunEnd([], [], 'passed')
+    void reporter.onTestRunEnd([], [], 'passed')
   })
 
   it('should capture console output when test fails', () => {
@@ -28,7 +28,7 @@ describe('LLMReporter Console Capture - Direct Test', () => {
         state: 'fail',
         error: new Error('Test failed')
       },
-      file: '/test/file.ts',
+      fileRelative: '/test/file.ts',
       location: { start: { line: 10 }, end: { line: 20 } }
     } as unknown as TestCase
 
@@ -56,7 +56,7 @@ describe('LLMReporter Console Capture - Direct Test', () => {
     reporter.onTestCaseResult(mockTestCase)
 
     // Get the output
-    reporter.onTestRunEnd([], [], 'failed')
+    void reporter.onTestRunEnd([], [], 'failed')
     const output = reporter.getOutput()
 
     // Verify console was captured
@@ -67,14 +67,16 @@ describe('LLMReporter Console Capture - Direct Test', () => {
     const failure = output?.failures?.[0]
     expect(failure).toBeDefined()
 
-    expect(failure?.console).toBeDefined()
+    expect(failure?.consoleEvents).toBeDefined()
 
     // Check console content
-    expect(failure?.console?.logs).toBeInstanceOf(Array)
-    expect(failure?.console?.logs).toContainEqual('Test log message')
+    expect(failure?.consoleEvents).toBeInstanceOf(Array)
 
-    expect(failure?.console?.errors).toBeInstanceOf(Array)
-    expect(failure?.console?.errors).toContainEqual('Test error message')
+    const logEvents = failure?.consoleEvents?.filter((e) => e.level === 'log') || []
+    const errorEvents = failure?.consoleEvents?.filter((e) => e.level === 'error') || []
+
+    expect(logEvents.some((e) => e.text === 'Test log message')).toBe(true)
+    expect(errorEvents.some((e) => e.text === 'Test error message')).toBe(true)
   })
 
   it('should not capture console for passing tests', () => {
@@ -85,7 +87,7 @@ describe('LLMReporter Console Capture - Direct Test', () => {
       result: {
         state: 'pass'
       },
-      file: '/test/file.ts',
+      fileRelative: '/test/file.ts',
       location: { start: { line: 10 }, end: { line: 20 } }
     } as unknown as TestCase
 
@@ -102,7 +104,7 @@ describe('LLMReporter Console Capture - Direct Test', () => {
     reporter.onTestCaseResult(mockTestCase)
 
     // Get the output
-    reporter.onTestRunEnd([], [], 'passed')
+    void reporter.onTestRunEnd([], [], 'passed')
     const output = reporter.getOutput()
 
     // Since test passed and verbose is false, it shouldn't be in output

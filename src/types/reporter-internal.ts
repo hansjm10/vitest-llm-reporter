@@ -7,7 +7,7 @@
  * @module reporter-internal-types
  */
 
-import type { TestResult, TestFailure, ErrorContext } from './schema'
+import type { TestResult, TestFailure, ErrorContext } from './schema.js'
 
 /**
  * Test information collected during test discovery

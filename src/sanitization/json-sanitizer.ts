@@ -14,20 +14,17 @@ import type {
   TestResult,
   TestError,
   ErrorContext,
-  AssertionValue
-} from '../types/schema'
+  AssertionValue,
+  AssertionDetails,
+  StackFrame,
+  ConsoleEvent
+} from '../types/schema.js'
+import type { JsonSanitizerConfig } from './types.js'
 
-import { escapeJsonString, escapeJsonArray, createSafeObject } from '../utils/sanitization'
+import { escapeJsonString, escapeJsonArray, createSafeObject } from '../utils/sanitization.js'
 
-/**
- * JSON sanitization configuration
- */
-export interface JsonSanitizerConfig {
-  /** Whether to sanitize file paths to remove user information */
-  sanitizeFilePaths?: boolean
-  /** Maximum depth for nested object sanitization */
-  maxDepth?: number
-}
+// Re-export types for public API
+export type { JsonSanitizerConfig } from './types.js'
 
 /**
  * Default sanitization configuration
@@ -97,14 +94,27 @@ export class JsonSanitizer {
    * Sanitizes a test failure object
    */
   private sanitizeTestFailure(failure: TestFailure): TestFailure {
-    return {
+    const result: TestFailure = {
       test: escapeJsonString(failure.test),
-      file: this.sanitizeFilePath(failure.file),
+      fileRelative: this.sanitizeFilePath(failure.fileRelative),
       startLine: failure.startLine,
       endLine: failure.endLine,
-      suite: failure.suite?.map((s) => escapeJsonString(s)),
       error: this.sanitizeTestError(failure.error)
     }
+
+    if (failure.fileAbsolute) {
+      result.fileAbsolute = this.sanitizeFilePath(failure.fileAbsolute)
+    }
+
+    if (failure.suite) {
+      result.suite = failure.suite.map((s) => escapeJsonString(s))
+    }
+
+    if (failure.consoleEvents) {
+      result.consoleEvents = failure.consoleEvents.map((event) => this.sanitizeConsoleEvent(event))
+    }
+
+    return result
   }
 
   /**
@@ -120,8 +130,42 @@ export class JsonSanitizer {
       sanitized.stack = escapeJsonString(error.stack)
     }
 
+    if (error.stackFrames) {
+      sanitized.stackFrames = error.stackFrames.map((frame) => this.sanitizeStackFrame(frame))
+    }
+
     if (error.context) {
       sanitized.context = this.sanitizeErrorContext(error.context)
+    }
+
+    if (error.assertion) {
+      sanitized.assertion = this.sanitizeAssertionDetails(error.assertion)
+    }
+
+    return sanitized
+  }
+
+  /**
+   * Sanitizes a stack frame object
+   */
+  private sanitizeStackFrame(frame: StackFrame): StackFrame {
+    const sanitized: StackFrame = {
+      fileRelative: this.sanitizeFilePath(frame.fileRelative),
+      line: frame.line,
+      inProject: frame.inProject,
+      inNodeModules: frame.inNodeModules
+    }
+
+    if (frame.column !== undefined) {
+      sanitized.column = frame.column
+    }
+
+    if (frame.function) {
+      sanitized.function = escapeJsonString(frame.function)
+    }
+
+    if (frame.fileAbsolute) {
+      sanitized.fileAbsolute = this.sanitizeFilePath(frame.fileAbsolute)
     }
 
     return sanitized
@@ -135,14 +179,6 @@ export class JsonSanitizer {
 
     const sanitized: ErrorContext = {
       code: escapeJsonArray(safeContext.code as string[])
-    }
-
-    if (safeContext.expected !== undefined) {
-      sanitized.expected = this.sanitizeAssertionValue(safeContext.expected as AssertionValue)
-    }
-
-    if (safeContext.actual !== undefined) {
-      sanitized.actual = this.sanitizeAssertionValue(safeContext.actual as AssertionValue)
     }
 
     if (safeContext.lineNumber !== undefined) {
@@ -160,15 +196,52 @@ export class JsonSanitizer {
    * Sanitizes a test result object
    */
   private sanitizeTestResult(result: TestResult): TestResult {
-    return {
+    const sanitized: TestResult = {
       test: escapeJsonString(result.test),
-      file: this.sanitizeFilePath(result.file),
+      fileRelative: this.sanitizeFilePath(result.fileRelative),
       startLine: result.startLine,
       endLine: result.endLine,
-      duration: result.duration,
-      status: result.status,
-      suite: result.suite?.map((s) => escapeJsonString(s))
+      status: result.status
     }
+
+    if (result.fileAbsolute) {
+      sanitized.fileAbsolute = this.sanitizeFilePath(result.fileAbsolute)
+    }
+
+    if (result.duration !== undefined) {
+      sanitized.duration = result.duration
+    }
+
+    if (result.suite) {
+      sanitized.suite = result.suite.map((s) => escapeJsonString(s))
+    }
+
+    return sanitized
+  }
+
+  /**
+   * Sanitizes assertion details
+   */
+  private sanitizeAssertionDetails(assertion: AssertionDetails): AssertionDetails {
+    const sanitized: AssertionDetails = {
+      expected: this.sanitizeAssertionValue(assertion.expected),
+      actual: this.sanitizeAssertionValue(assertion.actual)
+    }
+
+    if (assertion.operator) {
+      sanitized.operator = escapeJsonString(assertion.operator)
+    }
+
+    // Pass through type metadata unchanged
+    if (assertion.expectedType) {
+      sanitized.expectedType = assertion.expectedType
+    }
+
+    if (assertion.actualType) {
+      sanitized.actualType = assertion.actualType
+    }
+
+    return sanitized
   }
 
   /**
@@ -209,6 +282,30 @@ export class JsonSanitizer {
   }
 
   /**
+   * Sanitizes a console event
+   */
+  private sanitizeConsoleEvent(event: ConsoleEvent): ConsoleEvent {
+    const sanitized: ConsoleEvent = {
+      level: event.level,
+      text: escapeJsonString(event.text)
+    }
+
+    if (event.timestampMs !== undefined) {
+      sanitized.timestampMs = event.timestampMs
+    }
+
+    if (event.args) {
+      sanitized.args = event.args.map((arg) => escapeJsonString(arg))
+    }
+
+    if (event.origin) {
+      sanitized.origin = event.origin
+    }
+
+    return sanitized
+  }
+
+  /**
    * Sanitizes file paths
    */
   private sanitizeFilePath(filePath: string): string {
@@ -219,6 +316,9 @@ export class JsonSanitizer {
     }
 
     // Remove user-specific information from paths
-    return escapedPath.replace(/\/(?:Users|home)\/[^/]+/, '/Users/***')
+    // Handle paths with or without leading slash
+    return escapedPath.replace(/(?:^|\/)(?:Users|home)\/[^/]+/, (match) =>
+      match.startsWith('/') ? '/Users/***' : 'Users/***'
+    )
   }
 }

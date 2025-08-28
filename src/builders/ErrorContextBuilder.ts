@@ -7,19 +7,10 @@
  * @module builders
  */
 
-import type { ErrorContext } from '../types/schema'
-import type { NormalizedError } from '../types/extraction'
-import { isAssertionError, normalizeAssertionValue } from '../utils/type-guards'
-
-/**
- * Error context builder configuration
- */
-export interface ErrorContextConfig {
-  /** Maximum number of code lines to include */
-  maxCodeLines?: number
-  /** Whether to include line numbers in context */
-  includeLineNumbers?: boolean
-}
+import type { ErrorContext } from '../types/schema.js'
+import type { NormalizedError } from '../types/extraction.js'
+import type { ErrorContextConfig } from './types.js'
+import { isAssertionError } from '../utils/type-guards.js'
 
 /**
  * Default error context configuration
@@ -55,19 +46,7 @@ export class ErrorContextBuilder {
   public buildFromError(error: NormalizedError): ErrorContext | undefined {
     // Check if we have code context first (prioritize actual code snippets)
     if (error.context) {
-      const codeContext = this.buildCodeContext(error)
-
-      // If this is also an assertion error, merge the assertion details
-      if (isAssertionError(error)) {
-        if (error.expected !== undefined) {
-          codeContext.expected = normalizeAssertionValue(error.expected)
-        }
-        if (error.actual !== undefined) {
-          codeContext.actual = normalizeAssertionValue(error.actual)
-        }
-      }
-
-      return codeContext
+      return this.buildCodeContext(error)
     }
 
     // If no code context but is an assertion error, build assertion context
@@ -92,15 +71,6 @@ export class ErrorContextBuilder {
   private buildAssertionContext(error: NormalizedError): ErrorContext {
     const context: ErrorContext = {
       code: []
-    }
-
-    // Add expected and actual values
-    if (error.expected !== undefined) {
-      context.expected = normalizeAssertionValue(error.expected)
-    }
-
-    if (error.actual !== undefined) {
-      context.actual = normalizeAssertionValue(error.actual)
     }
 
     // Add line number if available
@@ -143,10 +113,6 @@ export class ErrorContextBuilder {
   /**
    * Splits code into lines
    */
-  private splitCodeLines(code: string): string[] {
-    return code.split('\n').filter((line) => line.trim().length > 0)
-  }
-
   /**
    * Limits the number of code lines
    */
@@ -176,22 +142,16 @@ export class ErrorContextBuilder {
     }
 
     // Prefer primary values but fall back to secondary
-    if (primary.expected !== undefined) {
-      merged.expected = primary.expected
-    } else if (secondary.expected !== undefined) {
-      merged.expected = secondary.expected
-    }
-
-    if (primary.actual !== undefined) {
-      merged.actual = primary.actual
-    } else if (secondary.actual !== undefined) {
-      merged.actual = secondary.actual
-    }
-
     if (primary.lineNumber !== undefined) {
       merged.lineNumber = primary.lineNumber
     } else if (secondary.lineNumber !== undefined) {
       merged.lineNumber = secondary.lineNumber
+    }
+
+    if (primary.columnNumber !== undefined) {
+      merged.columnNumber = primary.columnNumber
+    } else if (secondary.columnNumber !== undefined) {
+      merged.columnNumber = secondary.columnNumber
     }
 
     // Apply code line limit to merged result

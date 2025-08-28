@@ -14,23 +14,18 @@ import {
   normalizeAssertionValue,
   extractStringProperty,
   extractNumberProperty
-} from '../utils/type-guards'
-import { extractLineNumber } from '../reporter/helpers'
-import { ContextExtractor } from './ContextExtractor'
-import type {
-  NormalizedError,
-  ErrorExtractionConfig,
-  StackFrame,
-  AssertionDetails
-} from '../types/extraction'
-import type { ErrorContext } from '../types/schema'
+} from '../utils/type-guards.js'
+import { extractLineNumber } from '../reporter/helpers.js'
+import { ContextExtractor } from './ContextExtractor.js'
+import type { NormalizedError, ErrorExtractionConfig } from '../types/extraction.js'
+import type { StackFrame, AssertionDetails, ErrorContext } from '../types/schema.js'
 
 /**
  * Default error extraction configuration
  *
  * @example
  * ```typescript
- * import { DEFAULT_ERROR_CONFIG } from './extraction/ErrorExtractor'
+ * import { DEFAULT_ERROR_CONFIG } from './extraction/ErrorExtractor.js'
  *
  * const customConfig = {
  *   ...DEFAULT_ERROR_CONFIG,
@@ -44,8 +39,9 @@ export const DEFAULT_ERROR_CONFIG: Required<ErrorExtractionConfig> = {
   extractLineFromStack: true,
   maxContextLines: 3,
   includeSourceCode: true,
-  filterNodeModules: true,
-  rootDir: process.cwd()
+  filterNodeModules: true, // Filter node_modules from stack frames by default
+  rootDir: process.cwd(),
+  includeAbsolutePaths: false
 }
 
 /**
@@ -250,19 +246,20 @@ export class ErrorExtractor {
     const columnNumber = this.getColumnNumber(error)
 
     // Parse stack trace to get frames
-    const stackFrames = this.contextExtractor.parseStackTrace(stack)
+    const stackFrames = this.contextExtractor.parseStackTrace(
+      stack,
+      this.config.includeAbsolutePaths
+    )
 
-    // Extract code context with proper typing
+    // Extract code context with proper typing (do not merge assertion values here)
     const codeContext = this.extractCodeContext(filePath, lineNumber, columnNumber, stackFrames)
-
-    // Merge all context sources with clear priority
-    const mergedContext = this.mergeErrorContext(codeContext, basicError)
 
     // Build final error object
     return {
       ...basicError,
       stackFrames: stackFrames.length > 0 ? stackFrames : undefined,
-      context: mergedContext,
+      // Provide only raw code/position context; assertion enrichment happens in ErrorContextBuilder
+      context: codeContext ?? basicError.context,
       assertion: this.buildAssertionDetails(basicError, error)
     }
   }
@@ -285,11 +282,9 @@ export class ErrorExtractor {
     if (stackFrames.length > 0) {
       // Otherwise use the first relevant stack frame
       const firstFrame = stackFrames[0]
-      return this.contextExtractor.extractCodeContext(
-        firstFrame.file,
-        firstFrame.line,
-        firstFrame.column
-      )
+      // Use fileAbsolute if available, otherwise fileRelative
+      const filePath = firstFrame.fileAbsolute || firstFrame.fileRelative
+      return this.contextExtractor.extractCodeContext(filePath, firstFrame.line, firstFrame.column)
     }
 
     return undefined
@@ -301,77 +296,23 @@ export class ErrorExtractor {
    * 2. Existing error context (from error object)
    * 3. Assertion-only context (when only test values available)
    */
-  private mergeErrorContext(
-    codeContext: ErrorContext | undefined,
-    basicError: NormalizedError
-  ): NormalizedError['context'] | undefined {
-    const hasAssertions = this.hasAssertionValues(basicError)
-
-    // Priority 1: Fresh code context with assertions
-    if (codeContext) {
-      return this.createContextWithCode(codeContext, basicError)
-    }
-
-    // Priority 2: Existing context enhanced with assertions
-    if (basicError.context) {
-      return this.enrichExistingContext(basicError.context, basicError)
-    }
-
-    // Priority 3: Assertion-only context (requires line number)
-    if (hasAssertions && basicError.lineNumber !== undefined) {
-      return this.createAssertionContext(basicError)
-    }
-
-    return undefined
-  }
+  // Note: Assertion values (expected/actual) are stored separately in error.assertion,
+  // not in error.context, to avoid duplication. Context only contains code and location info.
 
   /**
-   * Checks if error has assertion values
+   * Determines the type of an assertion value
    */
-  private hasAssertionValues(error: NormalizedError): boolean {
-    return error.expected !== undefined || error.actual !== undefined
-  }
-
-  /**
-   * Creates context with code and assertion values
-   */
-  private createContextWithCode(
-    codeContext: ErrorContext,
-    error: NormalizedError
-  ): NormalizedError['context'] {
-    return {
-      code: codeContext.code,
-      lineNumber: codeContext.lineNumber,
-      columnNumber: codeContext.columnNumber,
-      expected: error.expected,
-      actual: error.actual
-    }
-  }
-
-  /**
-   * Enriches existing context with assertion values
-   */
-  private enrichExistingContext(
-    existing: NonNullable<NormalizedError['context']>,
-    error: NormalizedError
-  ): NormalizedError['context'] {
-    return {
-      ...existing,
-      expected: error.expected,
-      actual: error.actual
-    }
-  }
-
-  /**
-   * Creates context with only assertion values
-   */
-  private createAssertionContext(error: NormalizedError): NormalizedError['context'] {
-    return {
-      code: [], // Empty array indicates no source available
-      lineNumber: error.lineNumber,
-      expected: error.expected,
-      actual: error.actual
-    }
+  private getAssertionValueType(
+    value: unknown
+  ): 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array' {
+    if (value === null) return 'null'
+    if (typeof value === 'string') return 'string'
+    if (typeof value === 'number') return 'number'
+    if (typeof value === 'boolean') return 'boolean'
+    if (Array.isArray(value)) return 'array'
+    if (typeof value === 'object') return 'Record<string, unknown>'
+    // For functions, symbols, undefined, etc., treat as string since normalizeAssertionValue converts them
+    return 'string'
   }
 
   /**
@@ -381,11 +322,45 @@ export class ErrorExtractor {
     basicError: NormalizedError,
     error: unknown
   ): AssertionDetails | undefined {
-    if (this.hasAssertionValues(basicError)) {
+    if (basicError.expected !== undefined || basicError.actual !== undefined) {
+      // Try to parse string numbers/booleans/null back to their proper types
+      let expectedValue = basicError.expected
+      let actualValue = basicError.actual
+
+      // Convert string numbers back to numbers
+      if (typeof expectedValue === 'string' && /^-?\d+(\.\d+)?$/.test(expectedValue)) {
+        const num = Number(expectedValue)
+        if (!isNaN(num)) {
+          expectedValue = num
+        }
+      }
+
+      if (typeof actualValue === 'string' && /^-?\d+(\.\d+)?$/.test(actualValue)) {
+        const num = Number(actualValue)
+        if (!isNaN(num)) {
+          actualValue = num
+        }
+      }
+
+      // Convert string booleans back to booleans
+      if (expectedValue === 'true') expectedValue = true
+      if (expectedValue === 'false') expectedValue = false
+      if (actualValue === 'true') actualValue = true
+      if (actualValue === 'false') actualValue = false
+
+      // Convert string null back to null
+      if (expectedValue === 'null') expectedValue = null
+      if (actualValue === 'null') actualValue = null
+
+      const normalizedExpected = normalizeAssertionValue(expectedValue)
+      const normalizedActual = normalizeAssertionValue(actualValue)
+
       return {
-        expected: basicError.expected,
-        actual: basicError.actual,
-        operator: this.extractOperator(error)
+        expected: normalizedExpected,
+        actual: normalizedActual,
+        operator: this.extractOperator(error),
+        expectedType: this.getAssertionValueType(normalizedExpected),
+        actualType: this.getAssertionValueType(normalizedActual)
       }
     }
     return undefined
@@ -396,7 +371,10 @@ export class ErrorExtractor {
    */
   public extractStackFrames(error: unknown): { stackFrames?: StackFrame[] } {
     const stack = this.getStackString(error)
-    const stackFrames = this.contextExtractor.parseStackTrace(stack)
+    const stackFrames = this.contextExtractor.parseStackTrace(
+      stack,
+      this.config.includeAbsolutePaths
+    )
     // Return empty array for malformed stack traces to match test expectations
     return { stackFrames: stackFrames.length > 0 ? stackFrames : [] }
   }
@@ -411,12 +389,46 @@ export class ErrorExtractor {
 
     const extracted = extractErrorProperties(error)
 
+    // Try to parse string numbers back to numbers if they look like numbers
+    let expectedValue = extracted.expected
+    let actualValue = extracted.actual
+
+    // Convert string numbers back to numbers
+    if (typeof expectedValue === 'string' && /^-?\d+(\.\d+)?$/.test(expectedValue)) {
+      const num = Number(expectedValue)
+      if (!isNaN(num)) {
+        expectedValue = num
+      }
+    }
+
+    if (typeof actualValue === 'string' && /^-?\d+(\.\d+)?$/.test(actualValue)) {
+      const num = Number(actualValue)
+      if (!isNaN(num)) {
+        actualValue = num
+      }
+    }
+
+    // Convert string booleans back to booleans
+    if (expectedValue === 'true') expectedValue = true
+    if (expectedValue === 'false') expectedValue = false
+    if (actualValue === 'true') actualValue = true
+    if (actualValue === 'false') actualValue = false
+
+    // Convert string null back to null
+    if (expectedValue === 'null') expectedValue = null
+    if (actualValue === 'null') actualValue = null
+
     if (extracted.expected !== undefined || extracted.actual !== undefined) {
+      const normalizedExpected = normalizeAssertionValue(expectedValue)
+      const normalizedActual = normalizeAssertionValue(actualValue)
+
       return {
         assertion: {
-          expected: extracted.expected,
-          actual: extracted.actual,
-          operator: this.extractOperator(error)
+          expected: normalizedExpected,
+          actual: normalizedActual,
+          operator: this.extractOperator(error),
+          expectedType: this.getAssertionValueType(normalizedExpected),
+          actualType: this.getAssertionValueType(normalizedActual)
         }
       }
     }

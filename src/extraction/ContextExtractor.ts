@@ -8,10 +8,12 @@
  */
 
 import { readFileSync } from 'node:fs'
-import type { StackFrame, ContextExtractionOptions } from '../types/extraction'
-import type { ErrorContext } from '../types/schema'
-import { PathValidator } from '../utils/path-validator'
-import { extractionLogger, errorLogger, securityLogger } from '../utils/logger'
+import type { ContextExtractionOptions } from '../types/extraction.js'
+import type { StackFrame } from '../types/schema.js'
+import type { ErrorContext } from '../types/schema.js'
+import { PathValidator } from '../utils/path-validator.js'
+import { extractionLogger, errorLogger, securityLogger } from '../utils/logger.js'
+import { processFilePath } from '../utils/paths.js'
 
 /**
  * Extracts code context and stack frame information from errors
@@ -102,7 +104,7 @@ export class ContextExtractor {
    * Parses a V8-style stack trace string into structured stack frames
    * Optimized for Node.js/Vitest console test reporting
    */
-  public parseStackTrace(stack: string): StackFrame[] {
+  public parseStackTrace(stack: string, includeAbsolute = false): StackFrame[] {
     if (!stack) {
       return []
     }
@@ -124,14 +126,30 @@ export class ContextExtractor {
         const lineNum = parseInt(match[3], 10)
         const column = parseInt(match[4], 10)
 
-        if (this.shouldIncludeFrame(file)) {
-          frames.push({
-            file,
-            line: lineNum,
-            column: isNaN(column) ? undefined : column,
-            function: functionName
-          })
+        // Always skip internal node modules (node:internal, etc.)
+        if (this.isInternalNodeModule(file)) {
+          continue
         }
+
+        // Process the file path to get relative/absolute and classification
+        const pathInfo = processFilePath(file, this.options.rootDir, includeAbsolute)
+
+        // Optionally filter external node_modules (but we want to keep them for classification)
+        // Only filter if explicitly set to filter AND it's a node_modules path
+        // By default, we keep node_modules frames to show proper classification
+        if (this.options.filterNodeModules && pathInfo.inNodeModules) {
+          continue
+        }
+
+        frames.push({
+          fileRelative: pathInfo.fileRelative,
+          line: lineNum,
+          column: isNaN(column) ? undefined : column,
+          function: functionName,
+          inProject: pathInfo.inProject,
+          inNodeModules: pathInfo.inNodeModules,
+          ...(pathInfo.fileAbsolute && { fileAbsolute: pathInfo.fileAbsolute })
+        })
         continue
       }
 
@@ -142,13 +160,29 @@ export class ContextExtractor {
         const lineNum = parseInt(match[2], 10)
         const column = parseInt(match[3], 10)
 
-        if (this.shouldIncludeFrame(file)) {
-          frames.push({
-            file,
-            line: lineNum,
-            column: isNaN(column) ? undefined : column
-          })
+        // Always skip internal node modules (node:internal, etc.)
+        if (this.isInternalNodeModule(file)) {
+          continue
         }
+
+        // Process the file path to get relative/absolute and classification
+        const pathInfo = processFilePath(file, this.options.rootDir, includeAbsolute)
+
+        // Optionally filter external node_modules (but we want to keep them for classification)
+        // Only filter if explicitly set to filter AND it's a node_modules path
+        // By default, we keep node_modules frames to show proper classification
+        if (this.options.filterNodeModules && pathInfo.inNodeModules) {
+          continue
+        }
+
+        frames.push({
+          fileRelative: pathInfo.fileRelative,
+          line: lineNum,
+          column: isNaN(column) ? undefined : column,
+          inProject: pathInfo.inProject,
+          inNodeModules: pathInfo.inNodeModules,
+          ...(pathInfo.fileAbsolute && { fileAbsolute: pathInfo.fileAbsolute })
+        })
       }
     }
 
@@ -159,7 +193,7 @@ export class ContextExtractor {
    * Extracts the first relevant stack frame from a stack trace
    */
   public extractFirstRelevantFrame(stack: string): StackFrame | undefined {
-    const frames = this.parseStackTrace(stack)
+    const frames = this.parseStackTrace(stack, false)
     return frames[0]
   }
 
@@ -174,14 +208,16 @@ export class ContextExtractor {
     stackFrames: StackFrame[]
     context?: ErrorContext
   } {
-    const stackFrames = this.parseStackTrace(stack)
+    const stackFrames = this.parseStackTrace(stack, false)
 
     // Try to get context from first relevant frame
     let context: ErrorContext | undefined
 
     if (stackFrames.length > 0) {
       const firstFrame = stackFrames[0]
-      context = this.extractCodeContext(firstFrame.file, firstFrame.line, firstFrame.column)
+      // Use fileAbsolute if available, otherwise fileRelative
+      const filePath = firstFrame.fileAbsolute || firstFrame.fileRelative
+      context = this.extractCodeContext(filePath, firstFrame.line, firstFrame.column)
     } else if (fallbackFile && fallbackLine) {
       // Use fallback if no frames found
       context = this.extractCodeContext(fallbackFile, fallbackLine)
@@ -204,24 +240,17 @@ export class ContextExtractor {
   }
 
   /**
-   * Determines if a stack frame should be included based on filters
+   * Checks if a file path is an internal node module
    */
-  private shouldIncludeFrame(file: string): boolean {
-    if (!this.options.filterNodeModules) {
-      return true
-    }
-
-    // Filter out node_modules, internal Node.js modules, and dist folders
-    const excludePatterns = [
-      /node_modules/,
+  private isInternalNodeModule(file: string): boolean {
+    const internalPatterns = [
       /^node:/,
       /^internal\//,
       /^\[.*\]$/, // [eval], [stdin], etc.
-      /^<anonymous>$/,
-      /\/dist\//
+      /^<anonymous>$/
     ]
 
-    return !excludePatterns.some((pattern) => pattern.test(file))
+    return internalPatterns.some((pattern) => pattern.test(file))
   }
 
   /**

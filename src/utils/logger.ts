@@ -52,13 +52,5 @@ export const createLogger = (namespace: string): ReturnType<typeof createDebug> 
 export const coreLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('core')
 export const extractionLogger = (): ReturnType<typeof createDebug> =>
   LoggerFactory.create('extraction')
-export const processorLogger = (): ReturnType<typeof createDebug> =>
-  LoggerFactory.create('processor')
-export const builderLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('builder')
-export const outputLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('output')
-export const stateLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('state')
-export const validationLogger = (): ReturnType<typeof createDebug> =>
-  LoggerFactory.create('validation')
 export const securityLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('security')
 export const errorLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('error')
-export const perfLogger = (): ReturnType<typeof createDebug> => LoggerFactory.create('perf')

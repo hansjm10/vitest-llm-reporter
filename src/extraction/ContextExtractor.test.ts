@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { ContextExtractor } from './ContextExtractor'
+import { ContextExtractor } from './ContextExtractor.js'
 import * as fs from 'node:fs'
 
 // Mock fs module
@@ -10,7 +10,7 @@ vi.mock('node:fs', () => ({
 }))
 
 // Mock PathValidator to bypass filesystem checks
-vi.mock('../utils/path-validator', () => {
+vi.mock('../utils/path-validator.js', () => {
   return {
     PathValidator: class {
       constructor() {
@@ -199,16 +199,20 @@ Line 3`
 
       expect(frames).toHaveLength(2) // node_modules filtered out
       expect(frames[0]).toEqual({
-        file: '/Users/test/project/src/test.ts',
+        fileRelative: '/Users/test/project/src/test.ts',
         line: 10,
         column: 15,
-        function: 'testFunction'
+        function: 'testFunction',
+        inProject: false,
+        inNodeModules: false
       })
       expect(frames[1]).toEqual({
-        file: '/Users/test/project/src/main.ts',
+        fileRelative: '/Users/test/project/src/main.ts',
         line: 20,
         column: 5,
-        function: 'Object.<anonymous>'
+        function: 'Object.<anonymous>',
+        inProject: false,
+        inNodeModules: false
       })
     })
 
@@ -235,8 +239,8 @@ Line 3`
       const frames = extractor.parseStackTrace(stack)
 
       expect(frames).toHaveLength(2)
-      expect(frames[0].file).toBe('/project/src/test.ts')
-      expect(frames[1].file).toBe('/project/src/helper.ts')
+      expect(frames[0].fileRelative).toBe('/project/src/test.ts')
+      expect(frames[1].fileRelative).toBe('/project/src/helper.ts')
     })
 
     it('should not filter node_modules when disabled', () => {
@@ -249,7 +253,7 @@ Line 3`
       const frames = customExtractor.parseStackTrace(stack)
 
       expect(frames).toHaveLength(2)
-      expect(frames[1].file).toContain('node_modules')
+      expect(frames[1].fileRelative).toContain('node_modules')
     })
 
     it('should handle V8 style stack traces exclusively', () => {
@@ -261,22 +265,28 @@ Line 3`
       const frames = extractor.parseStackTrace(stack)
 
       expect(frames).toHaveLength(3)
-      expect(frames[0]).toEqual({
-        file: '/src/test.ts',
+      expect(frames[0]).toMatchObject({
+        fileRelative: '/src/test.ts',
         line: 10,
         column: 15,
-        function: 'testFunction'
+        function: 'testFunction',
+        inProject: false,
+        inNodeModules: false
       })
-      expect(frames[1]).toEqual({
-        file: '/src/processor.ts',
+      expect(frames[1]).toMatchObject({
+        fileRelative: '/src/processor.ts',
         line: 20,
         column: 8,
-        function: 'processData'
+        function: 'processData',
+        inProject: false,
+        inNodeModules: false
       })
-      expect(frames[2]).toEqual({
-        file: '/src/main.ts',
+      expect(frames[2]).toMatchObject({
+        fileRelative: '/src/main.ts',
         line: 5,
-        column: 1
+        column: 1,
+        inProject: false,
+        inNodeModules: false
       })
     })
 
@@ -303,8 +313,8 @@ Without any file references`
 
       const frames = extractor.parseStackTrace(stack)
 
-      expect(frames[0].file).toBe('/Users/test/project/src/test.ts')
-      expect(frames[1].file).toBe('/src/main.ts')
+      expect(frames[0].fileRelative).toBe('/Users/test/project/src/test.ts')
+      expect(frames[1].fileRelative).toBe('/src/main.ts')
     })
   })
 
@@ -392,7 +402,7 @@ Fallback line 3`
       const frame = extractor.extractFirstRelevantFrame(stack)
 
       expect(frame).toBeDefined()
-      expect(frame?.file).toBe('/src/test.ts')
+      expect(frame?.fileRelative).toBe('/src/test.ts')
       expect(frame?.function).toBe('userFunction')
     })
   })

@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import type { LLMReporterOutput, TestSummary, TestFailure } from './schema'
-import { SchemaValidator } from '../validation/validator'
+import type { LLMReporterOutput, TestSummary, TestFailure } from './schema.js'
+import { SchemaValidator } from '../validation/validator.js'
 import {
   isValidTestSummary,
   isValidTestFailure,
   isValidTestResult
-} from '../test-utils/validation-helpers'
+} from '../test-utils/validation-helpers.js'
 
 describe('LLM Reporter Schema', () => {
   const validator = new SchemaValidator()
@@ -64,7 +64,7 @@ describe('LLM Reporter Schema', () => {
     it('should validate a complete test failure', () => {
       const failure: TestFailure = {
         test: 'should calculate sum correctly',
-        file: '/src/math.test.ts',
+        fileRelative: '/src/math.test.ts',
         startLine: 15,
         endLine: 15,
         error: {
@@ -79,8 +79,6 @@ describe('LLM Reporter Schema', () => {
               '16:   return result;',
               '17: }'
             ],
-            expected: 5,
-            actual: 4,
             lineNumber: 15,
             columnNumber: 12
           }
@@ -93,7 +91,7 @@ describe('LLM Reporter Schema', () => {
     it('should validate failure with minimal required fields', () => {
       const minimalFailure: TestFailure = {
         test: 'test name',
-        file: '/test/example.test.ts',
+        fileRelative: '/test/example.test.ts',
         startLine: 1,
         endLine: 1,
         error: {
@@ -117,7 +115,7 @@ describe('LLM Reporter Schema', () => {
     it('should reject TestResult with invalid line number', () => {
       const invalidResult = {
         test: 'test name',
-        file: '/test.ts',
+        fileRelative: '/test.ts',
         line: 0, // Invalid: should be >= 1
         status: 'passed'
       }
@@ -125,7 +123,7 @@ describe('LLM Reporter Schema', () => {
 
       const negativeLineResult = {
         test: 'test name',
-        file: '/test.ts',
+        fileRelative: '/test.ts',
         line: -5, // Invalid: should be >= 1
         status: 'passed'
       }
@@ -135,7 +133,7 @@ describe('LLM Reporter Schema', () => {
     it('should reject TestFailure with invalid line number', () => {
       const invalidFailure = {
         test: 'test name',
-        file: '/test.ts',
+        fileRelative: '/test.ts',
         line: 0, // Invalid: should be >= 1
         error: {
           message: 'test failed',
@@ -175,7 +173,7 @@ describe('LLM Reporter Schema', () => {
         failures: [
           {
             test: 'should calculate tax correctly',
-            file: '/src/tax.test.ts',
+            fileRelative: '/src/tax.test.ts',
             startLine: 45,
             endLine: 45,
             error: {
@@ -187,8 +185,6 @@ describe('LLM Reporter Schema', () => {
                   '45: expect(calculateTax(price)).toBe(105.50);',
                   '46: // Tax should be 5.5%'
                 ],
-                expected: 105.5,
-                actual: 105.0,
                 lineNumber: 45
               }
             }
@@ -212,7 +208,7 @@ describe('LLM Reporter Schema', () => {
         passed: [
           {
             test: 'should add numbers',
-            file: '/src/math.test.ts',
+            fileRelative: '/src/math.test.ts',
             startLine: 10,
             endLine: 10,
             duration: 50,
@@ -237,7 +233,7 @@ describe('LLM Reporter Schema', () => {
         failures: [
           {
             test: 'Math > Calculator > should multiply correctly',
-            file: '/src/calculator.test.ts',
+            fileRelative: '/src/calculator.test.ts',
             startLine: 25,
             endLine: 25,
             suite: ['Math', 'Calculator'],
@@ -270,7 +266,7 @@ describe('LLM Reporter Schema', () => {
     it('should handle large test suites efficiently', () => {
       const failures: TestFailure[] = Array.from({ length: 100 }, (_, i) => ({
         test: `test ${i}`,
-        file: `/src/test${i}.test.ts`,
+        fileRelative: `/src/test${i}.test.ts`,
         startLine: i + 1,
         endLine: i + 10,
         error: {
@@ -324,7 +320,7 @@ describe('LLM Reporter Schema', () => {
     it('should exclude null/undefined optional fields to save tokens', () => {
       const failure: TestFailure = {
         test: 'test name',
-        file: '/test.ts',
+        fileRelative: '/test.ts',
         startLine: 1,
         endLine: 1,
         error: {
