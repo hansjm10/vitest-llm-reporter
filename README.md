@@ -4,14 +4,13 @@
 [![npm downloads](https://img.shields.io/npm/dm/vitest-llm-reporter.svg)](https://www.npmjs.com/package/vitest-llm-reporter)
 [![license](https://img.shields.io/npm/l/vitest-llm-reporter.svg)](https://github.com/jordan-hans/vitest-llm-reporter/blob/main/LICENSE)
 
-Vitest reporter that generates structured JSON output optimized for LLM parsing. Zero configuration required.
+Vitest reporter that generates structured JSON output optimized for LLM parsing.
 
 ## Features
 
 - 50% smaller output than default reporter
 - Structured JSON output for LLM parsing
 - Automatic code context extraction for test failures
-- No configuration needed
 - TypeScript support included
 
 ## Requirements
