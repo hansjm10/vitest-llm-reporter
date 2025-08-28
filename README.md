@@ -4,20 +4,20 @@
 [![npm downloads](https://img.shields.io/npm/dm/vitest-llm-reporter.svg)](https://www.npmjs.com/package/vitest-llm-reporter)
 [![license](https://img.shields.io/npm/l/vitest-llm-reporter.svg)](https://github.com/jordan-hans/vitest-llm-reporter/blob/main/LICENSE)
 
-A zero-config Vitest reporter that outputs concise, structured JSON optimized for LLM consumption.
+Vitest reporter that generates structured JSON output optimized for LLM parsing. Zero configuration required.
 
 ## Features
 
-- 🚀 50% smaller output than default reporter
-- 🤖 Structured JSON perfect for LLM parsing
-- 📍 Automatic code context extraction for failures
-- ⚡ Zero configuration required
-- 🔧 TypeScript types included
+- 50% smaller output than default reporter
+- Structured JSON output for LLM parsing
+- Automatic code context extraction for test failures
+- No configuration needed
+- TypeScript support included
 
 ## Requirements
 
-- Node.js 17.0.0 or higher (uses native `structuredClone` API)
-- Vitest 3.0.0 or higher
+- Node.js 17+ (uses native `structuredClone`)
+- Vitest 3.0+
 
 ## Installation
 
@@ -53,11 +53,11 @@ export default defineConfig({
 })
 ```
 
-That's it! The reporter will automatically extract failure context and output structured JSON.
+The reporter automatically extracts failure context and outputs structured JSON.
 
-### Optional: Per-test streaming output
+### Streaming Output
 
-If you prefer live, per-test console updates, use the `StreamingReporter`:
+For live per-test updates, use `StreamingReporter`:
 
 ```typescript
 import { defineConfig } from 'vitest/config'
@@ -71,11 +71,11 @@ export default defineConfig({
 })
 ```
 
-Note: `StreamingReporter` is a thin wrapper around the base reporter that prints simple, real-time lines as tests complete. It does not change the JSON output behavior.
+Note: `StreamingReporter` prints real-time updates as tests complete without changing the JSON output.
 
 ## Output Format
 
-The reporter generates concise JSON with only the essential information for understanding test results.
+JSON output includes only essential test information.
 
 ### Success Output
 When all tests pass:
@@ -154,28 +154,28 @@ When tests fail, detailed context is included:
 }
 ```
 
-The output focuses on failures with their context, keeping passed tests minimal to save tokens. Console output from failing tests is captured in `consoleEvents`.
+Failed tests include full context and console output. Passed tests are omitted to reduce size.
 
 ## Configuration
 
-You can tune what the reporter includes and how aggressively it trims output.
+Control output content and size limits.
 
 ### Output Control
-- `verbose`: Include passed and skipped tests in the final JSON.
-- `includePassedTests` / `includeSkippedTests`: Include specific categories without enabling full verbose mode.
-- `outputFile`: Write the JSON to a file path.
-- `enableConsoleOutput`: Control whether to emit JSON to console at end of test run (default: true when no outputFile or when TTY detected).
-- `fileJsonSpacing`: JSON indentation for file output (default: 0 for compact).
-- `consoleJsonSpacing`: JSON indentation for console output (default: 2 for readability).
+- `verbose`: Include passed and skipped tests
+- `includePassedTests` / `includeSkippedTests`: Include specific test categories
+- `outputFile`: Write JSON to file
+- `enableConsoleOutput`: Emit JSON to console (default: true with TTY)
+- `fileJsonSpacing`: File output indentation (default: 0)
+- `consoleJsonSpacing`: Console output indentation (default: 2)
 
 ### Spinner Control
-The test runner spinner is automatically disabled in CI environments and can be controlled via:
-- Configuration: Set explicit value in config
-- Environment: `LLM_REPORTER_SPINNER=0` to force disable
-- Default: Enabled when TTY detected and not in CI
+Test spinner disabled automatically in CI. Override with:
+- Config setting
+- Environment: `LLM_REPORTER_SPINNER=0`
+- Default: Enabled with TTY, disabled in CI
 
 ### Truncation
-- `truncation`: Enable late-stage truncation to cap the output size.
+Limit output size with truncation settings.
 
 Example truncation config:
 
@@ -202,33 +202,32 @@ export default defineConfig({
 })
 ```
 
-Notes on truncation:
-- The reporter does not use model-specific context windows; it only respects your explicit `maxTokens` (or a default of 100,000 if unset).
-- Token counts are estimates based on a simple character-to-token heuristic, suitable for budgeting and thresholds.
+Truncation notes:
+- Uses explicit `maxTokens` setting (default: 100,000)
+- Token estimates based on character count heuristics
 
 ## Debugging
 
-If the reporter isn't working as expected, enable debug output:
+Enable debug output for troubleshooting:
 
 ```bash
 DEBUG=vitest:llm-reporter:* npm test
 ```
 
-This prints internal diagnostics to stderr, including a formatted view of any
-unhandled errors. Stdout remains clean, machine‑parseable JSON.
+Diagnostics print to stderr while stdout remains clean JSON.
 
-### Demo: Intentional Failure With Console Logs
+### Demo Mode
 
-You can enable a small demo test that intentionally fails and emits console output to showcase how the reporter captures logs:
+Run the included demo test to see failure reporting and console capture:
 
-- Run demo: `npm run test:demo` (equivalent to `LLM_REPORTER_DEMO=1 vitest run`)
-- Normal run (demo off): `npm test`
+- Demo: `npm run test:demo` or `LLM_REPORTER_DEMO=1 vitest run`
+- Normal: `npm test`
 
-The demo test lives in `tests/demo/reporter-demo.test.ts` and only runs when the `LLM_REPORTER_DEMO=1` environment variable is set.
+Demo test at `tests/demo/reporter-demo.test.ts` runs only with `LLM_REPORTER_DEMO=1`.
 
 ## Contributing
 
-Contributions are welcome! Please check the [GitHub issues](https://github.com/hansjm10/vitest-llm-reporter/issues) for current tasks.
+See [GitHub issues](https://github.com/hansjm10/vitest-llm-reporter/issues) for open tasks.
 
 ## License
 
