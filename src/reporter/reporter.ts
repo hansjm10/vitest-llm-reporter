@@ -51,6 +51,8 @@ interface ResolvedLLMReporterConfig
   }
   pureStdout: boolean
   stdio: Required<StdioConfig>
+  warnWhenConsoleBlocked: boolean
+  fallbackToStderrOnBlocked: boolean
 }
 
 // Import new components
@@ -64,6 +66,7 @@ import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
 import { StdioInterceptor } from '../console/stdio-interceptor.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
+import * as fs from 'node:fs'
 import { isTTY, isCI } from '../utils/environment.js'
 import {
   PerformanceManager,
@@ -194,7 +197,9 @@ export class LLMReporter implements Reporter {
         prefix: 'Running tests'
       },
       pureStdout: config.pureStdout ?? false,
-      stdio: stdioConfig
+      stdio: stdioConfig,
+      warnWhenConsoleBlocked: config.warnWhenConsoleBlocked ?? true,
+      fallbackToStderrOnBlocked: config.fallbackToStderrOnBlocked ?? true
     }
 
     // Initialize components
@@ -658,7 +663,33 @@ export class LLMReporter implements Reporter {
 
             this.debug('Output written to console')
           } catch (consoleError) {
+            // If stdout write fails, warn user on stderr and optionally fallback
             this.debugError('Failed to write to console: %O', consoleError)
+            if (this.config.warnWhenConsoleBlocked) {
+              try {
+                const warn =
+                  (this.originalStderrWrite || process.stderr.write.bind(process.stderr)) as typeof process.stderr.write
+                const hint =
+                  'vitest-llm-reporter: Console output appears blocked. ' +
+                  'If you do not see the JSON output, configure `outputFile` or adjust your project\'s log/silent settings.\n'
+                try {
+                  warn(hint)
+                } catch {
+                  // Last-resort: write directly to fd 2 to bypass monkey patches
+                  try { fs.writeSync(2, hint) } catch {}
+                }
+                if (this.config.fallbackToStderrOnBlocked && this.output) {
+                  const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
+                  try {
+                    warn(jsonOutput + '\n')
+                  } catch {
+                    try { fs.writeSync(2, jsonOutput + '\n') } catch {}
+                  }
+                }
+              } catch (stderrError) {
+                this.debugError('Failed to write fallback warning to stderr: %O', stderrError)
+              }
+            }
           }
         }
       }

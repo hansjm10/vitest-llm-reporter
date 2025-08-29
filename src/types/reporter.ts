@@ -59,6 +59,10 @@ export interface LLMReporterConfig {
   pureStdout?: boolean
   /** Fine-grained stdio suppression configuration */
   stdio?: StdioConfig
+  /** Warn to stderr when console output appears blocked (default: true) */
+  warnWhenConsoleBlocked?: boolean
+  /** Fallback: also write JSON to stderr if stdout write fails (default: true) */
+  fallbackToStderrOnBlocked?: boolean
 }
 
 /**

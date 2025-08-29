@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import { LLMReporter } from './src/reporter/reporter.ts';
+import { LLMReporter } from 'vitest-llm-reporter';
 
 export default defineConfig({
   test: {
