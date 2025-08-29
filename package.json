@@ -1,6 +1,6 @@
 {
   "name": "vitest-llm-reporter",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "A Vitest reporter optimized for LLM parsing with structured, concise output",
   "main": "dist/index.js",
