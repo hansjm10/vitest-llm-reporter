@@ -49,18 +49,32 @@ export interface LLMReporterConfig {
   performance?: PerformanceConfig
   /** Add separator frames around console output (default: false) */
   framedOutput?: boolean
-  /**
-   * Force console output even when the reporter is used standalone in tests
-   * without a Vitest context. Useful for unit tests that spy on stdout.
-   * Default: false
-   */
-  forceConsoleOutput?: boolean
   /** Include raw stack strings in error output (default: false, only stackFrames included) */
   includeStackString?: boolean
   /** JSON spacing for file output (default: 0 for compact) */
   fileJsonSpacing?: number
   /** JSON spacing for console output (default: 2 for readability) */
   consoleJsonSpacing?: number
+  /** Enable pure stdout mode - suppress all external stdout during test run (default: false) */
+  pureStdout?: boolean
+  /** Fine-grained stdio suppression configuration */
+  stdio?: StdioConfig
+}
+
+/**
+ * Configuration for stdio suppression
+ */
+export interface StdioConfig {
+  /** Suppress stdout writes (default: true for clean output) */
+  suppressStdout?: boolean
+  /** Suppress stderr writes (default: false) */
+  suppressStderr?: boolean
+  /** Pattern to filter lines (default: /^\[Nest\]\s/ for NestJS). Use null to suppress all output */
+  filterPattern?: RegExp | null
+  /** Redirect suppressed stdout to stderr (default: false) */
+  redirectToStderr?: boolean
+  /** Apply filtering when flushing buffered content (default: false) */
+  flushWithFiltering?: boolean
 }
 
 /**

@@ -10,7 +10,7 @@
 import type { Vitest, SerializedError, Reporter, UserConsoleLog } from 'vitest'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
-import type { LLMReporterConfig } from '../types/reporter.js'
+import type { LLMReporterConfig, StdioConfig } from '../types/reporter.js'
 import type { LLMReporterOutput } from '../types/schema.js'
 
 // Type for resolved configuration with explicit undefined handling
@@ -40,7 +40,6 @@ interface ResolvedLLMReporterConfig
     enableMetrics: boolean
   }
   framedOutput: boolean // Gate for console separator frames
-  forceConsoleOutput: boolean // Force console write when used standalone
   includeStackString: boolean // Include raw stack strings in error output
   fileJsonSpacing: number
   consoleJsonSpacing: number
@@ -50,6 +49,8 @@ interface ResolvedLLMReporterConfig
     stream: 'stdout' | 'stderr'
     prefix: string
   }
+  pureStdout: boolean
+  stdio: Required<StdioConfig>
 }
 
 // Import new components
@@ -61,6 +62,7 @@ import { ErrorContextBuilder } from '../builders/ErrorContextBuilder.js'
 import { OutputBuilder } from '../output/OutputBuilder.js'
 import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
+import { StdioInterceptor } from '../console/stdio-interceptor.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import { isTTY, isCI } from '../utils/environment.js'
 import {
@@ -88,6 +90,10 @@ export class LLMReporter implements Reporter {
   private outputWriter: OutputWriter
   private orchestrator: EventOrchestrator
   private performanceManager?: PerformanceManager
+  // Stdio interceptor
+  private stdioInterceptor?: StdioInterceptor
+  private originalStdoutWrite?: typeof process.stdout.write
+  private originalStderrWrite?: typeof process.stderr.write
   // Spinner state
   private spinnerTimer?: NodeJS.Timeout
   private spinnerActive = false
@@ -119,6 +125,37 @@ export class LLMReporter implements Reporter {
     // Check for spinner environment override
     const spinnerEnvOverride = process.env.LLM_REPORTER_SPINNER === '0'
 
+    // Resolve stdio configuration
+    let stdioConfig: Required<StdioConfig>
+    if (config.pureStdout) {
+      // Pure stdout mode: suppress all stdout, no pattern filtering
+      stdioConfig = {
+        suppressStdout: true,
+        suppressStderr: false,
+        filterPattern: null, // Null means suppress all output
+        redirectToStderr: false,
+        flushWithFiltering: false
+      }
+    } else if (config.stdio) {
+      // Use provided stdio config with defaults
+      stdioConfig = {
+        suppressStdout: config.stdio.suppressStdout ?? true, // Default to true for clean output
+        suppressStderr: config.stdio.suppressStderr ?? false,
+        filterPattern: config.stdio.filterPattern ?? /^\[Nest\]\s/,
+        redirectToStderr: config.stdio.redirectToStderr ?? false,
+        flushWithFiltering: config.stdio.flushWithFiltering ?? false
+      }
+    } else {
+      // Default: suppress stdout with NestJS pattern
+      stdioConfig = {
+        suppressStdout: true, // Default to true for clean output
+        suppressStderr: false,
+        filterPattern: /^\[Nest\]\s/,
+        redirectToStderr: false,
+        flushWithFiltering: false
+      }
+    }
+
     // Properly resolve config without unsafe casting
     this.config = {
       verbose: config.verbose ?? false,
@@ -147,7 +184,6 @@ export class LLMReporter implements Reporter {
         enableMetrics: config.truncation?.enableMetrics ?? false
       },
       framedOutput: config.framedOutput ?? false,
-      forceConsoleOutput: config.forceConsoleOutput ?? false,
       includeStackString: config.includeStackString ?? false,
       fileJsonSpacing: config.fileJsonSpacing ?? 0,
       consoleJsonSpacing: config.consoleJsonSpacing ?? 2,
@@ -156,7 +192,9 @@ export class LLMReporter implements Reporter {
         intervalMs: 80,
         stream: 'stderr',
         prefix: 'Running tests'
-      }
+      },
+      pureStdout: config.pureStdout ?? false,
+      stdio: stdioConfig
     }
 
     // Initialize components
@@ -244,6 +282,14 @@ export class LLMReporter implements Reporter {
     this.stopSpinner()
     this.orchestrator.reset()
     this.isTestRunActive = false
+
+    // Stop stdio interception
+    if (this.stdioInterceptor) {
+      this.stdioInterceptor.disable()
+      this.stdioInterceptor = undefined
+      this.originalStdoutWrite = undefined
+      this.originalStderrWrite = undefined
+    }
 
     // Stop performance monitoring
     if (this.performanceManager) {
@@ -378,8 +424,21 @@ export class LLMReporter implements Reporter {
     this.isTestRunActive = true
 
     try {
-      // Start spinner if enabled
-      this.startSpinner()
+      // Start stdio interception if configured
+      if (this.config.stdio.suppressStdout || this.config.stdio.suppressStderr) {
+        this.stdioInterceptor = new StdioInterceptor(this.config.stdio)
+        this.stdioInterceptor.enable()
+
+        // Save original writers for later use
+        const originalWriters = this.stdioInterceptor.getOriginalWriters()
+        this.originalStdoutWrite = originalWriters.stdout
+        this.originalStderrWrite = originalWriters.stderr
+      }
+
+      // Start spinner if enabled (but not if stderr is suppressed)
+      if (this.config.spinner.enabled && !this.config.stdio.suppressStderr) {
+        this.startSpinner()
+      }
 
       // Start performance monitoring
       if (this.performanceManager) {
@@ -568,26 +627,33 @@ export class LLMReporter implements Reporter {
 
         // Also write to console if no file is specified or console output is enabled
         // Only when running as an actual Vitest reporter (context set) during a test run.
-        // This prevents unit tests that directly new LLMReporter() from emitting output.
+        // Only output when there are actual test results or unhandled errors to avoid spurious outputs during test collection
         if (
           (!this.config.outputFile || this.config.enableConsoleOutput) &&
-          ((this.context && this.isTestRunActive) || this.config.forceConsoleOutput)
+          this.context &&
+          this.isTestRunActive &&
+          (statistics.total > 0 || (unhandledErrors && unhandledErrors.length > 0))
         ) {
           try {
+            // Use original stdout writer if available (when stdio interception is active)
+            // This ensures the reporter's JSON output is never filtered
+            const writeToStdout =
+              this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
+
             // Write to console with proper formatting
             const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
 
             // Only add framing if framedOutput is enabled
             if (this.config.framedOutput) {
-              process.stdout.write('\n' + '='.repeat(80) + '\n')
-              process.stdout.write('LLM Reporter Output:\n')
-              process.stdout.write('='.repeat(80) + '\n')
+              writeToStdout('\n' + '='.repeat(80) + '\n')
+              writeToStdout('LLM Reporter Output:\n')
+              writeToStdout('='.repeat(80) + '\n')
             }
 
-            process.stdout.write(jsonOutput + '\n')
+            writeToStdout(jsonOutput + '\n')
 
             if (this.config.framedOutput) {
-              process.stdout.write('='.repeat(80) + '\n')
+              writeToStdout('='.repeat(80) + '\n')
             }
 
             this.debug('Output written to console')
