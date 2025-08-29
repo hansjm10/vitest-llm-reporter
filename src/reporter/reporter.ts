@@ -7,11 +7,11 @@
  * @module reporter
  */
 
-import type { Vitest, SerializedError, Reporter, UserConsoleLog } from 'vitest'
+import type { Vitest, SerializedError, Reporter, UserConsoleLog, File } from 'vitest'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
 import type { LLMReporterConfig, StdioConfig } from '../types/reporter.js'
-import type { LLMReporterOutput } from '../types/schema.js'
+import type { LLMReporterOutput, TestError } from '../types/schema.js'
 
 // Type for resolved configuration with explicit undefined handling
 interface ResolvedLLMReporterConfig
@@ -288,17 +288,25 @@ export class LLMReporter implements Reporter {
     this.orchestrator.reset()
     this.isTestRunActive = false
 
+    // Note: stdio interception is NOT stopped here since it was initialized in onInit()
+    // and should remain active for the entire Vitest session (including watch mode)
+
+    // Stop performance monitoring
+    if (this.performanceManager) {
+      this.performanceManager.stop()
+    }
+  }
+
+  /**
+   * Final cleanup when reporter is completely done
+   */
+  private finalCleanup(): void {
     // Stop stdio interception
     if (this.stdioInterceptor) {
       this.stdioInterceptor.disable()
       this.stdioInterceptor = undefined
       this.originalStdoutWrite = undefined
       this.originalStderrWrite = undefined
-    }
-
-    // Stop performance monitoring
-    if (this.performanceManager) {
-      this.performanceManager.stop()
     }
   }
 
@@ -414,6 +422,17 @@ export class LLMReporter implements Reporter {
     })
     // Update the orchestrator's error extractor reference
     this.orchestrator.updateErrorExtractor(this.errorExtractor)
+
+    // Start stdio interception early if configured to catch test setup logs
+    if (this.config.stdio.suppressStdout || this.config.stdio.suppressStderr) {
+      this.stdioInterceptor = new StdioInterceptor(this.config.stdio)
+      this.stdioInterceptor.enable()
+
+      // Save original writers for later use
+      const originalWriters = this.stdioInterceptor.getOriginalWriters()
+      this.originalStdoutWrite = originalWriters.stdout
+      this.originalStderrWrite = originalWriters.stderr
+    }
   }
 
   /**
@@ -429,17 +448,6 @@ export class LLMReporter implements Reporter {
     this.isTestRunActive = true
 
     try {
-      // Start stdio interception if configured
-      if (this.config.stdio.suppressStdout || this.config.stdio.suppressStderr) {
-        this.stdioInterceptor = new StdioInterceptor(this.config.stdio)
-        this.stdioInterceptor.enable()
-
-        // Save original writers for later use
-        const originalWriters = this.stdioInterceptor.getOriginalWriters()
-        this.originalStdoutWrite = originalWriters.stdout
-        this.originalStderrWrite = originalWriters.stderr
-      }
-
       // Start spinner if enabled (but not if stderr is suppressed)
       if (this.config.spinner.enabled && !this.config.stdio.suppressStderr) {
         this.startSpinner()
@@ -536,7 +544,7 @@ export class LLMReporter implements Reporter {
     reason: TestRunEndReason
   ): Promise<void> {
     try {
-      // Stop spinner before emitting final output
+      // Stop spinner before building output
       this.stopSpinner()
       // Delegate to orchestrator with error handling
       try {
@@ -611,8 +619,151 @@ export class LLMReporter implements Reporter {
         }
       }
 
+      // Note: Output writing moved to onFinished to capture afterAll errors
+
+      // Output writing moved to onFinished to capture afterAll errors
+    } finally {
+      // Always cleanup, even if errors occurred
+      this.cleanup()
+    }
+  }
+
+  /**
+   * Capture user console logs forwarded by Vitest (v3)
+   *
+   * @param log - The console log event from Vitest containing test output
+   */
+  onUserConsoleLog(log: UserConsoleLog): void {
+    try {
+      this.orchestrator.handleUserConsoleLog(log)
+    } catch (error) {
+      this.debugError('Error in onUserConsoleLog: %O', error)
+    }
+  }
+
+  /**
+   * Start spinner animation on selected stream
+   */
+  private startSpinner(): void {
+    if (this.spinnerActive || !this.config.spinner.enabled) return
+    const stream = this.config.spinner.stream === 'stdout' ? process.stdout : process.stderr
+    if (!stream.isTTY) return
+    this.spinnerActive = true
+    this.spinnerIndex = 0
+    this.spinnerStartTime = Date.now()
+    this.spinnerLastLength = 0
+
+    const render = (): void => {
+      const elapsedMs = Date.now() - this.spinnerStartTime
+      const seconds = Math.max(0, Math.round(elapsedMs / 1000))
+      const frame = this.spinnerFrames[this.spinnerIndex % this.spinnerFrames.length]
+      const message = `${this.config.spinner.prefix} ${frame} ${seconds}s`
+
+      if (this.spinnerLastLength > 0) {
+        stream.write('\r' + ' '.repeat(this.spinnerLastLength) + '\r')
+      }
+      stream.write(message)
+      this.spinnerLastLength = message.length
+      this.spinnerIndex++
+    }
+
+    render()
+    this.spinnerTimer = setInterval(render, this.config.spinner.intervalMs)
+  }
+
+  /**
+   * Stop spinner and clear line
+   */
+  private stopSpinner(): void {
+    if (!this.spinnerActive) return
+    if (this.spinnerTimer) clearInterval(this.spinnerTimer)
+    this.spinnerTimer = undefined
+    const stream = this.config.spinner.stream === 'stdout' ? process.stdout : process.stderr
+    if (this.spinnerLastLength > 0 && stream.isTTY) {
+      stream.write('\r' + ' '.repeat(this.spinnerLastLength) + '\r')
+    }
+    this.spinnerActive = false
+    this.spinnerLastLength = 0
+  }
+
+  /**
+   * Handle reporter finished event (Vitest is completely done)
+   * This is called after all teardown (including afterAll hooks) completes
+   *
+   * @param files - Test files that were run
+   * @param errors - Any errors that occurred during teardown
+   * @param coverage - Coverage data (unused)
+   */
+  onFinished(files: File[], errors: unknown[], _coverage?: unknown): void {
+    try {
+      // Process any additional errors that occurred during teardown (e.g., afterAll hooks)
+      if (errors && errors.length > 0 && this.output) {
+        this.debug('Processing %d teardown errors in onFinished', errors.length)
+
+        // Add teardown errors to the output
+        if (!this.output.failures) {
+          this.output.failures = []
+        }
+
+        for (const error of errors) {
+          try {
+            // Convert unknown error to SerializedError format
+            const serializedError: SerializedError =
+              error instanceof Error
+                ? {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                  }
+                : typeof error === 'object' && error !== null && 'message' in error
+                  ? (error as SerializedError)
+                  : { message: String(error) }
+
+            // Extract error details
+            const extracted = this.errorExtractor.extractWithContext(serializedError)
+
+            // Add to failures as a teardown error
+            // Ensure context has required fields
+            const errorWithContext: TestError = {
+              ...extracted,
+              context: extracted.context
+                ? {
+                    ...extracted.context,
+                    code: extracted.context.code || []
+                  }
+                : {
+                    code: []
+                  }
+            }
+
+            this.output.failures.push({
+              test: 'Teardown Error',
+              fileRelative: '',
+              startLine: 0,
+              endLine: 0,
+              suite: ['AfterAll Hook'],
+              error: errorWithContext
+            })
+
+            // Also log for debugging
+            const formatted = this.errorExtractor.format(extracted)
+            this.debug('Teardown error (formatted):\n%s', formatted)
+          } catch (e) {
+            this.debugError('Failed to process teardown error: %O', e)
+          }
+        }
+
+        // Update summary to reflect the teardown errors
+        if (this.output.summary) {
+          this.output.summary.failed = (this.output.summary.failed || 0) + errors.length
+        }
+      }
+
       // Write output based on configuration
       if (this.output) {
+        // Use statistics from the already-built output
+        const statistics = this.output.summary
+
         // Write to file if configured
         if (this.config.outputFile) {
           try {
@@ -631,15 +782,13 @@ export class LLMReporter implements Reporter {
         }
 
         // Also write to console if no file is specified or console output is enabled
-        // Only when running as an actual Vitest reporter (context set) during a test run.
-        // Only output when there are actual test results or unhandled errors to avoid spurious outputs during test collection
+        // Only when running as an actual Vitest reporter (context set).
+        // Only output when there are actual test results or errors to avoid spurious outputs
         const canWriteConsole =
-          (!this.config.outputFile || this.config.enableConsoleOutput) &&
-          this.context &&
-          this.isTestRunActive
+          (!this.config.outputFile || this.config.enableConsoleOutput) && this.context
 
         const hasMeaningfulResults =
-          statistics.total > 0 || (unhandledErrors && unhandledErrors.length > 0)
+          statistics.total > 0 || (this.output.failures && this.output.failures.length > 0)
 
         if (canWriteConsole && hasMeaningfulResults) {
           try {
@@ -719,7 +868,11 @@ export class LLMReporter implements Reporter {
               }
             }
           }
-        } else if (canWriteConsole && this.config.warnWhenConsoleBlocked) {
+        } else if (
+          (!this.config.outputFile || this.config.enableConsoleOutput) &&
+          this.context &&
+          this.config.warnWhenConsoleBlocked
+        ) {
           // No meaningful results to print, but proactively detect a blocked stdout
           // to still warn the user and provide fallback JSON on stderr for debugging
           try {
@@ -773,66 +926,8 @@ export class LLMReporter implements Reporter {
         }
       }
     } finally {
-      // Always cleanup, even if errors occurred
-      this.cleanup()
+      // Always perform final cleanup
+      this.finalCleanup()
     }
-  }
-
-  /**
-   * Capture user console logs forwarded by Vitest (v3)
-   *
-   * @param log - The console log event from Vitest containing test output
-   */
-  onUserConsoleLog(log: UserConsoleLog): void {
-    try {
-      this.orchestrator.handleUserConsoleLog(log)
-    } catch (error) {
-      this.debugError('Error in onUserConsoleLog: %O', error)
-    }
-  }
-
-  /**
-   * Start spinner animation on selected stream
-   */
-  private startSpinner(): void {
-    if (this.spinnerActive || !this.config.spinner.enabled) return
-    const stream = this.config.spinner.stream === 'stdout' ? process.stdout : process.stderr
-    if (!stream.isTTY) return
-    this.spinnerActive = true
-    this.spinnerIndex = 0
-    this.spinnerStartTime = Date.now()
-    this.spinnerLastLength = 0
-
-    const render = (): void => {
-      const elapsedMs = Date.now() - this.spinnerStartTime
-      const seconds = Math.max(0, Math.round(elapsedMs / 1000))
-      const frame = this.spinnerFrames[this.spinnerIndex % this.spinnerFrames.length]
-      const message = `${this.config.spinner.prefix} ${frame} ${seconds}s`
-
-      if (this.spinnerLastLength > 0) {
-        stream.write('\r' + ' '.repeat(this.spinnerLastLength) + '\r')
-      }
-      stream.write(message)
-      this.spinnerLastLength = message.length
-      this.spinnerIndex++
-    }
-
-    render()
-    this.spinnerTimer = setInterval(render, this.config.spinner.intervalMs)
-  }
-
-  /**
-   * Stop spinner and clear line
-   */
-  private stopSpinner(): void {
-    if (!this.spinnerActive) return
-    if (this.spinnerTimer) clearInterval(this.spinnerTimer)
-    this.spinnerTimer = undefined
-    const stream = this.config.spinner.stream === 'stdout' ? process.stdout : process.stderr
-    if (this.spinnerLastLength > 0 && stream.isTTY) {
-      stream.write('\r' + ' '.repeat(this.spinnerLastLength) + '\r')
-    }
-    this.spinnerActive = false
-    this.spinnerLastLength = 0
   }
 }

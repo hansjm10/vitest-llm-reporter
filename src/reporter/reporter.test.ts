@@ -689,6 +689,7 @@ describe('LLMReporter', () => {
       reporterWithFile.onTestRunStart([])
       reporterWithFile.onTestCaseResult(createMockTestCase({ name: 'test1', state: 'pass' }))
       await reporterWithFile.onTestRunEnd([], [], 'passed')
+      reporterWithFile.onFinished([], [], undefined)
 
       expect(writeFileSpy).toHaveBeenCalled()
     })
@@ -698,6 +699,7 @@ describe('LLMReporter', () => {
 
       reporter.onTestRunStart([])
       await reporter.onTestRunEnd([], [], 'passed')
+      reporter.onFinished([], [], undefined)
 
       expect(writeFileSpy).not.toHaveBeenCalled()
     })

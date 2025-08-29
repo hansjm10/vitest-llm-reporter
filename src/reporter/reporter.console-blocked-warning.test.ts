@@ -44,17 +44,16 @@ describe('LLMReporter blocked console warning and fallback', () => {
   })
 
   it('writes a warning to stderr and falls back with JSON when stdout write throws', async () => {
+    // Make the writer throw BEFORE creating the reporter so it gets captured as original
+    process.stdout.write = ((..._args: unknown[]) => {
+      throw new Error('stdout blocked')
+    }) as unknown as typeof process.stdout.write
+
     const reporter = new LLMReporter({ framedOutput: false })
 
     // Initialize context to allow console output
     const mockVitest = { config: { root: '/test-project' } }
     reporter.onInit(mockVitest as any)
-
-    // Make the writer that will be captured as "original" throw
-    // Note: we replace before onTestRunStart so interceptor captures this as original
-    process.stdout.write = ((..._args: unknown[]) => {
-      throw new Error('stdout blocked')
-    }) as unknown as typeof process.stdout.write
 
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true as any)
 
@@ -62,6 +61,9 @@ describe('LLMReporter blocked console warning and fallback', () => {
 
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'failed' as TestRunEndReason)
+
+    // Call onFinished to trigger output
+    reporter.onFinished?.([mockModule], [])
 
     // Collect stderr writes
     const writes = stderrSpy.mock.calls.map((c) => String(c[0]))

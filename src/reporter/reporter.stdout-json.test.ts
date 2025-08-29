@@ -43,7 +43,10 @@ describe('LLMReporter stdout JSON purity', () => {
   })
 
   it('writes pure JSON to stdout when DEBUG is off', async () => {
-    const reporter = new LLMReporter({ framedOutput: false })
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: { suppressStdout: false, suppressStderr: false } // Disable stdio suppression for this test
+    })
 
     // Mock Vitest context to enable console output
     const mockVitest = { config: { root: '/test-project' } }
@@ -62,6 +65,9 @@ describe('LLMReporter stdout JSON purity', () => {
     // Provide mock test module with failure to ensure output
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [unhandled], 'failed')
+
+    // Call onFinished to trigger output
+    reporter.onFinished?.([mockModule], [])
 
     // Collect all chunks written to stdout in this test
     const output = stdoutSpy.mock.calls.map((call) => String(call[0])).join('')
