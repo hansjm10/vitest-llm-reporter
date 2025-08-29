@@ -61,6 +61,24 @@ export interface LLMReporterConfig {
   fileJsonSpacing?: number
   /** JSON spacing for console output (default: 2 for readability) */
   consoleJsonSpacing?: number
+  /** Enable pure stdout mode - suppress all external stdout during test run (default: false) */
+  pureStdout?: boolean
+  /** Fine-grained stdio suppression configuration */
+  stdio?: StdioConfig
+}
+
+/**
+ * Configuration for stdio suppression
+ */
+export interface StdioConfig {
+  /** Suppress stdout writes (default: true for clean output) */
+  suppressStdout?: boolean
+  /** Suppress stderr writes (default: false) */
+  suppressStderr?: boolean
+  /** Pattern to filter lines (default: /^\[Nest\]\s/ for NestJS) */
+  filterPattern?: RegExp
+  /** Redirect suppressed stdout to stderr (default: false) */
+  redirectToStderr?: boolean
 }
 
 /**

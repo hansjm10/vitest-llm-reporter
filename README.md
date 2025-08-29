@@ -173,6 +173,85 @@ Test spinner disabled automatically in CI. Override with:
 - Environment: `LLM_REPORTER_SPINNER=0`
 - Default: Enabled with TTY, disabled in CI
 
+### Suppress External Logs / Pure Output
+
+By default, the reporter suppresses external framework logs (like NestJS startup messages) to keep the JSON output clean. This prevents logs from polluting the structured output that LLMs need to parse.
+
+#### Default Behavior (Enabled)
+The reporter automatically filters out common framework logs:
+```typescript
+// By default, filters logs matching /^\[Nest\]\s/
+export default defineConfig({
+  test: {
+    reporters: ['vitest-llm-reporter'] // Stdio suppression enabled by default
+  }
+})
+```
+
+#### Disable Suppression
+To see all stdout output (framework logs, etc.):
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', { 
+        stdio: { suppressStdout: false } 
+      }]
+    ]
+  }
+})
+```
+
+#### Pure Output Mode
+For maximum cleanliness, suppress ALL external stdout:
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', { 
+        pureStdout: true  // Suppresses all non-reporter stdout
+      }]
+    ]
+  }
+})
+```
+
+#### Custom Filter Patterns
+Filter specific log patterns:
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', { 
+        stdio: { 
+          suppressStdout: true,
+          filterPattern: /^(DEBUG:|TRACE:)/  // Custom pattern
+        }
+      }]
+    ]
+  }
+})
+```
+
+#### Advanced Options
+- `stdio.suppressStderr`: Also suppress stderr (default: false)
+- `stdio.redirectToStderr`: Redirect filtered stdout to stderr for debugging (default: false)
+
+**Note:** The test progress spinner writes to stderr and continues to work unless stderr suppression is enabled.
+
+#### Application-Level Alternative
+For NestJS applications, you can also disable logging in tests:
+```typescript
+// In your test setup
+import { Logger } from '@nestjs/common'
+Logger.overrideLogger(false)  // Disable NestJS logging
+
+// Or set log level
+const app = await NestFactory.create(AppModule, {
+  logger: process.env.NODE_ENV === 'test' ? false : undefined
+})
+```
+
 ### Truncation
 Limit output size with truncation settings.
 

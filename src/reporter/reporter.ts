@@ -10,7 +10,7 @@
 import type { Vitest, SerializedError, Reporter, UserConsoleLog } from 'vitest'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
-import type { LLMReporterConfig } from '../types/reporter.js'
+import type { LLMReporterConfig, StdioConfig } from '../types/reporter.js'
 import type { LLMReporterOutput } from '../types/schema.js'
 
 // Type for resolved configuration with explicit undefined handling
@@ -50,6 +50,8 @@ interface ResolvedLLMReporterConfig
     stream: 'stdout' | 'stderr'
     prefix: string
   }
+  pureStdout: boolean
+  stdio: Required<StdioConfig>
 }
 
 // Import new components
@@ -61,6 +63,7 @@ import { ErrorContextBuilder } from '../builders/ErrorContextBuilder.js'
 import { OutputBuilder } from '../output/OutputBuilder.js'
 import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
+import { StdioInterceptor } from '../console/stdio-interceptor.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import { isTTY, isCI } from '../utils/environment.js'
 import {
@@ -88,6 +91,10 @@ export class LLMReporter implements Reporter {
   private outputWriter: OutputWriter
   private orchestrator: EventOrchestrator
   private performanceManager?: PerformanceManager
+  // Stdio interceptor
+  private stdioInterceptor?: StdioInterceptor
+  private originalStdoutWrite?: typeof process.stdout.write
+  private originalStderrWrite?: typeof process.stderr.write
   // Spinner state
   private spinnerTimer?: NodeJS.Timeout
   private spinnerActive = false
@@ -118,6 +125,34 @@ export class LLMReporter implements Reporter {
 
     // Check for spinner environment override
     const spinnerEnvOverride = process.env.LLM_REPORTER_SPINNER === '0'
+
+    // Resolve stdio configuration
+    let stdioConfig: Required<StdioConfig>
+    if (config.pureStdout) {
+      // Pure stdout mode: suppress all stdout, no pattern filtering
+      stdioConfig = {
+        suppressStdout: true,
+        suppressStderr: false,
+        filterPattern: undefined as any, // Will be treated as "suppress all"
+        redirectToStderr: false
+      }
+    } else if (config.stdio) {
+      // Use provided stdio config with defaults
+      stdioConfig = {
+        suppressStdout: config.stdio.suppressStdout ?? true, // Default to true for clean output
+        suppressStderr: config.stdio.suppressStderr ?? false,
+        filterPattern: config.stdio.filterPattern ?? /^\[Nest\]\s/,
+        redirectToStderr: config.stdio.redirectToStderr ?? false
+      }
+    } else {
+      // Default: suppress stdout with NestJS pattern
+      stdioConfig = {
+        suppressStdout: true, // Default to true for clean output
+        suppressStderr: false,
+        filterPattern: /^\[Nest\]\s/,
+        redirectToStderr: false
+      }
+    }
 
     // Properly resolve config without unsafe casting
     this.config = {
@@ -156,7 +191,9 @@ export class LLMReporter implements Reporter {
         intervalMs: 80,
         stream: 'stderr',
         prefix: 'Running tests'
-      }
+      },
+      pureStdout: config.pureStdout ?? false,
+      stdio: stdioConfig
     }
 
     // Initialize components
@@ -244,6 +281,14 @@ export class LLMReporter implements Reporter {
     this.stopSpinner()
     this.orchestrator.reset()
     this.isTestRunActive = false
+
+    // Stop stdio interception
+    if (this.stdioInterceptor) {
+      this.stdioInterceptor.disable()
+      this.stdioInterceptor = undefined
+      this.originalStdoutWrite = undefined
+      this.originalStderrWrite = undefined
+    }
 
     // Stop performance monitoring
     if (this.performanceManager) {
@@ -378,8 +423,21 @@ export class LLMReporter implements Reporter {
     this.isTestRunActive = true
 
     try {
-      // Start spinner if enabled
-      this.startSpinner()
+      // Start stdio interception if configured
+      if (this.config.stdio.suppressStdout || this.config.stdio.suppressStderr) {
+        this.stdioInterceptor = new StdioInterceptor(this.config.stdio)
+        this.stdioInterceptor.enable()
+        
+        // Save original writers for later use
+        const originalWriters = this.stdioInterceptor.getOriginalWriters()
+        this.originalStdoutWrite = originalWriters.stdout
+        this.originalStderrWrite = originalWriters.stderr
+      }
+
+      // Start spinner if enabled (but not if stderr is suppressed)
+      if (this.config.spinner.enabled && !this.config.stdio.suppressStderr) {
+        this.startSpinner()
+      }
 
       // Start performance monitoring
       if (this.performanceManager) {
@@ -574,20 +632,24 @@ export class LLMReporter implements Reporter {
           ((this.context && this.isTestRunActive) || this.config.forceConsoleOutput)
         ) {
           try {
+            // Use original stdout writer if available (when stdio interception is active)
+            // This ensures the reporter's JSON output is never filtered
+            const writeToStdout = this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
+            
             // Write to console with proper formatting
             const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
 
             // Only add framing if framedOutput is enabled
             if (this.config.framedOutput) {
-              process.stdout.write('\n' + '='.repeat(80) + '\n')
-              process.stdout.write('LLM Reporter Output:\n')
-              process.stdout.write('='.repeat(80) + '\n')
+              writeToStdout('\n' + '='.repeat(80) + '\n')
+              writeToStdout('LLM Reporter Output:\n')
+              writeToStdout('='.repeat(80) + '\n')
             }
 
-            process.stdout.write(jsonOutput + '\n')
+            writeToStdout(jsonOutput + '\n')
 
             if (this.config.framedOutput) {
-              process.stdout.write('='.repeat(80) + '\n')
+              writeToStdout('='.repeat(80) + '\n')
             }
 
             this.debug('Output written to console')
