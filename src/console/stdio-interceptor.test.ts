@@ -129,10 +129,10 @@ describe('StdioInterceptor', () => {
   })
 
   describe('pure mode', () => {
-    it('suppresses all output when no pattern is provided', () => {
+    it('suppresses all output when pattern is null', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
-        filterPattern: undefined as any
+        filterPattern: null  // Use null for pure mode
       })
       
       interceptor.enable()
@@ -145,6 +145,62 @@ describe('StdioInterceptor', () => {
       
       // All output should be suppressed in pure mode
       expect(stdoutOutput.length).toBe(0)
+    })
+
+    it('does not suppress when pattern is undefined', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: undefined  // Undefined means no filtering
+      })
+      
+      interceptor.enable()
+      
+      process.stdout.write('[Nest] Log\n')
+      process.stdout.write('Regular log\n')
+      process.stdout.write('Any other output\n')
+      
+      interceptor.disable()
+      
+      // No suppression with undefined pattern
+      expect(stdoutOutput.length).toBe(3)
+    })
+  })
+
+  describe('flush filtering', () => {
+    it('applies filtering during flush when flushWithFiltering is true', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/,
+        flushWithFiltering: true
+      })
+      
+      interceptor.enable()
+      
+      // Write partial lines that should be filtered
+      process.stdout.write('[Nest] Partial log')  // Should be filtered
+      
+      interceptor.disable()
+      
+      // With flushWithFiltering, the partial line should be suppressed
+      expect(stdoutOutput.join('')).not.toContain('[Nest] Partial log')
+    })
+
+    it('does not apply filtering during flush by default', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+        // flushWithFiltering defaults to false
+      })
+      
+      interceptor.enable()
+      
+      // Write partial lines that would normally be filtered
+      process.stdout.write('[Nest] Partial log')  // Would be filtered if complete
+      
+      interceptor.disable()
+      
+      // Without flushWithFiltering, the partial line is not filtered
+      expect(stdoutOutput.join('')).toContain('[Nest] Partial log')
     })
   })
 

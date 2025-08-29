@@ -40,7 +40,6 @@ interface ResolvedLLMReporterConfig
     enableMetrics: boolean
   }
   framedOutput: boolean // Gate for console separator frames
-  forceConsoleOutput: boolean // Force console write when used standalone
   includeStackString: boolean // Include raw stack strings in error output
   fileJsonSpacing: number
   consoleJsonSpacing: number
@@ -133,8 +132,9 @@ export class LLMReporter implements Reporter {
       stdioConfig = {
         suppressStdout: true,
         suppressStderr: false,
-        filterPattern: undefined as any, // Will be treated as "suppress all"
-        redirectToStderr: false
+        filterPattern: null, // Null means suppress all output
+        redirectToStderr: false,
+        flushWithFiltering: false
       }
     } else if (config.stdio) {
       // Use provided stdio config with defaults
@@ -142,7 +142,8 @@ export class LLMReporter implements Reporter {
         suppressStdout: config.stdio.suppressStdout ?? true, // Default to true for clean output
         suppressStderr: config.stdio.suppressStderr ?? false,
         filterPattern: config.stdio.filterPattern ?? /^\[Nest\]\s/,
-        redirectToStderr: config.stdio.redirectToStderr ?? false
+        redirectToStderr: config.stdio.redirectToStderr ?? false,
+        flushWithFiltering: config.stdio.flushWithFiltering ?? false
       }
     } else {
       // Default: suppress stdout with NestJS pattern
@@ -150,7 +151,8 @@ export class LLMReporter implements Reporter {
         suppressStdout: true, // Default to true for clean output
         suppressStderr: false,
         filterPattern: /^\[Nest\]\s/,
-        redirectToStderr: false
+        redirectToStderr: false,
+        flushWithFiltering: false
       }
     }
 
@@ -182,7 +184,6 @@ export class LLMReporter implements Reporter {
         enableMetrics: config.truncation?.enableMetrics ?? false
       },
       framedOutput: config.framedOutput ?? false,
-      forceConsoleOutput: config.forceConsoleOutput ?? false,
       includeStackString: config.includeStackString ?? false,
       fileJsonSpacing: config.fileJsonSpacing ?? 0,
       consoleJsonSpacing: config.consoleJsonSpacing ?? 2,
@@ -626,10 +627,11 @@ export class LLMReporter implements Reporter {
 
         // Also write to console if no file is specified or console output is enabled
         // Only when running as an actual Vitest reporter (context set) during a test run.
-        // This prevents unit tests that directly new LLMReporter() from emitting output.
+        // Only output when there are actual test results or unhandled errors to avoid spurious outputs during test collection
         if (
           (!this.config.outputFile || this.config.enableConsoleOutput) &&
-          ((this.context && this.isTestRunActive) || this.config.forceConsoleOutput)
+          (this.context && this.isTestRunActive) &&
+          (statistics.total > 0 || (unhandledErrors && unhandledErrors.length > 0))
         ) {
           try {
             // Use original stdout writer if available (when stdio interception is active)

@@ -16,7 +16,8 @@ const DEFAULT_CONFIG: Required<StdioConfig> = {
   suppressStdout: false,
   suppressStderr: false,
   filterPattern: /^\[Nest\]\s/, // Default pattern for NestJS logs
-  redirectToStderr: false
+  redirectToStderr: false,
+  flushWithFiltering: false
 }
 
 /**
@@ -145,25 +146,40 @@ export class StdioInterceptor {
       const incomplete = lines.pop() || ''
       this[lineBuffer] = incomplete
 
+      // Track backpressure from writes
+      let ok = true
+
       // Filter and write lines
       for (const line of lines) {
+        // Remove trailing carriage return for consistent pattern matching on Windows
+        const lineToTest = line.replace(/\r$/, '')
         const lineWithNewline = line + '\n'
-        if (!this.shouldSuppress(lineWithNewline)) {
+        
+        if (!this.shouldSuppress(lineToTest)) {
           // Pass through non-suppressed lines (bind to correct stream)
-          originalWrite.call(stream === 'stdout' ? process.stdout : process.stderr, lineWithNewline, encoding, undefined)
+          const result = originalWrite.call(
+            stream === 'stdout' ? process.stdout : process.stderr, 
+            lineWithNewline, 
+            encoding, 
+            undefined
+          )
+          ok = ok && result
         } else if (this.config.redirectToStderr && stream === 'stdout' && redirectTarget) {
           // Redirect suppressed stdout to stderr if configured
-          redirectTarget.call(process.stderr, lineWithNewline, encoding, undefined)
+          const result = redirectTarget.call(process.stderr, lineWithNewline, encoding, undefined)
+          ok = ok && result
         }
         // Otherwise, drop the line
       }
 
-      // Handle callback
+      // Pass callback to the last write operation or call immediately if no writes occurred
+      // Note: For simplicity with line buffering, we use nextTick to ensure callback is async
+      // This deviates slightly from exact stream semantics but is acceptable for TTY output
       if (callback) {
         process.nextTick(callback)
       }
 
-      return true
+      return ok
     }) as WriteFunction
   }
 
@@ -171,9 +187,14 @@ export class StdioInterceptor {
    * Check if a line should be suppressed based on configuration
    */
   private shouldSuppress(line: string): boolean {
-    // In pure mode (no pattern), suppress everything
-    if (!this.config.filterPattern) {
+    // In pure mode (null pattern), suppress everything
+    if (this.config.filterPattern === null) {
       return true
+    }
+
+    // If no pattern is set (undefined), don't suppress anything
+    if (!this.config.filterPattern) {
+      return false
     }
 
     // Otherwise, check against the pattern
@@ -185,14 +206,32 @@ export class StdioInterceptor {
    */
   private flushBuffers(): void {
     if (this.stdoutLineBuffer && this.originalStdoutWrite) {
-      // Write remaining stdout buffer without filtering
-      this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
+      if (this.config.flushWithFiltering) {
+        // Apply filtering to the final partial line
+        const lineToTest = this.stdoutLineBuffer.replace(/\r$/, '')
+        if (!this.shouldSuppress(lineToTest)) {
+          this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
+        } else if (this.config.redirectToStderr && this.originalStderrWrite) {
+          this.originalStderrWrite.call(process.stderr, this.stdoutLineBuffer)
+        }
+      } else {
+        // Write remaining stdout buffer without filtering (default behavior)
+        this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
+      }
       this.stdoutLineBuffer = ''
     }
 
     if (this.stderrLineBuffer && this.originalStderrWrite) {
-      // Write remaining stderr buffer without filtering
-      this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
+      if (this.config.flushWithFiltering && this.config.suppressStderr) {
+        // Apply filtering to the final partial line
+        const lineToTest = this.stderrLineBuffer.replace(/\r$/, '')
+        if (!this.shouldSuppress(lineToTest)) {
+          this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
+        }
+      } else {
+        // Write remaining stderr buffer without filtering (default behavior)
+        this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
+      }
       this.stderrLineBuffer = ''
     }
   }
