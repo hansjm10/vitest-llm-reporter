@@ -1,32 +1,31 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { LLMReporter } from './reporter.js'
-import type { TestRunEndReason, TestModule, TestCase } from 'vitest/node'
+import type { TestRunEndReason } from 'vitest/node'
 
 describe('LLMReporter stdio suppression', () => {
   let originalDebug: string | undefined
 
   // Helper to create mock test data
-  const createMockTestModule = (): TestModule =>
-    ({
-      id: 'test-1',
-      name: 'test.spec.ts',
-      type: 'suite',
-      mode: 'run',
-      filepath: '/test/test.spec.ts',
-      tasks: [
-        {
-          id: 'test-1-1',
-          name: 'mock test',
-          type: 'test',
-          mode: 'run',
-          suite: null as any,
-          result: {
-            state: 'passed',
-            duration: 10
-          }
-        } as TestCase
-      ]
-    }) as TestModule
+  const createMockTestModule = (): any => ({
+    id: 'test-1',
+    name: 'test.spec.ts',
+    type: 'suite',
+    mode: 'run',
+    filepath: '/test/test.spec.ts',
+    tasks: [
+      {
+        id: 'test-1-1',
+        name: 'mock test',
+        type: 'test',
+        mode: 'run',
+        suite: null,
+        result: {
+          state: 'passed',
+          duration: 10
+        }
+      }
+    ]
+  })
 
   beforeEach(() => {
     // Ensure DEBUG is not enabled for the reporter namespaces
@@ -71,7 +70,7 @@ describe('LLMReporter stdio suppression', () => {
     reporter.onTestModuleStart(mockModule)
 
     // Process the test case
-    const testCase = mockModule.tasks[0] as TestCase
+    const testCase = mockModule.tasks[0]
     reporter.onTestCaseReady(testCase)
     reporter.onTestCaseResult(testCase)
 
