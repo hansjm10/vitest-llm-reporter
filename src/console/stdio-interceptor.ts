@@ -53,9 +53,9 @@ export class StdioInterceptor {
       return
     }
 
-    // Save original write functions (not bound, keep the actual reference)
-    this.originalStdoutWrite = process.stdout.write
-    this.originalStderrWrite = process.stderr.write
+    // Save original write functions bound to their streams
+    this.originalStdoutWrite = process.stdout.write.bind(process.stdout)
+    this.originalStderrWrite = process.stderr.write.bind(process.stderr)
 
     // Patch stdout if configured
     if (this.config.suppressStdout) {
@@ -63,7 +63,7 @@ export class StdioInterceptor {
         'stdout',
         this.originalStdoutWrite,
         this.originalStderrWrite
-      ) as any
+      )
     }
 
     // Patch stderr if configured
@@ -72,7 +72,7 @@ export class StdioInterceptor {
         'stderr',
         this.originalStderrWrite,
         this.originalStderrWrite
-      ) as any
+      )
     }
 
     this.isEnabled = true
@@ -91,10 +91,10 @@ export class StdioInterceptor {
 
     // Restore original write functions
     if (this.originalStdoutWrite) {
-      process.stdout.write = this.originalStdoutWrite as any
+      process.stdout.write = this.originalStdoutWrite
     }
     if (this.originalStderrWrite) {
-      process.stderr.write = this.originalStderrWrite as any
+      process.stderr.write = this.originalStderrWrite
     }
 
     this.isEnabled = false
@@ -108,8 +108,12 @@ export class StdioInterceptor {
     stderr: WriteFunction
   } {
     return {
-      stdout: this.originalStdoutWrite ? this.originalStdoutWrite.bind(process.stdout) : process.stdout.write.bind(process.stdout),
-      stderr: this.originalStderrWrite ? this.originalStderrWrite.bind(process.stderr) : process.stderr.write.bind(process.stderr)
+      stdout: this.originalStdoutWrite
+        ? this.originalStdoutWrite.bind(process.stdout)
+        : process.stdout.write.bind(process.stdout),
+      stderr: this.originalStderrWrite
+        ? this.originalStderrWrite.bind(process.stderr)
+        : process.stderr.write.bind(process.stderr)
     }
   }
 
@@ -123,7 +127,11 @@ export class StdioInterceptor {
   ): WriteFunction {
     const lineBuffer = stream === 'stdout' ? 'stdoutLineBuffer' : 'stderrLineBuffer'
 
-    return ((chunk: any, encoding?: any, callback?: any): boolean => {
+    return ((
+      chunk: string | Uint8Array,
+      encoding?: BufferEncoding | ((err?: Error | null) => void),
+      callback?: (err?: Error | null) => void
+    ): boolean => {
       // Handle different argument patterns
       if (typeof encoding === 'function') {
         callback = encoding
@@ -154,13 +162,13 @@ export class StdioInterceptor {
         // Remove trailing carriage return for consistent pattern matching on Windows
         const lineToTest = line.replace(/\r$/, '')
         const lineWithNewline = line + '\n'
-        
+
         if (!this.shouldSuppress(lineToTest)) {
           // Pass through non-suppressed lines (bind to correct stream)
           const result = originalWrite.call(
-            stream === 'stdout' ? process.stdout : process.stderr, 
-            lineWithNewline, 
-            encoding, 
+            stream === 'stdout' ? process.stdout : process.stderr,
+            lineWithNewline,
+            encoding,
             undefined
           )
           ok = ok && result

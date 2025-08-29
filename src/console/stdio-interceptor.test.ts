@@ -8,9 +8,9 @@ describe('StdioInterceptor', () => {
   let stderrOutput: string[]
 
   beforeEach(() => {
-    // Save original writers
-    originalStdoutWrite = process.stdout.write
-    originalStderrWrite = process.stderr.write
+    // Save original writers - bind to avoid unbound method warnings
+    originalStdoutWrite = process.stdout.write.bind(process.stdout)
+    originalStderrWrite = process.stderr.write.bind(process.stderr)
 
     // Capture output
     stdoutOutput = []
@@ -47,9 +47,9 @@ describe('StdioInterceptor', () => {
   describe('basic functionality', () => {
     it('does not intercept when not enabled', () => {
       const interceptor = new StdioInterceptor()
-      
+
       process.stdout.write('test output\n')
-      
+
       expect(stdoutOutput).toContain('test output\n')
       expect(interceptor.isActive()).toBe(false)
     })
@@ -59,32 +59,49 @@ describe('StdioInterceptor', () => {
         suppressStdout: true,
         filterPattern: /^\[Nest\]/
       })
-      
+
       interceptor.enable()
-      
+
       process.stdout.write('[Nest] 12345 - Starting...\n')
       process.stdout.write('Regular log\n')
-      
+
       interceptor.disable()
-      
+
       expect(stdoutOutput).not.toContain('[Nest] 12345 - Starting...\n')
       expect(stdoutOutput).toContain('Regular log\n')
     })
 
     it('restores original writers when disabled', () => {
       const interceptor = new StdioInterceptor({
-        suppressStdout: true
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
       })
-      
-      const beforeEnable = process.stdout.write
-      
+
+      // Clear any previous output
+      stdoutOutput = []
+
       interceptor.enable()
-      const duringEnable = process.stdout.write
-      expect(duringEnable).not.toBe(beforeEnable)
-      
+      // Check that interception is active
+      expect(interceptor.isActive()).toBe(true)
+
+      // Write something to test filtering works
+      process.stdout.write('[Nest] Should be filtered\n')
+      process.stdout.write('Should pass through\n')
+
+      // Check filtering worked
+      expect(stdoutOutput).not.toContain('[Nest] Should be filtered\n')
+      expect(stdoutOutput).toContain('Should pass through\n')
+
       interceptor.disable()
-      const afterDisable = process.stdout.write
-      expect(afterDisable).toBe(beforeEnable)
+      // Check that interception is disabled
+      expect(interceptor.isActive()).toBe(false)
+
+      // Clear output before testing post-disable
+      stdoutOutput = []
+
+      // After disable, nothing should be filtered
+      process.stdout.write('[Nest] Should not be filtered after disable\n')
+      expect(stdoutOutput).toContain('[Nest] Should not be filtered after disable\n')
     })
   })
 
@@ -94,17 +111,17 @@ describe('StdioInterceptor', () => {
         suppressStdout: true,
         filterPattern: /^\[Nest\]/
       })
-      
+
       interceptor.enable()
-      
+
       // Write in chunks
       process.stdout.write('[Nest')
       process.stdout.write('] 12345 - ')
       process.stdout.write('Starting...\n')
       process.stdout.write('Regular log\n')
-      
+
       interceptor.disable()
-      
+
       // The complete Nest line should be filtered
       expect(stdoutOutput.join('')).not.toContain('[Nest] 12345')
       expect(stdoutOutput.join('')).toContain('Regular log\n')
@@ -115,14 +132,14 @@ describe('StdioInterceptor', () => {
         suppressStdout: true,
         filterPattern: /^\[Nest\]/
       })
-      
+
       interceptor.enable()
-      
+
       // Write without newline
       process.stdout.write('Incomplete line without newline')
-      
+
       interceptor.disable()
-      
+
       // Buffer should be flushed
       expect(stdoutOutput.join('')).toContain('Incomplete line without newline')
     })
@@ -132,17 +149,17 @@ describe('StdioInterceptor', () => {
     it('suppresses all output when pattern is null', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
-        filterPattern: null  // Use null for pure mode
+        filterPattern: null // Use null for pure mode
       })
-      
+
       interceptor.enable()
-      
+
       process.stdout.write('[Nest] Log\n')
       process.stdout.write('Regular log\n')
       process.stdout.write('Any other output\n')
-      
+
       interceptor.disable()
-      
+
       // All output should be suppressed in pure mode
       expect(stdoutOutput.length).toBe(0)
     })
@@ -150,17 +167,17 @@ describe('StdioInterceptor', () => {
     it('does not suppress when pattern is undefined', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
-        filterPattern: undefined  // Undefined means no filtering
+        filterPattern: undefined // Undefined means no filtering
       })
-      
+
       interceptor.enable()
-      
+
       process.stdout.write('[Nest] Log\n')
       process.stdout.write('Regular log\n')
       process.stdout.write('Any other output\n')
-      
+
       interceptor.disable()
-      
+
       // No suppression with undefined pattern
       expect(stdoutOutput.length).toBe(3)
     })
@@ -173,14 +190,14 @@ describe('StdioInterceptor', () => {
         filterPattern: /^\[Nest\]/,
         flushWithFiltering: true
       })
-      
+
       interceptor.enable()
-      
+
       // Write partial lines that should be filtered
-      process.stdout.write('[Nest] Partial log')  // Should be filtered
-      
+      process.stdout.write('[Nest] Partial log') // Should be filtered
+
       interceptor.disable()
-      
+
       // With flushWithFiltering, the partial line should be suppressed
       expect(stdoutOutput.join('')).not.toContain('[Nest] Partial log')
     })
@@ -191,14 +208,14 @@ describe('StdioInterceptor', () => {
         filterPattern: /^\[Nest\]/
         // flushWithFiltering defaults to false
       })
-      
+
       interceptor.enable()
-      
+
       // Write partial lines that would normally be filtered
-      process.stdout.write('[Nest] Partial log')  // Would be filtered if complete
-      
+      process.stdout.write('[Nest] Partial log') // Would be filtered if complete
+
       interceptor.disable()
-      
+
       // Without flushWithFiltering, the partial line is not filtered
       expect(stdoutOutput.join('')).toContain('[Nest] Partial log')
     })
@@ -210,14 +227,14 @@ describe('StdioInterceptor', () => {
         suppressStderr: true,
         filterPattern: /^ERROR:/
       })
-      
+
       interceptor.enable()
-      
+
       process.stderr.write('ERROR: Something went wrong\n')
       process.stderr.write('Warning: Just a warning\n')
-      
+
       interceptor.disable()
-      
+
       expect(stderrOutput).not.toContain('ERROR: Something went wrong\n')
       expect(stderrOutput).toContain('Warning: Just a warning\n')
     })
@@ -230,18 +247,18 @@ describe('StdioInterceptor', () => {
         filterPattern: /^\[Nest\]/,
         redirectToStderr: true
       })
-      
+
       interceptor.enable()
-      
+
       process.stdout.write('[Nest] Redirected log\n')
       process.stdout.write('Normal stdout log\n')
-      
+
       interceptor.disable()
-      
+
       // Nest log should be redirected to stderr
       expect(stdoutOutput).not.toContain('[Nest] Redirected log\n')
       expect(stderrOutput).toContain('[Nest] Redirected log\n')
-      
+
       // Normal log stays in stdout
       expect(stdoutOutput).toContain('Normal stdout log\n')
     })
@@ -253,17 +270,17 @@ describe('StdioInterceptor', () => {
         suppressStdout: true,
         filterPattern: /^\[Nest\]/
       })
-      
+
       interceptor.enable()
-      
+
       const buffer = Buffer.from('[Nest] Buffer log\n', 'utf8')
       process.stdout.write(buffer)
-      
+
       const normalBuffer = Buffer.from('Normal log\n', 'utf8')
       process.stdout.write(normalBuffer)
-      
+
       interceptor.disable()
-      
+
       expect(stdoutOutput.join('')).not.toContain('[Nest] Buffer log')
       expect(stdoutOutput.join('')).toContain('Normal log')
     })
@@ -274,20 +291,18 @@ describe('StdioInterceptor', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true
       })
-      
-      const beforeEnable = process.stdout.write
-      
+
       interceptor.enable()
-      
+
       const writers = interceptor.getOriginalWriters()
       // The original writer should be the mock we set in beforeEach
       expect(typeof writers.stdout).toBe('function')
       expect(typeof writers.stderr).toBe('function')
-      
+
       // Original writer should bypass filtering
       writers.stdout('[Nest] This goes through\n')
       expect(stdoutOutput).toContain('[Nest] This goes through\n')
-      
+
       interceptor.disable()
     })
   })

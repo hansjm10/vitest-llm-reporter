@@ -6,30 +6,31 @@ describe('LLMReporter stdout JSON purity', () => {
   let originalDebug: string | undefined
 
   // Helper to create mock test data
-  const createMockTestModule = (): TestModule => ({
-    id: 'test-1',
-    name: 'test.spec.ts',
-    type: 'suite',
-    mode: 'run',
-    filepath: '/test/test.spec.ts',
-    tasks: [
-      {
-        id: 'test-1-1',
-        name: 'mock test',
-        type: 'test',
-        mode: 'run',
-        suite: null as any,
-        result: {
-          state: 'failed',
-          duration: 10,
-          error: {
-            message: 'Test failed',
-            stack: 'Error: Test failed\n    at test.spec.ts:1:1'
+  const createMockTestModule = (): TestModule =>
+    ({
+      id: 'test-1',
+      name: 'test.spec.ts',
+      type: 'suite',
+      mode: 'run',
+      filepath: '/test/test.spec.ts',
+      tasks: [
+        {
+          id: 'test-1-1',
+          name: 'mock test',
+          type: 'test',
+          mode: 'run',
+          suite: null as any,
+          result: {
+            state: 'failed',
+            duration: 10,
+            error: {
+              message: 'Test failed',
+              stack: 'Error: Test failed\n    at test.spec.ts:1:1'
+            }
           }
-        }
-      } as TestCase
-    ]
-  } as TestModule)
+        } as TestCase
+      ]
+    }) as TestModule
 
   beforeEach(() => {
     // Ensure DEBUG is not enabled for the reporter namespaces
@@ -58,7 +59,7 @@ describe('LLMReporter stdout JSON purity', () => {
     }
 
     reporter.onTestRunStart([])
-    
+
     // Provide mock test module with failure to ensure output
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [unhandled], 'failed')

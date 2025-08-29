@@ -428,7 +428,7 @@ export class LLMReporter implements Reporter {
       if (this.config.stdio.suppressStdout || this.config.stdio.suppressStderr) {
         this.stdioInterceptor = new StdioInterceptor(this.config.stdio)
         this.stdioInterceptor.enable()
-        
+
         // Save original writers for later use
         const originalWriters = this.stdioInterceptor.getOriginalWriters()
         this.originalStdoutWrite = originalWriters.stdout
@@ -630,14 +630,16 @@ export class LLMReporter implements Reporter {
         // Only output when there are actual test results or unhandled errors to avoid spurious outputs during test collection
         if (
           (!this.config.outputFile || this.config.enableConsoleOutput) &&
-          (this.context && this.isTestRunActive) &&
+          this.context &&
+          this.isTestRunActive &&
           (statistics.total > 0 || (unhandledErrors && unhandledErrors.length > 0))
         ) {
           try {
             // Use original stdout writer if available (when stdio interception is active)
             // This ensures the reporter's JSON output is never filtered
-            const writeToStdout = this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
-            
+            const writeToStdout =
+              this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
+
             // Write to console with proper formatting
             const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
 
