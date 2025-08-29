@@ -32,15 +32,14 @@ describe('LLMReporter blocked console warning and fallback', () => {
   })
 
   beforeEach(() => {
-    origStdoutWrite = process.stdout.write
-    origStderrWrite = process.stderr.write
+    // Bind to preserve correct `this` and avoid unbound-method lint issues
+    origStdoutWrite = process.stdout.write.bind(process.stdout)
+    origStderrWrite = process.stderr.write.bind(process.stderr)
   })
 
   afterEach(() => {
     // Restore writers in case of failures
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     process.stdout.write = origStdoutWrite
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     process.stderr.write = origStderrWrite
   })
 
@@ -53,10 +52,9 @@ describe('LLMReporter blocked console warning and fallback', () => {
 
     // Make the writer that will be captured as "original" throw
     // Note: we replace before onTestRunStart so interceptor captures this as original
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    process.stdout.write = (((_chunk: any) => {
+    process.stdout.write = ((..._args: unknown[]) => {
       throw new Error('stdout blocked')
-    }) as unknown) as typeof process.stdout.write
+    }) as unknown as typeof process.stdout.write
 
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true as any)
 
@@ -70,7 +68,9 @@ describe('LLMReporter blocked console warning and fallback', () => {
     stderrSpy.mockRestore()
 
     // Expect a clear warning line
-    const hasWarning = writes.some((w) => w.includes('vitest-llm-reporter: Console output appears blocked'))
+    const hasWarning = writes.some((w) =>
+      w.includes('vitest-llm-reporter: Console output appears blocked')
+    )
     expect(hasWarning).toBe(true)
 
     // And the fallback JSON payload
@@ -87,4 +87,3 @@ describe('LLMReporter blocked console warning and fallback', () => {
     expect(hasJson).toBe(true)
   })
 })
-
