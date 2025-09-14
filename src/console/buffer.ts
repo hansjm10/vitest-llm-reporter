@@ -26,6 +26,7 @@ export class ConsoleBuffer {
   private totalBytes = 0
   private config: Required<ConsoleBufferConfig>
   private truncated = false
+  private deduplicationKeys = new Set<string>()
 
   constructor(config: ConsoleBufferConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -38,11 +39,23 @@ export class ConsoleBuffer {
     method: ConsoleMethod,
     args: unknown[],
     timestamp?: number,
-    origin: 'intercepted' | 'task' = 'intercepted'
+    origin: 'intercepted' | 'task' = 'intercepted',
+    isDuplicate?: boolean,
+    deduplicationKey?: string
   ): boolean {
     // Check if we've already hit limits
     if (this.truncated) {
       return false
+    }
+
+    // If this is a duplicate and we have a key, check if we've already added it
+    if (isDuplicate && deduplicationKey) {
+      if (this.deduplicationKeys.has(deduplicationKey)) {
+        // Already have this log, skip it
+        return false
+      }
+      // First time seeing this duplicate key, add it
+      this.deduplicationKeys.add(deduplicationKey)
     }
 
     // Serialize arguments individually
@@ -85,6 +98,11 @@ export class ConsoleBuffer {
     // Add args if they provide value beyond text
     if (args.length > 1 || (args.length === 1 && typeof args[0] === 'object')) {
       event.args = serializedArgs
+    }
+
+    // Add deduplication info if this is the first occurrence of a duplicate
+    if (deduplicationKey) {
+      (event as any).deduplicationKey = deduplicationKey
     }
 
     // Add the event
@@ -180,6 +198,7 @@ export class ConsoleBuffer {
     this.events = []
     this.totalBytes = 0
     this.truncated = false
+    this.deduplicationKeys.clear()
   }
 
   /**

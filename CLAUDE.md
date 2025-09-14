@@ -6,7 +6,17 @@
 
 This is the vitest-llm-reporter project - a Vitest reporter that generates structured JSON output optimized for LLM parsing.
 
-## Current Feature: CI/CD Pipeline with GitHub Actions
+### TypeScript Configuration
+- The application uses TypeScript with strict typing (aside from tests)
+- Maintain type safety in all production code
+- Tests can use more relaxed typing for convenience
+
+### Current Feature: Log Deduplication
+Working on implementing log deduplication to reduce duplicate console output in test reports:
+- Extends existing ConsoleCapture system
+- Configurable via `deduplicateLogs` option
+- Must handle 1000+ tests efficiently
+- Preserves backward compatibility when disabled
 
 ### Tech Stack
 - **Node.js**: 17+ (required for native structuredClone)
@@ -22,6 +32,12 @@ This is the vitest-llm-reporter project - a Vitest reporter that generates struc
 - **NPM Publishing**: Manual trigger via GitHub Release
 - **Required Checks**: test, lint, type-check, build, coverage
 
+### Architecture Notes
+- Reporter implements Vitest's Reporter interface
+- Console capture uses AsyncLocalStorage for thread safety
+- Performance targets: <5s for 1000 tests, <500MB memory
+- Modular component structure in src/
+
 ### NPM Scripts Required
 ```json
 {
@@ -36,7 +52,10 @@ This is the vitest-llm-reporter project - a Vitest reporter that generates struc
 ## Testing
 
 Always run tests before committing:
-- `npm test` - Run test suite
+- `npm test` - Run all tests
+- `npm run test:unit` - Unit tests only
+- `npm run test:integration` - Integration tests
+- `npm run test:benchmark` - Performance benchmarks
 - `npm run coverage` - Generate coverage report
 - `npm run lint` - Check code style
 - `npm run type-check` - Validate TypeScript types
@@ -49,11 +68,16 @@ Follow existing patterns in the codebase:
 - Vitest for testing
 - ESLint for linting
 - Conventional commits for version management
+- Consistent with existing ConsoleCapture implementation
+- Use existing debug framework for logging
+- Maintain backward compatibility
+- Document configuration options
 
 ## Recent Changes
 - Added CI/CD pipeline specification (feature 002)
 - Configured GitHub Actions workflows
 - Set up NPM publishing automation
+- Added log deduplication feature
 
 # Important Instruction Reminders
 Do what has been asked; nothing more, nothing less.

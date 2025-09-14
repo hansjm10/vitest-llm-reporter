@@ -4,6 +4,8 @@ import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console.js'
 import type { ConsoleEvent } from '../types/schema.js'
 import { ConsoleInterceptor } from './interceptor.js'
 import { createLogger } from '../utils/logger.js'
+import type { ILogDeduplicator } from '../types/deduplication.js'
+import { LogDeduplicator } from './LogDeduplicator.js'
 
 /**
  * Console Capture
@@ -39,9 +41,11 @@ export class ConsoleCapture {
   private cleanupTimers = new Map<string, ReturnType<typeof globalThis.setTimeout>>()
   // Track test generation to prevent race conditions in cleanup
   private testGeneration = new Map<string, number>()
+  private deduplicator?: ILogDeduplicator
 
-  constructor(config: ConsoleCaptureConfig = {}) {
+  constructor(config: ConsoleCaptureConfig & { deduplicator?: ILogDeduplicator } = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
+    this.deduplicator = config.deduplicator
   }
 
   /**
@@ -171,7 +175,30 @@ export class ConsoleCapture {
         const buffer = this.buffers.get(context.testId)
         if (buffer) {
           const elapsed = Date.now() - context.startTime
-          buffer.add(method, args, elapsed, 'intercepted')
+
+          // Check for deduplication if enabled
+          if (this.deduplicator?.isEnabled()) {
+            // Create a message string for deduplication
+            const message = args.map(arg =>
+              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+            ).join(' ')
+
+            const logEntry = {
+              message,
+              level: method as any, // ConsoleMethod maps to LogLevel
+              timestamp: new Date(),
+              testId: context.testId
+            }
+
+            const isDuplicate = this.deduplicator.isDuplicate(logEntry)
+
+            // Add to buffer with deduplication info
+            buffer.add(method, args, elapsed, 'intercepted', isDuplicate,
+              isDuplicate ? this.deduplicator.generateKey(logEntry) : undefined)
+          } else {
+            // No deduplication - add normally
+            buffer.add(method, args, elapsed, 'intercepted')
+          }
         }
       }
       // Note: When there's no context (helper functions), we rely on Vitest's
@@ -252,10 +279,76 @@ export class ConsoleCapture {
     // Clear generation tracking to prevent memory leaks in watch mode
     this.testGeneration.clear()
 
+    // Clear deduplicator if present
+    if (this.deduplicator) {
+      this.deduplicator.clear()
+    }
+
     // Restore console
     this.unpatchConsole()
 
     this.debug('Console capture reset')
+  }
+
+  /**
+   * Get deduplication statistics
+   */
+  getDeduplicationStats() {
+    return this.deduplicator?.getStats()
+  }
+
+  /**
+   * Get deduplication summary with all unique entries
+   */
+  getDeduplicationSummary() {
+    if (!this.deduplicator) {
+      return { entries: [] }
+    }
+
+    const entries = this.deduplicator.getAllEntries()
+    return {
+      entries: Array.from(entries.values()).map(entry => ({
+        message: entry.originalMessage,
+        level: entry.logLevel,
+        deduplication: {
+          count: entry.count,
+          firstSeen: entry.firstSeen.toISOString(),
+          lastSeen: entry.lastSeen.toISOString(),
+          sources: Array.from(entry.sources),
+          deduplicated: entry.count > 1
+        }
+      }))
+    }
+  }
+
+  /**
+   * Get global deduplication statistics across all tests
+   */
+  getGlobalDeduplicationStats() {
+    return this.deduplicator?.getStats() || {
+      totalLogs: 0,
+      uniqueLogs: 0,
+      duplicatesRemoved: 0,
+      cacheSize: 0,
+      processingTimeMs: 0
+    }
+  }
+
+  /**
+   * Capture console output for a test and return the result
+   */
+  captureForTest(testId: string, fn: () => void): any {
+    this.startCapture(testId)
+    try {
+      fn()
+    } finally {
+      const events = this.stopCapture(testId)
+      const stats = this.deduplicator?.getStats()
+      return {
+        entries: events || [],
+        deduplicationStats: stats
+      }
+    }
   }
 
   /**
@@ -275,7 +368,25 @@ export class ConsoleCapture {
       this.buffers.set(testId, buffer)
     }
 
-    buffer.add(method, args, elapsed, 'task')
+    // Check for deduplication if enabled
+    if (this.deduplicator?.isEnabled()) {
+      const message = args.map(arg =>
+        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+      ).join(' ')
+
+      const logEntry = {
+        message,
+        level: method as any,
+        timestamp: new Date(),
+        testId
+      }
+
+      const isDuplicate = this.deduplicator.isDuplicate(logEntry)
+      buffer.add(method, args, elapsed, 'task', isDuplicate,
+        isDuplicate ? this.deduplicator.generateKey(logEntry) : undefined)
+    } else {
+      buffer.add(method, args, elapsed, 'task')
+    }
   }
 
   /**

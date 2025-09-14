@@ -253,6 +253,76 @@ const app = await NestFactory.create(AppModule, {
 })
 ```
 
+### Log Deduplication
+Reduce duplicate console output across tests by enabling log deduplication. This feature consolidates identical log messages at the same level, showing occurrence counts instead of repeating the same message multiple times.
+
+#### Basic Usage
+Enable with default settings:
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        deduplicateLogs: true  // Enable with defaults
+      }]
+    ]
+  }
+})
+```
+
+#### Advanced Configuration
+Fine-tune deduplication behavior:
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        deduplicateLogs: {
+          enabled: true,
+          maxCacheEntries: 10000,     // Max unique entries to track
+          includeSources: true,        // Show which tests logged
+          normalizeWhitespace: true,   // Ignore whitespace differences
+          stripTimestamps: true,       // Ignore timestamp differences
+          stripAnsiCodes: true         // Ignore color codes
+        }
+      }]
+    ]
+  }
+})
+```
+
+#### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | `boolean` | `false` | Enable/disable deduplication |
+| `maxCacheEntries` | `number` | `10000` | Maximum unique log entries to track |
+| `includeSources` | `boolean` | `false` | Include test IDs that generated the log |
+| `normalizeWhitespace` | `boolean` | `true` | Collapse multiple spaces for comparison |
+| `stripTimestamps` | `boolean` | `true` | Ignore timestamps when comparing |
+| `stripAnsiCodes` | `boolean` | `true` | Strip color codes when comparing |
+
+#### Example Output
+
+Without deduplication:
+```
+✓ test-1: Connecting to database...
+✓ test-2: Connecting to database...
+✓ test-3: Connecting to database...
+```
+
+With deduplication:
+```
+✓ test-1: Connecting to database...
+✓ test-2: [Deduplicated: "Connecting to database..." (×3)]
+```
+
+#### Performance Impact
+- Designed for test suites with 1000+ tests
+- Overhead: <5% execution time
+- Memory: <50MB for 10,000 unique entries
+- Automatically evicts oldest entries when cache limit is reached
+
 ### Truncation
 Limit output size with truncation settings.
 
