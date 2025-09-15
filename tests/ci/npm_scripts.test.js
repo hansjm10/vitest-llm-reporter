@@ -64,7 +64,7 @@ describe('NPM Scripts Validation', () => {
 
   it('should have Node engine requirement', () => {
     expect(packageJson.engines).toBeDefined();
-    expect(packageJson.engines.node).toBe('>=17.0.0');
+    expect(packageJson.engines.node).toBe('>=18.0.0');
   });
 
   it('should have publishConfig for NPM', () => {

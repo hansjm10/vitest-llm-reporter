@@ -34,7 +34,7 @@ describe('CI Workflow Validation', () => {
 
     expect(workflow.jobs.test).toBeDefined();
     expect(workflow.jobs.test.strategy).toBeDefined();
-    expect(workflow.jobs.test.strategy.matrix['node-version']).toEqual([17, 18, 20, 22]);
+    expect(workflow.jobs.test.strategy.matrix['node-version']).toEqual([18, 20, 22]);
   });
 
   it('should have lint job', () => {
