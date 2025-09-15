@@ -1,0 +1,49 @@
+name: 'Setup Node and Dependencies'
+description: 'Reusable action to setup Node.js and install dependencies with caching'
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '20'
+  registry-url:
+    description: 'NPM registry URL for publishing'
+    required: false
+    default: ''
+  cache:
+    description: 'Cache dependencies'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        registry-url: ${{ inputs.registry-url }}
+
+    - name: Get npm cache directory
+      if: inputs.cache == 'true'
+      id: npm-cache-dir
+      shell: bash
+      run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
+
+    - name: Cache npm dependencies
+      if: inputs.cache == 'true'
+      uses: actions/cache@v4
+      id: npm-cache
+      with:
+        path: ${{ steps.npm-cache-dir.outputs.dir }}
+        key: ${{ runner.os }}-node-${{ inputs.node-version }}-npm-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-${{ inputs.node-version }}-npm-
+          ${{ runner.os }}-node-${{ inputs.node-version }}-
+          ${{ runner.os }}-node-
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        echo "📦 Installing dependencies..."
+        npm ci --ignore-scripts
+        echo "✅ Dependencies installed successfully"

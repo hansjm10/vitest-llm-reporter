@@ -1,0 +1,70 @@
+{
+  "description": "NPM Scripts Contract - Required scripts for CI/CD pipeline",
+  "contract": {
+    "required_scripts": {
+      "test": {
+        "description": "Run test suite",
+        "required": true,
+        "exit_codes": {
+          "0": "All tests pass",
+          "1": "Test failures",
+          "2": "Configuration error"
+        }
+      },
+      "coverage": {
+        "description": "Generate coverage report",
+        "required": true,
+        "outputs": ["coverage/lcov.info", "coverage/coverage-summary.json"],
+        "min_threshold": 80
+      },
+      "lint": {
+        "description": "Run linting checks",
+        "required": true,
+        "exit_codes": {
+          "0": "No linting errors",
+          "1": "Linting errors found"
+        }
+      },
+      "type-check": {
+        "description": "Run TypeScript type checking",
+        "required": true,
+        "exit_codes": {
+          "0": "No type errors",
+          "1": "Type errors found"
+        }
+      },
+      "build": {
+        "description": "Build the package",
+        "required": true,
+        "outputs": ["dist/", "lib/", "build/"],
+        "exit_codes": {
+          "0": "Build successful",
+          "1": "Build failed"
+        }
+      },
+      "ci": {
+        "description": "Run all CI checks",
+        "required": false,
+        "composite": ["lint", "type-check", "test", "coverage", "build"]
+      }
+    },
+    "package_json_requirements": {
+      "name": "required",
+      "version": "required",
+      "description": "required",
+      "main": "required",
+      "types": "required_if_typescript",
+      "files": "required",
+      "repository": "required",
+      "author": "required",
+      "license": "required",
+      "engines": {
+        "node": ">=17"
+      },
+      "publishConfig": {
+        "access": "public",
+        "provenance": true
+      }
+    }
+  }
+}

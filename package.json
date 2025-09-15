@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:demo": "LLM_REPORTER_DEMO=1 vitest run",
@@ -17,10 +18,12 @@
     "bench:reporter": "vitest -c vitest.bench.config.ts run tests/benchmarks/reporter.bench.ts",
     "bench:large-suites": "vitest -c vitest.bench.config.ts run tests/benchmarks/large-suites.bench.ts",
     "bench:all": "npm run bench:reporter && npm run bench:large-suites",
+    "coverage": "vitest run --coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
+    "ci": "npm run lint && npm run type-check && npm run test && npm run coverage && npm run build",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -44,6 +47,10 @@
   "engines": {
     "node": ">=17.0.0"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "files": [
     "dist"
   ],
@@ -56,6 +63,7 @@
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@types/debug": "^4.1.12",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.2.1",
     "@typescript-eslint/eslint-plugin": "^8.39.1",
     "@typescript-eslint/parser": "^8.39.1",
@@ -64,6 +72,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-vitest": "^0.5.4",
+    "js-yaml": "^4.1.0",
     "prettier": "^3.6.2",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4",
