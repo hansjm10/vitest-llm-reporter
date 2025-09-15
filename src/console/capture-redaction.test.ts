@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 // This test file intentionally uses console statements to test console capture functionality
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'

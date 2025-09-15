@@ -63,6 +63,18 @@ export interface LLMReporterConfig {
   warnWhenConsoleBlocked?: boolean
   /** Fallback: also write JSON to stderr if stdout write fails (default: true) */
   fallbackToStderrOnBlocked?: boolean
+  /** Configuration for log deduplication (default: undefined = disabled) */
+  deduplicateLogs?:
+    | boolean
+    | {
+        enabled?: boolean
+        maxCacheEntries?: number
+        timeWindowMs?: number
+        normalizeWhitespace?: boolean
+        includeSources?: boolean
+        stripTimestamps?: boolean
+        stripAnsiCodes?: boolean
+      }
 }
 
 /**

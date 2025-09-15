@@ -4,8 +4,7 @@ import type { ConsoleCaptureConfig, ConsoleMethod, CaptureResult } from '../type
 import type { ConsoleEvent } from '../types/schema.js'
 import { ConsoleInterceptor } from './interceptor.js'
 import { createLogger } from '../utils/logger.js'
-import type { ILogDeduplicator, DeduplicationStats } from '../types/deduplication.js'
-import { LogDeduplicator } from './LogDeduplicator.js'
+import type { ILogDeduplicator } from '../types/deduplication.js'
 
 /**
  * Console Capture
@@ -41,7 +40,7 @@ export class ConsoleCapture {
   private cleanupTimers = new Map<string, ReturnType<typeof globalThis.setTimeout>>()
   // Track test generation to prevent race conditions in cleanup
   private testGeneration = new Map<string, number>()
-  private deduplicator?: ILogDeduplicator
+  public deduplicator?: ILogDeduplicator
 
   constructor(config: ConsoleCaptureConfig & { deduplicator?: ILogDeduplicator } = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -209,7 +208,7 @@ export class ConsoleCapture {
     // Return in the expected format even when deduplication is disabled
     // Add message field to each event for consistency
     return {
-      entries: events.map(event => ({
+      entries: events.map((event) => ({
         ...event,
         message: event.text // Add message field for compatibility
       }))
@@ -270,6 +269,13 @@ export class ConsoleCapture {
 
     this.interceptor.unpatchAll()
     this.debug('Console methods restored')
+  }
+
+  /**
+   * Alias for unpatchConsole() to support test compatibility
+   */
+  restore(): void {
+    this.unpatchConsole()
   }
 
   /**
@@ -345,14 +351,41 @@ export class ConsoleCapture {
   /**
    * Get deduplication statistics
    */
-  getDeduplicationStats() {
-    return this.deduplicator?.getStats()
+  getDeduplicationStats(): {
+    totalLogs: number
+    uniqueLogs: number
+    duplicatesRemoved: number
+    cacheSize: number
+    processingTimeMs: number
+  } {
+    if (!this.deduplicator) {
+      return {
+        totalLogs: 0,
+        uniqueLogs: 0,
+        duplicatesRemoved: 0,
+        cacheSize: 0,
+        processingTimeMs: 0
+      }
+    }
+    return this.deduplicator.getStats()
   }
 
   /**
    * Get deduplication summary with all unique entries
    */
-  getDeduplicationSummary() {
+  getDeduplicationSummary(): {
+    entries: Array<{
+      message: string
+      level: string
+      deduplication: {
+        count: number
+        firstSeen: string
+        lastSeen: string
+        sources: string[]
+        deduplicated: boolean
+      }
+    }>
+  } {
     if (!this.deduplicator) {
       return { entries: [] }
     }
@@ -376,7 +409,13 @@ export class ConsoleCapture {
   /**
    * Get global deduplication statistics across all tests
    */
-  getGlobalDeduplicationStats() {
+  getGlobalDeduplicationStats(): {
+    totalLogs: number
+    uniqueLogs: number
+    duplicatesRemoved: number
+    cacheSize: number
+    processingTimeMs: number
+  } {
     return (
       this.deduplicator?.getStats() || {
         totalLogs: 0,

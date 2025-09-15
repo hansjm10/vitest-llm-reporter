@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- This file tests console capture functionality */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { ConsoleCapture } from './capture.js'
 import { ConsoleInterceptor } from './interceptor.js'

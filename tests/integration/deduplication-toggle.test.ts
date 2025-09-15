@@ -5,7 +5,7 @@
  * These tests MUST FAIL initially (TDD Red phase)
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import type { DeduplicationConfig } from '../../src/types/deduplication.js'
 import type { LLMReporterConfigWithDeduplication } from '../../src/config/deduplication-config.js'
 
@@ -333,7 +333,7 @@ describe('Integration: Configuration Toggle', () => {
       invalidConfigs.forEach((config) => {
         expect(() => {
           // @ts-expect-error - Testing invalid config
-          const reporter = new LLMReporter(config)
+          new LLMReporter(config)
         }).toThrow()
       })
     })

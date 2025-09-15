@@ -38,7 +38,6 @@ describe('LLMReporter Console Capture Integration', () => {
 
     // Simulate console output during test execution context
     await consoleCapture.runWithCapture('test-1', () => {
-      // eslint-disable-next-line no-console -- Testing console capture
       console.log('Starting test')
       console.error('Something went wrong')
       console.warn('Warning message')
@@ -95,7 +94,7 @@ describe('LLMReporter Console Capture Integration', () => {
     reporter.onTestCaseReady(testCase)
 
     // Simulate console output during test
-    // eslint-disable-next-line no-console -- Testing console capture
+
     console.log('This should not be captured')
 
     // End test with success
@@ -138,7 +137,7 @@ describe('LLMReporter Console Capture Integration', () => {
     reporter.onTestCaseReady(testCase)
 
     // Simulate console output during test
-    // eslint-disable-next-line no-console -- Testing console capture
+
     console.log('This should not be captured')
 
     // End test with failure

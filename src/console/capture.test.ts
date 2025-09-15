@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- This file tests console capture functionality */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ConsoleCapture } from './capture.js'
 
@@ -83,11 +82,19 @@ describe('ConsoleCapture', () => {
       const output1 = capture.stopCapture(test1)
       const output2 = capture.stopCapture(test2)
 
-      expect(output1.entries.some((e) => e.level === 'log' && e.text === 'Test 1 output')).toBe(true)
-      expect(output1.entries.some((e) => e.level === 'log' && e.text === 'Test 2 output')).toBe(false)
+      expect(output1.entries.some((e) => e.level === 'log' && e.text === 'Test 1 output')).toBe(
+        true
+      )
+      expect(output1.entries.some((e) => e.level === 'log' && e.text === 'Test 2 output')).toBe(
+        false
+      )
 
-      expect(output2.entries.some((e) => e.level === 'log' && e.text === 'Test 2 output')).toBe(true)
-      expect(output2.entries.some((e) => e.level === 'log' && e.text === 'Test 1 output')).toBe(false)
+      expect(output2.entries.some((e) => e.level === 'log' && e.text === 'Test 2 output')).toBe(
+        true
+      )
+      expect(output2.entries.some((e) => e.level === 'log' && e.text === 'Test 1 output')).toBe(
+        false
+      )
     })
 
     it('should handle parallel test execution', async () => {
@@ -228,10 +235,14 @@ describe('ConsoleCapture', () => {
       const output = capture.stopCapture(testId)
 
       expect(output.entries.some((e) => e.level === 'log' && e.text === 'Log message')).toBe(true)
-      expect(output.entries.some((e) => e.level === 'error' && e.text === 'Error message')).toBe(true)
+      expect(output.entries.some((e) => e.level === 'error' && e.text === 'Error message')).toBe(
+        true
+      )
       expect(output.entries.some((e) => e.level === 'warn' && e.text === 'Warn message')).toBe(true)
       expect(output.entries.some((e) => e.level === 'info' && e.text === 'Info message')).toBe(true)
-      expect(output.entries.some((e) => e.level === 'debug' && e.text === 'Debug message')).toBe(true)
+      expect(output.entries.some((e) => e.level === 'debug' && e.text === 'Debug message')).toBe(
+        true
+      )
     })
 
     it('should handle complex objects', () => {

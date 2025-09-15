@@ -297,7 +297,7 @@ export class TestDataGenerator {
    * @param filepath - Optional filepath for the module
    * @returns A TestModule-like object with children() function
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   static wrapTasksInModule(tasks: Task[], filepath = '/test/benchmark.test.ts'): any {
     return {
       id: filepath,

@@ -6,18 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import type {
-  ILogDeduplicator,
-  LogEntry,
-  DeduplicationEntry,
-  DeduplicationStats,
-  DeduplicationConfig
-} from '../../src/types/deduplication.js'
-import {
-  createLogEntry,
-  createDuplicateLogEntries,
-  createMultiLevelLogEntries
-} from '../utils/deduplication-helpers.js'
+import type { ILogDeduplicator, DeduplicationConfig } from '../../src/types/deduplication.js'
+import { createLogEntry, createDuplicateLogEntries } from '../utils/deduplication-helpers.js'
 
 // This import will fail initially - LogDeduplicator doesn't exist yet
 // @ts-expect-error - Implementation doesn't exist yet (TDD)

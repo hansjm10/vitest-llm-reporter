@@ -100,11 +100,6 @@ export class ConsoleBuffer {
       event.args = serializedArgs
     }
 
-    // Add deduplication info if this is the first occurrence of a duplicate
-    if (deduplicationKey) {
-      ;(event as any).deduplicationKey = deduplicationKey
-    }
-
     // Add the event
     this.events.push(event)
     this.totalBytes += bytes

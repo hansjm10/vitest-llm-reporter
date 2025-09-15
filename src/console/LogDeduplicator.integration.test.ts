@@ -3,7 +3,7 @@
  * This is a simplified test to verify the integration works
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { LogDeduplicator } from './LogDeduplicator.js'
 import { ConsoleCapture } from './capture.js'
 import { ConsoleBuffer } from './buffer.js'

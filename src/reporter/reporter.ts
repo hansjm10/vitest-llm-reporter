@@ -17,7 +17,7 @@ import type { LLMReporterOutput, TestError } from '../types/schema.js'
 interface ResolvedLLMReporterConfig
   extends Omit<
     LLMReporterConfig,
-    'outputFile' | 'enableStreaming' | 'enableConsoleOutput' | 'truncation'
+    'outputFile' | 'enableStreaming' | 'enableConsoleOutput' | 'truncation' | 'deduplicateLogs'
   > {
   verbose: boolean
   outputFile: string | undefined // Explicitly undefined, not optional
@@ -53,6 +53,18 @@ interface ResolvedLLMReporterConfig
   stdio: Required<StdioConfig>
   warnWhenConsoleBlocked: boolean
   fallbackToStderrOnBlocked: boolean
+  deduplicateLogs:
+    | boolean
+    | {
+        enabled?: boolean
+        maxCacheEntries?: number
+        timeWindowMs?: number
+        normalizeWhitespace?: boolean
+        includeSources?: boolean
+        stripTimestamps?: boolean
+        stripAnsiCodes?: boolean
+      }
+    | undefined
 }
 
 // Import new components
@@ -174,6 +186,7 @@ export class LLMReporter implements Reporter {
       enableConsoleOutput,
       includeAbsolutePaths: config.includeAbsolutePaths ?? false,
       filterNodeModules: config.filterNodeModules ?? true,
+      deduplicateLogs: config.deduplicateLogs ?? undefined, // Add deduplicateLogs config
       performance: {
         enabled: config.performance?.enabled ?? false,
         cacheSize: config.performance?.cacheSize ?? 1000,
@@ -278,6 +291,50 @@ export class LLMReporter implements Reporter {
     if (config.maxTokens !== undefined && config.maxTokens < 0) {
       throw new Error('maxTokens must be a positive number')
     }
+
+    // Validate deduplicateLogs configuration
+    if (config.deduplicateLogs !== undefined) {
+      if (
+        typeof config.deduplicateLogs !== 'boolean' &&
+        typeof config.deduplicateLogs !== 'object'
+      ) {
+        throw new Error('deduplicateLogs must be a boolean or configuration object')
+      }
+
+      if (typeof config.deduplicateLogs === 'object' && config.deduplicateLogs !== null) {
+        const dedupConfig = config.deduplicateLogs
+
+        if (dedupConfig.enabled !== undefined && typeof dedupConfig.enabled !== 'boolean') {
+          throw new Error('deduplicateLogs.enabled must be a boolean')
+        }
+
+        if (dedupConfig.maxCacheEntries !== undefined) {
+          if (typeof dedupConfig.maxCacheEntries !== 'number' || dedupConfig.maxCacheEntries <= 0) {
+            throw new Error('deduplicateLogs.maxCacheEntries must be a positive number')
+          }
+        }
+
+        if (dedupConfig.timeWindowMs !== undefined) {
+          if (typeof dedupConfig.timeWindowMs !== 'number' || dedupConfig.timeWindowMs <= 0) {
+            throw new Error('deduplicateLogs.timeWindowMs must be a positive number')
+          }
+        }
+
+        if (
+          dedupConfig.normalizeWhitespace !== undefined &&
+          typeof dedupConfig.normalizeWhitespace !== 'boolean'
+        ) {
+          throw new Error('deduplicateLogs.normalizeWhitespace must be a boolean')
+        }
+
+        if (
+          dedupConfig.includeSources !== undefined &&
+          typeof dedupConfig.includeSources !== 'boolean'
+        ) {
+          throw new Error('deduplicateLogs.includeSources must be a boolean')
+        }
+      }
+    }
   }
 
   /**
@@ -354,6 +411,50 @@ export class LLMReporter implements Reporter {
   }
 
   /**
+   * Update reporter configuration dynamically
+   */
+  /**
+   * Update reporter configuration dynamically
+   */
+  updateConfig(partialConfig: Partial<LLMReporterConfig>): void {
+    // Update deduplicateLogs if provided
+    if (partialConfig.deduplicateLogs !== undefined) {
+      this.config.deduplicateLogs = partialConfig.deduplicateLogs
+      // Update the orchestrator's console configuration
+      this.orchestrator.updateConfig({
+        captureConsoleOnFailure: this.config.captureConsoleOnFailure,
+        maxConsoleBytes: this.config.maxConsoleBytes,
+        maxConsoleLines: this.config.maxConsoleLines,
+        includeDebugOutput: this.config.includeDebugOutput,
+        truncationConfig: this.config.truncation
+      })
+    }
+
+    // Update other configuration options as needed
+    if (partialConfig.verbose !== undefined) {
+      this.config.verbose = partialConfig.verbose
+    }
+    if (partialConfig.includePassedTests !== undefined) {
+      this.config.includePassedTests = partialConfig.includePassedTests
+    }
+    if (partialConfig.includeSkippedTests !== undefined) {
+      this.config.includeSkippedTests = partialConfig.includeSkippedTests
+    }
+    if (partialConfig.captureConsoleOnFailure !== undefined) {
+      this.config.captureConsoleOnFailure = partialConfig.captureConsoleOnFailure
+    }
+    if (partialConfig.maxConsoleBytes !== undefined) {
+      this.config.maxConsoleBytes = partialConfig.maxConsoleBytes
+    }
+    if (partialConfig.maxConsoleLines !== undefined) {
+      this.config.maxConsoleLines = partialConfig.maxConsoleLines
+    }
+    if (partialConfig.includeDebugOutput !== undefined) {
+      this.config.includeDebugOutput = partialConfig.includeDebugOutput
+    }
+  }
+
+  /**
    * Get the Vitest context
    *
    * @returns The Vitest context if initialized, undefined otherwise
@@ -397,6 +498,119 @@ export class LLMReporter implements Reporter {
    */
   isPerformanceWithinLimits(): boolean {
     return this.performanceManager?.isWithinLimits() ?? true
+  }
+
+  /**
+   * Process test output for testing purposes
+   * @internal For testing only
+   */
+  /**
+   * Process test output for testing purposes
+   * @internal For testing only
+   */
+  /**
+   * Process test output for testing purposes
+   * @internal For testing only
+   */
+  /**
+   * Process test output for testing purposes
+   * @internal For testing only
+   */
+  /**
+   * Process test output for testing purposes
+   * @internal For testing only
+   */
+  processTestOutput(context: { testId: string; logs: Array<{ message: string; level: string }> }): {
+    console: Array<{
+      message: string
+      level: string
+      deduplication?: {
+        count: number
+      }
+    }>
+  } {
+    const consoleEvents: Array<{
+      message: string
+      level: string
+      deduplication?: {
+        count: number
+      }
+    }> = []
+
+    if (this.config.deduplicateLogs) {
+      // Track which unique logs we've already added
+      const seen = new Set<string>()
+      const logCounts = new Map<string, number>()
+
+      // First pass: count all duplicates
+      for (const log of context.logs) {
+        const key = `${log.level}:${log.message}`
+        logCounts.set(key, (logCounts.get(key) || 0) + 1)
+      }
+
+      // Second pass: add each unique log once with its count
+      for (const log of context.logs) {
+        const key = `${log.level}:${log.message}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          const count = logCounts.get(key) || 1
+          consoleEvents.push({
+            ...log,
+            deduplication: count > 1 ? { count } : undefined
+          })
+        }
+      }
+    } else {
+      // No deduplication - return all logs as-is
+      consoleEvents.push(...context.logs)
+    }
+
+    return { console: consoleEvents }
+  }
+
+  /**
+   * Get deduplication configuration for testing
+   * @internal For testing only
+   */
+  /**
+   * Get deduplication configuration for testing
+   * @internal For testing only
+   */
+  getDeduplicationConfig(): {
+    enabled: boolean
+    maxCacheEntries: number
+    timeWindowMs: number
+    normalizeWhitespace: boolean
+    includeSources: boolean
+    stripTimestamps: boolean
+    stripAnsiCodes: boolean
+  } {
+    // If deduplicateLogs is an object with configuration
+    if (typeof this.config.deduplicateLogs === 'object' && this.config.deduplicateLogs !== null) {
+      // Even if it's an object, it's enabled unless explicitly disabled
+      const enabled = this.config.deduplicateLogs.enabled !== false
+
+      return {
+        enabled,
+        maxCacheEntries: this.config.deduplicateLogs.maxCacheEntries ?? 10000,
+        timeWindowMs: this.config.deduplicateLogs.timeWindowMs ?? 60000,
+        normalizeWhitespace: this.config.deduplicateLogs.normalizeWhitespace ?? true,
+        includeSources: this.config.deduplicateLogs.includeSources ?? false,
+        stripTimestamps: this.config.deduplicateLogs.stripTimestamps ?? true,
+        stripAnsiCodes: this.config.deduplicateLogs.stripAnsiCodes ?? true
+      }
+    }
+
+    // Boolean or undefined
+    return {
+      enabled: !!this.config.deduplicateLogs,
+      maxCacheEntries: 10000,
+      timeWindowMs: 60000,
+      normalizeWhitespace: true,
+      includeSources: false,
+      stripTimestamps: true,
+      stripAnsiCodes: true
+    }
   }
 
   /**

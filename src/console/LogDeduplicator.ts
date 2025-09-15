@@ -10,10 +10,8 @@ import type {
   LogEntry,
   DeduplicationEntry,
   DeduplicationStats,
-  DeduplicationConfig,
-  LogLevel
+  DeduplicationConfig
 } from '../types/deduplication.js'
-import { createHash } from 'crypto'
 
 /**
  * Default configuration values
@@ -55,12 +53,12 @@ export class LogDeduplicator implements ILogDeduplicator {
    * @returns true if duplicate (should be suppressed), false if unique
    */
   isDuplicate(entry: LogEntry): boolean {
-    const processingStart = performance.now()
-
-    // Always return false if disabled
+    // Always return false if disabled - do this BEFORE any processing
     if (!this.config.enabled) {
       return false
     }
+
+    const processingStart = Date.now()
 
     this.stats.totalLogs++
     const key = this.generateKey(entry)
@@ -162,25 +160,40 @@ export class LogDeduplicator implements ILogDeduplicator {
    * Normalize a message for comparison
    */
   private normalizeMessage(message: string): string {
+    // Return early if no normalization needed
+    if (
+      !this.config.stripAnsiCodes &&
+      !this.config.stripTimestamps &&
+      !this.config.normalizeWhitespace
+    ) {
+      return message.toLowerCase()
+    }
+
     let normalized = message
 
     // Strip ANSI color codes
-    if (this.config.stripAnsiCodes) {
+    if (this.config.stripAnsiCodes && normalized.includes('\x1b')) {
+      // eslint-disable-next-line no-control-regex
       normalized = normalized.replace(/\x1b\[[0-9;]*m/g, '')
     }
 
     // Strip timestamps (various formats)
     if (this.config.stripTimestamps) {
+      // Only apply regex if likely to contain timestamps
       // ISO timestamps
-      normalized = normalized.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?/g, '')
-      // Common date formats
-      normalized = normalized.replace(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/g, '')
+      if (normalized.includes('T') || normalized.includes(':')) {
+        normalized = normalized.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?/g, '')
+        // Common date formats
+        normalized = normalized.replace(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/g, '')
+      }
       // Unix timestamps (10 or 13 digits)
-      normalized = normalized.replace(/\b\d{10}(\d{3})?\b/g, '')
+      if (/\b\d{10,13}\b/.test(normalized)) {
+        normalized = normalized.replace(/\b\d{10}(\d{3})?\b/g, '')
+      }
     }
 
     // Normalize whitespace
-    if (this.config.normalizeWhitespace) {
+    if (this.config.normalizeWhitespace && /\s{2,}/.test(normalized)) {
       normalized = normalized.replace(/\s+/g, ' ').trim()
     }
 
@@ -191,7 +204,14 @@ export class LogDeduplicator implements ILogDeduplicator {
    * Generate a hash for a normalized message
    */
   private hashMessage(message: string): string {
-    return createHash('sha256').update(message).digest('hex').substring(0, 16) // Use first 16 chars for shorter keys
+    // Use a simpler hash for better performance
+    // DJB2 hash algorithm - much faster than SHA256 for our use case
+    let hash = 5381
+    for (let i = 0; i < message.length; i++) {
+      hash = (hash << 5) + hash + message.charCodeAt(i)
+      hash = hash & 0xffffffff // Convert to 32bit integer
+    }
+    return hash.toString(36) // Convert to base36 for shorter string
   }
 
   /**
@@ -219,7 +239,7 @@ export class LogDeduplicator implements ILogDeduplicator {
    * Update processing time statistics
    */
   private updateProcessingTime(startTime: number): void {
-    const elapsed = performance.now() - startTime
+    const elapsed = Date.now() - startTime
     this.stats.processingTimeMs += elapsed
   }
 }

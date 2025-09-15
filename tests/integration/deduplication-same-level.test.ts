@@ -6,11 +6,6 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import {
-  createLogEntry,
-  createDuplicateLogEntries,
-  MockLogDeduplicator
-} from '../utils/deduplication-helpers.js'
 import type { DeduplicationConfig } from '../../src/types/deduplication.js'
 
 // These imports will fail initially - implementations don't exist yet
@@ -18,9 +13,6 @@ import type { DeduplicationConfig } from '../../src/types/deduplication.js'
 import { LogDeduplicator } from '../../src/console/LogDeduplicator'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
 import { ConsoleCapture } from '../../src/console/capture'
-// @ts-expect-error - Implementation doesn't exist yet (TDD)
-// @ts-expect-error - Using actual buffer.ts file
-import { ConsoleBuffer } from '../../src/console/buffer'
 
 describe('Integration: Same Log Same Level Deduplication', () => {
   let consoleCapture: any // ConsoleCapture
@@ -230,15 +222,15 @@ describe('Integration: Same Log Same Level Deduplication', () => {
   describe('Source tracking', () => {
     it('should track test IDs that generated duplicate logs', () => {
       // Simulate multiple tests logging the same message
-      const test1Output = consoleCapture.captureForTest('test-1', () => {
+      consoleCapture.captureForTest('test-1', () => {
         console.log('Shared message')
       })
 
-      const test2Output = consoleCapture.captureForTest('test-2', () => {
+      consoleCapture.captureForTest('test-2', () => {
         console.log('Shared message')
       })
 
-      const test3Output = consoleCapture.captureForTest('test-3', () => {
+      consoleCapture.captureForTest('test-3', () => {
         console.log('Shared message')
       })
 

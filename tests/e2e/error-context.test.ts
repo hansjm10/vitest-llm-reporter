@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * End-to-End test for Error Context Extraction feature
  *

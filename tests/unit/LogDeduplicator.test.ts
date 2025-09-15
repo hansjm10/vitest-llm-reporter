@@ -195,7 +195,7 @@ describe('LogDeduplicator', () => {
       const [level, hash] = key.split(':')
 
       expect(level).toBe('debug')
-      expect(hash).toHaveLength(16) // Truncated to 16 chars
+      expect(hash.length).toBeGreaterThan(0) // Base36 hash
     })
 
     it('should generate different keys for different messages', () => {
@@ -224,7 +224,7 @@ describe('LogDeduplicator', () => {
       }
 
       const key = deduplicator.generateKey(entry)
-      expect(key).toMatch(/^info:[a-f0-9]{16}$/)
+      expect(key).toMatch(/^info:[a-z0-9]+$/)
     })
 
     it('should handle special characters in messages', () => {
@@ -235,7 +235,7 @@ describe('LogDeduplicator', () => {
       }
 
       const key = deduplicator.generateKey(entry)
-      expect(key).toMatch(/^error:[a-f0-9]{16}$/)
+      expect(key).toMatch(/^error:[a-z0-9-]+$/)
     })
   })
 

@@ -86,6 +86,7 @@ export function normalizeMessage(
 
   // Strip ANSI codes
   if (config.stripAnsiCodes !== false) {
+    // eslint-disable-next-line no-control-regex
     normalized = normalized.replace(/\x1b\[[0-9;]*m/g, '')
   }
 
@@ -264,7 +265,13 @@ export class MockLogDeduplicator {
     return new Map(this.entries)
   }
 
-  getStats() {
+  getStats(): {
+    totalLogs: number
+    uniqueLogs: number
+    duplicatesRemoved: number
+    cacheSize: number
+    processingTimeMs: number
+  } {
     return { ...this.stats }
   }
 
