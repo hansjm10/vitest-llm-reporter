@@ -102,7 +102,7 @@ export class ConsoleBuffer {
 
     // Add deduplication info if this is the first occurrence of a duplicate
     if (deduplicationKey) {
-      (event as any).deduplicationKey = deduplicationKey
+      ;(event as any).deduplicationKey = deduplicationKey
     }
 
     // Add the event

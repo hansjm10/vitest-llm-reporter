@@ -4,8 +4,8 @@
  * @module tests/utils/deduplication-helpers
  */
 
-import type { 
-  LogEntry, 
+import type {
+  LogEntry,
   DeduplicationEntry,
   DeduplicationConfig,
   LogLevel,
@@ -24,7 +24,7 @@ export function createLogEntry(
     message,
     level,
     timestamp: new Date(),
-    testId: testId || 'test-' + Math.random().toString(36).substring(7),
+    testId: testId || 'test-' + Math.random().toString(36).substring(7)
   }
 }
 
@@ -37,7 +37,7 @@ export function createDuplicateLogEntries(
   level: LogLevel = 'log',
   testIdPrefix = 'test'
 ): LogEntry[] {
-  return Array.from({ length: count }, (_, i) => 
+  return Array.from({ length: count }, (_, i) =>
     createLogEntry(message, level, `${testIdPrefix}-${i}`)
   )
 }
@@ -49,9 +49,7 @@ export function createMultiLevelLogEntries(
   message: string,
   levels: LogLevel[] = ['debug', 'info', 'warn', 'error']
 ): LogEntry[] {
-  return levels.map((level, i) => 
-    createLogEntry(message, level, `test-${level}-${i}`)
-  )
+  return levels.map((level, i) => createLogEntry(message, level, `test-${level}-${i}`))
 }
 
 /**
@@ -73,7 +71,7 @@ export function createDeduplicationEntry(
     firstSeen: now,
     lastSeen: now,
     count,
-    sources: new Set(sources),
+    sources: new Set(sources)
   }
 }
 
@@ -85,23 +83,23 @@ export function normalizeMessage(
   config: Partial<DeduplicationConfig> = {}
 ): string {
   let normalized = message
-  
+
   // Strip ANSI codes
   if (config.stripAnsiCodes !== false) {
     normalized = normalized.replace(/\x1b\[[0-9;]*m/g, '')
   }
-  
+
   // Strip timestamps (ISO date patterns)
   if (config.stripTimestamps !== false) {
     normalized = normalized.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/g, '')
     normalized = normalized.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/g, '')
   }
-  
+
   // Normalize whitespace
   if (config.normalizeWhitespace !== false) {
     normalized = normalized.replace(/\s+/g, ' ').trim()
   }
-  
+
   return normalized.toLowerCase()
 }
 
@@ -121,7 +119,7 @@ export function simpleHash(str: string): string {
   let hash = 0
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
+    hash = (hash << 5) - hash + char
     hash = hash & hash // Convert to 32-bit integer
   }
   return Math.abs(hash).toString(36)
@@ -138,19 +136,15 @@ export function assertHasDeduplicationMetadata(
   if (!output.deduplication) {
     throw new Error('Expected deduplication metadata but found none')
   }
-  
+
   if (output.deduplication.count !== expectedCount) {
-    throw new Error(
-      `Expected count ${expectedCount} but got ${output.deduplication.count}`
-    )
+    throw new Error(`Expected count ${expectedCount} but got ${output.deduplication.count}`)
   }
-  
+
   if (expectedSources && output.deduplication.sources) {
     const sources = output.deduplication.sources
     if (sources.length !== expectedSources.length) {
-      throw new Error(
-        `Expected ${expectedSources.length} sources but got ${sources.length}`
-      )
+      throw new Error(`Expected ${expectedSources.length} sources but got ${sources.length}`)
     }
     for (const source of expectedSources) {
       if (!sources.includes(source)) {
@@ -169,16 +163,16 @@ export function createLargeLogDataset(
   levels: LogLevel[] = ['debug', 'info', 'warn', 'error']
 ): LogEntry[] {
   const entries: LogEntry[] = []
-  
+
   for (let i = 0; i < uniqueMessages; i++) {
     const message = `Log message ${i}: ${generateRandomMessage()}`
     const level = levels[i % levels.length]
-    
+
     for (let j = 0; j < duplicatesPerMessage; j++) {
       entries.push(createLogEntry(message, level, `test-${i}-${j}`))
     }
   }
-  
+
   // Shuffle to simulate random order
   return shuffleArray(entries)
 }
@@ -193,9 +187,9 @@ function generateRandomMessage(): string {
     'Error occurred: {}',
     'Successfully completed operation {}',
     'Warning: {} detected',
-    'Debug: state = {}',
+    'Debug: state = {}'
   ]
-  
+
   const template = templates[Math.floor(Math.random() * templates.length)]
   const value = Math.random().toString(36).substring(7)
   return template.replace('{}', value)
@@ -223,15 +217,15 @@ export class MockLogDeduplicator {
     uniqueLogs: 0,
     duplicatesRemoved: 0,
     cacheSize: 0,
-    processingTimeMs: 0,
+    processingTimeMs: 0
   }
-  
+
   constructor(private config: DeduplicationConfig) {}
-  
+
   isDuplicate(entry: LogEntry): boolean {
     this.stats.totalLogs++
     const key = this.generateKey(entry)
-    
+
     if (this.entries.has(key)) {
       const existing = this.entries.get(key)!
       existing.count++
@@ -242,35 +236,38 @@ export class MockLogDeduplicator {
       this.stats.duplicatesRemoved++
       return true
     }
-    
-    this.entries.set(key, createDeduplicationEntry(
+
+    this.entries.set(
       key,
-      entry.message,
-      entry.level,
-      1,
-      entry.testId ? [entry.testId] : []
-    ))
+      createDeduplicationEntry(
+        key,
+        entry.message,
+        entry.level,
+        1,
+        entry.testId ? [entry.testId] : []
+      )
+    )
     this.stats.uniqueLogs++
     this.stats.cacheSize = this.entries.size
     return false
   }
-  
+
   generateKey(entry: LogEntry): string {
     return generateTestKey(entry.level, entry.message)
   }
-  
+
   getMetadata(key: string): DeduplicationEntry | undefined {
     return this.entries.get(key)
   }
-  
+
   getAllEntries(): Map<string, DeduplicationEntry> {
     return new Map(this.entries)
   }
-  
+
   getStats() {
     return { ...this.stats }
   }
-  
+
   clear(): void {
     this.entries.clear()
     this.stats = {
@@ -278,10 +275,10 @@ export class MockLogDeduplicator {
       uniqueLogs: 0,
       duplicatesRemoved: 0,
       cacheSize: 0,
-      processingTimeMs: 0,
+      processingTimeMs: 0
     }
   }
-  
+
   isEnabled(): boolean {
     return this.config.enabled
   }

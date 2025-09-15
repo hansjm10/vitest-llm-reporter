@@ -27,7 +27,7 @@ export const DEFAULT_DEDUPLICATION_CONFIG: DeduplicationConfig = {
   includeSources: false,
   normalizeWhitespace: true,
   stripTimestamps: true,
-  stripAnsiCodes: true,
+  stripAnsiCodes: true
 }
 
 /**
@@ -40,14 +40,14 @@ export function normalizeDeduplicationConfig(
   if (config === undefined || config === false) {
     return { ...DEFAULT_DEDUPLICATION_CONFIG, enabled: false }
   }
-  
+
   if (config === true) {
     return { ...DEFAULT_DEDUPLICATION_CONFIG, enabled: true }
   }
-  
+
   return {
     ...DEFAULT_DEDUPLICATION_CONFIG,
-    ...config,
+    ...config
   }
 }
 
@@ -64,15 +64,15 @@ export function validateDeduplicationConfig(config: DeduplicationConfig): void {
       throw new Error('maxCacheEntries exceeds maximum limit of 100000')
     }
   }
-  
+
   const booleanFields: (keyof DeduplicationConfig)[] = [
     'enabled',
     'includeSources',
     'normalizeWhitespace',
     'stripTimestamps',
-    'stripAnsiCodes',
+    'stripAnsiCodes'
   ]
-  
+
   for (const field of booleanFields) {
     if (config[field] !== undefined && typeof config[field] !== 'boolean') {
       throw new Error(`${field} must be a boolean`)

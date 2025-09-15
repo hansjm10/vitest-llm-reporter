@@ -16,7 +16,7 @@ describe('LogDeduplicator', () => {
         enabled: true,
         normalizeWhitespace: true,
         stripTimestamps: true,
-        stripAnsiCodes: true,
+        stripAnsiCodes: true
       })
     })
 
@@ -24,12 +24,12 @@ describe('LogDeduplicator', () => {
       const entry1: LogEntry = {
         message: 'Multiple   spaces    between     words',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
       const entry2: LogEntry = {
         message: 'Multiple spaces between words',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       // First entry is unique
@@ -42,12 +42,12 @@ describe('LogDeduplicator', () => {
       const entry1: LogEntry = {
         message: '\x1b[31mRed text\x1b[0m with \x1b[32mgreen\x1b[0m',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
       const entry2: LogEntry = {
         message: 'Red text with green',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       expect(deduplicator.isDuplicate(entry1)).toBe(false)
@@ -58,12 +58,12 @@ describe('LogDeduplicator', () => {
       const entry1: LogEntry = {
         message: 'Event at 2024-01-15T10:30:45.123Z occurred',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
       const entry2: LogEntry = {
         message: 'Event at 2024-01-15T14:25:30.456Z occurred',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       expect(deduplicator.isDuplicate(entry1)).toBe(false)
@@ -74,12 +74,12 @@ describe('LogDeduplicator', () => {
       const entry1: LogEntry = {
         message: 'Process started at 2024-01-15 10:30:45',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
       const entry2: LogEntry = {
         message: 'Process started at 2024-01-16 14:25:30',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       expect(deduplicator.isDuplicate(entry1)).toBe(false)
@@ -90,12 +90,12 @@ describe('LogDeduplicator', () => {
       const entry1: LogEntry = {
         message: 'Timestamp: 1705321845 in the log',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
       const entry2: LogEntry = {
         message: 'Timestamp: 1705408245 in the log',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       expect(deduplicator.isDuplicate(entry1)).toBe(false)
@@ -106,12 +106,12 @@ describe('LogDeduplicator', () => {
       const entry1: LogEntry = {
         message: '\x1b[33mWarning:\x1b[0m  Process   at 2024-01-15T10:30:45Z   completed',
         level: 'warn',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
       const entry2: LogEntry = {
         message: 'Warning: Process at 2024-01-16T14:25:30Z completed',
         level: 'warn',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       expect(deduplicator.isDuplicate(entry1)).toBe(false)
@@ -123,18 +123,18 @@ describe('LogDeduplicator', () => {
         enabled: true,
         normalizeWhitespace: false,
         stripTimestamps: false,
-        stripAnsiCodes: false,
+        stripAnsiCodes: false
       })
 
       const entry1: LogEntry = {
         message: 'Multiple   spaces',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
       const entry2: LogEntry = {
         message: 'Multiple spaces',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       expect(dedupNoNormalize.isDuplicate(entry1)).toBe(false)
@@ -147,7 +147,7 @@ describe('LogDeduplicator', () => {
 
     beforeEach(() => {
       deduplicator = new LogDeduplicator({
-        enabled: true,
+        enabled: true
       })
     })
 
@@ -155,7 +155,7 @@ describe('LogDeduplicator', () => {
       const entry: LogEntry = {
         message: 'Test message',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       const key1 = deduplicator.generateKey(entry)
@@ -168,12 +168,12 @@ describe('LogDeduplicator', () => {
       const infoEntry: LogEntry = {
         message: 'Same message',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
       const warnEntry: LogEntry = {
         message: 'Same message',
         level: 'warn',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       const infoKey = deduplicator.generateKey(infoEntry)
@@ -188,7 +188,7 @@ describe('LogDeduplicator', () => {
       const entry: LogEntry = {
         message: 'A very long message that would create a very long hash if not truncated',
         level: 'debug',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       const key = deduplicator.generateKey(entry)
@@ -202,12 +202,12 @@ describe('LogDeduplicator', () => {
       const entry1: LogEntry = {
         message: 'First message',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
       const entry2: LogEntry = {
         message: 'Second message',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       const key1 = deduplicator.generateKey(entry1)
@@ -220,7 +220,7 @@ describe('LogDeduplicator', () => {
       const entry: LogEntry = {
         message: '',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       const key = deduplicator.generateKey(entry)
@@ -231,7 +231,7 @@ describe('LogDeduplicator', () => {
       const entry: LogEntry = {
         message: '!@#$%^&*()_+-=[]{}|;\':",./<>?',
         level: 'error',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       const key = deduplicator.generateKey(entry)
@@ -243,7 +243,7 @@ describe('LogDeduplicator', () => {
     it('should evict oldest entry when cache is full', () => {
       const deduplicator = new LogDeduplicator({
         enabled: true,
-        maxCacheEntries: 3,
+        maxCacheEntries: 3
       })
 
       // Add entries with different timestamps
@@ -252,17 +252,17 @@ describe('LogDeduplicator', () => {
       const entry1: LogEntry = {
         message: 'First message',
         level: 'info',
-        timestamp: new Date(baseTime.getTime()),
+        timestamp: new Date(baseTime.getTime())
       }
       const entry2: LogEntry = {
         message: 'Second message',
         level: 'info',
-        timestamp: new Date(baseTime.getTime() + 1000),
+        timestamp: new Date(baseTime.getTime() + 1000)
       }
       const entry3: LogEntry = {
         message: 'Third message',
         level: 'info',
-        timestamp: new Date(baseTime.getTime() + 2000),
+        timestamp: new Date(baseTime.getTime() + 2000)
       }
 
       // Fill the cache
@@ -277,7 +277,7 @@ describe('LogDeduplicator', () => {
       const entry4: LogEntry = {
         message: 'Fourth message',
         level: 'info',
-        timestamp: new Date(baseTime.getTime() + 3000),
+        timestamp: new Date(baseTime.getTime() + 3000)
       }
       expect(deduplicator.isDuplicate(entry4)).toBe(false)
 
@@ -292,14 +292,14 @@ describe('LogDeduplicator', () => {
     it('should track cache size correctly', () => {
       const deduplicator = new LogDeduplicator({
         enabled: true,
-        maxCacheEntries: 5,
+        maxCacheEntries: 5
       })
 
       for (let i = 0; i < 5; i++) {
         const entry: LogEntry = {
           message: `Message ${i}`,
           level: 'info',
-          timestamp: new Date(),
+          timestamp: new Date()
         }
         deduplicator.isDuplicate(entry)
       }
@@ -312,7 +312,7 @@ describe('LogDeduplicator', () => {
     it('should maintain cache size limit', () => {
       const deduplicator = new LogDeduplicator({
         enabled: true,
-        maxCacheEntries: 10,
+        maxCacheEntries: 10
       })
 
       // Add 20 unique messages
@@ -320,7 +320,7 @@ describe('LogDeduplicator', () => {
         const entry: LogEntry = {
           message: `Message ${i}`,
           level: 'info',
-          timestamp: new Date(Date.now() + i * 1000), // Different timestamps
+          timestamp: new Date(Date.now() + i * 1000) // Different timestamps
         }
         deduplicator.isDuplicate(entry)
       }
@@ -332,7 +332,7 @@ describe('LogDeduplicator', () => {
 
     it('should clear cache correctly', () => {
       const deduplicator = new LogDeduplicator({
-        enabled: true,
+        enabled: true
       })
 
       // Add some entries
@@ -340,7 +340,7 @@ describe('LogDeduplicator', () => {
         const entry: LogEntry = {
           message: `Message ${i}`,
           level: 'info',
-          timestamp: new Date(),
+          timestamp: new Date()
         }
         deduplicator.isDuplicate(entry)
       }
@@ -362,14 +362,14 @@ describe('LogDeduplicator', () => {
       const deduplicator = new LogDeduplicator({
         enabled: true,
         includeSources: true,
-        maxCacheEntries: 3,
+        maxCacheEntries: 3
       })
 
       const entry: LogEntry = {
         message: 'Repeated message',
         level: 'info',
         timestamp: new Date(),
-        testId: 'test-1',
+        testId: 'test-1'
       }
 
       // First occurrence
@@ -391,13 +391,13 @@ describe('LogDeduplicator', () => {
   describe('Edge Cases', () => {
     it('should handle disabled deduplication', () => {
       const deduplicator = new LogDeduplicator({
-        enabled: false,
+        enabled: false
       })
 
       const entry: LogEntry = {
         message: 'Test message',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       // Should never return true when disabled
@@ -411,14 +411,14 @@ describe('LogDeduplicator', () => {
 
     it('should handle very long messages', () => {
       const deduplicator = new LogDeduplicator({
-        enabled: true,
+        enabled: true
       })
 
       const longMessage = 'x'.repeat(10000)
       const entry: LogEntry = {
         message: longMessage,
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       expect(deduplicator.isDuplicate(entry)).toBe(false)
@@ -427,13 +427,13 @@ describe('LogDeduplicator', () => {
 
     it('should handle unicode characters', () => {
       const deduplicator = new LogDeduplicator({
-        enabled: true,
+        enabled: true
       })
 
       const entry: LogEntry = {
         message: '测试消息 🔥 テスト',
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       }
 
       expect(deduplicator.isDuplicate(entry)).toBe(false)

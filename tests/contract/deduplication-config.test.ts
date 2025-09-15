@@ -1,12 +1,12 @@
 /**
  * Contract test for deduplication configuration
  * Tests the configuration interface and validation
- * 
+ *
  * These tests MUST FAIL initially (TDD Red phase)
  */
 
 import { describe, it, expect } from 'vitest'
-import { 
+import {
   normalizeDeduplicationConfig,
   validateDeduplicationConfig,
   DEFAULT_DEDUPLICATION_CONFIG,
@@ -46,7 +46,7 @@ describe('Deduplication Configuration Contract', () => {
       const partial: DeduplicationConfig = {
         enabled: true,
         maxCacheEntries: 5000,
-        includeSources: true,
+        includeSources: true
       }
       const result = normalizeDeduplicationConfig(partial)
       expect(result.enabled).toBe(true)
@@ -64,7 +64,7 @@ describe('Deduplication Configuration Contract', () => {
         includeSources: true,
         normalizeWhitespace: false,
         stripTimestamps: false,
-        stripAnsiCodes: false,
+        stripAnsiCodes: false
       }
       const result = normalizeDeduplicationConfig(full)
       expect(result).toEqual(full)
@@ -79,7 +79,7 @@ describe('Deduplication Configuration Contract', () => {
         includeSources: true,
         normalizeWhitespace: true,
         stripTimestamps: true,
-        stripAnsiCodes: true,
+        stripAnsiCodes: true
       }
       expect(() => validateDeduplicationConfig(validConfig)).not.toThrow()
     })
@@ -87,55 +87,59 @@ describe('Deduplication Configuration Contract', () => {
     it('should reject negative maxCacheEntries', () => {
       const invalidConfig: DeduplicationConfig = {
         enabled: true,
-        maxCacheEntries: -100,
+        maxCacheEntries: -100
       }
-      expect(() => validateDeduplicationConfig(invalidConfig))
-        .toThrow('maxCacheEntries must be a positive number')
+      expect(() => validateDeduplicationConfig(invalidConfig)).toThrow(
+        'maxCacheEntries must be a positive number'
+      )
     })
 
     it('should reject zero maxCacheEntries', () => {
       const invalidConfig: DeduplicationConfig = {
         enabled: true,
-        maxCacheEntries: 0,
+        maxCacheEntries: 0
       }
-      expect(() => validateDeduplicationConfig(invalidConfig))
-        .toThrow('maxCacheEntries must be a positive number')
+      expect(() => validateDeduplicationConfig(invalidConfig)).toThrow(
+        'maxCacheEntries must be a positive number'
+      )
     })
 
     it('should reject maxCacheEntries over 100000', () => {
       const invalidConfig: DeduplicationConfig = {
         enabled: true,
-        maxCacheEntries: 100001,
+        maxCacheEntries: 100001
       }
-      expect(() => validateDeduplicationConfig(invalidConfig))
-        .toThrow('maxCacheEntries exceeds maximum limit of 100000')
+      expect(() => validateDeduplicationConfig(invalidConfig)).toThrow(
+        'maxCacheEntries exceeds maximum limit of 100000'
+      )
     })
 
     it('should reject non-boolean enabled field', () => {
       const invalidConfig = {
         enabled: 'yes', // invalid type
-        maxCacheEntries: 1000,
+        maxCacheEntries: 1000
       } as any
-      expect(() => validateDeduplicationConfig(invalidConfig))
-        .toThrow('enabled must be a boolean')
+      expect(() => validateDeduplicationConfig(invalidConfig)).toThrow('enabled must be a boolean')
     })
 
     it('should reject non-boolean includeSources field', () => {
       const invalidConfig = {
         enabled: true,
-        includeSources: 1, // invalid type
+        includeSources: 1 // invalid type
       } as any
-      expect(() => validateDeduplicationConfig(invalidConfig))
-        .toThrow('includeSources must be a boolean')
+      expect(() => validateDeduplicationConfig(invalidConfig)).toThrow(
+        'includeSources must be a boolean'
+      )
     })
 
     it('should reject non-number maxCacheEntries', () => {
       const invalidConfig = {
         enabled: true,
-        maxCacheEntries: '10000', // invalid type
+        maxCacheEntries: '10000' // invalid type
       } as any
-      expect(() => validateDeduplicationConfig(invalidConfig))
-        .toThrow('maxCacheEntries must be a positive number')
+      expect(() => validateDeduplicationConfig(invalidConfig)).toThrow(
+        'maxCacheEntries must be a positive number'
+      )
     })
   })
 
@@ -144,7 +148,7 @@ describe('Deduplication Configuration Contract', () => {
       const config: LLMReporterConfigWithDeduplication = {
         verbose: true,
         outputFile: 'test.json',
-        deduplicateLogs: true,
+        deduplicateLogs: true
       }
       expect(config.deduplicateLogs).toBe(true)
       expect(config.verbose).toBe(true)
@@ -153,10 +157,10 @@ describe('Deduplication Configuration Contract', () => {
 
     it('should accept boolean deduplicateLogs', () => {
       const config1: LLMReporterConfigWithDeduplication = {
-        deduplicateLogs: true,
+        deduplicateLogs: true
       }
       const config2: LLMReporterConfigWithDeduplication = {
-        deduplicateLogs: false,
+        deduplicateLogs: false
       }
       expect(config1.deduplicateLogs).toBe(true)
       expect(config2.deduplicateLogs).toBe(false)
@@ -170,18 +174,18 @@ describe('Deduplication Configuration Contract', () => {
           includeSources: true,
           normalizeWhitespace: false,
           stripTimestamps: false,
-          stripAnsiCodes: false,
-        },
+          stripAnsiCodes: false
+        }
       }
       expect(config.deduplicateLogs).toMatchObject({
         enabled: true,
-        maxCacheEntries: 5000,
+        maxCacheEntries: 5000
       })
     })
 
     it('should be optional', () => {
       const config: LLMReporterConfigWithDeduplication = {
-        verbose: true,
+        verbose: true
         // deduplicateLogs not provided
       }
       expect(config.deduplicateLogs).toBeUndefined()
@@ -196,7 +200,7 @@ describe('Deduplication Configuration Contract', () => {
         includeSources: false,
         normalizeWhitespace: true,
         stripTimestamps: true,
-        stripAnsiCodes: true,
+        stripAnsiCodes: true
       })
     })
 

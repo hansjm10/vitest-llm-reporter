@@ -18,8 +18,9 @@ describe('Deduplication Performance Benchmark', () => {
   beforeAll(() => {
     // Generate unique messages (30% of total)
     const uniqueCount = Math.floor(TEST_COUNT * LOGS_PER_TEST * (1 - DUPLICATE_RATIO))
-    uniqueMessages = Array.from({ length: uniqueCount }, (_, i) =>
-      `Log message ${i}: Processing data for test execution at ${i}`
+    uniqueMessages = Array.from(
+      { length: uniqueCount },
+      (_, i) => `Log message ${i}: Processing data for test execution at ${i}`
     )
 
     // Generate test entries with duplicates
@@ -35,7 +36,7 @@ describe('Deduplication Performance Benchmark', () => {
           message: uniqueMessages[messageIndex],
           level: ['debug', 'info', 'warn', 'error'][Math.floor(Math.random() * 4)] as any,
           timestamp: new Date(Date.now() + testId * 1000 + logNum),
-          testId: `test-${testId}`,
+          testId: `test-${testId}`
         })
       }
     }
@@ -48,7 +49,7 @@ describe('Deduplication Performance Benchmark', () => {
       includeSources: true,
       normalizeWhitespace: true,
       stripTimestamps: true,
-      stripAnsiCodes: true,
+      stripAnsiCodes: true
     })
 
     const startTime = performance.now()
@@ -80,7 +81,9 @@ describe('Deduplication Performance Benchmark', () => {
     console.log(`- Total logs processed: ${stats.totalLogs}`)
     console.log(`- Unique logs: ${stats.uniqueLogs}`)
     console.log(`- Duplicates removed: ${stats.duplicatesRemoved}`)
-    console.log(`- Deduplication ratio: ${((stats.duplicatesRemoved / stats.totalLogs) * 100).toFixed(2)}%`)
+    console.log(
+      `- Deduplication ratio: ${((stats.duplicatesRemoved / stats.totalLogs) * 100).toFixed(2)}%`
+    )
     console.log(`- Execution time: ${executionTime.toFixed(2)}ms`)
     console.log(`- Average time per log: ${(executionTime / stats.totalLogs).toFixed(4)}ms`)
     console.log(`- Cache size: ${stats.cacheSize}`)
@@ -88,7 +91,7 @@ describe('Deduplication Performance Benchmark', () => {
 
   it('should have minimal overhead when disabled', () => {
     const deduplicator = new LogDeduplicator({
-      enabled: false,
+      enabled: false
     })
 
     const startTime = performance.now()
@@ -110,13 +113,15 @@ describe('Deduplication Performance Benchmark', () => {
 
     console.log('Disabled Mode Performance:')
     console.log(`- Execution time: ${executionTime.toFixed(2)}ms`)
-    console.log(`- Average time per log: ${(executionTime / (TEST_COUNT * LOGS_PER_TEST)).toFixed(4)}ms`)
+    console.log(
+      `- Average time per log: ${(executionTime / (TEST_COUNT * LOGS_PER_TEST)).toFixed(4)}ms`
+    )
   })
 
   it('should maintain performance with high duplicate ratio', () => {
     const deduplicator = new LogDeduplicator({
       enabled: true,
-      maxCacheEntries: 10000,
+      maxCacheEntries: 10000
     })
 
     // Generate entries with 95% duplicates
@@ -128,7 +133,7 @@ describe('Deduplication Performance Benchmark', () => {
         message: fewUniqueMessages[Math.floor(Math.random() * fewUniqueMessages.length)],
         level: 'info',
         timestamp: new Date(Date.now() + i),
-        testId: `test-${Math.floor(i / LOGS_PER_TEST)}`,
+        testId: `test-${Math.floor(i / LOGS_PER_TEST)}`
       })
     }
 
@@ -158,7 +163,7 @@ describe('Deduplication Performance Benchmark', () => {
     const maxCache = 100 // Small cache to test eviction
     const deduplicator = new LogDeduplicator({
       enabled: true,
-      maxCacheEntries: maxCache,
+      maxCacheEntries: maxCache
     })
 
     const startTime = performance.now()
@@ -169,7 +174,7 @@ describe('Deduplication Performance Benchmark', () => {
       const entry: LogEntry = {
         message: `Unique message ${i} with some content`,
         level: 'info',
-        timestamp: new Date(Date.now() + i * 100),
+        timestamp: new Date(Date.now() + i * 100)
       }
       deduplicator.isDuplicate(entry)
     }
@@ -196,7 +201,7 @@ describe('Deduplication Performance Benchmark', () => {
   it('should perform well with varying message lengths', () => {
     const deduplicator = new LogDeduplicator({
       enabled: true,
-      maxCacheEntries: 10000,
+      maxCacheEntries: 10000
     })
 
     const varyingLengthEntries: LogEntry[] = []
@@ -208,7 +213,7 @@ describe('Deduplication Performance Benchmark', () => {
       varyingLengthEntries.push({
         message,
         level: 'info',
-        timestamp: new Date(),
+        timestamp: new Date()
       })
     }
 
@@ -226,7 +231,9 @@ describe('Deduplication Performance Benchmark', () => {
     console.log('Varying Message Length Performance:')
     console.log(`- Messages processed: ${varyingLengthEntries.length}`)
     console.log(`- Execution time: ${executionTime.toFixed(2)}ms`)
-    console.log(`- Average time per message: ${(executionTime / varyingLengthEntries.length).toFixed(4)}ms`)
+    console.log(
+      `- Average time per message: ${(executionTime / varyingLengthEntries.length).toFixed(4)}ms`
+    )
   })
 
   it('should meet performance target of <5% overhead', () => {
@@ -245,7 +252,7 @@ describe('Deduplication Performance Benchmark', () => {
     // With deduplication
     const deduplicator = new LogDeduplicator({
       enabled: true,
-      maxCacheEntries: 10000,
+      maxCacheEntries: 10000
     })
 
     const dedupStart = performance.now()

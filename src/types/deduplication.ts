@@ -58,28 +58,28 @@ export interface DeduplicationConfig {
 export interface DeduplicationEntry {
   /** Composite key (logLevel:normalizedMessage) */
   key: string
-  
+
   /** The severity level */
   logLevel: LogLevel
-  
+
   /** First occurrence of the message */
   originalMessage: string
-  
+
   /** Message after normalization */
   normalizedMessage: string
-  
+
   /** Timestamp of first occurrence */
   firstSeen: Date
-  
+
   /** Timestamp of most recent occurrence */
   lastSeen: Date
-  
+
   /** Total occurrences */
   count: number
-  
+
   /** Test IDs that generated this log */
   sources: Set<string>
-  
+
   /** Additional context (optional) */
   metadata?: Map<string, unknown>
 }
@@ -90,16 +90,16 @@ export interface DeduplicationEntry {
 export interface DeduplicationStats {
   /** All logs processed */
   totalLogs: number
-  
+
   /** Unique entries created */
   uniqueLogs: number
-  
+
   /** Logs deduplicated */
   duplicatesRemoved: number
-  
+
   /** Current entry count */
   cacheSize: number
-  
+
   /** Total processing time in milliseconds */
   processingTimeMs: number
 }
@@ -120,16 +120,16 @@ export interface LogEntry {
 export interface DeduplicationMetadata {
   /** Number of times this log appeared */
   count: number
-  
+
   /** ISO timestamp of first occurrence */
   firstSeen: string
-  
+
   /** ISO timestamp of last occurrence */
   lastSeen?: string
-  
+
   /** Test IDs that generated this log (if configured) */
   sources?: string[]
-  
+
   /** Flag indicating this entry was deduplicated */
   deduplicated: boolean
 }
@@ -140,13 +140,13 @@ export interface DeduplicationMetadata {
 export interface ConsoleOutputWithDeduplication {
   /** The log message content */
   message: string
-  
+
   /** Log severity level */
   level: string
-  
+
   /** Standard timestamp */
   timestamp: string
-  
+
   /** Deduplication metadata (if applicable) */
   deduplication?: DeduplicationMetadata
 }

@@ -12,12 +12,12 @@ describe('LogDeduplicator Integration', () => {
   it('should integrate with ConsoleCapture', () => {
     const deduplicator = new LogDeduplicator({
       enabled: true,
-      maxCacheEntries: 100,
+      maxCacheEntries: 100
     })
 
     const capture = new ConsoleCapture({
       enabled: true,
-      deduplicator,
+      deduplicator
     })
 
     // Start capture for a test
@@ -53,12 +53,12 @@ describe('LogDeduplicator Integration', () => {
 
   it('should get deduplication stats from ConsoleCapture', () => {
     const deduplicator = new LogDeduplicator({
-      enabled: true,
+      enabled: true
     })
 
     const capture = new ConsoleCapture({
       enabled: true,
-      deduplicator,
+      deduplicator
     })
 
     // Get stats - should be defined even with no logs
@@ -71,12 +71,12 @@ describe('LogDeduplicator Integration', () => {
 
   it('should provide deduplication summary', () => {
     const deduplicator = new LogDeduplicator({
-      enabled: true,
+      enabled: true
     })
 
     const capture = new ConsoleCapture({
       enabled: true,
-      deduplicator,
+      deduplicator
     })
 
     const summary = capture.getDeduplicationSummary()

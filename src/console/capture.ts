@@ -100,9 +100,10 @@ export class ConsoleCapture {
    * Note: AsyncLocalStorage automatically cleans up context when run() completes,
    * so no explicit cleanup is needed. The context is only available within the callback.
    */
-  async runWithCapture<T>(testId: string, fn: () => T | Promise<T>): Promise<T> {
+  async runWithCapture<T>(testId: string, fn: () => T | Promise<T>): Promise<any> {
     if (!this.config.enabled) {
-      return await fn()
+      await fn()
+      return { entries: [] }
     }
 
     const context: TestContext = {
@@ -110,20 +111,26 @@ export class ConsoleCapture {
       startTime: Date.now()
     }
 
+    // Start capturing for this test
+    this.startCapture(testId)
+
     // AsyncLocalStorage.run() automatically cleans up the context after the callback completes
     // This happens even if the callback throws an error
-    return await this.testContext.run(context, async () => {
+    await this.testContext.run(context, async () => {
       return await fn()
     })
     // Context is automatically cleared here - verified by tests checking getStore() returns undefined
+
+    // Stop capturing and return the output
+    return this.stopCapture(testId)
   }
 
   /**
    * Stop capturing and retrieve output for a test
    */
-  stopCapture(testId: string): ConsoleEvent[] | undefined {
+  stopCapture(testId: string): any {
     if (!this.config.enabled) {
-      return undefined
+      return { entries: [] }
     }
 
     this.debug('Stopping console capture for test: %s', testId)
@@ -131,16 +138,70 @@ export class ConsoleCapture {
     // Get the buffer
     const buffer = this.buffers.get(testId)
     if (!buffer) {
-      return undefined
+      return { entries: [] }
     }
 
     // Get the events before scheduling cleanup
     const events = buffer.getEvents()
 
+    // If deduplication is enabled, transform events to include deduplication metadata
+    if (this.deduplicator?.isEnabled()) {
+      const deduplicatedEntries: any[] = []
+      const seenKeys = new Set<string>()
+
+      for (const event of events) {
+        const logEntry = {
+          message: event.text,
+          level: event.level as any,
+          timestamp: new Date(),
+          testId
+        }
+
+        const key = this.deduplicator.generateKey(logEntry)
+
+        // Only include the first occurrence of each unique log
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key)
+          const metadata = this.deduplicator.getMetadata(key)
+
+          deduplicatedEntries.push({
+            message: event.text,
+            level: event.level,
+            timestamp: event.timestampMs,
+            deduplication:
+              metadata && metadata.count > 1
+                ? {
+                    count: metadata.count,
+                    deduplicated: true,
+                    firstSeen: metadata.firstSeen.toISOString(),
+                    lastSeen: metadata.lastSeen.toISOString(),
+                    sources: metadata.sources.size > 0 ? Array.from(metadata.sources) : undefined
+                  }
+                : undefined
+          })
+        }
+      }
+
+      // Schedule cleanup after grace period (for async console output)
+      this.scheduleCleanup(testId)
+
+      return {
+        entries: deduplicatedEntries,
+        deduplicationStats: this.deduplicator.getStats()
+      }
+    }
+
     // Schedule cleanup after grace period (for async console output)
     this.scheduleCleanup(testId)
 
-    return events
+    // Return in the expected format even when deduplication is disabled
+    return {
+      entries: events.map((event) => ({
+        message: event.text,
+        level: event.level,
+        timestamp: event.timestampMs
+      }))
+    }
   }
 
   /**
@@ -179,9 +240,9 @@ export class ConsoleCapture {
           // Check for deduplication if enabled
           if (this.deduplicator?.isEnabled()) {
             // Create a message string for deduplication
-            const message = args.map(arg =>
-              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-            ).join(' ')
+            const message = args
+              .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg)))
+              .join(' ')
 
             const logEntry = {
               message,
@@ -193,8 +254,14 @@ export class ConsoleCapture {
             const isDuplicate = this.deduplicator.isDuplicate(logEntry)
 
             // Add to buffer with deduplication info
-            buffer.add(method, args, elapsed, 'intercepted', isDuplicate,
-              isDuplicate ? this.deduplicator.generateKey(logEntry) : undefined)
+            buffer.add(
+              method,
+              args,
+              elapsed,
+              'intercepted',
+              isDuplicate,
+              isDuplicate ? this.deduplicator.generateKey(logEntry) : undefined
+            )
           } else {
             // No deduplication - add normally
             buffer.add(method, args, elapsed, 'intercepted')
@@ -307,7 +374,7 @@ export class ConsoleCapture {
 
     const entries = this.deduplicator.getAllEntries()
     return {
-      entries: Array.from(entries.values()).map(entry => ({
+      entries: Array.from(entries.values()).map((entry) => ({
         message: entry.originalMessage,
         level: entry.logLevel,
         deduplication: {
@@ -325,30 +392,41 @@ export class ConsoleCapture {
    * Get global deduplication statistics across all tests
    */
   getGlobalDeduplicationStats() {
-    return this.deduplicator?.getStats() || {
-      totalLogs: 0,
-      uniqueLogs: 0,
-      duplicatesRemoved: 0,
-      cacheSize: 0,
-      processingTimeMs: 0
-    }
+    return (
+      this.deduplicator?.getStats() || {
+        totalLogs: 0,
+        uniqueLogs: 0,
+        duplicatesRemoved: 0,
+        cacheSize: 0,
+        processingTimeMs: 0
+      }
+    )
   }
 
   /**
    * Capture console output for a test and return the result
    */
   captureForTest(testId: string, fn: () => void): any {
-    this.startCapture(testId)
-    try {
+    if (!this.config.enabled) {
       fn()
-    } finally {
-      const events = this.stopCapture(testId)
-      const stats = this.deduplicator?.getStats()
-      return {
-        entries: events || [],
-        deduplicationStats: stats
-      }
+      return { entries: [] }
     }
+
+    const context: TestContext = {
+      testId,
+      startTime: Date.now()
+    }
+
+    // Start capturing for this test
+    this.startCapture(testId)
+
+    // Run with context so console methods are captured
+    this.testContext.run(context, () => {
+      fn()
+    })
+
+    // Stop capturing and return the output
+    return this.stopCapture(testId)
   }
 
   /**
@@ -370,9 +448,9 @@ export class ConsoleCapture {
 
     // Check for deduplication if enabled
     if (this.deduplicator?.isEnabled()) {
-      const message = args.map(arg =>
-        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-      ).join(' ')
+      const message = args
+        .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg)))
+        .join(' ')
 
       const logEntry = {
         message,
@@ -382,8 +460,11 @@ export class ConsoleCapture {
       }
 
       const isDuplicate = this.deduplicator.isDuplicate(logEntry)
-      buffer.add(method, args, elapsed, 'task', isDuplicate,
-        isDuplicate ? this.deduplicator.generateKey(logEntry) : undefined)
+
+      // Only add to buffer if it's the first occurrence
+      if (!isDuplicate) {
+        buffer.add(method, args, elapsed, 'task')
+      }
     } else {
       buffer.add(method, args, elapsed, 'task')
     }

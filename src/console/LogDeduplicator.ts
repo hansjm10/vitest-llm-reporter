@@ -11,7 +11,7 @@ import type {
   DeduplicationEntry,
   DeduplicationStats,
   DeduplicationConfig,
-  LogLevel,
+  LogLevel
 } from '../types/deduplication.js'
 import { createHash } from 'crypto'
 
@@ -24,7 +24,7 @@ const DEFAULTS: Required<DeduplicationConfig> = {
   includeSources: false,
   normalizeWhitespace: true,
   stripTimestamps: true,
-  stripAnsiCodes: true,
+  stripAnsiCodes: true
 }
 
 /**
@@ -45,7 +45,7 @@ export class LogDeduplicator implements ILogDeduplicator {
       uniqueLogs: 0,
       duplicatesRemoved: 0,
       cacheSize: 0,
-      processingTimeMs: 0,
+      processingTimeMs: 0
     }
     this.startTime = Date.now()
   }
@@ -93,7 +93,7 @@ export class LogDeduplicator implements ILogDeduplicator {
       firstSeen: entry.timestamp,
       lastSeen: entry.timestamp,
       count: 1,
-      sources: new Set(entry.testId ? [entry.testId] : []),
+      sources: new Set(entry.testId ? [entry.testId] : [])
     }
 
     this.entries.set(key, newEntry)
@@ -132,7 +132,7 @@ export class LogDeduplicator implements ILogDeduplicator {
   getStats(): DeduplicationStats {
     return {
       ...this.stats,
-      processingTimeMs: Date.now() - this.startTime,
+      processingTimeMs: Date.now() - this.startTime
     }
   }
 
@@ -146,7 +146,7 @@ export class LogDeduplicator implements ILogDeduplicator {
       uniqueLogs: 0,
       duplicatesRemoved: 0,
       cacheSize: 0,
-      processingTimeMs: 0,
+      processingTimeMs: 0
     }
     this.startTime = Date.now()
   }
@@ -191,10 +191,7 @@ export class LogDeduplicator implements ILogDeduplicator {
    * Generate a hash for a normalized message
    */
   private hashMessage(message: string): string {
-    return createHash('sha256')
-      .update(message)
-      .digest('hex')
-      .substring(0, 16) // Use first 16 chars for shorter keys
+    return createHash('sha256').update(message).digest('hex').substring(0, 16) // Use first 16 chars for shorter keys
   }
 
   /**

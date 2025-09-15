@@ -8,7 +8,7 @@
 import type {
   ConsoleOutputWithDeduplication,
   DeduplicationEntry,
-  DeduplicationConfig,
+  DeduplicationConfig
 } from '../types/deduplication.js'
 
 /**
@@ -33,7 +33,7 @@ export function formatConsoleOutputWithDeduplication(
   const output: ConsoleOutputWithDeduplication = {
     message: input.message,
     level: input.level,
-    timestamp: input.timestamp.toISOString(),
+    timestamp: input.timestamp.toISOString()
   }
 
   if (isDuplicate && deduplicationInfo) {
@@ -41,7 +41,7 @@ export function formatConsoleOutputWithDeduplication(
       count: deduplicationInfo.count,
       firstSeen: deduplicationInfo.firstSeen.toISOString(),
       lastSeen: deduplicationInfo.lastSeen?.toISOString(),
-      deduplicated: true,
+      deduplicated: true
     }
 
     // Include sources if configured
