@@ -26,7 +26,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         node-version: [17, 18, 20, 22]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup
@@ -52,7 +52,7 @@ jobs:
     environment: npm-production
     if: github.event_name == 'release' || github.event.inputs.dry_run == 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js with registry
         uses: actions/setup-node@v4
