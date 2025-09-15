@@ -45,7 +45,7 @@
   },
   "homepage": "https://github.com/jordan-hans/vitest-llm-reporter#readme",
   "engines": {
-    "node": ">=17.0.0"
+    "node": ">=18.0.0"
   },
   "publishConfig": {
     "access": "public",
