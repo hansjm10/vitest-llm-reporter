@@ -50,5 +50,4 @@ describe('LogDeduplicator Integration', () => {
     const events = buffer.getEvents()
     expect(events).toHaveLength(2)
   })
-
 })

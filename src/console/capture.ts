@@ -1,7 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { ConsoleBuffer } from './buffer.js'
 import type { ConsoleCaptureConfig, ConsoleMethod, CaptureResult } from '../types/console.js'
-import type { ConsoleEvent } from '../types/schema.js'
 import { ConsoleInterceptor } from './interceptor.js'
 import { createLogger } from '../utils/logger.js'
 import type { ILogDeduplicator } from '../types/deduplication.js'
@@ -143,42 +142,24 @@ export class ConsoleCapture {
     // Get the events before scheduling cleanup
     const events = buffer.getEvents()
 
-    // If deduplication is enabled, process events through deduplicator
-    if (this.deduplicator?.isEnabled()) {
-      const deduplicatedEntries: ConsoleEvent[] = []
-      const firstEventMap = new Map<string, ConsoleEvent>()
+    // Schedule cleanup after grace period (for async console output)
+    this.scheduleCleanup(testId)
 
-      // Process all events to build deduplication metadata
-      for (const event of events) {
+    // If deduplicator is enabled, add deduplication metadata to events
+    if (this.deduplicator?.isEnabled()) {
+      const entriesWithMetadata = events.map((event) => {
         const logEntry = {
           message: event.text,
           level: event.level,
           timestamp: new Date(),
           testId
         }
+        const key = this.deduplicator!.generateKey(logEntry)
+        const metadata = this.deduplicator!.getMetadata(key)
 
-        const key = this.deduplicator.generateKey(logEntry)
-        // Update deduplicator state
-        this.deduplicator.isDuplicate(logEntry)
-
-        // Keep only first occurrence of each key
-        if (!firstEventMap.has(key)) {
-          firstEventMap.set(key, event)
-        }
-      }
-
-      // Build output with complete deduplication metadata
-      for (const [key, event] of firstEventMap) {
-        const metadata = this.deduplicator.getMetadata(key)
-
-        deduplicatedEntries.push({
-          message: event.text, // Use message field for deduplication output
-          text: event.text, // Keep text for backward compatibility
-          level: event.level,
-          timestampMs: event.timestampMs,
-          timestamp: event.timestampMs,
-          args: event.args,
-          origin: event.origin,
+        return {
+          ...event,
+          message: event.text, // Add message field for compatibility
           deduplication:
             metadata && metadata.count > 1
               ? {
@@ -189,19 +170,13 @@ export class ConsoleCapture {
                   sources: metadata.sources.size > 0 ? Array.from(metadata.sources) : undefined
                 }
               : undefined
-        })
-      }
-
-      // Schedule cleanup after grace period (for async console output)
-      this.scheduleCleanup(testId)
+        }
+      })
 
       return {
-        entries: deduplicatedEntries
+        entries: entriesWithMetadata
       }
     }
-
-    // Schedule cleanup after grace period (for async console output)
-    this.scheduleCleanup(testId)
 
     // Return in the expected format even when deduplication is disabled
     // Add message field to each event for consistency
@@ -241,12 +216,26 @@ export class ConsoleCapture {
       const context = this.testContext.getStore()
 
       if (context) {
+        // Check for duplicate if deduplicator is enabled
+        if (this.deduplicator?.isEnabled()) {
+          const text = args.map((arg) => String(arg)).join(' ')
+          const logEntry = {
+            message: text,
+            level: method,
+            timestamp: new Date(),
+            testId: context.testId
+          }
+
+          // Skip if this is a duplicate
+          if (this.deduplicator.isDuplicate(logEntry)) {
+            return
+          }
+        }
+
         // Capture to the test's buffer
         const buffer = this.buffers.get(context.testId)
         if (buffer) {
           const elapsed = Date.now() - context.startTime
-
-          // Always add to buffer - deduplication happens in stopCapture
           buffer.add(method, args, elapsed, 'intercepted')
         }
       }
@@ -339,7 +328,6 @@ export class ConsoleCapture {
     this.debug('Console capture reset')
   }
 
-
   /**
    * Capture console output for a test and return the result
    */
@@ -377,13 +365,28 @@ export class ConsoleCapture {
       return
     }
 
+    // Check for duplicate if deduplicator is enabled
+    if (this.deduplicator?.isEnabled()) {
+      const text = args.map((arg) => String(arg)).join(' ')
+      const logEntry = {
+        message: text,
+        level: method,
+        timestamp: new Date(),
+        testId
+      }
+
+      // Skip if this is a duplicate
+      if (this.deduplicator.isDuplicate(logEntry)) {
+        return
+      }
+    }
+
     let buffer = this.buffers.get(testId)
     if (!buffer) {
       buffer = new ConsoleBuffer(this.config)
       this.buffers.set(testId, buffer)
     }
 
-    // Always add to buffer - deduplication happens in stopCapture
     buffer.add(method, args, elapsed, 'task')
   }
 

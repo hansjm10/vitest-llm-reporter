@@ -80,7 +80,6 @@ export class LogDeduplicator implements ILogDeduplicator {
       key,
       logLevel: entry.level,
       originalMessage: entry.message,
-      normalizedMessage: normalizeMessage(entry.message, this.config),
       firstSeen: entry.timestamp,
       lastSeen: entry.timestamp,
       count: 1,
@@ -108,13 +107,6 @@ export class LogDeduplicator implements ILogDeduplicator {
    */
   getMetadata(key: string): DeduplicationEntry | undefined {
     return this.entries.get(key)
-  }
-
-  /**
-   * Get all deduplicated entries
-   */
-  getAllEntries(): Map<string, DeduplicationEntry> {
-    return new Map(this.entries)
   }
 
   /**

@@ -253,7 +253,8 @@ export class LLMReporter implements Reporter {
         maxConsoleBytes: this.config.maxConsoleBytes,
         maxConsoleLines: this.config.maxConsoleLines,
         includeDebugOutput: this.config.includeDebugOutput,
-        truncationConfig: this.config.truncation
+        truncationConfig: this.config.truncation,
+        deduplicationConfig: this.getDeduplicationConfig()
       }
     )
 

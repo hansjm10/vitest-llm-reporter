@@ -21,6 +21,8 @@ import type { ConsoleEvent, ConsoleLevel } from '../types/schema.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import { consoleCapture } from '../console/index.js'
 import { consoleMerger } from '../console/merge.js'
+import { LogDeduplicator } from '../console/LogDeduplicator.js'
+import type { ILogDeduplicator } from '../types/deduplication.js'
 // Truncation handled by LateTruncator in OutputBuilder
 
 /**
@@ -49,6 +51,14 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
     enableEarlyTruncation: false,
     enableLateTruncation: false,
     enableMetrics: false
+  },
+  deduplicationConfig: {
+    enabled: false,
+    maxCacheEntries: 1000,
+    normalizeWhitespace: true,
+    stripTimestamps: true,
+    stripAnsiCodes: true,
+    includeSources: false
   }
 }
 
@@ -78,6 +88,7 @@ export class EventOrchestrator {
   private errorExtractor: ErrorExtractor
   private resultBuilder: TestResultBuilder
   private contextBuilder: ErrorContextBuilder
+  private deduplicator?: ILogDeduplicator
   private debug = coreLogger()
   private debugError = errorLogger()
   // Truncator removed - simplified truncation in OutputBuilder
@@ -96,6 +107,12 @@ export class EventOrchestrator {
     this.errorExtractor = errorExtractor
     this.resultBuilder = resultBuilder
     this.contextBuilder = contextBuilder
+
+    // Initialize deduplicator if config is provided
+    if (this.config.deduplicationConfig) {
+      this.deduplicator = new LogDeduplicator(this.config.deduplicationConfig)
+      consoleCapture.deduplicator = this.deduplicator
+    }
 
     // Configure console capture
     consoleCapture.updateConfig({

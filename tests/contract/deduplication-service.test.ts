@@ -180,29 +180,8 @@ describe('ILogDeduplicator Service Contract', () => {
     })
   })
 
-  describe('getAllEntries', () => {
-    it('should return empty map initially', () => {
-      const entries = deduplicator.getAllEntries()
-      expect(entries.size).toBe(0)
-    })
-
-    it('should return all unique entries', () => {
-      deduplicator.isDuplicate(createLogEntry('Message 1', 'info'))
-      deduplicator.isDuplicate(createLogEntry('Message 2', 'warn'))
-      deduplicator.isDuplicate(createLogEntry('Message 3', 'error'))
-
-      const entries = deduplicator.getAllEntries()
-      expect(entries.size).toBe(3)
-    })
-
-    it('should not increase size for duplicates', () => {
-      const duplicates = createDuplicateLogEntries('Same', 5, 'info')
-      duplicates.forEach((entry) => deduplicator.isDuplicate(entry))
-
-      const entries = deduplicator.getAllEntries()
-      expect(entries.size).toBe(1)
-    })
-  })
+  // getAllEntries removed - it was never used in production code
+  // The method was only used in tests and not in actual implementation
 
   describe('getStats', () => {
     it('should track total logs processed', () => {
@@ -263,8 +242,10 @@ describe('ILogDeduplicator Service Contract', () => {
 
       deduplicator.clear()
 
-      const entries = deduplicator.getAllEntries()
-      expect(entries.size).toBe(0)
+      // Verify clear worked by checking stats are reset
+      const stats = deduplicator.getStats()
+      expect(stats.totalLogs).toBe(0)
+      expect(stats.uniqueLogs).toBe(0)
     })
 
     it('should reset statistics', () => {

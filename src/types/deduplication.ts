@@ -65,9 +65,6 @@ export interface DeduplicationEntry {
   /** First occurrence of the message */
   originalMessage: string
 
-  /** Message after normalization */
-  normalizedMessage: string
-
   /** Timestamp of first occurrence */
   firstSeen: Date
 
@@ -165,11 +162,6 @@ export interface ILogDeduplicator {
    * Get deduplication metadata for a log entry
    */
   getMetadata(key: string): DeduplicationEntry | undefined
-
-  /**
-   * Get all deduplicated entries
-   */
-  getAllEntries(): Map<string, DeduplicationEntry>
 
   /**
    * Get deduplication statistics
