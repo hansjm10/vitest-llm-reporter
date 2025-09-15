@@ -43,3 +43,6 @@ truncation_integration_summary.md
 test-console-streaming.js
 test-console.test.ts
 test-results.json
+
+# Specify files
+.specify
