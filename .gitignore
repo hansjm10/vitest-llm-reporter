@@ -46,3 +46,4 @@ test-results.json
 
 # Specify files
 .specify
+specs/
