@@ -45,5 +45,11 @@ runs:
       shell: bash
       run: |
         echo "📦 Installing dependencies..."
-        npm ci --ignore-scripts
+        if [ -f "package-lock.json" ]; then
+          echo "Using npm ci for faster, reproducible installs"
+          npm ci --ignore-scripts
+        else
+          echo "No package-lock.json found, using npm install"
+          npm install --ignore-scripts
+        fi
         echo "✅ Dependencies installed successfully"
