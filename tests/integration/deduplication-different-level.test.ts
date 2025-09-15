@@ -10,7 +10,7 @@ import type { DeduplicationConfig } from '../../src/types/deduplication.js'
 
 // These imports will fail initially - implementations don't exist yet
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { LogDeduplicator } from '../../src/console/LogDeduplicator.js'
+import { LogDeduplicator } from '../../src/console/LogDeduplicator'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
 import { ConsoleCapture } from '../../src/console/capture'
 

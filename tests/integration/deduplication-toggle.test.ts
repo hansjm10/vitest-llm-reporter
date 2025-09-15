@@ -11,11 +11,12 @@ import type { LLMReporterConfigWithDeduplication } from '../../src/config/dedupl
 
 // These imports will fail initially - implementations don't exist yet
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { LogDeduplicator } from '../../src/console/LogDeduplicator.js'
+import { LogDeduplicator } from '../../src/console/LogDeduplicator'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
 import { ConsoleCapture } from '../../src/console/capture'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { LLMReporter } from '../../src/reporter/LLMReporter.js'
+// @ts-expect-error - Using actual reporter.ts file
+import { LLMReporter } from '../../src/reporter/reporter'
 
 describe('Integration: Configuration Toggle', () => {
   describe('LogDeduplicator enable/disable', () => {

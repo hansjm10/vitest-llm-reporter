@@ -15,11 +15,12 @@ import type { DeduplicationConfig } from '../../src/types/deduplication.js'
 
 // These imports will fail initially - implementations don't exist yet
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { LogDeduplicator } from '../../src/console/LogDeduplicator.js'
+import { LogDeduplicator } from '../../src/console/LogDeduplicator'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
 import { ConsoleCapture } from '../../src/console/capture'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { ConsoleBuffer } from '../../src/console/ConsoleBuffer.js'
+// @ts-expect-error - Using actual buffer.ts file
+import { ConsoleBuffer } from '../../src/console/buffer'
 
 describe('Integration: Same Log Same Level Deduplication', () => {
   let consoleCapture: any // ConsoleCapture
