@@ -72,9 +72,11 @@ describe('CI Workflow Validation', () => {
     const workflow = load(content);
 
     expect(workflow.jobs.coverage).toBeDefined();
-    expect(workflow.jobs.coverage.steps).toContainEqual(
-      expect.objectContaining({ run: 'npm run coverage' })
+    // The coverage command is run with || true to allow failures
+    const coverageStep = workflow.jobs.coverage.steps.find(step =>
+      step.run && step.run.includes('npm run coverage')
     );
+    expect(coverageStep).toBeDefined();
   });
 
   it('should use concurrency groups', () => {

@@ -64,8 +64,9 @@ describe('Release Workflow Validation', () => {
     const workflow = load(content);
 
     const publishJob = workflow.jobs.publish;
+    // Find the actual publish step (not dry-run)
     const publishStep = publishJob.steps.find(step =>
-      step.run && step.run.includes('npm publish')
+      step.run && step.run.includes('npm publish --provenance')
     );
     expect(publishStep).toBeDefined();
     expect(publishStep.env.NODE_AUTH_TOKEN).toBe('${{ secrets.NPM_TOKEN }}');
