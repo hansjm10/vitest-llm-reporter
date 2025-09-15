@@ -38,12 +38,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jordan-hans/vitest-llm-reporter.git"
+    "url": "git+https://github.com/hansjm10/vitest-llm-reporter.git"
   },
   "bugs": {
-    "url": "https://github.com/jordan-hans/vitest-llm-reporter/issues"
+    "url": "https://github.com/hansjm10/vitest-llm-reporter/issues"
   },
-  "homepage": "https://github.com/jordan-hans/vitest-llm-reporter#readme",
+  "homepage": "https://github.com/hansjm10/vitest-llm-reporter#readme",
   "engines": {
     "node": ">=18.0.0"
   },
