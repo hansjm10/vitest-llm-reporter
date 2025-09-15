@@ -102,10 +102,13 @@ export class OutputBuilder {
   private buildSummary(options: BuildOptions): TestSummary {
     const { passed, failed, skipped } = options.testResults
 
+    // Count unhandled errors (suite-level failures, import errors, etc.)
+    const unhandledErrorCount = options.unhandledErrors?.length || 0
+
     return {
-      total: passed.length + failed.length + skipped.length,
+      total: passed.length + failed.length + skipped.length + unhandledErrorCount,
       passed: passed.length,
-      failed: failed.length,
+      failed: failed.length + unhandledErrorCount,  // Include unhandled errors in failed count
       skipped: skipped.length,
       duration: options.duration,
       timestamp: new Date().toISOString()
