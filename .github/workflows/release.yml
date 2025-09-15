@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Perform a dry run (no actual publish)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write  # For NPM provenance
+
+jobs:
+  validate:
+    name: Validate (Node ${{ matrix.node-version }} - ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [17, 18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build package
+        run: npm run build
+
+      - name: Verify package files
+        run: |
+          npm pack --dry-run
+          echo "✅ Package validation successful"
+
+  publish:
+    name: Publish to NPM
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: npm-production
+    if: github.event_name == 'release' || github.event.inputs.dry_run == 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js with registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build package
+        run: npm run build
+
+      - name: Verify version
+        if: github.event_name == 'release'
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+
+          echo "Package version: $PACKAGE_VERSION"
+          echo "Tag version: $TAG_VERSION"
+
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "❌ Version mismatch: package.json ($PACKAGE_VERSION) != tag ($TAG_VERSION)"
+            exit 1
+          fi
+
+          echo "✅ Version verified: $PACKAGE_VERSION"
+
+      - name: Check if version exists on NPM
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version 2>/dev/null; then
+            echo "❌ Version $PACKAGE_VERSION already exists on NPM"
+            exit 1
+          fi
+
+          echo "✅ Version $PACKAGE_VERSION is available for publishing"
+
+      - name: Publish to NPM (dry run)
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "🔍 DRY RUN MODE - Not actually publishing"
+          npm publish --dry-run
+
+      - name: Publish to NPM
+        if: github.event.inputs.dry_run != 'true'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create release assets
+        if: github.event_name == 'release'
+        run: |
+          npm pack
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TARBALL="${PACKAGE_NAME}-${PACKAGE_VERSION}.tgz"
+
+          echo "TARBALL_NAME=$TARBALL" >> $GITHUB_ENV
+
+      - name: Upload release asset
+        if: github.event_name == 'release'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./${{ env.TARBALL_NAME }}
+          asset_name: ${{ env.TARBALL_NAME }}
+          asset_content_type: application/gzip
+
+      - name: Post-publish verification
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+          echo "🎉 Successfully published $PACKAGE_NAME@$PACKAGE_VERSION to NPM"
+          echo "📦 View at: https://www.npmjs.com/package/$PACKAGE_NAME/v/$PACKAGE_VERSION"

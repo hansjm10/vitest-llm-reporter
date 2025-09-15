@@ -3,7 +3,7 @@ import { LLMReporter } from './reporter.js'
 
 describe('LLMReporter afterAll error handling', () => {
   let reporter: LLMReporter
-  let stdoutSpy: ReturnType<typeof vi.spyOn>
+  let stdoutSpy: any
 
   beforeEach(() => {
     reporter = new LLMReporter({
@@ -40,7 +40,7 @@ describe('LLMReporter afterAll error handling', () => {
     reporter.onFinished([], [afterAllError], undefined)
 
     // Collect stdout output
-    const output = stdoutSpy.mock.calls.map((call) => String(call[0])).join('')
+    const output = stdoutSpy.mock.calls.map((call: any) => String(call[0])).join('')
 
     // Parse the JSON output
     const jsonOutput = JSON.parse(output.trim())
@@ -73,7 +73,7 @@ describe('LLMReporter afterAll error handling', () => {
     reporter.onFinished([], [error1, error2], undefined)
 
     // Collect stdout output
-    const output = stdoutSpy.mock.calls.map((call) => String(call[0])).join('')
+    const output = stdoutSpy.mock.calls.map((call: any) => String(call[0])).join('')
 
     // Parse the JSON output
     const jsonOutput = JSON.parse(output.trim())
@@ -103,7 +103,7 @@ describe('LLMReporter afterAll error handling', () => {
     reporter.onFinished([], [], undefined)
 
     // Collect stdout output
-    const output = stdoutSpy.mock.calls.map((call) => String(call[0])).join('')
+    const output = stdoutSpy.mock.calls.map((call: any) => String(call[0])).join('')
 
     // Check if output was generated (it might not be if no tests were recorded)
     if (!output.trim()) {

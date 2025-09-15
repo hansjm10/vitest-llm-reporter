@@ -1,5 +1,6 @@
 # Vitest LLM Reporter
 
+[![CI](https://github.com/jordan-hans/vitest-llm-reporter/actions/workflows/ci.yml/badge.svg)](https://github.com/jordan-hans/vitest-llm-reporter/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/vitest-llm-reporter.svg)](https://www.npmjs.com/package/vitest-llm-reporter)
 [![npm downloads](https://img.shields.io/npm/dm/vitest-llm-reporter.svg)](https://www.npmjs.com/package/vitest-llm-reporter)
 [![license](https://img.shields.io/npm/l/vitest-llm-reporter.svg)](https://github.com/jordan-hans/vitest-llm-reporter/blob/main/LICENSE)
@@ -15,7 +16,7 @@ Vitest reporter that generates structured JSON output optimized for LLM parsing.
 
 ## Requirements
 
-- Node.js 17+ (uses native `structuredClone`)
+- Node.js 18+ (uses native `structuredClone`)
 - Vitest 3.0+
 
 ## Installation
