@@ -89,10 +89,10 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
       expect(duration).toBeLessThan(5000)
 
       // Verify deduplication statistics - use consoleCapture's deduplicator
-      const stats = consoleCapture.getDeduplicationStats()
-      expect(stats.totalLogs).toBeGreaterThanOrEqual(10000)
-      expect(stats.duplicatesRemoved).toBeGreaterThan(0)
-      expect(stats.processingTimeMs).toBeLessThan(5000)
+      const stats = consoleCapture.deduplicator?.getStats()
+      expect(stats?.totalLogs).toBeGreaterThanOrEqual(10000)
+      expect(stats?.duplicatesRemoved).toBeGreaterThan(0)
+      expect(stats?.processingTimeMs).toBeLessThan(5000)
     })
 
     it('should use less than 500MB memory for 1000 tests', () => {
@@ -130,8 +130,8 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
       expect(memoryUsed).toBeLessThan(500)
 
       // Verify cache is managing size properly
-      const stats = consoleCapture.getDeduplicationStats()
-      expect(stats.cacheSize).toBeLessThanOrEqual(config.maxCacheEntries!)
+      const stats = consoleCapture.deduplicator?.getStats()
+      expect(stats?.cacheSize).toBeLessThanOrEqual(config.maxCacheEntries!)
     })
   })
 
@@ -159,10 +159,10 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
       const stats = limitedDedup.getStats()
 
       // Cache should not exceed limit
-      expect(stats.cacheSize).toBeLessThanOrEqual(100)
+      expect(stats?.cacheSize).toBeLessThanOrEqual(100)
 
       // Should have processed all logs
-      expect(stats.totalLogs).toBe(200)
+      expect(stats?.totalLogs).toBe(200)
 
       // Older entries should have been evicted (LRU)
       const oldEntry = {
@@ -203,18 +203,18 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
       })
 
       const duration = Date.now() - startTime
-      const stats = consoleCapture.getDeduplicationStats()
+      const stats = consoleCapture.deduplicator?.getStats()
 
       // Should process 10,000 logs quickly
       expect(duration).toBeLessThan(1000) // Under 1 second
 
       // Verify deduplication effectiveness
-      expect(stats.totalLogs).toBe(10000)
-      expect(stats.uniqueLogs).toBe(100)
-      expect(stats.duplicatesRemoved).toBe(9900)
+      expect(stats?.totalLogs).toBe(10000)
+      expect(stats?.uniqueLogs).toBe(100)
+      expect(stats?.duplicatesRemoved).toBe(9900)
 
       // Cache should only contain unique entries
-      expect(stats.cacheSize).toBe(100)
+      expect(stats?.cacheSize).toBe(100)
     })
 
     it('should handle low duplication rate efficiently', () => {
@@ -257,15 +257,15 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
       })
 
       const duration = Date.now() - startTime
-      const stats = consoleCapture.getDeduplicationStats()
+      const stats = consoleCapture.deduplicator?.getStats()
 
       // Should still be fast even with many unique entries
       expect(duration).toBeLessThan(1000)
 
       // Verify statistics
-      expect(stats.totalLogs).toBe(1100) // 900 + 200
-      expect(stats.uniqueLogs).toBe(1000) // 900 + 100
-      expect(stats.duplicatesRemoved).toBe(100) // 100 duplicates
+      expect(stats?.totalLogs).toBe(1100) // 900 + 200
+      expect(stats?.uniqueLogs).toBe(1000) // 900 + 100
+      expect(stats?.duplicatesRemoved).toBe(100) // 100 duplicates
     })
   })
 
@@ -296,11 +296,11 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
 
       return Promise.all(promises).then((outputs) => {
         // Verify deduplication worked across parallel tests
-        const stats = consoleCapture.getDeduplicationStats()
+        const stats = consoleCapture.deduplicator?.getStats()
 
         // "Database connection established" should be heavily deduplicated
         // Stats includes all logs
-        expect(stats.duplicatesRemoved).toBeGreaterThan(0)
+        expect(stats?.duplicatesRemoved).toBeGreaterThan(0)
 
         // Each test should have gotten deduplicated output
         outputs.forEach((output) => {
@@ -346,13 +346,13 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
         }
       }
 
-      const stats = consoleCapture.getDeduplicationStats()
+      const stats = consoleCapture.deduplicator?.getStats()
 
       // Setup/teardown logs should be heavily deduplicated
-      expect(stats.duplicatesRemoved).toBeGreaterThan(200) // Many duplicates from hooks
+      expect(stats?.duplicatesRemoved).toBeGreaterThan(200) // Many duplicates from hooks
 
       // Cache should still be within limits
-      expect(stats.cacheSize).toBeLessThanOrEqual(config.maxCacheEntries!)
+      expect(stats?.cacheSize).toBeLessThanOrEqual(config.maxCacheEntries!)
     })
 
     it('should maintain performance with mixed log levels', () => {
@@ -381,13 +381,13 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
       }
 
       const duration = Date.now() - startTime
-      const stats = consoleCapture.getDeduplicationStats()
+      const stats = consoleCapture.deduplicator?.getStats()
 
       // Should complete quickly
       expect(duration).toBeLessThan(3000)
 
       // Should have deduplicated appropriately
-      expect(stats.duplicatesRemoved).toBeGreaterThan(1000) // "Standard log message" duplicates
+      expect(stats?.duplicatesRemoved).toBeGreaterThan(1000) // "Standard log message" duplicates
 
       // Different levels should be tracked separately
       const entries = consoleCapture.deduplicator?.getAllEntries() || []
@@ -413,15 +413,15 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
         consoleCapture.deduplicator?.isDuplicate(entry)
       }
 
-      const stats = consoleCapture.getDeduplicationStats()
+      const stats = consoleCapture.deduplicator?.getStats()
 
       // Verify metrics
-      expect(stats.totalLogs).toBe(iterations)
-      expect(stats.processingTimeMs).toBeGreaterThanOrEqual(0)
-      expect(stats.processingTimeMs).toBeLessThan(1000) // Should be fast
+      expect(stats?.totalLogs).toBe(iterations)
+      expect(stats?.processingTimeMs).toBeGreaterThanOrEqual(0)
+      expect(stats?.processingTimeMs).toBeLessThan(1000) // Should be fast
 
       // Average time per log should be very small
-      const avgTimePerLog = stats.processingTimeMs / stats.totalLogs
+      const avgTimePerLog = (stats?.processingTimeMs || 0) / (stats?.totalLogs || 1)
       expect(avgTimePerLog).toBeLessThan(1) // Less than 1ms per log
     })
 

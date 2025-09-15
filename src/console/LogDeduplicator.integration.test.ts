@@ -51,36 +51,4 @@ describe('LogDeduplicator Integration', () => {
     expect(events).toHaveLength(2)
   })
 
-  it('should get deduplication stats from ConsoleCapture', () => {
-    const deduplicator = new LogDeduplicator({
-      enabled: true
-    })
-
-    const capture = new ConsoleCapture({
-      enabled: true,
-      deduplicator
-    })
-
-    // Get stats - should be defined even with no logs
-    const stats = capture.getDeduplicationStats()
-    expect(stats).toBeDefined()
-    expect(stats?.totalLogs).toBe(0)
-    expect(stats?.uniqueLogs).toBe(0)
-    expect(stats?.duplicatesRemoved).toBe(0)
-  })
-
-  it('should provide deduplication summary', () => {
-    const deduplicator = new LogDeduplicator({
-      enabled: true
-    })
-
-    const capture = new ConsoleCapture({
-      enabled: true,
-      deduplicator
-    })
-
-    const summary = capture.getDeduplicationSummary()
-    expect(summary).toBeDefined()
-    expect(summary.entries).toEqual([])
-  })
 })

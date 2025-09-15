@@ -68,7 +68,7 @@ export function createDeduplicationEntry(
     key,
     logLevel: level,
     originalMessage: message,
-    normalizedMessage: normalizeMessage(message, config),
+    normalizedMessage: normalizeMessage(message, {}),
     firstSeen: now,
     lastSeen: now,
     count,

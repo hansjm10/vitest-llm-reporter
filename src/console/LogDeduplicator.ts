@@ -22,14 +22,12 @@ import { normalizeMessage, hashMessage } from '../utils/message-normalizer.js'
 export class LogDeduplicator implements ILogDeduplicator {
   private config: Required<DeduplicationConfig>
   private entries: Map<string, DeduplicationEntry>
-  private lruKeys: string[] // Track insertion order for LRU
   private stats: DeduplicationStats
   private startTime: number
 
   constructor(config: DeduplicationConfig) {
     this.config = { ...DEFAULT_DEDUPLICATION_CONFIG, ...config } as Required<DeduplicationConfig>
     this.entries = new Map()
-    this.lruKeys = []
     this.stats = {
       totalLogs: 0,
       uniqueLogs: 0,
@@ -64,12 +62,9 @@ export class LogDeduplicator implements ILogDeduplicator {
       if (entry.testId && this.config.includeSources) {
         existing.sources.add(entry.testId)
       }
-      // Move to end of LRU list (most recently used)
-      const index = this.lruKeys.indexOf(key)
-      if (index > -1) {
-        this.lruKeys.splice(index, 1)
-        this.lruKeys.push(key)
-      }
+      // Move to end of Map (most recently used) - O(1) operation
+      this.entries.delete(key)
+      this.entries.set(key, existing)
       this.stats.duplicatesRemoved++
       this.updateProcessingTime(processingStart)
       return true
@@ -93,7 +88,6 @@ export class LogDeduplicator implements ILogDeduplicator {
     }
 
     this.entries.set(key, newEntry)
-    this.lruKeys.push(key) // Add to end of LRU list
     this.stats.uniqueLogs++
     this.stats.cacheSize = this.entries.size
     this.updateProcessingTime(processingStart)
@@ -138,7 +132,6 @@ export class LogDeduplicator implements ILogDeduplicator {
    */
   clear(): void {
     this.entries.clear()
-    this.lruKeys = []
     this.stats = {
       totalLogs: 0,
       uniqueLogs: 0,
@@ -160,13 +153,11 @@ export class LogDeduplicator implements ILogDeduplicator {
    * Evict the oldest entry when cache is full (LRU)
    */
   private evictOldest(): void {
-    // O(1) eviction - remove first item from LRU list
-    if (this.lruKeys.length > 0) {
-      const oldestKey = this.lruKeys.shift() // Remove from front
-      if (oldestKey) {
-        this.entries.delete(oldestKey)
-        this.stats.cacheSize = this.entries.size
-      }
+    // O(1) eviction - Map maintains insertion order, first entry is oldest
+    const firstKey = this.entries.keys().next().value
+    if (firstKey !== undefined) {
+      this.entries.delete(firstKey)
+      this.stats.cacheSize = this.entries.size
     }
   }
 

@@ -28,18 +28,13 @@ export interface ConsoleCaptureConfig extends ConsoleBufferConfig {
 
 // Import types needed for CaptureResult
 import type { ConsoleEvent } from './schema.js'
-import type { DeduplicationStats } from './deduplication.js'
-
 /**
  * Result returned by ConsoleCapture.stopCapture()
  */
 export interface CaptureResult {
   /** Array of captured console events */
   entries: ConsoleEvent[]
-  /** Optional deduplication statistics */
-  deduplicationStats?: DeduplicationStats
 }
 
 // Re-export types that are used with CaptureResult
 export type { ConsoleEvent } from './schema.js'
-export type { DeduplicationStats } from './deduplication.js'

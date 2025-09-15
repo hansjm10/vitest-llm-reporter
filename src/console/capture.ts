@@ -196,8 +196,7 @@ export class ConsoleCapture {
       this.scheduleCleanup(testId)
 
       return {
-        entries: deduplicatedEntries,
-        deduplicationStats: this.deduplicator.getStats()
+        entries: deduplicatedEntries
       }
     }
 
@@ -340,84 +339,6 @@ export class ConsoleCapture {
     this.debug('Console capture reset')
   }
 
-  /**
-   * Get deduplication statistics
-   */
-  getDeduplicationStats(): {
-    totalLogs: number
-    uniqueLogs: number
-    duplicatesRemoved: number
-    cacheSize: number
-    processingTimeMs: number
-  } {
-    if (!this.deduplicator) {
-      return {
-        totalLogs: 0,
-        uniqueLogs: 0,
-        duplicatesRemoved: 0,
-        cacheSize: 0,
-        processingTimeMs: 0
-      }
-    }
-    return this.deduplicator.getStats()
-  }
-
-  /**
-   * Get deduplication summary with all unique entries
-   */
-  getDeduplicationSummary(): {
-    entries: Array<{
-      message: string
-      level: string
-      deduplication: {
-        count: number
-        firstSeen: string
-        lastSeen: string
-        sources: string[]
-        deduplicated: boolean
-      }
-    }>
-  } {
-    if (!this.deduplicator) {
-      return { entries: [] }
-    }
-
-    const entries = this.deduplicator.getAllEntries()
-    return {
-      entries: Array.from(entries.values()).map((entry) => ({
-        message: entry.originalMessage,
-        level: entry.logLevel,
-        deduplication: {
-          count: entry.count,
-          firstSeen: entry.firstSeen.toISOString(),
-          lastSeen: entry.lastSeen.toISOString(),
-          sources: Array.from(entry.sources),
-          deduplicated: entry.count > 1
-        }
-      }))
-    }
-  }
-
-  /**
-   * Get global deduplication statistics across all tests
-   */
-  getGlobalDeduplicationStats(): {
-    totalLogs: number
-    uniqueLogs: number
-    duplicatesRemoved: number
-    cacheSize: number
-    processingTimeMs: number
-  } {
-    return (
-      this.deduplicator?.getStats() || {
-        totalLogs: 0,
-        uniqueLogs: 0,
-        duplicatesRemoved: 0,
-        cacheSize: 0,
-        processingTimeMs: 0
-      }
-    )
-  }
 
   /**
    * Capture console output for a test and return the result
