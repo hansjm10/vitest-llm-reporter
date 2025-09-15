@@ -16,9 +16,9 @@ import type { DeduplicationConfig } from '../../src/types/deduplication.js'
 
 describe('Deduplication Configuration Contract', () => {
   describe('normalizeDeduplicationConfig', () => {
-    it('should return disabled config when undefined', () => {
+    it('should return enabled config when undefined', () => {
       const result = normalizeDeduplicationConfig(undefined)
-      expect(result.enabled).toBe(false)
+      expect(result.enabled).toBe(true)
       expect(result.maxCacheEntries).toBe(10000)
       expect(result.includeSources).toBe(false)
       expect(result.normalizeWhitespace).toBe(true)
@@ -29,7 +29,7 @@ describe('Deduplication Configuration Contract', () => {
     it('should return disabled config when false', () => {
       const result = normalizeDeduplicationConfig(false)
       expect(result.enabled).toBe(false)
-      expect(result).toMatchObject(DEFAULT_DEDUPLICATION_CONFIG)
+      expect(result).toMatchObject({ ...DEFAULT_DEDUPLICATION_CONFIG, enabled: false })
     })
 
     it('should return enabled config with defaults when true', () => {
@@ -195,7 +195,7 @@ describe('Deduplication Configuration Contract', () => {
   describe('DEFAULT_DEDUPLICATION_CONFIG', () => {
     it('should have sensible defaults', () => {
       expect(DEFAULT_DEDUPLICATION_CONFIG).toEqual({
-        enabled: false,
+        enabled: true,
         maxCacheEntries: 10000,
         includeSources: false,
         normalizeWhitespace: true,
@@ -204,8 +204,8 @@ describe('Deduplication Configuration Contract', () => {
       })
     })
 
-    it('should be disabled by default', () => {
-      expect(DEFAULT_DEDUPLICATION_CONFIG.enabled).toBe(false)
+    it('should be enabled by default', () => {
+      expect(DEFAULT_DEDUPLICATION_CONFIG.enabled).toBe(true)
     })
 
     it('should have reasonable cache limit', () => {

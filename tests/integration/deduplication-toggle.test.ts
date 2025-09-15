@@ -217,7 +217,7 @@ describe('Integration: Configuration Toggle', () => {
       expect(output.console[1].deduplication).toBeUndefined()
     })
 
-    it('should disable deduplication when undefined', () => {
+    it('should enable deduplication by default when undefined', () => {
       const config: LLMReporterConfigWithDeduplication = {
         // deduplicateLogs not specified
         verbose: true
@@ -235,7 +235,8 @@ describe('Integration: Configuration Toggle', () => {
       }
 
       const output = reporter.processTestOutput(testContext)
-      expect(output.console).toHaveLength(2)
+      expect(output.console).toHaveLength(1) // Should be deduplicated by default
+      expect(output.console[0].deduplication?.count).toBe(2)
     })
 
     it('should accept detailed configuration object', () => {

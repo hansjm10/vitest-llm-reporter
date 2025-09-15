@@ -22,7 +22,7 @@ export interface LLMReporterConfigWithDeduplication extends LLMReporterConfig {
  * Default deduplication configuration values
  */
 export const DEFAULT_DEDUPLICATION_CONFIG: DeduplicationConfig = {
-  enabled: false,
+  enabled: true,
   maxCacheEntries: 10000,
   includeSources: false,
   normalizeWhitespace: true,
@@ -37,14 +37,22 @@ export const DEFAULT_DEDUPLICATION_CONFIG: DeduplicationConfig = {
 export function normalizeDeduplicationConfig(
   config?: boolean | DeduplicationConfig
 ): DeduplicationConfig {
-  if (config === undefined || config === false) {
+  // Default to enabled when undefined
+  if (config === undefined) {
+    return { ...DEFAULT_DEDUPLICATION_CONFIG }
+  }
+
+  // Explicitly disabled
+  if (config === false) {
     return { ...DEFAULT_DEDUPLICATION_CONFIG, enabled: false }
   }
 
+  // Explicitly enabled
   if (config === true) {
     return { ...DEFAULT_DEDUPLICATION_CONFIG, enabled: true }
   }
 
+  // Config object - use defaults with overrides
   return {
     ...DEFAULT_DEDUPLICATION_CONFIG,
     ...config

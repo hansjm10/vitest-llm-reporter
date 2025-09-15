@@ -186,7 +186,7 @@ export class LLMReporter implements Reporter {
       enableConsoleOutput,
       includeAbsolutePaths: config.includeAbsolutePaths ?? false,
       filterNodeModules: config.filterNodeModules ?? true,
-      deduplicateLogs: config.deduplicateLogs ?? undefined, // Add deduplicateLogs config
+      deduplicateLogs: config.deduplicateLogs ?? true, // Default to enabled
       performance: {
         enabled: config.performance?.enabled ?? false,
         cacheSize: config.performance?.cacheSize ?? 1000,
@@ -601,9 +601,9 @@ export class LLMReporter implements Reporter {
       }
     }
 
-    // Boolean or undefined
+    // Boolean, true (default), or false (explicitly disabled)
     return {
-      enabled: !!this.config.deduplicateLogs,
+      enabled: this.config.deduplicateLogs !== false,
       maxCacheEntries: 10000,
       timeWindowMs: 60000,
       normalizeWhitespace: true,
