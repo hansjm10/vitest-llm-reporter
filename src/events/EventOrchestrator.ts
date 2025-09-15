@@ -266,7 +266,8 @@ export class EventOrchestrator {
     // Try to get console logs from Vitest task (built-in capture)
     const consoleFromTask = this.extractConsoleFromTask(originalTestCase)
     // Also try our custom capture
-    const consoleFromCapture = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
+    const captureResult = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
+    const consoleFromCapture = captureResult?.entries
 
     // Intelligently merge both console sources
     const consoleEvents = consoleMerger.merge(consoleFromTask, consoleFromCapture)

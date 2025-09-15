@@ -22,9 +22,9 @@ describe('ConsoleCapture Direct Test', () => {
 
     // Verify output
     expect(output).toBeDefined()
-    expect(output).toBeInstanceOf(Array)
-    expect(output?.some((e) => e.level === 'log' && e.text === 'Test log message')).toBe(true)
-    expect(output?.some((e) => e.level === 'error' && e.text === 'Test error message')).toBe(true)
-    expect(output?.some((e) => e.level === 'warn' && e.text === 'Test warning')).toBe(true)
+    expect(output.entries).toBeInstanceOf(Array)
+    expect(output.entries.some((e) => e.level === 'log' && e.text === 'Test log message')).toBe(true)
+    expect(output.entries.some((e) => e.level === 'error' && e.text === 'Test error message')).toBe(true)
+    expect(output.entries.some((e) => e.level === 'warn' && e.text === 'Test warning')).toBe(true)
   })
 })

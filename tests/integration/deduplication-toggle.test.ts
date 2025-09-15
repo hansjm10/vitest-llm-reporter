@@ -108,9 +108,10 @@ describe('Integration: Configuration Toggle', () => {
 
       const testId = 'test-with-dedup'
       consoleCapture.startCapture(testId)
-      console.log('Duplicate')
-      console.log('Duplicate')
-      console.log('Duplicate')
+      // Use ingest to simulate console output since we're not in async context
+      consoleCapture.ingest(testId, 'log', ['Duplicate'])
+      consoleCapture.ingest(testId, 'log', ['Duplicate'])
+      consoleCapture.ingest(testId, 'log', ['Duplicate'])
       const output = consoleCapture.stopCapture(testId)
 
       expect(output.entries).toHaveLength(1)
@@ -134,9 +135,10 @@ describe('Integration: Configuration Toggle', () => {
 
       const testId = 'test-without-dedup'
       consoleCapture.startCapture(testId)
-      console.log('Duplicate')
-      console.log('Duplicate')
-      console.log('Duplicate')
+      // Use ingest to simulate console output since we're not in async context
+      consoleCapture.ingest(testId, 'log', ['Duplicate'])
+      consoleCapture.ingest(testId, 'log', ['Duplicate'])
+      consoleCapture.ingest(testId, 'log', ['Duplicate'])
       const output = consoleCapture.stopCapture(testId)
 
       expect(output.entries).toHaveLength(3)
@@ -156,8 +158,9 @@ describe('Integration: Configuration Toggle', () => {
 
       const testId = 'test-no-dedup'
       consoleCapture.startCapture(testId)
-      console.log('Message')
-      console.log('Message')
+      // Use ingest to simulate console output since we're not in async context
+      consoleCapture.ingest(testId, 'log', ['Message'])
+      consoleCapture.ingest(testId, 'log', ['Message'])
       const output = consoleCapture.stopCapture(testId)
 
       expect(output.entries).toHaveLength(2)
