@@ -108,7 +108,7 @@ export class OutputBuilder {
     return {
       total: passed.length + failed.length + skipped.length + unhandledErrorCount,
       passed: passed.length,
-      failed: failed.length + unhandledErrorCount,  // Include unhandled errors in failed count
+      failed: failed.length + unhandledErrorCount, // Include unhandled errors in failed count
       skipped: skipped.length,
       duration: options.duration,
       timestamp: new Date().toISOString()

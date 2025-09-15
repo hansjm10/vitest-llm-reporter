@@ -8,37 +8,37 @@ export interface DeduplicationConfig {
    * Enable or disable log deduplication
    * @default false
    */
-  enabled: boolean;
+  enabled: boolean
 
   /**
    * Maximum number of unique entries to cache
    * @default 10000
    */
-  maxCacheEntries?: number;
+  maxCacheEntries?: number
 
   /**
    * Include source test IDs in deduplication metadata
    * @default false
    */
-  includeSources?: boolean;
+  includeSources?: boolean
 
   /**
    * Normalize whitespace when comparing messages
    * @default true
    */
-  normalizeWhitespace?: boolean;
+  normalizeWhitespace?: boolean
 
   /**
    * Strip timestamp patterns when comparing messages
    * @default true
    */
-  stripTimestamps?: boolean;
+  stripTimestamps?: boolean
 
   /**
    * Strip ANSI color codes when comparing messages
    * @default true
    */
-  stripAnsiCodes?: boolean;
+  stripAnsiCodes?: boolean
 }
 
 /**
@@ -48,16 +48,16 @@ export interface LLMReporterConfigWithDeduplication {
   /**
    * Log deduplication settings
    */
-  deduplicateLogs?: boolean | DeduplicationConfig;
-  
+  deduplicateLogs?: boolean | DeduplicationConfig
+
   // Existing configuration fields preserved...
-  verbose?: boolean;
-  outputFile?: string;
-  enableConsoleOutput?: boolean;
-  includePassedTests?: boolean;
-  includeSkippedTests?: boolean;
-  captureConsoleOnFailure?: boolean;
-  maxConsoleBytes?: number;
-  maxConsoleLines?: number;
-  includeDebugOutput?: boolean;
+  verbose?: boolean
+  outputFile?: string
+  enableConsoleOutput?: boolean
+  includePassedTests?: boolean
+  includeSkippedTests?: boolean
+  captureConsoleOnFailure?: boolean
+  maxConsoleBytes?: number
+  maxConsoleLines?: number
+  includeDebugOutput?: boolean
 }

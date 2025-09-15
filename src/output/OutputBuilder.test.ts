@@ -118,7 +118,7 @@ describe('OutputBuilder', () => {
       expect(output.failures).toHaveLength(2)
 
       // Verify both types of failures are present
-      const failureTests = output.failures!.map(f => f.test)
+      const failureTests = output.failures!.map((f) => f.test)
       expect(failureTests).toContain('failing test')
       expect(failureTests).toContain('Unhandled Error')
     })
@@ -177,7 +177,13 @@ describe('OutputBuilder', () => {
       const options: BuildOptions = {
         testResults: {
           passed: [
-            { test: 'test1', fileRelative: 'test.js', startLine: 1, endLine: 5, status: 'passed' as const }
+            {
+              test: 'test1',
+              fileRelative: 'test.js',
+              startLine: 1,
+              endLine: 5,
+              status: 'passed' as const
+            }
           ],
           failed: [],
           skipped: []

@@ -7,74 +7,74 @@ export interface DeduplicationMetadata {
   /**
    * Number of times this log appeared
    */
-  count: number;
+  count: number
 
   /**
    * ISO timestamp of first occurrence
    */
-  firstSeen: string;
+  firstSeen: string
 
   /**
    * ISO timestamp of last occurrence
    */
-  lastSeen?: string;
+  lastSeen?: string
 
   /**
    * Test IDs that generated this log (if configured)
    */
-  sources?: string[];
+  sources?: string[]
 
   /**
    * Flag indicating this entry was deduplicated
    */
-  deduplicated: boolean;
+  deduplicated: boolean
 }
 
 export interface ConsoleOutputWithDeduplication {
   /**
    * The log message content
    */
-  message: string;
+  message: string
 
   /**
    * Log severity level
    */
-  level: string;
+  level: string
 
   /**
    * Standard timestamp
    */
-  timestamp: string;
+  timestamp: string
 
   /**
    * Deduplication metadata (if applicable)
    */
-  deduplication?: DeduplicationMetadata;
+  deduplication?: DeduplicationMetadata
 }
 
 export interface TestResultWithDeduplication {
   /**
    * Test identification
    */
-  testId: string;
-  testName: string;
-  
+  testId: string
+  testName: string
+
   /**
    * Test outcome
    */
-  status: 'passed' | 'failed' | 'skipped';
-  
+  status: 'passed' | 'failed' | 'skipped'
+
   /**
    * Console output with deduplication
    */
-  console?: ConsoleOutputWithDeduplication[];
-  
+  console?: ConsoleOutputWithDeduplication[]
+
   /**
    * Summary of deduplication for this test
    */
   deduplicationSummary?: {
-    totalLogs: number;
-    uniqueLogs: number;
-    duplicatesRemoved: number;
-  };
+    totalLogs: number
+    uniqueLogs: number
+    duplicatesRemoved: number
+  }
 }
