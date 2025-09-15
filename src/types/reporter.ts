@@ -69,7 +69,6 @@ export interface LLMReporterConfig {
     | {
         enabled?: boolean
         maxCacheEntries?: number
-        timeWindowMs?: number
         normalizeWhitespace?: boolean
         includeSources?: boolean
         stripTimestamps?: boolean

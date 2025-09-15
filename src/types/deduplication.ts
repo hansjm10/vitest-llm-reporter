@@ -19,7 +19,7 @@ export interface DeduplicationConfig {
    * Enable or disable log deduplication
    * @default false
    */
-  enabled: boolean
+  enabled?: boolean
 
   /**
    * Maximum number of unique entries to cache

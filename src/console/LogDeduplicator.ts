@@ -12,18 +12,8 @@ import type {
   DeduplicationStats,
   DeduplicationConfig
 } from '../types/deduplication.js'
-
-/**
- * Default configuration values
- */
-const DEFAULTS: Required<DeduplicationConfig> = {
-  enabled: false,
-  maxCacheEntries: 10000,
-  includeSources: false,
-  normalizeWhitespace: true,
-  stripTimestamps: true,
-  stripAnsiCodes: true
-}
+import { DEFAULT_DEDUPLICATION_CONFIG } from '../config/deduplication-config.js'
+import { normalizeMessage, hashMessage } from '../utils/message-normalizer.js'
 
 /**
  * Log deduplicator implementation
@@ -36,7 +26,7 @@ export class LogDeduplicator implements ILogDeduplicator {
   private startTime: number
 
   constructor(config: DeduplicationConfig) {
-    this.config = { ...DEFAULTS, ...config }
+    this.config = { ...DEFAULT_DEDUPLICATION_CONFIG, ...config } as Required<DeduplicationConfig>
     this.entries = new Map()
     this.stats = {
       totalLogs: 0,
@@ -87,7 +77,7 @@ export class LogDeduplicator implements ILogDeduplicator {
       key,
       logLevel: entry.level,
       originalMessage: entry.message,
-      normalizedMessage: this.normalizeMessage(entry.message),
+      normalizedMessage: normalizeMessage(entry.message, this.config),
       firstSeen: entry.timestamp,
       lastSeen: entry.timestamp,
       count: 1,
@@ -105,8 +95,8 @@ export class LogDeduplicator implements ILogDeduplicator {
    * Generate a deduplication key for a log entry
    */
   generateKey(entry: LogEntry): string {
-    const normalized = this.normalizeMessage(entry.message)
-    const hash = this.hashMessage(normalized)
+    const normalized = normalizeMessage(entry.message, this.config)
+    const hash = hashMessage(normalized)
     return `${entry.level}:${hash}`
   }
 
@@ -154,64 +144,6 @@ export class LogDeduplicator implements ILogDeduplicator {
    */
   isEnabled(): boolean {
     return this.config.enabled
-  }
-
-  /**
-   * Normalize a message for comparison
-   */
-  private normalizeMessage(message: string): string {
-    // Return early if no normalization needed
-    if (
-      !this.config.stripAnsiCodes &&
-      !this.config.stripTimestamps &&
-      !this.config.normalizeWhitespace
-    ) {
-      return message.toLowerCase()
-    }
-
-    let normalized = message
-
-    // Strip ANSI color codes
-    if (this.config.stripAnsiCodes && normalized.includes('\x1b')) {
-      // eslint-disable-next-line no-control-regex
-      normalized = normalized.replace(/\x1b\[[0-9;]*m/g, '')
-    }
-
-    // Strip timestamps (various formats)
-    if (this.config.stripTimestamps) {
-      // Only apply regex if likely to contain timestamps
-      // ISO timestamps
-      if (normalized.includes('T') || normalized.includes(':')) {
-        normalized = normalized.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?/g, '')
-        // Common date formats
-        normalized = normalized.replace(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/g, '')
-      }
-      // Unix timestamps (10 or 13 digits)
-      if (/\b\d{10,13}\b/.test(normalized)) {
-        normalized = normalized.replace(/\b\d{10}(\d{3})?\b/g, '')
-      }
-    }
-
-    // Normalize whitespace
-    if (this.config.normalizeWhitespace && /\s{2,}/.test(normalized)) {
-      normalized = normalized.replace(/\s+/g, ' ').trim()
-    }
-
-    return normalized.toLowerCase()
-  }
-
-  /**
-   * Generate a hash for a normalized message
-   */
-  private hashMessage(message: string): string {
-    // Use a simpler hash for better performance
-    // DJB2 hash algorithm - much faster than SHA256 for our use case
-    let hash = 5381
-    for (let i = 0; i < message.length; i++) {
-      hash = (hash << 5) + hash + message.charCodeAt(i)
-      hash = hash & 0xffffffff // Convert to 32bit integer
-    }
-    return hash.toString(36) // Convert to base36 for shorter string
   }
 
   /**

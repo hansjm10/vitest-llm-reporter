@@ -11,6 +11,7 @@ import type {
   LogLevel,
   ConsoleOutputWithDeduplication
 } from '../../src/types/deduplication.js'
+import { normalizeMessage as prodNormalizeMessage } from '../../src/utils/message-normalizer.js'
 
 /**
  * Create a test log entry
@@ -67,7 +68,7 @@ export function createDeduplicationEntry(
     key,
     logLevel: level,
     originalMessage: message,
-    normalizedMessage: normalizeMessage(message),
+    normalizedMessage: normalizeMessage(message, config),
     firstSeen: now,
     lastSeen: now,
     count,
@@ -76,32 +77,13 @@ export function createDeduplicationEntry(
 }
 
 /**
- * Normalize a message for comparison (simplified version for testing)
+ * Normalize a message for comparison - delegates to production code
  */
 export function normalizeMessage(
   message: string,
   config: Partial<DeduplicationConfig> = {}
 ): string {
-  let normalized = message
-
-  // Strip ANSI codes
-  if (config.stripAnsiCodes !== false) {
-    // eslint-disable-next-line no-control-regex
-    normalized = normalized.replace(/\x1b\[[0-9;]*m/g, '')
-  }
-
-  // Strip timestamps (ISO date patterns)
-  if (config.stripTimestamps !== false) {
-    normalized = normalized.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/g, '')
-    normalized = normalized.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/g, '')
-  }
-
-  // Normalize whitespace
-  if (config.normalizeWhitespace !== false) {
-    normalized = normalized.replace(/\s+/g, ' ').trim()
-  }
-
-  return normalized.toLowerCase()
+  return prodNormalizeMessage(message, config)
 }
 
 /**

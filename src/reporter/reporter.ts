@@ -58,7 +58,6 @@ interface ResolvedLLMReporterConfig
     | {
         enabled?: boolean
         maxCacheEntries?: number
-        timeWindowMs?: number
         normalizeWhitespace?: boolean
         includeSources?: boolean
         stripTimestamps?: boolean
@@ -78,6 +77,10 @@ import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
 import { StdioInterceptor } from '../console/stdio-interceptor.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
+import {
+  normalizeDeduplicationConfig,
+  validateDeduplicationConfig
+} from '../config/deduplication-config.js'
 import * as fs from 'node:fs'
 import { isTTY, isCI } from '../utils/environment.js'
 import {
@@ -302,37 +305,8 @@ export class LLMReporter implements Reporter {
       }
 
       if (typeof config.deduplicateLogs === 'object' && config.deduplicateLogs !== null) {
-        const dedupConfig = config.deduplicateLogs
-
-        if (dedupConfig.enabled !== undefined && typeof dedupConfig.enabled !== 'boolean') {
-          throw new Error('deduplicateLogs.enabled must be a boolean')
-        }
-
-        if (dedupConfig.maxCacheEntries !== undefined) {
-          if (typeof dedupConfig.maxCacheEntries !== 'number' || dedupConfig.maxCacheEntries <= 0) {
-            throw new Error('deduplicateLogs.maxCacheEntries must be a positive number')
-          }
-        }
-
-        if (dedupConfig.timeWindowMs !== undefined) {
-          if (typeof dedupConfig.timeWindowMs !== 'number' || dedupConfig.timeWindowMs <= 0) {
-            throw new Error('deduplicateLogs.timeWindowMs must be a positive number')
-          }
-        }
-
-        if (
-          dedupConfig.normalizeWhitespace !== undefined &&
-          typeof dedupConfig.normalizeWhitespace !== 'boolean'
-        ) {
-          throw new Error('deduplicateLogs.normalizeWhitespace must be a boolean')
-        }
-
-        if (
-          dedupConfig.includeSources !== undefined &&
-          typeof dedupConfig.includeSources !== 'boolean'
-        ) {
-          throw new Error('deduplicateLogs.includeSources must be a boolean')
-        }
+        // Delegate to centralized validation
+        validateDeduplicationConfig(config.deduplicateLogs)
       }
     }
   }
@@ -569,48 +543,12 @@ export class LLMReporter implements Reporter {
   }
 
   /**
-   * Get deduplication configuration for testing
-   * @internal For testing only
+   * Get the deduplication configuration
+   * Provides defaults for all configuration options
+   * @internal - Public for testing only
    */
-  /**
-   * Get deduplication configuration for testing
-   * @internal For testing only
-   */
-  getDeduplicationConfig(): {
-    enabled: boolean
-    maxCacheEntries: number
-    timeWindowMs: number
-    normalizeWhitespace: boolean
-    includeSources: boolean
-    stripTimestamps: boolean
-    stripAnsiCodes: boolean
-  } {
-    // If deduplicateLogs is an object with configuration
-    if (typeof this.config.deduplicateLogs === 'object' && this.config.deduplicateLogs !== null) {
-      // Even if it's an object, it's enabled unless explicitly disabled
-      const enabled = this.config.deduplicateLogs.enabled !== false
-
-      return {
-        enabled,
-        maxCacheEntries: this.config.deduplicateLogs.maxCacheEntries ?? 10000,
-        timeWindowMs: this.config.deduplicateLogs.timeWindowMs ?? 60000,
-        normalizeWhitespace: this.config.deduplicateLogs.normalizeWhitespace ?? true,
-        includeSources: this.config.deduplicateLogs.includeSources ?? false,
-        stripTimestamps: this.config.deduplicateLogs.stripTimestamps ?? true,
-        stripAnsiCodes: this.config.deduplicateLogs.stripAnsiCodes ?? true
-      }
-    }
-
-    // Boolean, true (default), or false (explicitly disabled)
-    return {
-      enabled: this.config.deduplicateLogs !== false,
-      maxCacheEntries: 10000,
-      timeWindowMs: 60000,
-      normalizeWhitespace: true,
-      includeSources: false,
-      stripTimestamps: true,
-      stripAnsiCodes: true
-    }
+  getDeduplicationConfig() {
+    return normalizeDeduplicationConfig(this.config.deduplicateLogs)
   }
 
   /**
