@@ -13,7 +13,7 @@ import type { LLMReporterConfigWithDeduplication } from '../../src/config/dedupl
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
 import { LogDeduplicator } from '../../src/console/LogDeduplicator.js'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { ConsoleCapture } from '../../src/console/ConsoleCapture.js'
+import { ConsoleCapture } from '../../src/console/capture'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
 import { LLMReporter } from '../../src/reporter/LLMReporter.js'
 

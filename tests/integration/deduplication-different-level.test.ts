@@ -12,7 +12,7 @@ import type { DeduplicationConfig } from '../../src/types/deduplication.js'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
 import { LogDeduplicator } from '../../src/console/LogDeduplicator.js'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { ConsoleCapture } from '../../src/console/ConsoleCapture.js'
+import { ConsoleCapture } from '../../src/console/capture'
 
 describe('Integration: Same Log Different Level Handling', () => {
   let consoleCapture: any // ConsoleCapture
