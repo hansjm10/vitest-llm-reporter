@@ -67,4 +67,3 @@ export function hashMessage(message: string): string {
   }
   return hash.toString(36) // Convert to base36 for shorter string
 }
-

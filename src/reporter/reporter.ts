@@ -81,6 +81,7 @@ import {
   normalizeDeduplicationConfig,
   validateDeduplicationConfig
 } from '../config/deduplication-config.js'
+import type { DeduplicationConfig } from '../types/deduplication.js'
 import * as fs from 'node:fs'
 import { isTTY, isCI } from '../utils/environment.js'
 import {
@@ -387,14 +388,19 @@ export class LLMReporter implements Reporter {
   /**
    * Update reporter configuration dynamically
    */
-  /**
-   * Update reporter configuration dynamically
-   */
   updateConfig(partialConfig: Partial<LLMReporterConfig>): void {
-    // Update deduplicateLogs if provided
-    if (partialConfig.deduplicateLogs !== undefined) {
-      this.config.deduplicateLogs = partialConfig.deduplicateLogs
-      // Update the orchestrator's console configuration
+    // Update configuration properties
+    Object.assign(this.config, partialConfig)
+
+    // Update orchestrator if console-related config changed
+    const consoleConfigKeys = [
+      'captureConsoleOnFailure',
+      'maxConsoleBytes',
+      'maxConsoleLines',
+      'includeDebugOutput',
+      'truncation'
+    ]
+    if (consoleConfigKeys.some((key) => key in partialConfig)) {
       this.orchestrator.updateConfig({
         captureConsoleOnFailure: this.config.captureConsoleOnFailure,
         maxConsoleBytes: this.config.maxConsoleBytes,
@@ -402,29 +408,6 @@ export class LLMReporter implements Reporter {
         includeDebugOutput: this.config.includeDebugOutput,
         truncationConfig: this.config.truncation
       })
-    }
-
-    // Update other configuration options as needed
-    if (partialConfig.verbose !== undefined) {
-      this.config.verbose = partialConfig.verbose
-    }
-    if (partialConfig.includePassedTests !== undefined) {
-      this.config.includePassedTests = partialConfig.includePassedTests
-    }
-    if (partialConfig.includeSkippedTests !== undefined) {
-      this.config.includeSkippedTests = partialConfig.includeSkippedTests
-    }
-    if (partialConfig.captureConsoleOnFailure !== undefined) {
-      this.config.captureConsoleOnFailure = partialConfig.captureConsoleOnFailure
-    }
-    if (partialConfig.maxConsoleBytes !== undefined) {
-      this.config.maxConsoleBytes = partialConfig.maxConsoleBytes
-    }
-    if (partialConfig.maxConsoleLines !== undefined) {
-      this.config.maxConsoleLines = partialConfig.maxConsoleLines
-    }
-    if (partialConfig.includeDebugOutput !== undefined) {
-      this.config.includeDebugOutput = partialConfig.includeDebugOutput
     }
   }
 
@@ -475,79 +458,11 @@ export class LLMReporter implements Reporter {
   }
 
   /**
-   * Process test output for testing purposes
-   * @internal For testing only
-   */
-  /**
-   * Process test output for testing purposes
-   * @internal For testing only
-   */
-  /**
-   * Process test output for testing purposes
-   * @internal For testing only
-   */
-  /**
-   * Process test output for testing purposes
-   * @internal For testing only
-   */
-  /**
-   * Process test output for testing purposes
-   * @internal For testing only
-   */
-  processTestOutput(context: { testId: string; logs: Array<{ message: string; level: string }> }): {
-    console: Array<{
-      message: string
-      level: string
-      deduplication?: {
-        count: number
-      }
-    }>
-  } {
-    const consoleEvents: Array<{
-      message: string
-      level: string
-      deduplication?: {
-        count: number
-      }
-    }> = []
-
-    if (this.config.deduplicateLogs) {
-      // Track which unique logs we've already added
-      const seen = new Set<string>()
-      const logCounts = new Map<string, number>()
-
-      // First pass: count all duplicates
-      for (const log of context.logs) {
-        const key = `${log.level}:${log.message}`
-        logCounts.set(key, (logCounts.get(key) || 0) + 1)
-      }
-
-      // Second pass: add each unique log once with its count
-      for (const log of context.logs) {
-        const key = `${log.level}:${log.message}`
-        if (!seen.has(key)) {
-          seen.add(key)
-          const count = logCounts.get(key) || 1
-          consoleEvents.push({
-            ...log,
-            deduplication: count > 1 ? { count } : undefined
-          })
-        }
-      }
-    } else {
-      // No deduplication - return all logs as-is
-      consoleEvents.push(...context.logs)
-    }
-
-    return { console: consoleEvents }
-  }
-
-  /**
    * Get the deduplication configuration
    * Provides defaults for all configuration options
    * @internal - Public for testing only
    */
-  getDeduplicationConfig() {
+  getDeduplicationConfig(): DeduplicationConfig {
     return normalizeDeduplicationConfig(this.config.deduplicateLogs)
   }
 

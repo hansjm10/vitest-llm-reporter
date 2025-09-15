@@ -45,7 +45,7 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
 
   afterEach(() => {
     if (consoleCapture?.restore) {
-      consoleCapture.restore()
+      consoleCapture.unpatchConsole()
     }
     if (deduplicator?.clear) {
       deduplicator.clear()

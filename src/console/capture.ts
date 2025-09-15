@@ -146,9 +146,9 @@ export class ConsoleCapture {
     // If deduplication is enabled, process events through deduplicator
     if (this.deduplicator?.isEnabled()) {
       const deduplicatedEntries: ConsoleEvent[] = []
-      const keyToFirstEvent = new Map<string, ConsoleEvent>()
+      const firstEventMap = new Map<string, ConsoleEvent>()
 
-      // First pass: process all events through deduplicator to track duplicates
+      // Process all events to build deduplication metadata
       for (const event of events) {
         const logEntry = {
           message: event.text,
@@ -157,19 +157,18 @@ export class ConsoleCapture {
           testId
         }
 
-        // This updates the deduplicator's internal state and returns true if duplicate
+        const key = this.deduplicator.generateKey(logEntry)
+        // Update deduplicator state
         this.deduplicator.isDuplicate(logEntry)
 
-        const key = this.deduplicator.generateKey(logEntry)
-
-        // Keep the first occurrence of each unique log
-        if (!keyToFirstEvent.has(key)) {
-          keyToFirstEvent.set(key, event)
+        // Keep only first occurrence of each key
+        if (!firstEventMap.has(key)) {
+          firstEventMap.set(key, event)
         }
       }
 
-      // Second pass: create output with deduplication metadata
-      for (const [key, event] of keyToFirstEvent) {
+      // Build output with complete deduplication metadata
+      for (const [key, event] of firstEventMap) {
         const metadata = this.deduplicator.getMetadata(key)
 
         deduplicatedEntries.push({
@@ -269,13 +268,6 @@ export class ConsoleCapture {
 
     this.interceptor.unpatchAll()
     this.debug('Console methods restored')
-  }
-
-  /**
-   * Alias for unpatchConsole() to support test compatibility
-   */
-  restore(): void {
-    this.unpatchConsole()
   }
 
   /**

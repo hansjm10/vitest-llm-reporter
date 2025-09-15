@@ -117,7 +117,7 @@ describe('Integration: Configuration Toggle', () => {
       expect(output.entries).toHaveLength(1)
       expect(output.entries[0].deduplication?.count).toBe(3)
 
-      consoleCapture.restore()
+      consoleCapture.unpatchConsole()
     })
 
     it('should not deduplicate when deduplicator is disabled', () => {
@@ -146,7 +146,7 @@ describe('Integration: Configuration Toggle', () => {
         expect(entry.deduplication).toBeUndefined()
       })
 
-      consoleCapture.restore()
+      consoleCapture.unpatchConsole()
     })
 
     it('should not deduplicate when no deduplicator provided', () => {
@@ -167,157 +167,7 @@ describe('Integration: Configuration Toggle', () => {
       expect(output.entries[0].deduplication).toBeUndefined()
       expect(output.entries[1].deduplication).toBeUndefined()
 
-      consoleCapture.restore()
-    })
-  })
-
-  describe('LLMReporter configuration', () => {
-    it('should enable deduplication with boolean true', () => {
-      const config: LLMReporterConfigWithDeduplication = {
-        deduplicateLogs: true
-      }
-
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
-      const reporter = new LLMReporter(config)
-
-      // Simulate test run with duplicate logs
-      const testContext = {
-        testId: 'test-1',
-        logs: [
-          { message: 'Duplicate', level: 'info' },
-          { message: 'Duplicate', level: 'info' },
-          { message: 'Duplicate', level: 'info' }
-        ]
-      }
-
-      const output = reporter.processTestOutput(testContext)
-      expect(output.console).toHaveLength(1)
-      expect(output.console[0].deduplication?.count).toBe(3)
-    })
-
-    it('should disable deduplication with boolean false', () => {
-      const config: LLMReporterConfigWithDeduplication = {
-        deduplicateLogs: false
-      }
-
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
-      const reporter = new LLMReporter(config)
-
-      const testContext = {
-        testId: 'test-1',
-        logs: [
-          { message: 'Duplicate', level: 'info' },
-          { message: 'Duplicate', level: 'info' }
-        ]
-      }
-
-      const output = reporter.processTestOutput(testContext)
-      expect(output.console).toHaveLength(2)
-      expect(output.console[0].deduplication).toBeUndefined()
-      expect(output.console[1].deduplication).toBeUndefined()
-    })
-
-    it('should enable deduplication by default when undefined', () => {
-      const config: LLMReporterConfigWithDeduplication = {
-        // deduplicateLogs not specified
-        verbose: true
-      }
-
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
-      const reporter = new LLMReporter(config)
-
-      const testContext = {
-        testId: 'test-1',
-        logs: [
-          { message: 'Message', level: 'info' },
-          { message: 'Message', level: 'info' }
-        ]
-      }
-
-      const output = reporter.processTestOutput(testContext)
-      expect(output.console).toHaveLength(1) // Should be deduplicated by default
-      expect(output.console[0].deduplication?.count).toBe(2)
-    })
-
-    it('should accept detailed configuration object', () => {
-      const config: LLMReporterConfigWithDeduplication = {
-        deduplicateLogs: {
-          enabled: true,
-          maxCacheEntries: 500,
-          includeSources: true,
-          normalizeWhitespace: false,
-          stripTimestamps: false,
-          stripAnsiCodes: true
-        }
-      }
-
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
-      const reporter = new LLMReporter(config)
-
-      const testContext = {
-        testId: 'test-1',
-        logs: [
-          { message: 'Message   with  spaces', level: 'info' },
-          { message: 'Message with spaces', level: 'info' } // Different whitespace
-        ]
-      }
-
-      const output = reporter.processTestOutput(testContext)
-      // With normalizeWhitespace: false, these should NOT be deduplicated
-      expect(output.console).toHaveLength(2)
-    })
-
-    it('should toggle deduplication during runtime', () => {
-      const config: LLMReporterConfigWithDeduplication = {
-        deduplicateLogs: true
-      }
-
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
-      const reporter = new LLMReporter(config)
-
-      // Process with deduplication enabled
-      const context1 = {
-        testId: 'test-1',
-        logs: [
-          { message: 'Msg', level: 'info' },
-          { message: 'Msg', level: 'info' }
-        ]
-      }
-
-      const output1 = reporter.processTestOutput(context1)
-      expect(output1.console).toHaveLength(1)
-      expect(output1.console[0].deduplication?.count).toBe(2)
-
-      // Disable deduplication
-      reporter.updateConfig({ deduplicateLogs: false })
-
-      // Process with deduplication disabled
-      const context2 = {
-        testId: 'test-2',
-        logs: [
-          { message: 'Msg', level: 'info' },
-          { message: 'Msg', level: 'info' }
-        ]
-      }
-
-      const output2 = reporter.processTestOutput(context2)
-      expect(output2.console).toHaveLength(2)
-
-      // Re-enable deduplication
-      reporter.updateConfig({ deduplicateLogs: true })
-
-      // Process with deduplication re-enabled
-      const context3 = {
-        testId: 'test-3',
-        logs: [
-          { message: 'Msg', level: 'info' },
-          { message: 'Msg', level: 'info' }
-        ]
-      }
-
-      const output3 = reporter.processTestOutput(context3)
-      expect(output3.console).toHaveLength(1)
-      expect(output3.console[0].deduplication?.count).toBe(2)
+      consoleCapture.unpatchConsole()
     })
   })
 

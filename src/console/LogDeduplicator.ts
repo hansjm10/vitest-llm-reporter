@@ -22,12 +22,14 @@ import { normalizeMessage, hashMessage } from '../utils/message-normalizer.js'
 export class LogDeduplicator implements ILogDeduplicator {
   private config: Required<DeduplicationConfig>
   private entries: Map<string, DeduplicationEntry>
+  private lruKeys: string[] // Track insertion order for LRU
   private stats: DeduplicationStats
   private startTime: number
 
   constructor(config: DeduplicationConfig) {
     this.config = { ...DEFAULT_DEDUPLICATION_CONFIG, ...config } as Required<DeduplicationConfig>
     this.entries = new Map()
+    this.lruKeys = []
     this.stats = {
       totalLogs: 0,
       uniqueLogs: 0,
@@ -62,6 +64,12 @@ export class LogDeduplicator implements ILogDeduplicator {
       if (entry.testId && this.config.includeSources) {
         existing.sources.add(entry.testId)
       }
+      // Move to end of LRU list (most recently used)
+      const index = this.lruKeys.indexOf(key)
+      if (index > -1) {
+        this.lruKeys.splice(index, 1)
+        this.lruKeys.push(key)
+      }
       this.stats.duplicatesRemoved++
       this.updateProcessingTime(processingStart)
       return true
@@ -85,6 +93,7 @@ export class LogDeduplicator implements ILogDeduplicator {
     }
 
     this.entries.set(key, newEntry)
+    this.lruKeys.push(key) // Add to end of LRU list
     this.stats.uniqueLogs++
     this.stats.cacheSize = this.entries.size
     this.updateProcessingTime(processingStart)
@@ -129,6 +138,7 @@ export class LogDeduplicator implements ILogDeduplicator {
    */
   clear(): void {
     this.entries.clear()
+    this.lruKeys = []
     this.stats = {
       totalLogs: 0,
       uniqueLogs: 0,
@@ -150,20 +160,13 @@ export class LogDeduplicator implements ILogDeduplicator {
    * Evict the oldest entry when cache is full (LRU)
    */
   private evictOldest(): void {
-    // Find the entry with oldest lastSeen
-    let oldestKey: string | null = null
-    let oldestTime: Date | null = null
-
-    for (const [key, entry] of this.entries) {
-      if (!oldestTime || entry.lastSeen < oldestTime) {
-        oldestTime = entry.lastSeen
-        oldestKey = key
+    // O(1) eviction - remove first item from LRU list
+    if (this.lruKeys.length > 0) {
+      const oldestKey = this.lruKeys.shift() // Remove from front
+      if (oldestKey) {
+        this.entries.delete(oldestKey)
+        this.stats.cacheSize = this.entries.size
       }
-    }
-
-    if (oldestKey) {
-      this.entries.delete(oldestKey)
-      this.stats.cacheSize = this.entries.size
     }
   }
 
