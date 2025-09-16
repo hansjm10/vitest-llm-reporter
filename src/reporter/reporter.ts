@@ -10,9 +10,19 @@
 import type { Vitest, SerializedError, Reporter, UserConsoleLog, File } from 'vitest'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
-import type { LLMReporterConfig, StdioConfig } from '../types/reporter.js'
+import type { FrameworkPresetName, LLMReporterConfig, StdioConfig } from '../types/reporter.js'
 import type { OrchestratorConfig } from '../events/types.js'
 import type { LLMReporterOutput, TestError } from '../types/schema.js'
+
+interface ResolvedStdioConfig {
+  suppressStdout: boolean
+  suppressStderr: boolean
+  filterPattern: StdioConfig['filterPattern']
+  frameworkPresets: FrameworkPresetName[]
+  autoDetectFrameworks: boolean
+  redirectToStderr: boolean
+  flushWithFiltering: boolean
+}
 
 // Type for resolved configuration with explicit undefined handling
 interface ResolvedLLMReporterConfig
@@ -51,7 +61,7 @@ interface ResolvedLLMReporterConfig
     prefix: string
   }
   pureStdout: boolean
-  stdio: Required<StdioConfig>
+  stdio: ResolvedStdioConfig
   warnWhenConsoleBlocked: boolean
   fallbackToStderrOnBlocked: boolean
   deduplicateLogs:
@@ -78,6 +88,7 @@ import { OutputBuilder } from '../output/OutputBuilder.js'
 import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
 import { StdioInterceptor } from '../console/stdio-interceptor.js'
+import { detectFrameworkPresets } from '../console/framework-log-presets.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import {
   normalizeDeduplicationConfig,
@@ -85,6 +96,7 @@ import {
 } from '../config/deduplication-config.js'
 import type { DeduplicationConfig } from '../types/deduplication.js'
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { isTTY, isCI } from '../utils/environment.js'
 import {
   PerformanceManager,
@@ -147,33 +159,41 @@ export class LLMReporter implements Reporter {
     const spinnerEnvOverride = process.env.LLM_REPORTER_SPINNER === '0'
 
     // Resolve stdio configuration
-    let stdioConfig: Required<StdioConfig>
+    let stdioConfig: ResolvedStdioConfig
     if (config.pureStdout) {
       // Pure stdout mode: suppress all stdout, no pattern filtering
       stdioConfig = {
         suppressStdout: true,
         suppressStderr: false,
         filterPattern: null, // Null means suppress all output
+        frameworkPresets: [],
+        autoDetectFrameworks: false,
         redirectToStderr: false,
         flushWithFiltering: false
-      }
-    } else if (config.stdio) {
-      // Use provided stdio config with defaults
-      stdioConfig = {
-        suppressStdout: config.stdio.suppressStdout ?? true, // Default to true for clean output
-        suppressStderr: config.stdio.suppressStderr ?? false,
-        filterPattern: config.stdio.filterPattern ?? /^\[Nest\]\s/,
-        redirectToStderr: config.stdio.redirectToStderr ?? false,
-        flushWithFiltering: config.stdio.flushWithFiltering ?? false
       }
     } else {
-      // Default: suppress stdout with NestJS pattern
+      const stdioOptions = config.stdio ?? {}
+      const hasFilterPattern = Object.prototype.hasOwnProperty.call(stdioOptions, 'filterPattern')
+      const hasFrameworkPresets = Object.prototype.hasOwnProperty.call(
+        stdioOptions,
+        'frameworkPresets'
+      )
+      const filterPattern = hasFilterPattern ? stdioOptions.filterPattern : undefined
+      const defaultFrameworkPresets: FrameworkPresetName[] = ['nest']
+      const frameworkPresets = hasFrameworkPresets
+        ? [...(stdioOptions.frameworkPresets ?? [])]
+        : hasFilterPattern
+          ? []
+          : [...defaultFrameworkPresets]
+
       stdioConfig = {
-        suppressStdout: true, // Default to true for clean output
-        suppressStderr: false,
-        filterPattern: /^\[Nest\]\s/,
-        redirectToStderr: false,
-        flushWithFiltering: false
+        suppressStdout: stdioOptions.suppressStdout ?? true, // Default to true for clean output
+        suppressStderr: stdioOptions.suppressStderr ?? false,
+        filterPattern,
+        frameworkPresets,
+        autoDetectFrameworks: stdioOptions.autoDetectFrameworks ?? false,
+        redirectToStderr: stdioOptions.redirectToStderr ?? false,
+        flushWithFiltering: stdioOptions.flushWithFiltering ?? false
       }
     }
 
@@ -506,6 +526,12 @@ export class LLMReporter implements Reporter {
     // Update the orchestrator's error extractor reference
     this.orchestrator.updateErrorExtractor(this.errorExtractor)
 
+    this.applyAutoDetectedFrameworkPresets(this.rootDir)
+
+    if (this.config.stdio.frameworkPresets.length > 0) {
+      this.debug('stdio framework presets active: %o', this.config.stdio.frameworkPresets)
+    }
+
     // Start stdio interception early if configured to catch test setup logs
     if (this.config.stdio.suppressStdout || this.config.stdio.suppressStderr) {
       this.stdioInterceptor = new StdioInterceptor(this.config.stdio)
@@ -516,6 +542,65 @@ export class LLMReporter implements Reporter {
       this.originalStdoutWrite = originalWriters.stdout
       this.originalStderrWrite = originalWriters.stderr
     }
+  }
+
+  private applyAutoDetectedFrameworkPresets(rootDir?: string): void {
+    if (!this.config.stdio.autoDetectFrameworks) {
+      return
+    }
+
+    const packageJson = this.loadNearestPackageJson(rootDir)
+    const detected = detectFrameworkPresets({
+      packageJson,
+      env: process.env
+    })
+
+    if (detected.length === 0) {
+      this.debug('auto-detect stdio frameworks: no matches found')
+      return
+    }
+
+    const combined = new Set<FrameworkPresetName>(this.config.stdio.frameworkPresets)
+    let changed = false
+    for (const preset of detected) {
+      if (!combined.has(preset)) {
+        combined.add(preset)
+        changed = true
+      }
+    }
+
+    if (changed) {
+      this.config.stdio.frameworkPresets = Array.from(combined)
+    }
+
+    this.debug('auto-detected stdio framework presets: %o', detected)
+  }
+
+  private loadNearestPackageJson(rootDir?: string): Record<string, unknown> | undefined {
+    const searchRoots: string[] = []
+    if (rootDir) {
+      searchRoots.push(rootDir)
+    }
+
+    const cwd = process.cwd()
+    if (!searchRoots.includes(cwd)) {
+      searchRoots.push(cwd)
+    }
+
+    for (const base of searchRoots) {
+      const packagePath = path.join(base, 'package.json')
+      try {
+        if (!fs.existsSync(packagePath)) {
+          continue
+        }
+        const contents = fs.readFileSync(packagePath, 'utf8')
+        return JSON.parse(contents) as Record<string, unknown>
+      } catch (error) {
+        this.debug('Failed to read package.json for stdio auto-detection: %O', error)
+      }
+    }
+
+    return undefined
   }
 
   /**

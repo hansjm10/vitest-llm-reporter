@@ -306,4 +306,61 @@ describe('StdioInterceptor', () => {
       interceptor.disable()
     })
   })
+
+  describe('advanced filtering', () => {
+    it('supports multiple filter patterns', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: [/^Foo:/, /^Bar:/],
+        frameworkPresets: []
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('Foo: should be filtered\n')
+      process.stdout.write('Bar: should also be filtered\n')
+      process.stdout.write('Baz: should pass\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).not.toContain('Foo: should be filtered\n')
+      expect(stdoutOutput).not.toContain('Bar: should also be filtered\n')
+      expect(stdoutOutput).toContain('Baz: should pass\n')
+    })
+
+    it('supports predicate filter functions', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: [(line) => line.includes('suppress-me')],
+        frameworkPresets: []
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('Please suppress-me\n')
+      process.stdout.write('Let me through\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).not.toContain('Please suppress-me\n')
+      expect(stdoutOutput).toContain('Let me through\n')
+    })
+
+    it('applies framework presets', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('info  - Loaded env from .env.local\n')
+      process.stdout.write('A regular log line\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).not.toContain('info  - Loaded env from .env.local\n')
+      expect(stdoutOutput).toContain('A regular log line\n')
+    })
+  })
 })

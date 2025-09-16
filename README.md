@@ -218,15 +218,20 @@ export default defineConfig({
 ```
 
 #### Custom Filter Patterns
-Filter specific log patterns:
+Filter specific log patterns or provide multiple matchers:
 ```typescript
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', { 
-        stdio: { 
+      ['vitest-llm-reporter', {
+        stdio: {
           suppressStdout: true,
-          filterPattern: /^(DEBUG:|TRACE:)/  // Custom pattern
+          // Mix and match regular expressions and predicates
+          filterPattern: [
+            /^(DEBUG:|TRACE:)/,
+            (line: string) => line.startsWith('Verbose:')
+          ],
+          frameworkPresets: []  // Disable default Nest preset when providing your own patterns
         }
       }]
     ]
@@ -237,8 +242,47 @@ export default defineConfig({
 #### Advanced Options
 - `stdio.suppressStderr`: Also suppress stderr (default: false)
 - `stdio.redirectToStderr`: Redirect filtered stdout to stderr for debugging (default: false)
+- `stdio.frameworkPresets`: Apply curated suppression presets for popular frameworks (e.g. `'nest'`, `'next'`, `'nuxt'`)
+- `stdio.autoDetectFrameworks`: Inspect `package.json`/environment to automatically load matching presets (default: false)
 
 **Note:** The test progress spinner writes to stderr and continues to work unless stderr suppression is enabled.
+
+#### Framework Presets
+Suppress startup banners from known frameworks without crafting custom regexes:
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        stdio: {
+          suppressStdout: true,
+          frameworkPresets: ['next', 'fastify']
+        }
+      }]
+    ]
+  }
+})
+```
+
+Available presets: `nest`, `next`, `nuxt`, `angular`, `vite`, `fastify`, `express`, `strapi`, `remix`, `sveltekit`.
+
+#### Auto-detect Frameworks
+Let the reporter inspect dependencies and enable presets automatically:
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        stdio: {
+          suppressStdout: true,
+          autoDetectFrameworks: true
+        }
+      }]
+    ]
+  }
+})
+```
+When `DEBUG=vitest-llm-reporter:*` is set, the reporter logs which presets were applied so you can confirm nothing important is filtered.
 
 #### Application-Level Alternative
 For NestJS applications, you can also disable logging in tests:

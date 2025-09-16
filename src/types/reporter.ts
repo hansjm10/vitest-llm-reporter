@@ -10,6 +10,26 @@
 import type { PerformanceConfig } from './monitoring.js'
 
 /**
+ * Predicate type used for stdout/stderr filtering
+ */
+export type StdioFilter = RegExp | ((line: string) => boolean)
+
+/**
+ * Known framework presets for stdio suppression
+ */
+export type FrameworkPresetName =
+  | 'nest'
+  | 'next'
+  | 'nuxt'
+  | 'angular'
+  | 'vite'
+  | 'fastify'
+  | 'express'
+  | 'strapi'
+  | 'remix'
+  | 'sveltekit'
+
+/**
  * Configuration options for the LLM Reporter
  */
 export interface LLMReporterConfig {
@@ -85,8 +105,16 @@ export interface StdioConfig {
   suppressStdout?: boolean
   /** Suppress stderr writes (default: false) */
   suppressStderr?: boolean
-  /** Pattern to filter lines (default: /^\[Nest\]\s/ for NestJS). Use null to suppress all output */
-  filterPattern?: RegExp | null
+  /**
+   * Pattern(s) or predicate(s) used to filter lines. Accepts a single pattern, an array of patterns,
+   * or predicate functions. Use null to suppress all output. When undefined, filtering is disabled
+   * unless framework presets add their own matchers.
+   */
+  filterPattern?: StdioFilter | StdioFilter[] | null
+  /** Named framework presets that expand to curated filter patterns */
+  frameworkPresets?: FrameworkPresetName[]
+  /** Auto-detect framework presets from package.json and environment (default: false) */
+  autoDetectFrameworks?: boolean
   /** Redirect suppressed stdout to stderr (default: false) */
   redirectToStderr?: boolean
   /** Apply filtering when flushing buffered content (default: false) */

@@ -7,15 +7,27 @@
  * @module console/stdio-interceptor
  */
 
-import type { StdioConfig } from '../types/reporter.js'
+import type { FrameworkPresetName, StdioConfig, StdioFilter } from '../types/reporter.js'
+import { getFrameworkPresetPatterns } from './framework-log-presets.js'
+
+/** Internal representation of normalized stdio configuration */
+interface NormalizedStdioConfig {
+  suppressStdout: boolean
+  suppressStderr: boolean
+  filterPattern?: StdioConfig['filterPattern']
+  frameworkPresets: FrameworkPresetName[]
+  redirectToStderr: boolean
+  flushWithFiltering: boolean
+}
 
 /**
  * Default configuration for stdio suppression
  */
-const DEFAULT_CONFIG: Required<StdioConfig> = {
+const DEFAULT_CONFIG: NormalizedStdioConfig = {
   suppressStdout: false,
   suppressStderr: false,
-  filterPattern: /^\[Nest\]\s/, // Default pattern for NestJS logs
+  filterPattern: undefined,
+  frameworkPresets: ['nest'],
   redirectToStderr: false,
   flushWithFiltering: false
 }
@@ -34,7 +46,8 @@ type WriteFunction = typeof process.stdout.write
  * and can optionally redirect filtered output.
  */
 export class StdioInterceptor {
-  private config: Required<StdioConfig>
+  private config: NormalizedStdioConfig
+  private readonly filterPredicates: ((line: string) => boolean)[] | null
   private originalStdoutWrite?: WriteFunction
   private originalStderrWrite?: WriteFunction
   private stdoutLineBuffer = ''
@@ -42,7 +55,28 @@ export class StdioInterceptor {
   private isEnabled = false
 
   constructor(config: StdioConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config }
+    const hasFilterPattern = Object.prototype.hasOwnProperty.call(config, 'filterPattern')
+    const hasFrameworkPresets = Object.prototype.hasOwnProperty.call(config, 'frameworkPresets')
+
+    const frameworkPresets = hasFrameworkPresets
+      ? [...(config.frameworkPresets ?? [])]
+      : hasFilterPattern
+        ? []
+        : [...DEFAULT_CONFIG.frameworkPresets]
+
+    this.config = {
+      suppressStdout: config.suppressStdout ?? DEFAULT_CONFIG.suppressStdout,
+      suppressStderr: config.suppressStderr ?? DEFAULT_CONFIG.suppressStderr,
+      filterPattern: hasFilterPattern ? config.filterPattern : DEFAULT_CONFIG.filterPattern,
+      frameworkPresets,
+      redirectToStderr: config.redirectToStderr ?? DEFAULT_CONFIG.redirectToStderr,
+      flushWithFiltering: config.flushWithFiltering ?? DEFAULT_CONFIG.flushWithFiltering
+    }
+
+    this.filterPredicates = this.compileFilterPredicates(
+      this.config.filterPattern,
+      this.config.frameworkPresets
+    )
   }
 
   /**
@@ -192,21 +226,80 @@ export class StdioInterceptor {
   }
 
   /**
+   * Compile the effective filter predicates from user supplied patterns and presets.
+   */
+  private compileFilterPredicates(
+    filterPattern: StdioConfig['filterPattern'],
+    frameworkPresets: FrameworkPresetName[]
+  ): ((line: string) => boolean)[] | null {
+    if (filterPattern === null) {
+      return null
+    }
+
+    const predicates: ((line: string) => boolean)[] = []
+    const seen = new Set<StdioFilter>()
+
+    const registerPattern = (pattern: StdioFilter): void => {
+      if (seen.has(pattern)) {
+        return
+      }
+      seen.add(pattern)
+      predicates.push(this.toPredicate(pattern))
+    }
+
+    for (const presetPattern of getFrameworkPresetPatterns(frameworkPresets)) {
+      registerPattern(presetPattern)
+    }
+
+    if (filterPattern !== undefined) {
+      const patterns = Array.isArray(filterPattern) ? filterPattern : [filterPattern]
+      for (const pattern of patterns) {
+        registerPattern(pattern)
+      }
+    }
+
+    return predicates
+  }
+
+  /** Convert a filter into a predicate function */
+  private toPredicate(pattern: StdioFilter): (line: string) => boolean {
+    if (typeof pattern === 'function') {
+      return pattern
+    }
+
+    return (line: string) => {
+      if (pattern.global || pattern.sticky) {
+        pattern.lastIndex = 0
+      }
+      return pattern.test(line)
+    }
+  }
+
+  /**
    * Check if a line should be suppressed based on configuration
    */
   private shouldSuppress(line: string): boolean {
     // In pure mode (null pattern), suppress everything
-    if (this.config.filterPattern === null) {
+    if (this.filterPredicates === null) {
       return true
     }
 
-    // If no pattern is set (undefined), don't suppress anything
-    if (!this.config.filterPattern) {
+    // If no patterns are configured, don't suppress anything
+    if (this.filterPredicates.length === 0) {
       return false
     }
 
-    // Otherwise, check against the pattern
-    return this.config.filterPattern.test(line)
+    for (const predicate of this.filterPredicates) {
+      try {
+        if (predicate(line)) {
+          return true
+        }
+      } catch {
+        // Ignore predicate errors and continue. We do not want to break stdout.
+      }
+    }
+
+    return false
   }
 
   /**

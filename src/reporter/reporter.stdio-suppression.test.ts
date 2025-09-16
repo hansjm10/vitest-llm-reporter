@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import { LLMReporter } from './reporter.js'
 import type { TestRunEndReason } from 'vitest/node'
 
@@ -248,6 +251,133 @@ describe('LLMReporter stdio suppression', () => {
     // Other logs should pass through
     const hasNormalLog = stdoutWrites.some((write) => write.includes('NormalLog:'))
     expect(hasNormalLog).toBe(true)
+  })
+
+  it('supports multiple stdio filter patterns', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: true,
+        filterPattern: [/^Foo:/, /^Bar:/],
+        frameworkPresets: []
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('Foo: filtered\n')
+    process.stdout.write('Bar: filtered\n')
+    process.stdout.write('Baz: visible\n')
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites).not.toContain('Foo: filtered\n')
+    expect(stdoutWrites).not.toContain('Bar: filtered\n')
+    expect(stdoutWrites).toContain('Baz: visible\n')
+  })
+
+  it('applies framework presets when provided', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('info  - Loaded env from .env.local\n')
+    process.stdout.write('Regular log\n')
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites).not.toContain('info  - Loaded env from .env.local\n')
+    expect(stdoutWrites).toContain('Regular log\n')
+  })
+
+  it('auto-detects framework presets from package.json', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-reporter-'))
+    const packageJsonPath = path.join(tempDir, 'package.json')
+    fs.writeFileSync(packageJsonPath, JSON.stringify({ dependencies: { next: '13.0.0' } }), 'utf8')
+
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    try {
+      const reporter = new LLMReporter({
+        framedOutput: false,
+        stdio: {
+          suppressStdout: true,
+          autoDetectFrameworks: true
+        }
+      })
+
+      const mockVitest = { config: { root: tempDir } }
+      reporter.onInit(mockVitest as any)
+      reporter.onTestRunStart([])
+
+      const resolvedPresets = (reporter as any).config.stdio.frameworkPresets as string[]
+      expect(resolvedPresets).toContain('next')
+
+      process.stdout.write('info  - Auto detected\n')
+      process.stdout.write('Regular output\n')
+
+      const mockModule = createMockTestModule()
+      await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+      expect(stdoutWrites).not.toContain('info  - Auto detected\n')
+      expect(stdoutWrites).toContain('Regular output\n')
+    } finally {
+      process.stdout.write = originalWrite
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
   })
 
   it('does not start spinner when stderr is suppressed', async () => {
