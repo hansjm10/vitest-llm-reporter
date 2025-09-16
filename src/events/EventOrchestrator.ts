@@ -381,11 +381,63 @@ export class EventOrchestrator {
   ): void {
     this.stateManager.recordRunEnd()
 
+    // Ensure deduplication metadata reflects final counts before clearing state
+    this.finalizeDeduplicationMetadata()
+
     // Clean up console capture resources
     consoleCapture.reset()
 
     // Note: Unhandled errors are processed directly by OutputBuilder
     // to avoid duplicate counting in test statistics
+  }
+
+  /**
+   * Update stored console events with final deduplication metadata
+   */
+  private finalizeDeduplicationMetadata(): void {
+    if (!this.deduplicator?.isEnabled()) {
+      return
+    }
+
+    const applyMetadata = (events?: ConsoleEvent[]): void => {
+      if (!events || events.length === 0) {
+        return
+      }
+
+      for (const event of events) {
+        const message = event.message ?? event.text
+        if (!message) {
+          continue
+        }
+
+        const key = this.deduplicator.generateKey({
+          message,
+          level: event.level as ConsoleMethod,
+          timestamp: new Date()
+        })
+        const metadata = this.deduplicator.getMetadata(key)
+
+        if (metadata && metadata.count > 1) {
+          event.message = message
+          event.deduplication = {
+            count: metadata.count,
+            deduplicated: true,
+            firstSeen: metadata.firstSeen.toISOString(),
+            lastSeen: metadata.lastSeen.toISOString(),
+            sources:
+              metadata.sources.size > 0 ? Array.from(metadata.sources) : undefined
+          }
+        } else if (event.deduplication) {
+          delete event.deduplication
+        }
+      }
+    }
+
+    const results = this.stateManager.getTestResults()
+
+    for (const failure of results.failed) {
+      applyMetadata(failure.consoleEvents)
+    }
   }
 
   /**
