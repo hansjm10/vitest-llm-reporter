@@ -145,6 +145,8 @@ export interface ConsoleEvent {
   args?: string[]
   /** Origin of the console event */
   origin?: 'intercepted' | 'task'
+  /** Test ID that produced the log (if known) */
+  testId?: string
   /** Deduplication metadata if this log was deduplicated */
   deduplication?: {
     count: number

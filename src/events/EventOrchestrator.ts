@@ -414,7 +414,8 @@ export class EventOrchestrator {
         const key = deduplicator.generateKey({
           message,
           level: event.level as ConsoleMethod,
-          timestamp: new Date()
+          timestamp: new Date(),
+          testId: event.testId
         })
         const metadata = deduplicator.getMetadata(key)
 
@@ -535,6 +536,11 @@ export class EventOrchestrator {
       maxLines: this.config.maxConsoleLines,
       includeDebugOutput: this.config.includeDebugOutput
     })
+
+    if (config.deduplicationConfig !== undefined) {
+      this.deduplicator = new LogDeduplicator(config.deduplicationConfig)
+      consoleCapture.deduplicator = this.deduplicator
+    }
 
     // Truncation config updates are now handled in OutputBuilder
     // No need for config updates here

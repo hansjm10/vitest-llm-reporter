@@ -25,7 +25,7 @@ export function createLogEntry(
     message,
     level,
     timestamp: new Date(),
-    testId: testId || 'test-' + Math.random().toString(36).substring(7)
+    testId: testId ?? 'test-default'
   }
 }
 
@@ -36,11 +36,17 @@ export function createDuplicateLogEntries(
   message: string,
   count: number,
   level: LogLevel = 'log',
-  testIdPrefix = 'test'
+  options?: { testId?: string; uniqueTestIds?: boolean }
 ): LogEntry[] {
-  return Array.from({ length: count }, (_, i) =>
-    createLogEntry(message, level, `${testIdPrefix}-${i}`)
-  )
+  const baseId = options?.testId ?? 'test-duplicate'
+
+  if (options?.uniqueTestIds) {
+    return Array.from({ length: count }, (_, i) =>
+      createLogEntry(message, level, `${baseId}-${i}`)
+    )
+  }
+
+  return Array.from({ length: count }, () => createLogEntry(message, level, baseId))
 }
 
 /**
@@ -89,9 +95,10 @@ export function normalizeMessage(
 /**
  * Generate a deduplication key for testing
  */
-export function generateTestKey(level: LogLevel, message: string): string {
+export function generateTestKey(level: LogLevel, message: string, testId?: string): string {
   const normalized = normalizeMessage(message)
-  const hash = simpleHash(normalized)
+  const scope = testId ?? '__global__'
+  const hash = simpleHash(`${scope}::${normalized}`)
   return `${level}:${hash}`
 }
 
@@ -150,9 +157,10 @@ export function createLargeLogDataset(
   for (let i = 0; i < uniqueMessages; i++) {
     const message = `Log message ${i}: ${generateRandomMessage()}`
     const level = levels[i % levels.length]
+    const testId = `test-${i}`
 
     for (let j = 0; j < duplicatesPerMessage; j++) {
-      entries.push(createLogEntry(message, level, `test-${i}-${j}`))
+      entries.push(createLogEntry(message, level, testId))
     }
   }
 
@@ -236,7 +244,7 @@ export class MockLogDeduplicator {
   }
 
   generateKey(entry: LogEntry): string {
-    return generateTestKey(entry.level, entry.message)
+    return generateTestKey(entry.level, entry.message, entry.testId)
   }
 
   getMetadata(key: string): DeduplicationEntry | undefined {

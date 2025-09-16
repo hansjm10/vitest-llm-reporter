@@ -41,7 +41,8 @@ export class ConsoleBuffer {
     timestamp?: number,
     origin: 'intercepted' | 'task' = 'intercepted',
     isDuplicate?: boolean,
-    deduplicationKey?: string
+    deduplicationKey?: string,
+    testId?: string
   ): boolean {
     // Check if we've already hit limits
     if (this.truncated) {
@@ -77,7 +78,7 @@ export class ConsoleBuffer {
     }
 
     // Map console method to level (trace becomes debug)
-    const level: ConsoleLevel = method === 'trace' ? 'debug' : method
+    const level: ConsoleLevel = method
 
     // Create the event
     const event: ConsoleEvent = {
@@ -89,6 +90,10 @@ export class ConsoleBuffer {
     // Add timestamp if available
     if (timestamp !== undefined) {
       event.timestampMs = timestamp
+    }
+
+    if (testId) {
+      event.testId = testId
     }
 
     // Add args if they provide value beyond text

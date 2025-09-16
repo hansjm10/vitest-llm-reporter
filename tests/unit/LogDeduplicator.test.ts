@@ -140,6 +140,38 @@ describe('LogDeduplicator', () => {
       expect(dedupNoNormalize.isDuplicate(entry1)).toBe(false)
       expect(dedupNoNormalize.isDuplicate(entry2)).toBe(false) // Different without normalization
     })
+
+    it('should not strip standalone numeric identifiers', () => {
+      const entry1: LogEntry = {
+        message: 'User 1234567890 failed login',
+        level: 'info',
+        timestamp: new Date()
+      }
+      const entry2: LogEntry = {
+        message: 'User 0987654321 failed login',
+        level: 'info',
+        timestamp: new Date()
+      }
+
+      expect(deduplicator.isDuplicate(entry1)).toBe(false)
+      expect(deduplicator.isDuplicate(entry2)).toBe(false)
+    })
+
+    it('should strip labeled unix timestamps', () => {
+      const entry1: LogEntry = {
+        message: 'timestamp: 1700000000 starting job',
+        level: 'info',
+        timestamp: new Date()
+      }
+      const entry2: LogEntry = {
+        message: 'timestamp: 1700000100 starting job',
+        level: 'info',
+        timestamp: new Date()
+      }
+
+      expect(deduplicator.isDuplicate(entry1)).toBe(false)
+      expect(deduplicator.isDuplicate(entry2)).toBe(true)
+    })
   })
 
   describe('Key Generation', () => {
@@ -208,6 +240,27 @@ describe('LogDeduplicator', () => {
         message: 'Second message',
         level: 'info',
         timestamp: new Date()
+      }
+
+      const key1 = deduplicator.generateKey(entry1)
+      const key2 = deduplicator.generateKey(entry2)
+
+      expect(key1).not.toBe(key2)
+    })
+
+    it('should scope keys by test identifier when provided', () => {
+      const baseMessage = 'Scoped message'
+      const entry1: LogEntry = {
+        message: baseMessage,
+        level: 'info',
+        timestamp: new Date(),
+        testId: 'test-a'
+      }
+      const entry2: LogEntry = {
+        message: baseMessage,
+        level: 'info',
+        timestamp: new Date(),
+        testId: 'test-b'
       }
 
       const key1 = deduplicator.generateKey(entry1)
@@ -375,16 +428,17 @@ describe('LogDeduplicator', () => {
       // First occurrence
       expect(deduplicator.isDuplicate(entry)).toBe(false)
 
-      // Same message from different test
-      entry.testId = 'test-2'
-      expect(deduplicator.isDuplicate(entry)).toBe(true)
+      // Same message within the same test should deduplicate
+      const duplicate: LogEntry = {
+        ...entry,
+        timestamp: new Date(entry.timestamp.getTime() + 1)
+      }
+      expect(deduplicator.isDuplicate(duplicate)).toBe(true)
 
-      // Check metadata includes both sources
       const key = deduplicator.generateKey(entry)
       const metadata = deduplicator.getMetadata(key)
-      expect(metadata?.sources.size).toBe(2)
+      expect(metadata?.sources.size).toBe(1)
       expect(metadata?.sources.has('test-1')).toBe(true)
-      expect(metadata?.sources.has('test-2')).toBe(true)
     })
   })
 

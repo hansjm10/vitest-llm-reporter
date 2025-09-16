@@ -169,14 +169,14 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
         message: 'Unique message 0', // First message
         level: 'info' as const,
         timestamp: new Date(),
-        testId: 'test-old'
+        testId: 'test-0'
       }
 
       const newEntry = {
         message: 'Unique message 199', // Last message
         level: 'info' as const,
         timestamp: new Date(),
-        testId: 'test-new'
+        testId: 'test-199'
       }
 
       // Old entry should not be found (evicted)
@@ -241,13 +241,13 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
           message,
           level: 'info' as const,
           timestamp: new Date(),
-          testId: `test-${i}-1`
+          testId: `test-${i}`
         })
         dataset.push({
           message,
           level: 'info' as const,
           timestamp: new Date(),
-          testId: `test-${i}-2`
+          testId: `test-${i}`
         })
       }
 
@@ -327,8 +327,10 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
             console.log(`Suite ${suite} setup`)
 
             // Simulate beforeEach logs
-            console.log('Test setup') // Will be duplicated many times
-            console.log('Mocking services') // Will be duplicated many times
+            console.log('Test setup')
+            console.log('Test setup') // Duplicate within test
+            console.log('Mocking services')
+            console.log('Mocking services') // Duplicate within test
 
             // Test body
             console.log(`Executing test ${test}`)
@@ -337,8 +339,10 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
             }
 
             // Simulate afterEach logs
-            console.log('Test cleanup') // Will be duplicated many times
-            console.log('Restoring mocks') // Will be duplicated many times
+            console.log('Test cleanup')
+            console.log('Test cleanup') // Duplicate within test
+            console.log('Restoring mocks')
+            console.log('Restoring mocks') // Duplicate within test
 
             // Simulate afterAll for suite
             console.log(`Suite ${suite} teardown`)
@@ -348,8 +352,8 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
 
       const stats = consoleCapture.deduplicator?.getStats()
 
-      // Setup/teardown logs should be heavily deduplicated
-      expect(stats?.duplicatesRemoved).toBeGreaterThan(200) // Many duplicates from hooks
+      // Setup/teardown logs should be heavily deduplicated within each test
+      expect(stats?.duplicatesRemoved).toBeGreaterThan(300)
 
       // Cache should still be within limits
       expect(stats?.cacheSize).toBeLessThanOrEqual(config.maxCacheEntries!)
@@ -387,7 +391,7 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
       expect(duration).toBeLessThan(3000)
 
       // Should have deduplicated appropriately
-      expect(stats?.duplicatesRemoved).toBeGreaterThan(1000) // "Standard log message" duplicates
+      expect(stats?.duplicatesRemoved).toBeGreaterThanOrEqual(1000) // "Standard log message" duplicates
 
       // getAllEntries removed - verify via stats instead
       // The deduplicator is working if duplicatesRemoved > 1000

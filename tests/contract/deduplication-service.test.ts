@@ -38,12 +38,20 @@ describe('ILogDeduplicator Service Contract', () => {
       expect(isDupe).toBe(false)
     })
 
-    it('should return true for second occurrence of same log', () => {
+    it('should return true for second occurrence of same log in the same test', () => {
+      const entry1 = createLogEntry('Duplicate message', 'info', 'test-1')
+      const entry2 = createLogEntry('Duplicate message', 'info', 'test-1')
+
+      expect(deduplicator.isDuplicate(entry1)).toBe(false)
+      expect(deduplicator.isDuplicate(entry2)).toBe(true)
+    })
+
+    it('should not deduplicate identical logs from different tests', () => {
       const entry1 = createLogEntry('Duplicate message', 'info', 'test-1')
       const entry2 = createLogEntry('Duplicate message', 'info', 'test-2')
 
       expect(deduplicator.isDuplicate(entry1)).toBe(false)
-      expect(deduplicator.isDuplicate(entry2)).toBe(true)
+      expect(deduplicator.isDuplicate(entry2)).toBe(false)
     })
 
     it('should track multiple duplicates', () => {
@@ -165,7 +173,7 @@ describe('ILogDeduplicator Service Contract', () => {
 
     it('should update metadata on duplicate', () => {
       const entry1 = createLogEntry('Duplicate', 'warn', 'test-1')
-      const entry2 = createLogEntry('Duplicate', 'warn', 'test-2')
+      const entry2 = createLogEntry('Duplicate', 'warn', 'test-1')
 
       deduplicator.isDuplicate(entry1)
       deduplicator.isDuplicate(entry2)
@@ -174,9 +182,8 @@ describe('ILogDeduplicator Service Contract', () => {
       const metadata = deduplicator.getMetadata(key)
 
       expect(metadata?.count).toBe(2)
-      expect(metadata?.sources.size).toBe(2)
+      expect(metadata?.sources.size).toBe(1)
       expect(metadata?.sources.has('test-1')).toBe(true)
-      expect(metadata?.sources.has('test-2')).toBe(true)
     })
   })
 
@@ -186,9 +193,9 @@ describe('ILogDeduplicator Service Contract', () => {
   describe('getStats', () => {
     it('should track total logs processed', () => {
       const entries = [
-        createLogEntry('Message 1', 'info'),
-        createLogEntry('Message 1', 'info'), // duplicate
-        createLogEntry('Message 2', 'warn')
+        createLogEntry('Message 1', 'info', 'test-a'),
+        createLogEntry('Message 1', 'info', 'test-a'), // duplicate in same test
+        createLogEntry('Message 2', 'warn', 'test-a')
       ]
 
       entries.forEach((entry) => deduplicator.isDuplicate(entry))
@@ -199,10 +206,10 @@ describe('ILogDeduplicator Service Contract', () => {
 
     it('should track unique logs', () => {
       const entries = [
-        createLogEntry('Message 1', 'info'),
-        createLogEntry('Message 1', 'info'), // duplicate
-        createLogEntry('Message 2', 'warn'),
-        createLogEntry('Message 2', 'warn') // duplicate
+        createLogEntry('Message 1', 'info', 'test-a'),
+        createLogEntry('Message 1', 'info', 'test-a'), // duplicate
+        createLogEntry('Message 2', 'warn', 'test-a'),
+        createLogEntry('Message 2', 'warn', 'test-a') // duplicate
       ]
 
       entries.forEach((entry) => deduplicator.isDuplicate(entry))

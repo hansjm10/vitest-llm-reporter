@@ -11,6 +11,7 @@ import type { Vitest, SerializedError, Reporter, UserConsoleLog, File } from 'vi
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
 import type { LLMReporterConfig, StdioConfig } from '../types/reporter.js'
+import type { OrchestratorConfig } from '../events/types.js'
 import type { LLMReporterOutput, TestError } from '../types/schema.js'
 
 // Type for resolved configuration with explicit undefined handling
@@ -390,8 +391,13 @@ export class LLMReporter implements Reporter {
    * Update reporter configuration dynamically
    */
   updateConfig(partialConfig: Partial<LLMReporterConfig>): void {
+    this.validateConfig({ ...this.config, ...partialConfig } as LLMReporterConfig)
+
     // Update configuration properties
     Object.assign(this.config, partialConfig)
+
+    let shouldUpdateOrchestrator = false
+    const orchestratorConfig: OrchestratorConfig = {}
 
     // Update orchestrator if console-related config changed
     const consoleConfigKeys = [
@@ -402,13 +408,21 @@ export class LLMReporter implements Reporter {
       'truncation'
     ]
     if (consoleConfigKeys.some((key) => key in partialConfig)) {
-      this.orchestrator.updateConfig({
-        captureConsoleOnFailure: this.config.captureConsoleOnFailure,
-        maxConsoleBytes: this.config.maxConsoleBytes,
-        maxConsoleLines: this.config.maxConsoleLines,
-        includeDebugOutput: this.config.includeDebugOutput,
-        truncationConfig: this.config.truncation
-      })
+      orchestratorConfig.captureConsoleOnFailure = this.config.captureConsoleOnFailure
+      orchestratorConfig.maxConsoleBytes = this.config.maxConsoleBytes
+      orchestratorConfig.maxConsoleLines = this.config.maxConsoleLines
+      orchestratorConfig.includeDebugOutput = this.config.includeDebugOutput
+      orchestratorConfig.truncationConfig = this.config.truncation
+      shouldUpdateOrchestrator = true
+    }
+
+    if ('deduplicateLogs' in partialConfig) {
+      orchestratorConfig.deduplicationConfig = this.getDeduplicationConfig()
+      shouldUpdateOrchestrator = true
+    }
+
+    if (shouldUpdateOrchestrator) {
+      this.orchestrator.updateConfig(orchestratorConfig)
     }
   }
 

@@ -23,7 +23,6 @@ export class LogDeduplicator implements ILogDeduplicator {
   private config: Required<DeduplicationConfig>
   private entries: Map<string, DeduplicationEntry>
   private stats: DeduplicationStats
-  private startTime: number
 
   constructor(config: DeduplicationConfig) {
     this.config = { ...DEFAULT_DEDUPLICATION_CONFIG, ...config } as Required<DeduplicationConfig>
@@ -35,7 +34,6 @@ export class LogDeduplicator implements ILogDeduplicator {
       cacheSize: 0,
       processingTimeMs: 0
     }
-    this.startTime = Date.now()
   }
 
   /**
@@ -99,8 +97,10 @@ export class LogDeduplicator implements ILogDeduplicator {
    * Generate a deduplication key for a log entry
    */
   generateKey(entry: LogEntry): string {
+    const scope = entry.testId ?? '__global__'
     const normalized = normalizeMessage(entry.message, this.config)
-    const hash = hashMessage(normalized)
+    const scopedNormalized = `${scope}::${normalized}`
+    const hash = hashMessage(scopedNormalized)
     return `${entry.level}:${hash}`
   }
 
@@ -117,7 +117,7 @@ export class LogDeduplicator implements ILogDeduplicator {
   getStats(): DeduplicationStats {
     return {
       ...this.stats,
-      processingTimeMs: Date.now() - this.startTime
+      processingTimeMs: this.stats.processingTimeMs
     }
   }
 
@@ -133,7 +133,6 @@ export class LogDeduplicator implements ILogDeduplicator {
       cacheSize: 0,
       processingTimeMs: 0
     }
-    this.startTime = Date.now()
   }
 
   /**

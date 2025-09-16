@@ -173,7 +173,7 @@ export class ConsoleCapture {
           message: event.text,
           level: event.level,
           timestamp: new Date(),
-          testId
+          testId: event.testId ?? testId
         }
         const key = deduplicator.generateKey(logEntry)
         const metadata = deduplicator.getMetadata(key)
@@ -254,7 +254,7 @@ export class ConsoleCapture {
         const buffer = this.buffers.get(context.testId)
         if (buffer) {
           const elapsed = Date.now() - context.startTime
-          buffer.add(method, args, elapsed, 'intercepted')
+          buffer.add(method, args, elapsed, 'intercepted', undefined, undefined, context.testId)
         }
       }
       // Note: When there's no context (helper functions), we rely on Vitest's
@@ -408,7 +408,7 @@ export class ConsoleCapture {
       this.buffers.set(testId, buffer)
     }
 
-    buffer.add(method, args, elapsed, 'task')
+    buffer.add(method, args, elapsed, 'task', undefined, undefined, testId)
   }
 
   /**

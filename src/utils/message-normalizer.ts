@@ -38,10 +38,16 @@ export function normalizeMessage(
       // Common date formats
       normalized = normalized.replace(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/g, '')
     }
-    // Unix timestamps (10 or 13 digits)
-    if (/\b\d{10,13}\b/.test(normalized)) {
-      normalized = normalized.replace(/\b\d{10}(\d{3})?\b/g, '')
-    }
+
+    // Strip unix-style timestamps only when clearly identified
+    normalized = normalized.replace(
+      /\b(?:timestamp|time(?:stamp)?|epoch|unix(?:_timestamp)?)[:=]?\s*\d{10}(\d{3})?\b/gi,
+      (match) => match.replace(/\d{10}(\d{3})?/, '')
+    )
+
+    // Remove bracketed or parenthesized unix timestamps like [1234567890]
+    normalized = normalized.replace(/\[(\s*\d{10}(\d{3})?\s*)\]/g, '[]')
+    normalized = normalized.replace(/\((\s*\d{10}(\d{3})?\s*)\)/g, '()')
   }
 
   // Normalize whitespace
@@ -65,5 +71,7 @@ export function hashMessage(message: string): string {
     hash = (hash << 5) + hash + message.charCodeAt(i)
     hash = hash & 0xffffffff // Convert to 32bit integer
   }
-  return hash.toString(36) // Convert to base36 for shorter string
+  // Convert to unsigned to avoid negative hashes producing leading '-'
+  const normalizedHash = hash >>> 0
+  return normalizedHash.toString(36) // Convert to base36 for shorter string
 }

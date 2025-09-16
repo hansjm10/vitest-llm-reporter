@@ -49,9 +49,9 @@ describe('Integration: Log Level Deduplication', () => {
     it('should track sources when enabled', () => {
       const message = 'Tracked message'
       const entries = [
-        createLogEntry(message, 'log', 'test-1'),
-        createLogEntry(message, 'log', 'test-2'),
-        createLogEntry(message, 'log', 'test-3')
+        createLogEntry(message, 'log', 'test-tracked'),
+        createLogEntry(message, 'log', 'test-tracked'),
+        createLogEntry(message, 'log', 'test-tracked')
       ]
 
       for (const entry of entries) {
@@ -62,8 +62,8 @@ describe('Integration: Log Level Deduplication', () => {
       const metadata = deduplicator.getMetadata(key)
 
       expect(metadata).toBeDefined()
-      expect(metadata!.sources.size).toBe(3)
-      expect(Array.from(metadata!.sources)).toEqual(['test-1', 'test-2', 'test-3'])
+      expect(metadata!.sources.size).toBe(1)
+      expect(Array.from(metadata!.sources)).toEqual(['test-tracked'])
     })
 
     it('should handle high volume of duplicate logs efficiently', () => {
@@ -72,7 +72,7 @@ describe('Integration: Log Level Deduplication', () => {
 
       // Generate 1000 duplicate logs
       for (let i = 0; i < 1000; i++) {
-        const entry = createLogEntry(message, 'log', `test-${i}`)
+        const entry = createLogEntry(message, 'log', 'test-high-volume')
         deduplicator.isDuplicate(entry)
       }
 
@@ -184,9 +184,11 @@ describe('Integration: Log Level Deduplication', () => {
 
       let totalProcessed = 0
 
+      const testId = 'scenario-test'
+
       for (const scenario of testScenario) {
         for (let i = 0; i < scenario.count; i++) {
-          const entry = createLogEntry(scenario.message, scenario.level, `test-${totalProcessed}`)
+          const entry = createLogEntry(scenario.message, scenario.level, testId)
           deduplicator.isDuplicate(entry)
           totalProcessed++
         }

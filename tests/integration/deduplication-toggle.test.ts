@@ -5,7 +5,7 @@
  * These tests MUST FAIL initially (TDD Red phase)
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import type { DeduplicationConfig } from '../../src/types/deduplication.js'
 import type { LLMReporterConfigWithDeduplication } from '../../src/config/deduplication-config.js'
 
@@ -17,6 +17,10 @@ import { ConsoleCapture } from '../../src/console/capture'
 // @ts-expect-error - Implementation doesn't exist yet (TDD)
 // @ts-expect-error - Using actual reporter.ts file
 import { LLMReporter } from '../../src/reporter/reporter'
+// @ts-expect-error - Implementation doesn't exist yet (TDD)
+import { consoleCapture } from '../../src/console/index.js'
+// @ts-expect-error - Implementation doesn't exist yet (TDD)
+import { consoleCapture } from '../../src/console/index'
 
 describe('Integration: Configuration Toggle', () => {
   describe('LogDeduplicator enable/disable', () => {
@@ -40,7 +44,7 @@ describe('Integration: Configuration Toggle', () => {
         message: 'Test message',
         level: 'info' as const,
         timestamp: new Date(),
-        testId: 'test-2'
+        testId: 'test-1'
       }
 
       expect(deduplicator.isDuplicate(log1)).toBe(false)
@@ -207,6 +211,28 @@ describe('Integration: Configuration Toggle', () => {
       expect(internalConfig.normalizeWhitespace).toBe(true) // default
       expect(internalConfig.stripTimestamps).toBe(true) // default
       expect(internalConfig.stripAnsiCodes).toBe(true) // default
+    })
+  })
+
+  describe('Reporter configuration updates', () => {
+    afterEach(() => {
+      consoleCapture.reset()
+    })
+
+    it('should toggle deduplication at runtime', () => {
+      // @ts-expect-error - Implementation doesn't exist yet (TDD)
+      const reporter = new LLMReporter({
+        captureConsoleOnFailure: true,
+        deduplicateLogs: true
+      })
+
+      expect(consoleCapture.deduplicator?.isEnabled()).toBe(true)
+
+      reporter.updateConfig({ deduplicateLogs: false })
+      expect(consoleCapture.deduplicator?.isEnabled()).toBe(false)
+
+      reporter.updateConfig({ deduplicateLogs: true })
+      expect(consoleCapture.deduplicator?.isEnabled()).toBe(true)
     })
   })
 })
