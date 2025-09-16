@@ -254,16 +254,30 @@ const app = await NestFactory.create(AppModule, {
 ```
 
 ### Log Deduplication
-Reduce duplicate console output across tests by enabling log deduplication. This feature consolidates identical log messages at the same level, showing occurrence counts instead of repeating the same message multiple times.
+Log deduplication is enabled by default to reduce duplicate console output across tests. This feature consolidates identical log messages at the same level, showing occurrence counts instead of repeating the same message multiple times.
 
 #### Basic Usage
-Enable with default settings:
+Explicitly confirm the default or override it if needed:
 ```typescript
 export default defineConfig({
   test: {
     reporters: [
       ['vitest-llm-reporter', {
-        deduplicateLogs: true  // Enable with defaults
+        deduplicateLogs: true  // Enabled by default
+      }]
+    ]
+  }
+})
+```
+
+To disable deduplication and surface every log message:
+
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        deduplicateLogs: false
       }]
     ]
   }
@@ -295,7 +309,7 @@ export default defineConfig({
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enabled` | `boolean` | `false` | Enable/disable deduplication |
+| `enabled` | `boolean` | `true` | Enable/disable deduplication |
 | `maxCacheEntries` | `number` | `10000` | Maximum unique log entries to track |
 | `includeSources` | `boolean` | `false` | Include test IDs that generated the log |
 | `normalizeWhitespace` | `boolean` | `true` | Collapse multiple spaces for comparison |

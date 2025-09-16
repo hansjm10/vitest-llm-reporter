@@ -53,7 +53,7 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
     enableMetrics: false
   },
   deduplicationConfig: {
-    enabled: false,
+    enabled: true,
     maxCacheEntries: 1000,
     normalizeWhitespace: true,
     stripTimestamps: true,

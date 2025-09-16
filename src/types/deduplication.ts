@@ -17,7 +17,7 @@ export type LogLevel = ConsoleMethod
 export interface DeduplicationConfig {
   /**
    * Enable or disable log deduplication
-   * @default false
+   * @default true
    */
   enabled?: boolean
 
