@@ -395,7 +395,8 @@ export class EventOrchestrator {
    * Update stored console events with final deduplication metadata
    */
   private finalizeDeduplicationMetadata(): void {
-    if (!this.deduplicator?.isEnabled()) {
+    const deduplicator = this.deduplicator
+    if (!deduplicator?.isEnabled()) {
       return
     }
 
@@ -410,22 +411,26 @@ export class EventOrchestrator {
           continue
         }
 
-        const key = this.deduplicator.generateKey({
+        const key = deduplicator.generateKey({
           message,
           level: event.level as ConsoleMethod,
           timestamp: new Date()
         })
-        const metadata = this.deduplicator.getMetadata(key)
+        const metadata = deduplicator.getMetadata(key)
 
         if (metadata && metadata.count > 1) {
           event.message = message
+          let sources: string[] | undefined
+          if (metadata.sources.size > 0) {
+            sources = Array.from(metadata.sources)
+          }
+
           event.deduplication = {
             count: metadata.count,
             deduplicated: true,
             firstSeen: metadata.firstSeen.toISOString(),
             lastSeen: metadata.lastSeen.toISOString(),
-            sources:
-              metadata.sources.size > 0 ? Array.from(metadata.sources) : undefined
+            sources
           }
         } else if (event.deduplication) {
           delete event.deduplication
