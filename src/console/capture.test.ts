@@ -97,6 +97,27 @@ describe('ConsoleCapture', () => {
       )
     })
 
+    it('should capture logs emitted shortly after test completion', async () => {
+      const testId = 'test-late'
+
+      capture.startCapture(testId)
+
+      await capture.runWithCapture(testId, async () => {
+        console.log('Immediate log')
+        setTimeout(() => {
+          console.log('Deferred log')
+        }, 0)
+      })
+
+      // Allow deferred console.log to run before stopping capture
+      await new Promise((resolve) => setTimeout(resolve, 15))
+
+      const output = capture.stopCapture(testId)
+      const messages = output.entries.map((event) => event.text)
+      expect(messages).toContain('Immediate log')
+      expect(messages).toContain('Deferred log')
+    })
+
     it('should handle parallel test execution', async () => {
       const results: Map<number, string> = new Map()
 

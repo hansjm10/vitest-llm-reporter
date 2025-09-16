@@ -49,14 +49,22 @@ export class ConsoleBuffer {
       return false
     }
 
-    // If this is a duplicate and we have a key, check if we've already added it
-    if (isDuplicate && deduplicationKey) {
-      if (this.deduplicationKeys.has(deduplicationKey)) {
-        // Already have this log, skip it
+    if (deduplicationKey) {
+      const hasKey = this.deduplicationKeys.has(deduplicationKey)
+
+      if (hasKey) {
+        // We've already recorded this message for this buffer. Skip duplicates.
         return false
       }
-      // First time seeing this duplicate key, add it
+
+      // Record key so future duplicates are ignored
       this.deduplicationKeys.add(deduplicationKey)
+
+      // If the deduplicator classified this call as a duplicate, drop it now that we've
+      // recorded the key to keep future checks consistent.
+      if (isDuplicate) {
+        return false
+      }
     }
 
     const { serializedArgs, message } = formatConsoleArgs(args)

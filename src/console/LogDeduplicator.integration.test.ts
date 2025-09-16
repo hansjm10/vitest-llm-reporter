@@ -38,16 +38,16 @@ describe('LogDeduplicator Integration', () => {
     const added1 = buffer.add('log', ['Test message'], 100, 'intercepted', false)
     expect(added1).toBe(true)
 
-    // Add duplicate with same key - first time seeing this key, so it gets added
+    // Add duplicate with same key - suppressed once key is recorded
     const added2 = buffer.add('log', ['Test message'], 200, 'intercepted', true, 'log:hash123')
-    expect(added2).toBe(true) // First time seeing this deduplication key
+    expect(added2).toBe(false)
 
-    // Add another occurrence with same key - should be skipped
+    // Add another occurrence with same key - also skipped
     const added3 = buffer.add('log', ['Test message'], 300, 'intercepted', true, 'log:hash123')
-    expect(added3).toBe(false) // Now it's a duplicate that we skip
+    expect(added3).toBe(false)
 
-    // Check that buffer has two events (the original and the first duplicate)
+    // Only the original event should remain in the buffer
     const events = buffer.getEvents()
-    expect(events).toHaveLength(2)
+    expect(events).toHaveLength(1)
   })
 })

@@ -41,7 +41,6 @@ export class ConsoleCapture {
   // Track test generation to prevent race conditions in cleanup
   private testGeneration = new Map<string, number>()
   public deduplicator?: ILogDeduplicator
-  private pendingResults = new Map<string, CaptureResult>()
 
   constructor(config: ConsoleCaptureConfig & { deduplicator?: ILogDeduplicator } = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -58,7 +57,6 @@ export class ConsoleCapture {
 
     // Clear any existing timer for this test first
     this.clearCleanupTimer(testId)
-    this.pendingResults.delete(testId)
 
     // If buffer already exists, decide whether to keep it or clear it
     if (this.buffers.has(testId)) {
@@ -115,20 +113,11 @@ export class ConsoleCapture {
     // Start capturing for this test
     this.startCapture(testId)
 
-    try {
-      // AsyncLocalStorage.run() automatically cleans up the context after the callback completes
-      // This happens even if the callback throws an error
-      return await this.testContext.run(context, async () => {
-        return await fn()
-      })
-    } finally {
-      try {
-        const capture = this.collectCaptureResult(testId)
-        this.pendingResults.set(testId, capture)
-      } catch (error) {
-        this.debug('Failed to finalize console capture for %s: %O', testId, error)
-      }
-    }
+    // AsyncLocalStorage.run() automatically cleans up the context after the callback completes
+    // This happens even if the callback throws an error
+    return await this.testContext.run(context, async () => {
+      return await fn()
+    })
   }
 
   /**
@@ -137,14 +126,6 @@ export class ConsoleCapture {
   stopCapture(testId: string): CaptureResult {
     if (!this.config.enabled) {
       return { entries: [] }
-    }
-
-    const pending = this.pendingResults.get(testId)
-    if (pending) {
-      this.pendingResults.delete(testId)
-      // Restart cleanup timer so callers have a fresh grace window when retrieving stored results
-      this.scheduleCleanup(testId)
-      return pending
     }
 
     return this.collectCaptureResult(testId)
@@ -215,7 +196,6 @@ export class ConsoleCapture {
       buffer.clear()
       this.buffers.delete(testId)
     }
-    this.pendingResults.delete(testId)
   }
 
   /**
@@ -234,27 +214,28 @@ export class ConsoleCapture {
       const context = this.testContext.getStore()
 
       if (context) {
-        // Check for duplicate if deduplicator is enabled
-        if (this.deduplicator?.isEnabled()) {
-          const { message } = formatConsoleArgs(args)
-          const logEntry = {
-            message,
-            level: method,
-            timestamp: new Date(),
-            testId: context.testId
-          }
-
-          // Skip if this is a duplicate
-          if (this.deduplicator.isDuplicate(logEntry)) {
-            return
-          }
-        }
-
-        // Capture to the test's buffer
         const buffer = this.buffers.get(context.testId)
         if (buffer) {
+          let deduplicationKey: string | undefined
+
+          if (this.deduplicator?.isEnabled()) {
+            const { message } = formatConsoleArgs(args)
+            const logEntry = {
+              message,
+              level: method,
+              timestamp: new Date(),
+              testId: context.testId
+            }
+
+            if (this.deduplicator.isDuplicate(logEntry)) {
+              return
+            }
+
+            deduplicationKey = this.deduplicator.generateKey(logEntry)
+          }
+
           const elapsed = Date.now() - context.startTime
-          buffer.add(method, args, elapsed, 'intercepted', undefined, undefined, context.testId)
+          buffer.add(method, args, elapsed, 'intercepted', false, deduplicationKey, context.testId)
         }
       }
       // Note: When there's no context (helper functions), we rely on Vitest's
@@ -339,10 +320,6 @@ export class ConsoleCapture {
     if (this.deduplicator) {
       this.deduplicator.clear()
     }
-
-    // Clear any pending capture results
-    this.pendingResults.clear()
-
     // Restore console
     this.unpatchConsole()
 
@@ -386,6 +363,8 @@ export class ConsoleCapture {
       return
     }
 
+    let deduplicationKey: string | undefined
+
     // Check for duplicate if deduplicator is enabled
     if (this.deduplicator?.isEnabled()) {
       const { message } = formatConsoleArgs(args)
@@ -400,6 +379,8 @@ export class ConsoleCapture {
       if (this.deduplicator.isDuplicate(logEntry)) {
         return
       }
+
+      deduplicationKey = this.deduplicator.generateKey(logEntry)
     }
 
     let buffer = this.buffers.get(testId)
@@ -408,7 +389,7 @@ export class ConsoleCapture {
       this.buffers.set(testId, buffer)
     }
 
-    buffer.add(method, args, elapsed, 'task', undefined, undefined, testId)
+    buffer.add(method, args, elapsed, 'task', false, deduplicationKey, testId)
   }
 
   /**
@@ -430,7 +411,6 @@ export class ConsoleCapture {
         // Test has no active buffer or pending cleanup, safe to remove
         this.testGeneration.delete(testId)
         this.debug('Cleaned up stale generation for test: %s', testId)
-        this.pendingResults.delete(testId)
       }
     }
   }
