@@ -1,4 +1,5 @@
 import type { TruncationConfig } from '../types/reporter.js'
+import type { DeduplicationConfig } from '../types/deduplication.js'
 
 /**
  * Event orchestrator configuration
@@ -19,4 +20,6 @@ export interface OrchestratorConfig {
   // Streaming removed - simplified implementation
   /** Truncation configuration */
   truncationConfig?: TruncationConfig
+  /** Deduplication configuration */
+  deduplicationConfig?: DeduplicationConfig
 }

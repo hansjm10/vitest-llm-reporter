@@ -253,6 +253,92 @@ const app = await NestFactory.create(AppModule, {
 })
 ```
 
+### Log Deduplication
+Log deduplication is enabled by default to reduce duplicate console output across tests. This feature consolidates identical log messages at the same level, showing occurrence counts instead of repeating the same message multiple times. By default the reporter deduplicates globally across the entire test run; switch to per-test scoping if you prefer isolation between suites.
+
+#### Basic Usage
+Explicitly confirm the default or override it if needed:
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        deduplicateLogs: true  // Enabled by default
+      }]
+    ]
+  }
+})
+```
+
+To disable deduplication and surface every log message:
+
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        deduplicateLogs: false
+      }]
+    ]
+  }
+})
+```
+
+#### Advanced Configuration
+Fine-tune deduplication behavior:
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        deduplicateLogs: {
+          enabled: true,
+          maxCacheEntries: 10000,     // Max unique entries to track
+          includeSources: true,        // Show which tests logged
+          normalizeWhitespace: true,   // Ignore whitespace differences
+          stripTimestamps: true,       // Ignore timestamp differences
+          stripAnsiCodes: true,        // Ignore color codes
+          scope: 'per-test'            // Optional: scope deduplication per test
+        }
+      }]
+    ]
+  }
+})
+```
+
+#### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | `boolean` | `true` | Enable/disable deduplication |
+| `maxCacheEntries` | `number` | `10000` | Maximum unique log entries to track |
+| `includeSources` | `boolean` | `false` | Include test IDs that generated the log |
+| `normalizeWhitespace` | `boolean` | `true` | Collapse multiple spaces for comparison |
+| `stripTimestamps` | `boolean` | `true` | Ignore timestamps when comparing |
+| `stripAnsiCodes` | `boolean` | `true` | Strip color codes when comparing |
+| `scope` | `'global' \| 'per-test'` | `'global'` | Deduplicate across the entire run or per test |
+
+#### Example Output
+
+Without deduplication:
+```
+✓ test-1: Connecting to database...
+✓ test-2: Connecting to database...
+✓ test-3: Connecting to database...
+```
+
+With deduplication:
+```
+✓ test-1: Connecting to database...
+✓ test-2: [Deduplicated: "Connecting to database..." (×3)]
+```
+
+#### Performance Impact
+- Designed for test suites with 1000+ tests
+- Overhead: <5% execution time
+- Memory: <50MB for 10,000 unique entries
+- Automatically evicts oldest entries when cache limit is reached
+
 ### Truncation
 Limit output size with truncation settings.
 

@@ -7,9 +7,8 @@ const DEMO_ENABLED = process.env.LLM_REPORTER_DEMO === '1'
 
 describe.runIf(DEMO_ENABLED)('LLM Reporter Demo', () => {
   it('emits console logs and fails intentionally', () => {
-    // eslint-disable-next-line no-console
     console.info('Demo start: showcasing console capture')
-    // eslint-disable-next-line no-console
+
     console.info('Info context', { feature: 'demo', step: 1 })
     console.warn('Heads up: multi-line example:\n- first line\n- second line')
     console.error('Simulated error path log')

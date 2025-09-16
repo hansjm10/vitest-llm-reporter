@@ -39,7 +39,7 @@ describe('Large Test Suite Performance Benchmarks', () => {
   ] as const)('Reporter processes %s tests', (_label, count, maxMs, maxMemMB) => {
     it(`completes within ${maxMs}ms`, async () => {
       const tests = TestDataGenerator.generateTests(count)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       const module = TestDataGenerator.wrapTasksInModule(tests)
 
       const result = await runner.run(`large_suite_${_label}`, async () => {
@@ -73,7 +73,7 @@ describe('Large Test Suite Performance Benchmarks', () => {
       consoleEvery: 10,
       complexErrorsEvery: 15
     })
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const module = TestDataGenerator.wrapTasksInModule(tests)
 
     const result = await runner.run('large_suite_memory_pressure', async () => {

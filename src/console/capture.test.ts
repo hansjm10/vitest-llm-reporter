@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- This file tests console capture functionality */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ConsoleCapture } from './capture.js'
 
@@ -47,9 +46,9 @@ describe('ConsoleCapture', () => {
       const output = capture.stopCapture(testId)
 
       expect(output).toBeDefined()
-      expect(output).toBeInstanceOf(Array)
-      expect(output?.some((e) => e.level === 'log' && e.text === 'Test output')).toBe(true)
-      expect(output?.some((e) => e.level === 'error' && e.text === 'Test error')).toBe(true)
+      expect(output.entries).toBeInstanceOf(Array)
+      expect(output.entries.some((e) => e.level === 'log' && e.text === 'Test output')).toBe(true)
+      expect(output.entries.some((e) => e.level === 'error' && e.text === 'Test error')).toBe(true)
     })
 
     it('should not capture output when disabled', () => {
@@ -62,7 +61,7 @@ describe('ConsoleCapture', () => {
       })
 
       const output = capture.stopCapture(testId)
-      expect(output).toBeUndefined()
+      expect(output.entries).toEqual([])
     })
 
     it('should isolate output between tests', async () => {
@@ -83,11 +82,40 @@ describe('ConsoleCapture', () => {
       const output1 = capture.stopCapture(test1)
       const output2 = capture.stopCapture(test2)
 
-      expect(output1?.some((e) => e.level === 'log' && e.text === 'Test 1 output')).toBe(true)
-      expect(output1?.some((e) => e.level === 'log' && e.text === 'Test 2 output')).toBe(false)
+      expect(output1.entries.some((e) => e.level === 'log' && e.text === 'Test 1 output')).toBe(
+        true
+      )
+      expect(output1.entries.some((e) => e.level === 'log' && e.text === 'Test 2 output')).toBe(
+        false
+      )
 
-      expect(output2?.some((e) => e.level === 'log' && e.text === 'Test 2 output')).toBe(true)
-      expect(output2?.some((e) => e.level === 'log' && e.text === 'Test 1 output')).toBe(false)
+      expect(output2.entries.some((e) => e.level === 'log' && e.text === 'Test 2 output')).toBe(
+        true
+      )
+      expect(output2.entries.some((e) => e.level === 'log' && e.text === 'Test 1 output')).toBe(
+        false
+      )
+    })
+
+    it('should capture logs emitted shortly after test completion', async () => {
+      const testId = 'test-late'
+
+      capture.startCapture(testId)
+
+      await capture.runWithCapture(testId, async () => {
+        console.log('Immediate log')
+        setTimeout(() => {
+          console.log('Deferred log')
+        }, 0)
+      })
+
+      // Allow deferred console.log to run before stopping capture
+      await new Promise((resolve) => setTimeout(resolve, 15))
+
+      const output = capture.stopCapture(testId)
+      const messages = output.entries.map((event) => event.text)
+      expect(messages).toContain('Immediate log')
+      expect(messages).toContain('Deferred log')
     })
 
     it('should handle parallel test execution', async () => {
@@ -102,7 +130,7 @@ describe('ConsoleCapture', () => {
           // Simulate async work
           await new Promise((resolve) => setTimeout(resolve, Math.random() * 10))
           const output = capture.stopCapture(testId)
-          const logEvents = output?.filter((e) => e.level === 'log') || []
+          const logEvents = output.entries.filter((e) => e.level === 'log')
           results.set(i, logEvents[0]?.text || '')
         })
       })
@@ -135,9 +163,9 @@ describe('ConsoleCapture', () => {
       const output = capture.stopCapture(testId)
       // Since the first message exceeds 50 bytes, nothing is captured except truncation warning
       expect(output).toBeDefined()
-      expect(output?.length).toBeGreaterThan(0)
+      expect(output.entries.length).toBeGreaterThan(0)
       // Should have truncation event
-      const truncationEvent = output?.find((e) => e.text.includes('truncated'))
+      const truncationEvent = output.entries.find((e) => e.text.includes('truncated'))
       expect(truncationEvent).toBeDefined()
       expect(truncationEvent?.level).toBe('warn')
     })
@@ -160,9 +188,9 @@ describe('ConsoleCapture', () => {
       })
 
       const output = capture.stopCapture(testId)
-      const logEvents = output?.filter((e) => e.level === 'log') || []
+      const logEvents = output.entries.filter((e) => e.level === 'log')
       // Should have at most 3 lines (might have truncation message as 4th)
-      expect(output?.length).toBeLessThanOrEqual(4)
+      expect(output.entries.length).toBeLessThanOrEqual(4)
       expect(logEvents.some((e) => e.text === 'Line 1')).toBe(true)
       expect(logEvents.some((e) => e.text === 'Line 2')).toBe(true)
       expect(logEvents.some((e) => e.text === 'Line 3')).toBe(true)
@@ -227,11 +255,15 @@ describe('ConsoleCapture', () => {
 
       const output = capture.stopCapture(testId)
 
-      expect(output?.some((e) => e.level === 'log' && e.text === 'Log message')).toBe(true)
-      expect(output?.some((e) => e.level === 'error' && e.text === 'Error message')).toBe(true)
-      expect(output?.some((e) => e.level === 'warn' && e.text === 'Warn message')).toBe(true)
-      expect(output?.some((e) => e.level === 'info' && e.text === 'Info message')).toBe(true)
-      expect(output?.some((e) => e.level === 'debug' && e.text === 'Debug message')).toBe(true)
+      expect(output.entries.some((e) => e.level === 'log' && e.text === 'Log message')).toBe(true)
+      expect(output.entries.some((e) => e.level === 'error' && e.text === 'Error message')).toBe(
+        true
+      )
+      expect(output.entries.some((e) => e.level === 'warn' && e.text === 'Warn message')).toBe(true)
+      expect(output.entries.some((e) => e.level === 'info' && e.text === 'Info message')).toBe(true)
+      expect(output.entries.some((e) => e.level === 'debug' && e.text === 'Debug message')).toBe(
+        true
+      )
     })
 
     it('should handle complex objects', () => {
@@ -245,7 +277,7 @@ describe('ConsoleCapture', () => {
 
       const output = capture.stopCapture(testId)
 
-      const logEvents = output?.filter((e) => e.level === 'log') || []
+      const logEvents = output.entries.filter((e) => e.level === 'log')
       expect(logEvents[0]?.text).toContain('key')
       expect(logEvents[0]?.text).toContain('value')
       expect(logEvents[1]?.text).toContain('item1')
@@ -264,7 +296,7 @@ describe('ConsoleCapture', () => {
 
       const output = capture.stopCapture(testId)
 
-      const logEvents = output?.filter((e) => e.level === 'log') || []
+      const logEvents = output.entries.filter((e) => e.level === 'log')
       expect(logEvents[0]?.text).toContain('[Circular')
     })
   })

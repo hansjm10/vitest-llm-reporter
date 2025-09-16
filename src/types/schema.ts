@@ -135,12 +135,26 @@ export interface ConsoleEvent {
   level: ConsoleLevel
   /** Serialized text representation of the console call */
   text: string
+  /** Message content (same as text, for deduplication compatibility) */
+  message?: string
   /** Timestamp in milliseconds since test start (optional) */
   timestampMs?: number
+  /** Timestamp (alias for timestampMs, optional) */
+  timestamp?: number
   /** Array of individually serialized arguments (optional) */
   args?: string[]
   /** Origin of the console event */
   origin?: 'intercepted' | 'task'
+  /** Test ID that produced the log (if known) */
+  testId?: string
+  /** Deduplication metadata if this log was deduplicated */
+  deduplication?: {
+    count: number
+    deduplicated: boolean
+    firstSeen: string
+    lastSeen: string
+    sources?: string[]
+  }
 }
 
 /**

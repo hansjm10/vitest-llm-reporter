@@ -21,6 +21,8 @@ import type { ConsoleEvent, ConsoleLevel } from '../types/schema.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import { consoleCapture } from '../console/index.js'
 import { consoleMerger } from '../console/merge.js'
+import { LogDeduplicator } from '../console/LogDeduplicator.js'
+import type { ILogDeduplicator } from '../types/deduplication.js'
 // Truncation handled by LateTruncator in OutputBuilder
 
 /**
@@ -49,6 +51,15 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
     enableEarlyTruncation: false,
     enableLateTruncation: false,
     enableMetrics: false
+  },
+  deduplicationConfig: {
+    enabled: true,
+    maxCacheEntries: 1000,
+    normalizeWhitespace: true,
+    stripTimestamps: true,
+    stripAnsiCodes: true,
+    includeSources: false,
+    scope: 'global'
   }
 }
 
@@ -78,6 +89,7 @@ export class EventOrchestrator {
   private errorExtractor: ErrorExtractor
   private resultBuilder: TestResultBuilder
   private contextBuilder: ErrorContextBuilder
+  private deduplicator?: ILogDeduplicator
   private debug = coreLogger()
   private debugError = errorLogger()
   // Truncator removed - simplified truncation in OutputBuilder
@@ -96,6 +108,12 @@ export class EventOrchestrator {
     this.errorExtractor = errorExtractor
     this.resultBuilder = resultBuilder
     this.contextBuilder = contextBuilder
+
+    // Initialize deduplicator if config is provided
+    if (this.config.deduplicationConfig) {
+      this.deduplicator = new LogDeduplicator(this.config.deduplicationConfig)
+      consoleCapture.deduplicator = this.deduplicator
+    }
 
     // Configure console capture
     consoleCapture.updateConfig({
@@ -266,7 +284,8 @@ export class EventOrchestrator {
     // Try to get console logs from Vitest task (built-in capture)
     const consoleFromTask = this.extractConsoleFromTask(originalTestCase)
     // Also try our custom capture
-    const consoleFromCapture = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
+    const captureResult = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
+    const consoleFromCapture = captureResult?.entries
 
     // Intelligently merge both console sources
     const consoleEvents = consoleMerger.merge(consoleFromTask, consoleFromCapture)
@@ -363,11 +382,69 @@ export class EventOrchestrator {
   ): void {
     this.stateManager.recordRunEnd()
 
+    // Ensure deduplication metadata reflects final counts before clearing state
+    this.finalizeDeduplicationMetadata()
+
     // Clean up console capture resources
     consoleCapture.reset()
 
     // Note: Unhandled errors are processed directly by OutputBuilder
     // to avoid duplicate counting in test statistics
+  }
+
+  /**
+   * Update stored console events with final deduplication metadata
+   */
+  private finalizeDeduplicationMetadata(): void {
+    const deduplicator = this.deduplicator
+    if (!deduplicator?.isEnabled()) {
+      return
+    }
+
+    const applyMetadata = (events?: ConsoleEvent[]): void => {
+      if (!events || events.length === 0) {
+        return
+      }
+
+      for (const event of events) {
+        const message = event.message ?? event.text
+        if (!message) {
+          continue
+        }
+
+        const key = deduplicator.generateKey({
+          message,
+          level: event.level as ConsoleMethod,
+          timestamp: new Date(),
+          testId: event.testId
+        })
+        const metadata = deduplicator.getMetadata(key)
+
+        if (metadata && metadata.count > 1) {
+          event.message = message
+          let sources: string[] | undefined
+          if (metadata.sources.size > 0) {
+            sources = Array.from(metadata.sources)
+          }
+
+          event.deduplication = {
+            count: metadata.count,
+            deduplicated: true,
+            firstSeen: metadata.firstSeen.toISOString(),
+            lastSeen: metadata.lastSeen.toISOString(),
+            sources
+          }
+        } else if (event.deduplication) {
+          delete event.deduplication
+        }
+      }
+    }
+
+    const results = this.stateManager.getTestResults()
+
+    for (const failure of results.failed) {
+      applyMetadata(failure.consoleEvents)
+    }
   }
 
   /**
@@ -460,6 +537,11 @@ export class EventOrchestrator {
       maxLines: this.config.maxConsoleLines,
       includeDebugOutput: this.config.includeDebugOutput
     })
+
+    if (config.deduplicationConfig !== undefined) {
+      this.deduplicator = new LogDeduplicator(config.deduplicationConfig)
+      consoleCapture.deduplicator = this.deduplicator
+    }
 
     // Truncation config updates are now handled in OutputBuilder
     // No need for config updates here

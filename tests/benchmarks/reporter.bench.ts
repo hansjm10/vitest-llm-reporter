@@ -35,7 +35,7 @@ describe('Reporter Performance Benchmarks', () => {
   ] as const)('Reporter %s suite', (_label, count, maxMs) => {
     it(`processes ${count} test(s) within ${maxMs}ms`, async () => {
       const tasks = TestDataGenerator.generateTests(count)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       const module = TestDataGenerator.wrapTasksInModule(tasks)
 
       const result = await runner.run(`reporter_${_label}_suite`, async () => {
@@ -57,7 +57,7 @@ describe('Reporter Performance Benchmarks', () => {
 
   it('reflects configuration impact', async () => {
     const tasks = TestDataGenerator.generateTests(50)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const module = TestDataGenerator.wrapTasksInModule(tasks)
 
     const verboseTrunc = await runner.run('reporter_verbose_trunc', async () => {
@@ -95,7 +95,7 @@ describe('Reporter Performance Benchmarks', () => {
 
   it('handles error-heavy suites efficiently', async () => {
     const tasks = TestDataGenerator.generateTests(30, { failureRate: 0.5, complexErrorsEvery: 3 })
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const module = TestDataGenerator.wrapTasksInModule(tasks)
 
     const result = await runner.run('reporter_errors', async () => {

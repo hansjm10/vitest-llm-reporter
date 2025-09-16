@@ -1,6 +1,6 @@
-import { inspect } from 'node:util'
 import type { ConsoleMethod, ConsoleBufferConfig } from '../types/console.js'
 import type { ConsoleEvent, ConsoleLevel } from '../types/schema.js'
+import { formatConsoleArgs } from '../utils/console-formatter.js'
 
 /**
  * Console Buffer
@@ -26,6 +26,7 @@ export class ConsoleBuffer {
   private totalBytes = 0
   private config: Required<ConsoleBufferConfig>
   private truncated = false
+  private deduplicationKeys = new Set<string>()
 
   constructor(config: ConsoleBufferConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -38,18 +39,35 @@ export class ConsoleBuffer {
     method: ConsoleMethod,
     args: unknown[],
     timestamp?: number,
-    origin: 'intercepted' | 'task' = 'intercepted'
+    origin: 'intercepted' | 'task' = 'intercepted',
+    isDuplicate?: boolean,
+    deduplicationKey?: string,
+    testId?: string
   ): boolean {
     // Check if we've already hit limits
     if (this.truncated) {
       return false
     }
 
-    // Serialize arguments individually
-    const serializedArgs = args.map((arg) => this.serializeArg(arg))
+    if (deduplicationKey) {
+      const hasKey = this.deduplicationKeys.has(deduplicationKey)
 
-    // Create combined text representation
-    const message = serializedArgs.join(' ')
+      if (hasKey) {
+        // We've already recorded this message for this buffer. Skip duplicates.
+        return false
+      }
+
+      // Record key so future duplicates are ignored
+      this.deduplicationKeys.add(deduplicationKey)
+
+      // If the deduplicator classified this call as a duplicate, drop it now that we've
+      // recorded the key to keep future checks consistent.
+      if (isDuplicate) {
+        return false
+      }
+    }
+
+    const { serializedArgs, message } = formatConsoleArgs(args)
 
     // Strip ANSI codes if configured
     const text = this.config.stripAnsi ? this.stripAnsiCodes(message) : message
@@ -68,7 +86,7 @@ export class ConsoleBuffer {
     }
 
     // Map console method to level (trace becomes debug)
-    const level: ConsoleLevel = method === 'trace' ? 'debug' : method
+    const level: ConsoleLevel = method
 
     // Create the event
     const event: ConsoleEvent = {
@@ -82,6 +100,10 @@ export class ConsoleBuffer {
       event.timestampMs = timestamp
     }
 
+    if (testId) {
+      event.testId = testId
+    }
+
     // Add args if they provide value beyond text
     if (args.length > 1 || (args.length === 1 && typeof args[0] === 'object')) {
       event.args = serializedArgs
@@ -92,54 +114,6 @@ export class ConsoleBuffer {
     this.totalBytes += bytes
 
     return true
-  }
-
-  /**
-   * Serialize a single argument safely
-   */
-  private serializeArg(arg: unknown): string {
-    try {
-      if (arg === undefined) return 'undefined'
-      if (arg === null) return 'null'
-
-      if (typeof arg === 'string') {
-        // Truncate very long strings
-        return arg.length > 1000 ? arg.substring(0, 1000) + '... [truncated]' : arg
-      }
-
-      if (typeof arg === 'number' || typeof arg === 'boolean') {
-        return String(arg)
-      }
-
-      if (typeof arg === 'bigint') {
-        return `${arg}n`
-      }
-
-      if (typeof arg === 'symbol') {
-        return arg.toString()
-      }
-
-      if (typeof arg === 'function') {
-        return '[Function]'
-      }
-
-      if (typeof arg === 'object') {
-        // Use util.inspect for safe object serialization
-        return inspect(arg, {
-          depth: 3,
-          compact: true,
-          maxArrayLength: 10,
-          maxStringLength: 200,
-          breakLength: 120,
-          sorted: true
-        })
-      }
-
-      // Fallback for any missed types
-      return '[unknown]'
-    } catch (_error) {
-      return '[Failed to serialize]'
-    }
   }
 
   /**
@@ -180,6 +154,7 @@ export class ConsoleBuffer {
     this.events = []
     this.totalBytes = 0
     this.truncated = false
+    this.deduplicationKeys.clear()
   }
 
   /**

@@ -113,7 +113,12 @@ export default [
     }
   },
   {
-    files: ['**/*.test.ts', '**/*.spec.ts'],
+    files: ['**/*.test.ts', '**/*.spec.ts', '**/*.benchmark.ts', '**/tests/**/*.ts'],
+    languageOptions: {
+      globals: {
+        performance: 'readonly'
+      }
+    },
     plugins: {
       vitest
     },
@@ -126,7 +131,25 @@ export default [
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/require-await': 'off',
+      'no-console': 'off',
       'no-undef': 'off'
+    }
+  },
+  {
+    files: ['**/*.bench.ts'],
+    rules: {
+      'vitest/expect-expect': [
+        'error',
+        {
+          assertFunctionNames: [
+            'expect',
+            'PerformanceAssertions.assertPerformance',
+            'PerformanceAssertions.assertReliability',
+            'PerformanceAssertions.assertResources'
+          ]
+        }
+      ]
     }
   },
   {

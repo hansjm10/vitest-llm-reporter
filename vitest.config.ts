@@ -3,6 +3,13 @@ import { LLMReporter } from './src/index.js';
 
 export default defineConfig({
   test: {
+    // Exclude temporary test files from discovery
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',         // Exclude compiled test files in dist
+      '**/.tmp-*.test.ts',  // Exclude temporary test fixtures
+      '**/.tmp-*.test.js'   // Also exclude JS variants
+    ],
     // Enable location tracking for line numbers
     includeTaskLocation: true,
     // Force exit after tests complete

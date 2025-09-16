@@ -11,13 +11,14 @@ import type { Vitest, SerializedError, Reporter, UserConsoleLog, File } from 'vi
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
 import type { LLMReporterConfig, StdioConfig } from '../types/reporter.js'
+import type { OrchestratorConfig } from '../events/types.js'
 import type { LLMReporterOutput, TestError } from '../types/schema.js'
 
 // Type for resolved configuration with explicit undefined handling
 interface ResolvedLLMReporterConfig
   extends Omit<
     LLMReporterConfig,
-    'outputFile' | 'enableStreaming' | 'enableConsoleOutput' | 'truncation'
+    'outputFile' | 'enableStreaming' | 'enableConsoleOutput' | 'truncation' | 'deduplicateLogs'
   > {
   verbose: boolean
   outputFile: string | undefined // Explicitly undefined, not optional
@@ -53,6 +54,18 @@ interface ResolvedLLMReporterConfig
   stdio: Required<StdioConfig>
   warnWhenConsoleBlocked: boolean
   fallbackToStderrOnBlocked: boolean
+  deduplicateLogs:
+    | boolean
+    | {
+        enabled?: boolean
+        maxCacheEntries?: number
+        normalizeWhitespace?: boolean
+        includeSources?: boolean
+        stripTimestamps?: boolean
+        stripAnsiCodes?: boolean
+        scope?: 'global' | 'per-test'
+      }
+    | undefined
 }
 
 // Import new components
@@ -66,6 +79,11 @@ import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
 import { StdioInterceptor } from '../console/stdio-interceptor.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
+import {
+  normalizeDeduplicationConfig,
+  validateDeduplicationConfig
+} from '../config/deduplication-config.js'
+import type { DeduplicationConfig } from '../types/deduplication.js'
 import * as fs from 'node:fs'
 import { isTTY, isCI } from '../utils/environment.js'
 import {
@@ -174,6 +192,7 @@ export class LLMReporter implements Reporter {
       enableConsoleOutput,
       includeAbsolutePaths: config.includeAbsolutePaths ?? false,
       filterNodeModules: config.filterNodeModules ?? true,
+      deduplicateLogs: config.deduplicateLogs ?? true, // Default to enabled
       performance: {
         enabled: config.performance?.enabled ?? false,
         cacheSize: config.performance?.cacheSize ?? 1000,
@@ -236,7 +255,8 @@ export class LLMReporter implements Reporter {
         maxConsoleBytes: this.config.maxConsoleBytes,
         maxConsoleLines: this.config.maxConsoleLines,
         includeDebugOutput: this.config.includeDebugOutput,
-        truncationConfig: this.config.truncation
+        truncationConfig: this.config.truncation,
+        deduplicationConfig: this.getDeduplicationConfig()
       }
     )
 
@@ -277,6 +297,21 @@ export class LLMReporter implements Reporter {
     }
     if (config.maxTokens !== undefined && config.maxTokens < 0) {
       throw new Error('maxTokens must be a positive number')
+    }
+
+    // Validate deduplicateLogs configuration
+    if (config.deduplicateLogs !== undefined) {
+      if (
+        typeof config.deduplicateLogs !== 'boolean' &&
+        typeof config.deduplicateLogs !== 'object'
+      ) {
+        throw new Error('deduplicateLogs must be a boolean or configuration object')
+      }
+
+      if (typeof config.deduplicateLogs === 'object' && config.deduplicateLogs !== null) {
+        // Delegate to centralized validation
+        validateDeduplicationConfig(config.deduplicateLogs)
+      }
     }
   }
 
@@ -354,6 +389,45 @@ export class LLMReporter implements Reporter {
   }
 
   /**
+   * Update reporter configuration dynamically
+   */
+  updateConfig(partialConfig: Partial<LLMReporterConfig>): void {
+    this.validateConfig({ ...this.config, ...partialConfig } as LLMReporterConfig)
+
+    // Update configuration properties
+    Object.assign(this.config, partialConfig)
+
+    let shouldUpdateOrchestrator = false
+    const orchestratorConfig: OrchestratorConfig = {}
+
+    // Update orchestrator if console-related config changed
+    const consoleConfigKeys = [
+      'captureConsoleOnFailure',
+      'maxConsoleBytes',
+      'maxConsoleLines',
+      'includeDebugOutput',
+      'truncation'
+    ]
+    if (consoleConfigKeys.some((key) => key in partialConfig)) {
+      orchestratorConfig.captureConsoleOnFailure = this.config.captureConsoleOnFailure
+      orchestratorConfig.maxConsoleBytes = this.config.maxConsoleBytes
+      orchestratorConfig.maxConsoleLines = this.config.maxConsoleLines
+      orchestratorConfig.includeDebugOutput = this.config.includeDebugOutput
+      orchestratorConfig.truncationConfig = this.config.truncation
+      shouldUpdateOrchestrator = true
+    }
+
+    if ('deduplicateLogs' in partialConfig) {
+      orchestratorConfig.deduplicationConfig = this.getDeduplicationConfig()
+      shouldUpdateOrchestrator = true
+    }
+
+    if (shouldUpdateOrchestrator) {
+      this.orchestrator.updateConfig(orchestratorConfig)
+    }
+  }
+
+  /**
    * Get the Vitest context
    *
    * @returns The Vitest context if initialized, undefined otherwise
@@ -397,6 +471,15 @@ export class LLMReporter implements Reporter {
    */
   isPerformanceWithinLimits(): boolean {
     return this.performanceManager?.isWithinLimits() ?? true
+  }
+
+  /**
+   * Get the deduplication configuration
+   * Provides defaults for all configuration options
+   * @internal - Public for testing only
+   */
+  getDeduplicationConfig(): DeduplicationConfig {
+    return normalizeDeduplicationConfig(this.config.deduplicateLogs)
   }
 
   /**

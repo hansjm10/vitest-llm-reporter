@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- This file tests console capture functionality */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { ConsoleCapture } from './capture.js'
 import { ConsoleInterceptor } from './interceptor.js'
@@ -103,8 +102,8 @@ describe('ConsoleCapture Bug Fixes', () => {
       // Stop capture (schedules cleanup)
       const output1 = capture.stopCapture(testId)
       expect(output1).toBeDefined()
-      expect(output1).toBeInstanceOf(Array)
-      expect(output1?.some((e) => e.text === 'First test')).toBe(true)
+      expect(output1.entries).toBeInstanceOf(Array)
+      expect(output1.entries.some((e) => e.text === 'First test')).toBe(true)
 
       // Immediately start new test with same ID (simulating test retry)
       // This should clear the old buffer and create a fresh one
@@ -116,10 +115,10 @@ describe('ConsoleCapture Bug Fixes', () => {
       // Stop and get output from second test
       const output2 = capture.stopCapture(testId)
       expect(output2).toBeDefined()
-      expect(output2).toBeInstanceOf(Array)
-      expect(output2?.some((e) => e.text === 'Second test')).toBe(true)
+      expect(output2.entries).toBeInstanceOf(Array)
+      expect(output2.entries.some((e) => e.text === 'Second test')).toBe(true)
       // Should NOT contain output from first test
-      expect(output2?.some((e) => e.text === 'First test')).toBe(false)
+      expect(output2.entries.some((e) => e.text === 'First test')).toBe(false)
 
       // Wait for grace period to pass
       await new Promise((resolve) => setTimeout(resolve, 150))

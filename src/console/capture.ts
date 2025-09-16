@@ -1,9 +1,10 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { ConsoleBuffer } from './buffer.js'
-import type { ConsoleCaptureConfig, ConsoleMethod } from '../types/console.js'
-import type { ConsoleEvent } from '../types/schema.js'
+import type { ConsoleCaptureConfig, ConsoleMethod, CaptureResult } from '../types/console.js'
 import { ConsoleInterceptor } from './interceptor.js'
 import { createLogger } from '../utils/logger.js'
+import type { ILogDeduplicator } from '../types/deduplication.js'
+import { formatConsoleArgs } from '../utils/console-formatter.js'
 
 /**
  * Console Capture
@@ -39,9 +40,11 @@ export class ConsoleCapture {
   private cleanupTimers = new Map<string, ReturnType<typeof globalThis.setTimeout>>()
   // Track test generation to prevent race conditions in cleanup
   private testGeneration = new Map<string, number>()
+  public deduplicator?: ILogDeduplicator
 
-  constructor(config: ConsoleCaptureConfig = {}) {
+  constructor(config: ConsoleCaptureConfig & { deduplicator?: ILogDeduplicator } = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
+    this.deduplicator = config.deduplicator
   }
 
   /**
@@ -93,6 +96,7 @@ export class ConsoleCapture {
 
   /**
    * Execute a function with console capture context
+   * Returns the callback result while retaining captured output for later retrieval via stopCapture.
    * Note: AsyncLocalStorage automatically cleans up context when run() completes,
    * so no explicit cleanup is needed. The context is only available within the callback.
    */
@@ -106,37 +110,80 @@ export class ConsoleCapture {
       startTime: Date.now()
     }
 
+    // Start capturing for this test
+    this.startCapture(testId)
+
     // AsyncLocalStorage.run() automatically cleans up the context after the callback completes
     // This happens even if the callback throws an error
     return await this.testContext.run(context, async () => {
       return await fn()
     })
-    // Context is automatically cleared here - verified by tests checking getStore() returns undefined
   }
 
   /**
    * Stop capturing and retrieve output for a test
    */
-  stopCapture(testId: string): ConsoleEvent[] | undefined {
+  stopCapture(testId: string): CaptureResult {
     if (!this.config.enabled) {
-      return undefined
+      return { entries: [] }
     }
 
+    return this.collectCaptureResult(testId)
+  }
+
+  /**
+   * Internal helper to gather buffered console events with deduplication metadata
+   */
+  private collectCaptureResult(testId: string): CaptureResult {
     this.debug('Stopping console capture for test: %s', testId)
 
-    // Get the buffer
     const buffer = this.buffers.get(testId)
     if (!buffer) {
-      return undefined
+      return { entries: [] }
     }
 
-    // Get the events before scheduling cleanup
     const events = buffer.getEvents()
 
     // Schedule cleanup after grace period (for async console output)
     this.scheduleCleanup(testId)
 
-    return events
+    const deduplicator = this.deduplicator
+    if (deduplicator?.isEnabled()) {
+      const entriesWithMetadata = events.map((event) => {
+        const logEntry = {
+          message: event.text,
+          level: event.level,
+          timestamp: new Date(),
+          testId: event.testId ?? testId
+        }
+        const key = deduplicator.generateKey(logEntry)
+        const metadata = deduplicator.getMetadata(key)
+
+        return {
+          ...event,
+          message: event.text,
+          deduplication:
+            metadata && metadata.count > 1
+              ? {
+                  count: metadata.count,
+                  deduplicated: true,
+                  firstSeen: metadata.firstSeen.toISOString(),
+                  lastSeen: metadata.lastSeen.toISOString(),
+                  sources: metadata.sources.size > 0 ? Array.from(metadata.sources) : undefined
+                }
+              : undefined
+        }
+      })
+
+      return { entries: entriesWithMetadata }
+    }
+
+    return {
+      entries: events.map((event) => ({
+        ...event,
+        message: event.text
+      }))
+    }
   }
 
   /**
@@ -167,11 +214,28 @@ export class ConsoleCapture {
       const context = this.testContext.getStore()
 
       if (context) {
-        // Capture to the test's buffer
         const buffer = this.buffers.get(context.testId)
         if (buffer) {
+          let deduplicationKey: string | undefined
+
+          if (this.deduplicator?.isEnabled()) {
+            const { message } = formatConsoleArgs(args)
+            const logEntry = {
+              message,
+              level: method,
+              timestamp: new Date(),
+              testId: context.testId
+            }
+
+            if (this.deduplicator.isDuplicate(logEntry)) {
+              return
+            }
+
+            deduplicationKey = this.deduplicator.generateKey(logEntry)
+          }
+
           const elapsed = Date.now() - context.startTime
-          buffer.add(method, args, elapsed, 'intercepted')
+          buffer.add(method, args, elapsed, 'intercepted', false, deduplicationKey, context.testId)
         }
       }
       // Note: When there's no context (helper functions), we rely on Vitest's
@@ -252,10 +316,40 @@ export class ConsoleCapture {
     // Clear generation tracking to prevent memory leaks in watch mode
     this.testGeneration.clear()
 
+    // Clear deduplicator if present
+    if (this.deduplicator) {
+      this.deduplicator.clear()
+    }
     // Restore console
     this.unpatchConsole()
 
     this.debug('Console capture reset')
+  }
+
+  /**
+   * Capture console output for a test and return the result
+   */
+  captureForTest(testId: string, fn: () => void): CaptureResult {
+    if (!this.config.enabled) {
+      fn()
+      return { entries: [] }
+    }
+
+    const context: TestContext = {
+      testId,
+      startTime: Date.now()
+    }
+
+    // Start capturing for this test
+    this.startCapture(testId)
+
+    // Run with context so console methods are captured
+    this.testContext.run(context, () => {
+      fn()
+    })
+
+    // Stop capturing and return the output
+    return this.stopCapture(testId)
   }
 
   /**
@@ -269,13 +363,33 @@ export class ConsoleCapture {
       return
     }
 
+    let deduplicationKey: string | undefined
+
+    // Check for duplicate if deduplicator is enabled
+    if (this.deduplicator?.isEnabled()) {
+      const { message } = formatConsoleArgs(args)
+      const logEntry = {
+        message,
+        level: method,
+        timestamp: new Date(),
+        testId
+      }
+
+      // Skip if this is a duplicate
+      if (this.deduplicator.isDuplicate(logEntry)) {
+        return
+      }
+
+      deduplicationKey = this.deduplicator.generateKey(logEntry)
+    }
+
     let buffer = this.buffers.get(testId)
     if (!buffer) {
       buffer = new ConsoleBuffer(this.config)
       this.buffers.set(testId, buffer)
     }
 
-    buffer.add(method, args, elapsed, 'task')
+    buffer.add(method, args, elapsed, 'task', false, deduplicationKey, testId)
   }
 
   /**
