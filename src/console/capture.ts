@@ -4,6 +4,7 @@ import type { ConsoleCaptureConfig, ConsoleMethod, CaptureResult } from '../type
 import { ConsoleInterceptor } from './interceptor.js'
 import { createLogger } from '../utils/logger.js'
 import type { ILogDeduplicator } from '../types/deduplication.js'
+import { formatConsoleArgs } from '../utils/console-formatter.js'
 
 /**
  * Console Capture
@@ -40,6 +41,7 @@ export class ConsoleCapture {
   // Track test generation to prevent race conditions in cleanup
   private testGeneration = new Map<string, number>()
   public deduplicator?: ILogDeduplicator
+  private pendingResults = new Map<string, CaptureResult>()
 
   constructor(config: ConsoleCaptureConfig & { deduplicator?: ILogDeduplicator } = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -56,6 +58,7 @@ export class ConsoleCapture {
 
     // Clear any existing timer for this test first
     this.clearCleanupTimer(testId)
+    this.pendingResults.delete(testId)
 
     // If buffer already exists, decide whether to keep it or clear it
     if (this.buffers.has(testId)) {
@@ -95,13 +98,13 @@ export class ConsoleCapture {
 
   /**
    * Execute a function with console capture context
+   * Returns the callback result while retaining captured output for later retrieval via stopCapture.
    * Note: AsyncLocalStorage automatically cleans up context when run() completes,
    * so no explicit cleanup is needed. The context is only available within the callback.
    */
-  async runWithCapture<T>(testId: string, fn: () => T | Promise<T>): Promise<CaptureResult> {
+  async runWithCapture<T>(testId: string, fn: () => T | Promise<T>): Promise<T> {
     if (!this.config.enabled) {
-      await fn()
-      return { entries: [] }
+      return await fn()
     }
 
     const context: TestContext = {
@@ -112,15 +115,20 @@ export class ConsoleCapture {
     // Start capturing for this test
     this.startCapture(testId)
 
-    // AsyncLocalStorage.run() automatically cleans up the context after the callback completes
-    // This happens even if the callback throws an error
-    await this.testContext.run(context, async () => {
-      return await fn()
-    })
-    // Context is automatically cleared here - verified by tests checking getStore() returns undefined
-
-    // Stop capturing and return the output
-    return this.stopCapture(testId)
+    try {
+      // AsyncLocalStorage.run() automatically cleans up the context after the callback completes
+      // This happens even if the callback throws an error
+      return await this.testContext.run(context, async () => {
+        return await fn()
+      })
+    } finally {
+      try {
+        const capture = this.collectCaptureResult(testId)
+        this.pendingResults.set(testId, capture)
+      } catch (error) {
+        this.debug('Failed to finalize console capture for %s: %O', testId, error)
+      }
+    }
   }
 
   /**
@@ -131,22 +139,35 @@ export class ConsoleCapture {
       return { entries: [] }
     }
 
+    const pending = this.pendingResults.get(testId)
+    if (pending) {
+      this.pendingResults.delete(testId)
+      // Restart cleanup timer so callers have a fresh grace window when retrieving stored results
+      this.scheduleCleanup(testId)
+      return pending
+    }
+
+    return this.collectCaptureResult(testId)
+  }
+
+  /**
+   * Internal helper to gather buffered console events with deduplication metadata
+   */
+  private collectCaptureResult(testId: string): CaptureResult {
     this.debug('Stopping console capture for test: %s', testId)
 
-    // Get the buffer
     const buffer = this.buffers.get(testId)
     if (!buffer) {
       return { entries: [] }
     }
 
-    // Get the events before scheduling cleanup
     const events = buffer.getEvents()
 
     // Schedule cleanup after grace period (for async console output)
     this.scheduleCleanup(testId)
 
-    // If deduplicator is enabled, add deduplication metadata to events
-    if (this.deduplicator?.isEnabled()) {
+    const deduplicator = this.deduplicator
+    if (deduplicator?.isEnabled()) {
       const entriesWithMetadata = events.map((event) => {
         const logEntry = {
           message: event.text,
@@ -154,12 +175,12 @@ export class ConsoleCapture {
           timestamp: new Date(),
           testId
         }
-        const key = this.deduplicator!.generateKey(logEntry)
-        const metadata = this.deduplicator!.getMetadata(key)
+        const key = deduplicator.generateKey(logEntry)
+        const metadata = deduplicator.getMetadata(key)
 
         return {
           ...event,
-          message: event.text, // Add message field for compatibility
+          message: event.text,
           deduplication:
             metadata && metadata.count > 1
               ? {
@@ -173,17 +194,13 @@ export class ConsoleCapture {
         }
       })
 
-      return {
-        entries: entriesWithMetadata
-      }
+      return { entries: entriesWithMetadata }
     }
 
-    // Return in the expected format even when deduplication is disabled
-    // Add message field to each event for consistency
     return {
       entries: events.map((event) => ({
         ...event,
-        message: event.text // Add message field for compatibility
+        message: event.text
       }))
     }
   }
@@ -198,6 +215,7 @@ export class ConsoleCapture {
       buffer.clear()
       this.buffers.delete(testId)
     }
+    this.pendingResults.delete(testId)
   }
 
   /**
@@ -218,9 +236,9 @@ export class ConsoleCapture {
       if (context) {
         // Check for duplicate if deduplicator is enabled
         if (this.deduplicator?.isEnabled()) {
-          const text = args.map((arg) => String(arg)).join(' ')
+          const { message } = formatConsoleArgs(args)
           const logEntry = {
-            message: text,
+            message,
             level: method,
             timestamp: new Date(),
             testId: context.testId
@@ -322,6 +340,9 @@ export class ConsoleCapture {
       this.deduplicator.clear()
     }
 
+    // Clear any pending capture results
+    this.pendingResults.clear()
+
     // Restore console
     this.unpatchConsole()
 
@@ -367,9 +388,9 @@ export class ConsoleCapture {
 
     // Check for duplicate if deduplicator is enabled
     if (this.deduplicator?.isEnabled()) {
-      const text = args.map((arg) => String(arg)).join(' ')
+      const { message } = formatConsoleArgs(args)
       const logEntry = {
-        message: text,
+        message,
         level: method,
         timestamp: new Date(),
         testId
@@ -409,6 +430,7 @@ export class ConsoleCapture {
         // Test has no active buffer or pending cleanup, safe to remove
         this.testGeneration.delete(testId)
         this.debug('Cleaned up stale generation for test: %s', testId)
+        this.pendingResults.delete(testId)
       }
     }
   }

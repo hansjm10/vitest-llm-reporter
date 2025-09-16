@@ -76,6 +76,8 @@ export class LogDeduplicator implements ILogDeduplicator {
     }
 
     // Create new entry
+    const sources = this.config.includeSources && entry.testId ? new Set([entry.testId]) : new Set<string>()
+
     const newEntry: DeduplicationEntry = {
       key,
       logLevel: entry.level,
@@ -83,7 +85,7 @@ export class LogDeduplicator implements ILogDeduplicator {
       firstSeen: entry.timestamp,
       lastSeen: entry.timestamp,
       count: 1,
-      sources: new Set(entry.testId ? [entry.testId] : [])
+      sources
     }
 
     this.entries.set(key, newEntry)

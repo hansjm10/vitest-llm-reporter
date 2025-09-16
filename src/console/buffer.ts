@@ -1,6 +1,6 @@
-import { inspect } from 'node:util'
 import type { ConsoleMethod, ConsoleBufferConfig } from '../types/console.js'
 import type { ConsoleEvent, ConsoleLevel } from '../types/schema.js'
+import { formatConsoleArgs } from '../utils/console-formatter.js'
 
 /**
  * Console Buffer
@@ -58,11 +58,7 @@ export class ConsoleBuffer {
       this.deduplicationKeys.add(deduplicationKey)
     }
 
-    // Serialize arguments individually
-    const serializedArgs = args.map((arg) => this.serializeArg(arg))
-
-    // Create combined text representation
-    const message = serializedArgs.join(' ')
+    const { serializedArgs, message } = formatConsoleArgs(args)
 
     // Strip ANSI codes if configured
     const text = this.config.stripAnsi ? this.stripAnsiCodes(message) : message
@@ -105,54 +101,6 @@ export class ConsoleBuffer {
     this.totalBytes += bytes
 
     return true
-  }
-
-  /**
-   * Serialize a single argument safely
-   */
-  private serializeArg(arg: unknown): string {
-    try {
-      if (arg === undefined) return 'undefined'
-      if (arg === null) return 'null'
-
-      if (typeof arg === 'string') {
-        // Truncate very long strings
-        return arg.length > 1000 ? arg.substring(0, 1000) + '... [truncated]' : arg
-      }
-
-      if (typeof arg === 'number' || typeof arg === 'boolean') {
-        return String(arg)
-      }
-
-      if (typeof arg === 'bigint') {
-        return `${arg}n`
-      }
-
-      if (typeof arg === 'symbol') {
-        return arg.toString()
-      }
-
-      if (typeof arg === 'function') {
-        return '[Function]'
-      }
-
-      if (typeof arg === 'object') {
-        // Use util.inspect for safe object serialization
-        return inspect(arg, {
-          depth: 3,
-          compact: true,
-          maxArrayLength: 10,
-          maxStringLength: 200,
-          breakLength: 120,
-          sorted: true
-        })
-      }
-
-      // Fallback for any missed types
-      return '[unknown]'
-    } catch (_error) {
-      return '[Failed to serialize]'
-    }
   }
 
   /**
