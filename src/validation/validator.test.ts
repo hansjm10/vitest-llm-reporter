@@ -42,8 +42,8 @@ describe('SchemaValidator', () => {
 
       // Run both validations concurrently
       const [largeResult, smallResult] = await Promise.all([
-        validator.validate(largeOutput),
-        validator.validate(smallOutput)
+        Promise.resolve().then(() => validator.validate(largeOutput)),
+        Promise.resolve().then(() => validator.validate(smallOutput))
       ])
 
       // Large should fail, small should pass
