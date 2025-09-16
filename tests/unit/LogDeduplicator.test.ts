@@ -172,6 +172,24 @@ describe('LogDeduplicator', () => {
       expect(deduplicator.isDuplicate(entry1)).toBe(false)
       expect(deduplicator.isDuplicate(entry2)).toBe(true)
     })
+
+    it('should deduplicate identical messages across tests by default', () => {
+      const entry1: LogEntry = {
+        message: 'Shared message',
+        level: 'info',
+        timestamp: new Date(),
+        testId: 'test-a'
+      }
+      const entry2: LogEntry = {
+        message: 'Shared message',
+        level: 'info',
+        timestamp: new Date(),
+        testId: 'test-b'
+      }
+
+      expect(deduplicator.isDuplicate(entry1)).toBe(false)
+      expect(deduplicator.isDuplicate(entry2)).toBe(true)
+    })
   })
 
   describe('Key Generation', () => {
@@ -248,7 +266,7 @@ describe('LogDeduplicator', () => {
       expect(key1).not.toBe(key2)
     })
 
-    it('should scope keys by test identifier when provided', () => {
+    it('should ignore test identifier when using global scope', () => {
       const baseMessage = 'Scoped message'
       const entry1: LogEntry = {
         message: baseMessage,
@@ -265,6 +283,32 @@ describe('LogDeduplicator', () => {
 
       const key1 = deduplicator.generateKey(entry1)
       const key2 = deduplicator.generateKey(entry2)
+
+      expect(key1).toBe(key2)
+    })
+
+    it('should scope keys by test identifier when per-test scope configured', () => {
+      const perTest = new LogDeduplicator({
+        enabled: true,
+        scope: 'per-test'
+      })
+
+      const baseMessage = 'Scoped message'
+      const entry1: LogEntry = {
+        message: baseMessage,
+        level: 'info',
+        timestamp: new Date(),
+        testId: 'test-a'
+      }
+      const entry2: LogEntry = {
+        message: baseMessage,
+        level: 'info',
+        timestamp: new Date(),
+        testId: 'test-b'
+      }
+
+      const key1 = perTest.generateKey(entry1)
+      const key2 = perTest.generateKey(entry2)
 
       expect(key1).not.toBe(key2)
     })

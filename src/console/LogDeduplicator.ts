@@ -74,7 +74,8 @@ export class LogDeduplicator implements ILogDeduplicator {
     }
 
     // Create new entry
-    const sources = this.config.includeSources && entry.testId ? new Set([entry.testId]) : new Set<string>()
+    const sources =
+      this.config.includeSources && entry.testId ? new Set([entry.testId]) : new Set<string>()
 
     const newEntry: DeduplicationEntry = {
       key,
@@ -97,10 +98,9 @@ export class LogDeduplicator implements ILogDeduplicator {
    * Generate a deduplication key for a log entry
    */
   generateKey(entry: LogEntry): string {
-    const scope = entry.testId ?? '__global__'
     const normalized = normalizeMessage(entry.message, this.config)
-    const scopedNormalized = `${scope}::${normalized}`
-    const hash = hashMessage(scopedNormalized)
+    const scopePrefix = this.config.scope === 'per-test' ? `${entry.testId ?? '__global__'}::` : ''
+    const hash = hashMessage(`${scopePrefix}${normalized}`)
     return `${entry.level}:${hash}`
   }
 

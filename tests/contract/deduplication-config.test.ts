@@ -24,6 +24,7 @@ describe('Deduplication Configuration Contract', () => {
       expect(result.normalizeWhitespace).toBe(true)
       expect(result.stripTimestamps).toBe(true)
       expect(result.stripAnsiCodes).toBe(true)
+      expect(result.scope).toBe('global')
     })
 
     it('should return disabled config when false', () => {
@@ -40,6 +41,7 @@ describe('Deduplication Configuration Contract', () => {
       expect(result.normalizeWhitespace).toBe(true)
       expect(result.stripTimestamps).toBe(true)
       expect(result.stripAnsiCodes).toBe(true)
+      expect(result.scope).toBe('global')
     })
 
     it('should merge partial config with defaults', () => {
@@ -55,6 +57,7 @@ describe('Deduplication Configuration Contract', () => {
       expect(result.normalizeWhitespace).toBe(true) // default
       expect(result.stripTimestamps).toBe(true) // default
       expect(result.stripAnsiCodes).toBe(true) // default
+      expect(result.scope).toBe('global') // default
     })
 
     it('should override all defaults when full config provided', () => {
@@ -64,7 +67,8 @@ describe('Deduplication Configuration Contract', () => {
         includeSources: true,
         normalizeWhitespace: false,
         stripTimestamps: false,
-        stripAnsiCodes: false
+        stripAnsiCodes: false,
+        scope: 'per-test'
       }
       const result = normalizeDeduplicationConfig(full)
       expect(result).toEqual(full)
@@ -79,7 +83,8 @@ describe('Deduplication Configuration Contract', () => {
         includeSources: true,
         normalizeWhitespace: true,
         stripTimestamps: true,
-        stripAnsiCodes: true
+        stripAnsiCodes: true,
+        scope: 'per-test'
       }
       expect(() => validateDeduplicationConfig(validConfig)).not.toThrow()
     })
@@ -141,6 +146,16 @@ describe('Deduplication Configuration Contract', () => {
         'maxCacheEntries must be a positive number'
       )
     })
+
+    it('should reject invalid scope values', () => {
+      const invalidConfig = {
+        enabled: true,
+        scope: 'invalid'
+      } as any
+      expect(() => validateDeduplicationConfig(invalidConfig)).toThrow(
+        'scope must be "global" or "per-test"'
+      )
+    })
   })
 
   describe('LLMReporterConfigWithDeduplication interface', () => {
@@ -174,7 +189,8 @@ describe('Deduplication Configuration Contract', () => {
           includeSources: true,
           normalizeWhitespace: false,
           stripTimestamps: false,
-          stripAnsiCodes: false
+          stripAnsiCodes: false,
+          scope: 'per-test'
         }
       }
       expect(config.deduplicateLogs).toMatchObject({
@@ -200,7 +216,8 @@ describe('Deduplication Configuration Contract', () => {
         includeSources: false,
         normalizeWhitespace: true,
         stripTimestamps: true,
-        stripAnsiCodes: true
+        stripAnsiCodes: true,
+        scope: 'global'
       })
     })
 

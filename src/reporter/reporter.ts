@@ -63,6 +63,7 @@ interface ResolvedLLMReporterConfig
         includeSources?: boolean
         stripTimestamps?: boolean
         stripAnsiCodes?: boolean
+        scope?: 'global' | 'per-test'
       }
     | undefined
 }

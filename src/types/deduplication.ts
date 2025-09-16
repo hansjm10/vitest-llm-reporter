@@ -50,6 +50,12 @@ export interface DeduplicationConfig {
    * @default true
    */
   stripAnsiCodes?: boolean
+
+  /**
+   * Scope that deduplication should apply to
+   * @default 'global'
+   */
+  scope?: 'global' | 'per-test'
 }
 
 /**

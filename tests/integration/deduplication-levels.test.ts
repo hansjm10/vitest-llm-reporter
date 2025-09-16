@@ -182,15 +182,12 @@ describe('Integration: Log Level Deduplication', () => {
         { message: 'Test complete', level: 'info' as const, count: 1 }
       ]
 
-      let totalProcessed = 0
-
       const testId = 'scenario-test'
 
       for (const scenario of testScenario) {
         for (let i = 0; i < scenario.count; i++) {
           const entry = createLogEntry(scenario.message, scenario.level, testId)
           deduplicator.isDuplicate(entry)
-          totalProcessed++
         }
       }
 

@@ -8,9 +8,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { ILogDeduplicator, DeduplicationConfig } from '../../src/types/deduplication.js'
 import { createLogEntry, createDuplicateLogEntries } from '../utils/deduplication-helpers.js'
-
-// This import will fail initially - LogDeduplicator doesn't exist yet
-// @ts-expect-error - Implementation doesn't exist yet (TDD)
 import { LogDeduplicator } from '../../src/console/LogDeduplicator.js'
 
 describe('ILogDeduplicator Service Contract', () => {
@@ -26,8 +23,6 @@ describe('ILogDeduplicator Service Contract', () => {
       stripTimestamps: true,
       stripAnsiCodes: true
     }
-    // This will fail - LogDeduplicator doesn't exist yet
-    // @ts-expect-error - Implementation doesn't exist yet (TDD)
     deduplicator = new LogDeduplicator(config)
   })
 
@@ -46,12 +41,30 @@ describe('ILogDeduplicator Service Contract', () => {
       expect(deduplicator.isDuplicate(entry2)).toBe(true)
     })
 
-    it('should not deduplicate identical logs from different tests', () => {
+    it('should deduplicate identical logs from different tests by default', () => {
       const entry1 = createLogEntry('Duplicate message', 'info', 'test-1')
       const entry2 = createLogEntry('Duplicate message', 'info', 'test-2')
 
       expect(deduplicator.isDuplicate(entry1)).toBe(false)
-      expect(deduplicator.isDuplicate(entry2)).toBe(false)
+      expect(deduplicator.isDuplicate(entry2)).toBe(true)
+
+      const key = deduplicator.generateKey(entry1)
+      const metadata = deduplicator.getMetadata(key)
+      expect(metadata?.sources.has('test-1')).toBe(true)
+      expect(metadata?.sources.has('test-2')).toBe(true)
+    })
+
+    it('should support per-test scope when configured', () => {
+      const perTestDeduplicator = new LogDeduplicator({
+        ...config,
+        scope: 'per-test'
+      })
+
+      const entry1 = createLogEntry('Same message', 'info', 'test-1')
+      const entry2 = createLogEntry('Same message', 'info', 'test-2')
+
+      expect(perTestDeduplicator.isDuplicate(entry1)).toBe(false)
+      expect(perTestDeduplicator.isDuplicate(entry2)).toBe(false)
     })
 
     it('should track multiple duplicates', () => {
@@ -101,7 +114,6 @@ describe('ILogDeduplicator Service Contract', () => {
         ...config,
         maxCacheEntries: 3
       }
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const limitedDeduplicator = new LogDeduplicator(smallConfig)
 
       // Add 4 unique messages
@@ -290,7 +302,6 @@ describe('ILogDeduplicator Service Contract', () => {
         ...config,
         enabled: false
       }
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const disabledDeduplicator = new LogDeduplicator(disabledConfig)
 
       expect(disabledDeduplicator.isEnabled()).toBe(false)
@@ -301,7 +312,6 @@ describe('ILogDeduplicator Service Contract', () => {
         ...config,
         enabled: false
       }
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const disabledDeduplicator = new LogDeduplicator(disabledConfig)
 
       const entry1 = createLogEntry('Message', 'info')

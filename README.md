@@ -254,7 +254,7 @@ const app = await NestFactory.create(AppModule, {
 ```
 
 ### Log Deduplication
-Log deduplication is enabled by default to reduce duplicate console output across tests. This feature consolidates identical log messages at the same level, showing occurrence counts instead of repeating the same message multiple times.
+Log deduplication is enabled by default to reduce duplicate console output across tests. This feature consolidates identical log messages at the same level, showing occurrence counts instead of repeating the same message multiple times. By default the reporter deduplicates globally across the entire test run; switch to per-test scoping if you prefer isolation between suites.
 
 #### Basic Usage
 Explicitly confirm the default or override it if needed:
@@ -297,7 +297,8 @@ export default defineConfig({
           includeSources: true,        // Show which tests logged
           normalizeWhitespace: true,   // Ignore whitespace differences
           stripTimestamps: true,       // Ignore timestamp differences
-          stripAnsiCodes: true         // Ignore color codes
+          stripAnsiCodes: true,        // Ignore color codes
+          scope: 'per-test'            // Optional: scope deduplication per test
         }
       }]
     ]
@@ -315,6 +316,7 @@ export default defineConfig({
 | `normalizeWhitespace` | `boolean` | `true` | Collapse multiple spaces for comparison |
 | `stripTimestamps` | `boolean` | `true` | Ignore timestamps when comparing |
 | `stripAnsiCodes` | `boolean` | `true` | Strip color codes when comparing |
+| `scope` | `'global' \| 'per-test'` | `'global'` | Deduplicate across the entire run or per test |
 
 #### Example Output
 

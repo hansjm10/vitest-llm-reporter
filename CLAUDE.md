@@ -15,6 +15,7 @@ This is the vitest-llm-reporter project - a Vitest reporter that generates struc
 Working on implementing log deduplication to reduce duplicate console output in test reports:
 - Extends existing ConsoleCapture system
 - Configurable via `deduplicateLogs` option
+- Defaults to global scope with optional per-test mode
 - Must handle 1000+ tests efficiently
 - Preserves backward compatibility when disabled
 

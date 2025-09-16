@@ -73,6 +73,7 @@ export interface LLMReporterConfig {
         includeSources?: boolean
         stripTimestamps?: boolean
         stripAnsiCodes?: boolean
+        scope?: 'global' | 'per-test'
       }
 }
 

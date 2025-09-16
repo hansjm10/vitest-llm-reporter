@@ -8,19 +8,10 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import type { DeduplicationConfig } from '../../src/types/deduplication.js'
 import type { LLMReporterConfigWithDeduplication } from '../../src/config/deduplication-config.js'
-
-// These imports will fail initially - implementations don't exist yet
-// @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { LogDeduplicator } from '../../src/console/LogDeduplicator'
-// @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { ConsoleCapture } from '../../src/console/capture'
-// @ts-expect-error - Implementation doesn't exist yet (TDD)
-// @ts-expect-error - Using actual reporter.ts file
-import { LLMReporter } from '../../src/reporter/reporter'
-// @ts-expect-error - Implementation doesn't exist yet (TDD)
+import { LogDeduplicator } from '../../src/console/LogDeduplicator.js'
+import { ConsoleCapture } from '../../src/console/capture.js'
+import { LLMReporter } from '../../src/reporter/reporter.js'
 import { consoleCapture } from '../../src/console/index.js'
-// @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { consoleCapture } from '../../src/console/index'
 
 describe('Integration: Configuration Toggle', () => {
   describe('LogDeduplicator enable/disable', () => {
@@ -30,7 +21,6 @@ describe('Integration: Configuration Toggle', () => {
         maxCacheEntries: 1000
       }
 
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const deduplicator = new LogDeduplicator(config)
 
       const log1 = {
@@ -57,7 +47,6 @@ describe('Integration: Configuration Toggle', () => {
         maxCacheEntries: 1000
       }
 
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const deduplicator = new LogDeduplicator(config)
 
       const log1 = {
@@ -86,9 +75,7 @@ describe('Integration: Configuration Toggle', () => {
         enabled: false
       }
 
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const enabledDedup = new LogDeduplicator(enabledConfig)
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const disabledDedup = new LogDeduplicator(disabledConfig)
 
       expect(enabledDedup.isEnabled()).toBe(true)
@@ -102,9 +89,7 @@ describe('Integration: Configuration Toggle', () => {
         enabled: true
       }
 
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const deduplicator = new LogDeduplicator(config)
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const consoleCapture = new ConsoleCapture({
         deduplicator,
         enabled: true
@@ -129,9 +114,7 @@ describe('Integration: Configuration Toggle', () => {
         enabled: false
       }
 
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const deduplicator = new LogDeduplicator(config)
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const consoleCapture = new ConsoleCapture({
         deduplicator,
         enabled: true
@@ -154,7 +137,6 @@ describe('Integration: Configuration Toggle', () => {
     })
 
     it('should not deduplicate when no deduplicator provided', () => {
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const consoleCapture = new ConsoleCapture({
         enabled: true
         // No deduplicator provided
@@ -187,7 +169,6 @@ describe('Integration: Configuration Toggle', () => {
 
       invalidConfigs.forEach((config) => {
         expect(() => {
-          // @ts-expect-error - Testing invalid config
           new LLMReporter(config)
         }).toThrow()
       })
@@ -201,7 +182,6 @@ describe('Integration: Configuration Toggle', () => {
         }
       }
 
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const reporter = new LLMReporter(partialConfig)
       const internalConfig = reporter.getDeduplicationConfig()
 
@@ -220,7 +200,6 @@ describe('Integration: Configuration Toggle', () => {
     })
 
     it('should toggle deduplication at runtime', () => {
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const reporter = new LLMReporter({
         captureConsoleOnFailure: true,
         deduplicateLogs: true

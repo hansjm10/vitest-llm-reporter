@@ -27,7 +27,8 @@ export const DEFAULT_DEDUPLICATION_CONFIG: DeduplicationConfig = {
   includeSources: false,
   normalizeWhitespace: true,
   stripTimestamps: true,
-  stripAnsiCodes: true
+  stripAnsiCodes: true,
+  scope: 'global'
 }
 
 /**
@@ -85,5 +86,9 @@ export function validateDeduplicationConfig(config: DeduplicationConfig): void {
     if (config[field] !== undefined && typeof config[field] !== 'boolean') {
       throw new Error(`${field} must be a boolean`)
     }
+  }
+
+  if (config.scope !== undefined && config.scope !== 'global' && config.scope !== 'per-test') {
+    throw new Error('scope must be "global" or "per-test"')
   }
 }

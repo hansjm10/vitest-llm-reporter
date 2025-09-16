@@ -11,7 +11,10 @@ import type {
   LogLevel,
   ConsoleOutputWithDeduplication
 } from '../../src/types/deduplication.js'
-import { normalizeMessage as prodNormalizeMessage } from '../../src/utils/message-normalizer.js'
+import {
+  normalizeMessage as prodNormalizeMessage,
+  hashMessage as prodHashMessage
+} from '../../src/utils/message-normalizer.js'
 
 /**
  * Create a test log entry
@@ -41,9 +44,7 @@ export function createDuplicateLogEntries(
   const baseId = options?.testId ?? 'test-duplicate'
 
   if (options?.uniqueTestIds) {
-    return Array.from({ length: count }, (_, i) =>
-      createLogEntry(message, level, `${baseId}-${i}`)
-    )
+    return Array.from({ length: count }, (_, i) => createLogEntry(message, level, `${baseId}-${i}`))
   }
 
   return Array.from({ length: count }, () => createLogEntry(message, level, baseId))
@@ -95,26 +96,21 @@ export function normalizeMessage(
 /**
  * Generate a deduplication key for testing
  */
-export function generateTestKey(level: LogLevel, message: string, testId?: string): string {
-  const normalized = normalizeMessage(message)
-  const scope = testId ?? '__global__'
-  const hash = simpleHash(`${scope}::${normalized}`)
+export function generateTestKey(
+  level: LogLevel,
+  message: string,
+  testId?: string,
+  config: Partial<DeduplicationConfig> = {}
+): string {
+  const normalized = normalizeMessage(message, config)
+  const scopePrefix = config.scope === 'per-test' ? `${testId ?? '__global__'}::` : ''
+  const hash = prodHashMessage(`${scopePrefix}${normalized}`)
   return `${level}:${hash}`
 }
 
 /**
  * Simple hash function for testing (not cryptographically secure)
  */
-export function simpleHash(str: string): string {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i)
-    hash = (hash << 5) - hash + char
-    hash = hash & hash // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(36)
-}
-
 /**
  * Assert that console output has deduplication metadata
  */
@@ -244,7 +240,7 @@ export class MockLogDeduplicator {
   }
 
   generateKey(entry: LogEntry): string {
-    return generateTestKey(entry.level, entry.message, entry.testId)
+    return generateTestKey(entry.level, entry.message, entry.testId, this.config)
   }
 
   getMetadata(key: string): DeduplicationEntry | undefined {

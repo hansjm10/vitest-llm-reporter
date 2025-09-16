@@ -72,6 +72,9 @@ describe('Integration: Deduplication finalization', () => {
     orchestrator.handleTestRunEnd([], [], 'completed' as import('vitest/node').TestRunEndReason)
 
     const finalizedFailure = stateManager.getTestResults().failed[0]
-    expect(finalizedFailure.consoleEvents?.[0].deduplication).toBeUndefined()
+    const metadata = finalizedFailure.consoleEvents?.[0].deduplication
+    expect(metadata).toBeDefined()
+    expect(metadata?.count).toBe(2)
+    expect(metadata?.sources).toEqual(expect.arrayContaining(['test-1', 'test-2']))
   })
 })

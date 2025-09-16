@@ -58,7 +58,8 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
     normalizeWhitespace: true,
     stripTimestamps: true,
     stripAnsiCodes: true,
-    includeSources: false
+    includeSources: false,
+    scope: 'global'
   }
 }
 

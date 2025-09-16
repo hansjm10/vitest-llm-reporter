@@ -8,15 +8,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createLargeLogDataset } from '../utils/deduplication-helpers.js'
 import type { DeduplicationConfig, LogEntry } from '../../src/types/deduplication.js'
-
-// These imports will fail initially - implementations don't exist yet
-// @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { LogDeduplicator } from '../../src/console/LogDeduplicator'
-// @ts-expect-error - Implementation doesn't exist yet (TDD)
-import { ConsoleCapture } from '../../src/console/capture'
-// @ts-expect-error - Implementation doesn't exist yet (TDD)
-// @ts-expect-error - Performance monitor not implemented yet
-// import { performanceMonitor } from '../../src/monitoring/performance.js'
+import { LogDeduplicator } from '../../src/console/LogDeduplicator.js'
+import { ConsoleCapture } from '../../src/console/capture.js'
 
 describe('Integration: Large Scale Performance (1000+ tests)', () => {
   let deduplicator: any // ILogDeduplicator
@@ -33,10 +26,8 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
       stripAnsiCodes: true
     }
 
-    // @ts-expect-error - Implementation doesn't exist yet (TDD)
     deduplicator = new LogDeduplicator(config)
 
-    // @ts-expect-error - Implementation doesn't exist yet (TDD)
     consoleCapture = new ConsoleCapture({
       deduplicator,
       enabled: true
@@ -142,7 +133,6 @@ describe('Integration: Large Scale Performance (1000+ tests)', () => {
         maxCacheEntries: 100 // Small cache for testing eviction
       }
 
-      // @ts-expect-error - Implementation doesn't exist yet (TDD)
       const limitedDedup = new LogDeduplicator(smallCacheConfig)
 
       // Generate more unique messages than cache can hold
