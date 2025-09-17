@@ -218,15 +218,20 @@ export default defineConfig({
 ```
 
 #### Custom Filter Patterns
-Filter specific log patterns:
+Filter specific log patterns or provide multiple matchers:
 ```typescript
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', { 
-        stdio: { 
+      ['vitest-llm-reporter', {
+        stdio: {
           suppressStdout: true,
-          filterPattern: /^(DEBUG:|TRACE:)/  // Custom pattern
+          // Mix and match regular expressions and predicates
+          filterPattern: [
+            /^(DEBUG:|TRACE:)/,
+            (line: string) => line.startsWith('Verbose:')
+          ],
+          frameworkPresets: ['nest']  // Re-enable the default Nest preset alongside custom patterns
         }
       }]
     ]
@@ -237,8 +242,54 @@ export default defineConfig({
 #### Advanced Options
 - `stdio.suppressStderr`: Also suppress stderr (default: false)
 - `stdio.redirectToStderr`: Redirect filtered stdout to stderr for debugging (default: false)
+- `stdio.frameworkPresets`: Apply curated suppression presets for popular frameworks (e.g. `'nest'`, `'next'`, `'nuxt'`)
+- `stdio.autoDetectFrameworks`: Inspect `package.json`/environment to automatically load matching presets (default: false)
+- `captureConsoleOnSuccess`: Include console output from passing tests in the JSON `successLogs` section, with suppression stats (default: false)
 
 **Note:** The test progress spinner writes to stderr and continues to work unless stderr suppression is enabled.
+
+#### Framework Presets
+Suppress startup banners from known frameworks without crafting custom regexes:
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        stdio: {
+          suppressStdout: true,
+          frameworkPresets: ['next', 'fastify']
+        }
+      }]
+    ]
+  }
+})
+```
+
+Available presets: `nest`, `next`, `nuxt`, `angular`, `vite`, `fastify`, `express`, `strapi`, `remix`, `sveltekit`.
+
+👉 Check out the runnable [framework preset demo config](examples/framework-presets-demo/vitest.config.ts) for a complete
+Vitest setup that combines curated presets with a custom filter and per-test log deduplication. The demo also disables
+Vitest's silent console mode (`test.silent = false`) so the simulated framework banners would normally appear even on
+successful runs. A single non-matching log (`✅ Reporter still surfaces regular test output`) is captured and emitted in the
+`successLogs` section of the JSON output, along with a `suppressed` summary that shows how many framework lines were filtered.
+
+#### Auto-detect Frameworks
+Let the reporter inspect dependencies and enable presets automatically:
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        stdio: {
+          suppressStdout: true,
+          autoDetectFrameworks: true
+        }
+      }]
+    ]
+  }
+})
+```
+When `DEBUG=vitest-llm-reporter:*` is set, the reporter logs which presets were applied so you can confirm nothing important is filtered.
 
 #### Application-Level Alternative
 For NestJS applications, you can also disable logging in tests:
@@ -386,9 +437,12 @@ Diagnostics print to stderr while stdout remains clean JSON.
 Run the included demo test to see failure reporting and console capture:
 
 - Demo: `npm run test:demo` or `LLM_REPORTER_DEMO=1 vitest run`
+- Framework suppression demo: `npm run test:demo:framework` (uses
+  `examples/framework-presets-demo/vitest.config.ts` to show curated presets in action)
 - Normal: `npm test`
 
-Demo test at `tests/demo/reporter-demo.test.ts` runs only with `LLM_REPORTER_DEMO=1`.
+Demo test at `tests/demo/reporter-demo.test.ts` runs only with `LLM_REPORTER_DEMO=1`. The framework preset demo lives under
+`examples/framework-presets-demo/` so you can inspect both the config and the sample test.
 
 ## Contributing
 

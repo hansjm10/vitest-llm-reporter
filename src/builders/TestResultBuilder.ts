@@ -7,7 +7,14 @@
  * @module builders
  */
 
-import type { TestResult, TestFailure, TestBase, TestError, ConsoleEvent } from '../types/schema.js'
+import type {
+  TestResult,
+  TestFailure,
+  TestBase,
+  TestError,
+  ConsoleEvent,
+  TestSuccessLog
+} from '../types/schema.js'
 import type { ExtractedTestCase, NormalizedError } from '../types/extraction.js'
 import type { BuilderConfig } from './types.js'
 import { processFilePath } from '../utils/paths.js'
@@ -86,6 +93,31 @@ export class TestResultBuilder {
     }
 
     return result
+  }
+
+  /**
+   * Builds a structured console log entry for a successful test
+   */
+  public buildSuccessLog(
+    extracted: ExtractedTestCase,
+    consoleEvents: ConsoleEvent[] | undefined,
+    suppressed?: { totalLines: number; suppressedLines: number }
+  ): TestSuccessLog {
+    const success: TestSuccessLog = {
+      ...this.buildBase(extracted),
+      status: 'passed',
+      ...(consoleEvents && consoleEvents.length > 0 ? { consoleEvents } : undefined)
+    }
+
+    if (this.config.includeDuration) {
+      success.duration = extracted.duration
+    }
+
+    if (suppressed && (suppressed.totalLines > 0 || suppressed.suppressedLines > 0)) {
+      success.suppressed = suppressed
+    }
+
+    return success
   }
 
   /**

@@ -11,6 +11,8 @@ export interface OrchestratorConfig {
   logErrors?: boolean
   /** Whether to capture console output for failing tests */
   captureConsoleOnFailure?: boolean
+  /** Whether to capture console output for successful tests */
+  captureConsoleOnSuccess?: boolean
   /** Maximum bytes of console output to capture per test */
   maxConsoleBytes?: number
   /** Maximum lines of console output to capture per test */

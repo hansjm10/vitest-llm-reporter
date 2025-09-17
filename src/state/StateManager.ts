@@ -7,7 +7,7 @@
  * @module state
  */
 
-import type { TestResult, TestFailure } from '../types/schema.js'
+import type { TestResult, TestFailure, TestSuccessLog } from '../types/schema.js'
 import type {
   StateConfig,
   TestResults,
@@ -55,7 +55,8 @@ export class StateManager {
   private testResults: TestResults = {
     passed: [],
     failed: [],
-    skipped: []
+    skipped: [],
+    successLogs: []
   }
   private startTime?: number
   private endTime?: number
@@ -144,6 +145,13 @@ export class StateManager {
   }
 
   /**
+   * Records console output for a successful test
+   */
+  public recordSuccessLog(log: TestSuccessLog): void {
+    this.testResults.successLogs.push(log)
+  }
+
+  /**
    * Records a failed test result
    */
   public recordFailedTest(test: TestFailure): void {
@@ -218,7 +226,8 @@ export class StateManager {
       testResults: {
         passed: [...this.testResults.passed],
         failed: [...this.testResults.failed],
-        skipped: [...this.testResults.skipped]
+        skipped: [...this.testResults.skipped],
+        successLogs: [...this.testResults.successLogs]
       },
       startTime: this.startTime,
       endTime: this.endTime
@@ -239,7 +248,8 @@ export class StateManager {
     this.testResults = {
       passed: [],
       failed: [],
-      skipped: []
+      skipped: [],
+      successLogs: []
     }
     this.startTime = undefined
     this.endTime = undefined

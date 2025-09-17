@@ -25,7 +25,8 @@ describe('OutputBuilder', () => {
         testResults: {
           passed: [],
           failed: [],
-          skipped: []
+          skipped: [],
+          successLogs: []
         },
         duration: 1000,
         unhandledErrors: [unhandledError]
@@ -66,7 +67,8 @@ describe('OutputBuilder', () => {
         testResults: {
           passed: [],
           failed: [],
-          skipped: []
+          skipped: [],
+          successLogs: []
         },
         duration: 1000,
         unhandledErrors: unhandledErrors
@@ -104,7 +106,8 @@ describe('OutputBuilder', () => {
         testResults: {
           passed: [],
           failed: [testFailure],
-          skipped: []
+          skipped: [],
+          successLogs: []
         },
         duration: 1000,
         unhandledErrors: [unhandledError]
@@ -152,7 +155,8 @@ describe('OutputBuilder', () => {
         testResults: {
           passed: [passedTest],
           failed: [],
-          skipped: [skippedTest]
+          skipped: [skippedTest],
+          successLogs: []
         },
         duration: 1000,
         unhandledErrors: [unhandledError]
@@ -186,7 +190,8 @@ describe('OutputBuilder', () => {
             }
           ],
           failed: [],
-          skipped: []
+          skipped: [],
+          successLogs: []
         },
         duration: 1000
         // No unhandledErrors property
@@ -209,7 +214,8 @@ describe('OutputBuilder', () => {
         testResults: {
           passed: [],
           failed: [],
-          skipped: []
+          skipped: [],
+          successLogs: []
         },
         duration: 1000,
         unhandledErrors: [] // Empty array
@@ -240,7 +246,8 @@ describe('OutputBuilder', () => {
         testResults: {
           passed: [],
           failed: [],
-          skipped: []
+          skipped: [],
+          successLogs: []
         },
         duration: 1000,
         unhandledErrors: [unhandledError]

@@ -178,6 +178,25 @@ export interface TestResult extends TestBase {
 }
 
 /**
+ * Console output captured from successful tests
+ */
+export interface TestSuccessLog extends TestBase {
+  /** Successful status indicator */
+  status: 'passed'
+  /** Test duration in milliseconds (optional) */
+  duration?: number
+  /** Console events recorded during the successful test (after filtering) */
+  consoleEvents?: ConsoleEvent[]
+  /** Summary of suppressed log lines */
+  suppressed?: {
+    /** Total log lines observed (kept + suppressed) */
+    totalLines: number
+    /** Log lines removed by suppression filters */
+    suppressedLines: number
+  }
+}
+
+/**
  * Complete LLM-optimized reporter output
  */
 export interface LLMReporterOutput {
@@ -189,4 +208,6 @@ export interface LLMReporterOutput {
   passed?: TestResult[]
   /** Skipped test details (optional, populated in verbose mode) */
   skipped?: TestResult[]
+  /** Console output from successful tests (optional) */
+  successLogs?: TestSuccessLog[]
 }

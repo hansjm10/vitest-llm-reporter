@@ -10,9 +10,25 @@
 import type { Vitest, SerializedError, Reporter, UserConsoleLog, File } from 'vitest'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
-import type { LLMReporterConfig, StdioConfig } from '../types/reporter.js'
+import type {
+  FrameworkPresetName,
+  LLMReporterConfig,
+  StdioConfig,
+  TruncationConfig
+} from '../types/reporter.js'
 import type { OrchestratorConfig } from '../events/types.js'
 import type { LLMReporterOutput, TestError } from '../types/schema.js'
+import { StdioFilterEvaluator } from '../console/stdio-filter.js'
+
+interface ResolvedStdioConfig {
+  suppressStdout: boolean
+  suppressStderr: boolean
+  filterPattern: StdioConfig['filterPattern']
+  frameworkPresets: FrameworkPresetName[]
+  autoDetectFrameworks: boolean
+  redirectToStderr: boolean
+  flushWithFiltering: boolean
+}
 
 // Type for resolved configuration with explicit undefined handling
 interface ResolvedLLMReporterConfig
@@ -25,6 +41,7 @@ interface ResolvedLLMReporterConfig
   includePassedTests: boolean
   includeSkippedTests: boolean
   captureConsoleOnFailure: boolean
+  captureConsoleOnSuccess: boolean
   maxConsoleBytes: number
   maxConsoleLines: number
   includeDebugOutput: boolean
@@ -51,7 +68,7 @@ interface ResolvedLLMReporterConfig
     prefix: string
   }
   pureStdout: boolean
-  stdio: Required<StdioConfig>
+  stdio: ResolvedStdioConfig
   warnWhenConsoleBlocked: boolean
   fallbackToStderrOnBlocked: boolean
   deduplicateLogs:
@@ -78,6 +95,7 @@ import { OutputBuilder } from '../output/OutputBuilder.js'
 import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
 import { StdioInterceptor } from '../console/stdio-interceptor.js'
+import { detectFrameworkPresets } from '../console/framework-log-presets.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import {
   normalizeDeduplicationConfig,
@@ -85,6 +103,7 @@ import {
 } from '../config/deduplication-config.js'
 import type { DeduplicationConfig } from '../types/deduplication.js'
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { isTTY, isCI } from '../utils/environment.js'
 import {
   PerformanceManager,
@@ -113,6 +132,7 @@ export class LLMReporter implements Reporter {
   private performanceManager?: PerformanceManager
   // Stdio interceptor
   private stdioInterceptor?: StdioInterceptor
+  private stdioFilter: StdioFilterEvaluator
   private originalStdoutWrite?: typeof process.stdout.write
   private originalStderrWrite?: typeof process.stderr.write
   // Spinner state
@@ -147,33 +167,40 @@ export class LLMReporter implements Reporter {
     const spinnerEnvOverride = process.env.LLM_REPORTER_SPINNER === '0'
 
     // Resolve stdio configuration
-    let stdioConfig: Required<StdioConfig>
+    let stdioConfig: ResolvedStdioConfig
     if (config.pureStdout) {
       // Pure stdout mode: suppress all stdout, no pattern filtering
       stdioConfig = {
         suppressStdout: true,
         suppressStderr: false,
         filterPattern: null, // Null means suppress all output
+        frameworkPresets: [],
+        autoDetectFrameworks: false,
         redirectToStderr: false,
         flushWithFiltering: false
-      }
-    } else if (config.stdio) {
-      // Use provided stdio config with defaults
-      stdioConfig = {
-        suppressStdout: config.stdio.suppressStdout ?? true, // Default to true for clean output
-        suppressStderr: config.stdio.suppressStderr ?? false,
-        filterPattern: config.stdio.filterPattern ?? /^\[Nest\]\s/,
-        redirectToStderr: config.stdio.redirectToStderr ?? false,
-        flushWithFiltering: config.stdio.flushWithFiltering ?? false
       }
     } else {
-      // Default: suppress stdout with NestJS pattern
+      const stdioOptions = config.stdio ?? {}
+      const hasFilterPatternProperty = Object.hasOwn(stdioOptions, 'filterPattern')
+      const hasFrameworkPresets = Object.hasOwn(stdioOptions, 'frameworkPresets')
+      const filterPatternValue = hasFilterPatternProperty ? stdioOptions.filterPattern : undefined
+      const filterPatternProvided = hasFilterPatternProperty && filterPatternValue !== undefined
+      const filterPattern = filterPatternProvided ? filterPatternValue : undefined
+      const defaultFrameworkPresets: FrameworkPresetName[] = ['nest']
+      const frameworkPresets = hasFrameworkPresets
+        ? [...(stdioOptions.frameworkPresets ?? [])]
+        : filterPatternProvided
+          ? []
+          : [...defaultFrameworkPresets]
+
       stdioConfig = {
-        suppressStdout: true, // Default to true for clean output
-        suppressStderr: false,
-        filterPattern: /^\[Nest\]\s/,
-        redirectToStderr: false,
-        flushWithFiltering: false
+        suppressStdout: stdioOptions.suppressStdout ?? true, // Default to true for clean output
+        suppressStderr: stdioOptions.suppressStderr ?? false,
+        filterPattern,
+        frameworkPresets,
+        autoDetectFrameworks: stdioOptions.autoDetectFrameworks ?? false,
+        redirectToStderr: stdioOptions.redirectToStderr ?? false,
+        flushWithFiltering: stdioOptions.flushWithFiltering ?? false
       }
     }
 
@@ -184,6 +211,7 @@ export class LLMReporter implements Reporter {
       includePassedTests: config.includePassedTests ?? false,
       includeSkippedTests: config.includeSkippedTests ?? false,
       captureConsoleOnFailure: config.captureConsoleOnFailure ?? true,
+      captureConsoleOnSuccess: config.captureConsoleOnSuccess ?? false,
       maxConsoleBytes: config.maxConsoleBytes ?? 50_000,
       maxConsoleLines: config.maxConsoleLines ?? 100,
       includeDebugOutput: config.includeDebugOutput ?? false,
@@ -221,6 +249,11 @@ export class LLMReporter implements Reporter {
       fallbackToStderrOnBlocked: config.fallbackToStderrOnBlocked ?? true
     }
 
+    this.stdioFilter = new StdioFilterEvaluator(
+      stdioConfig.filterPattern,
+      stdioConfig.frameworkPresets ?? []
+    )
+
     // Initialize components
     this.stateManager = new StateManager()
     this.testExtractor = new TestCaseExtractor()
@@ -252,12 +285,15 @@ export class LLMReporter implements Reporter {
       this.contextBuilder,
       {
         captureConsoleOnFailure: this.config.captureConsoleOnFailure,
+        captureConsoleOnSuccess: this.config.captureConsoleOnSuccess,
         maxConsoleBytes: this.config.maxConsoleBytes,
         maxConsoleLines: this.config.maxConsoleLines,
         includeDebugOutput: this.config.includeDebugOutput,
         truncationConfig: this.config.truncation,
         deduplicationConfig: this.getDeduplicationConfig()
-      }
+      },
+      this.stdioFilter,
+      this.shouldFilterSuccessLogs()
     )
 
     // Initialize performance manager if enabled
@@ -394,8 +430,40 @@ export class LLMReporter implements Reporter {
   updateConfig(partialConfig: Partial<LLMReporterConfig>): void {
     this.validateConfig({ ...this.config, ...partialConfig } as LLMReporterConfig)
 
-    // Update configuration properties
-    Object.assign(this.config, partialConfig)
+    const hasPartialStdio = Object.hasOwn(partialConfig, 'stdio')
+    const hasPartialTruncation = Object.hasOwn(partialConfig, 'truncation')
+    const hasPartialPerformance = Object.hasOwn(partialConfig, 'performance')
+
+    const shallowConfig: Partial<LLMReporterConfig> = { ...partialConfig }
+    if (hasPartialStdio) {
+      delete shallowConfig.stdio
+    }
+    if (hasPartialTruncation) {
+      delete shallowConfig.truncation
+    }
+    if (hasPartialPerformance) {
+      delete shallowConfig.performance
+    }
+
+    Object.assign(this.config, shallowConfig)
+
+    if (hasPartialPerformance) {
+      this.config.performance = this.mergePerformanceConfig(
+        this.config.performance,
+        partialConfig.performance
+      )
+    }
+
+    if (hasPartialTruncation) {
+      this.config.truncation = this.mergeTruncationConfig(
+        this.config.truncation,
+        partialConfig.truncation
+      )
+    }
+
+    if (hasPartialStdio) {
+      this.config.stdio = this.mergeResolvedStdioConfig(this.config.stdio, partialConfig.stdio)
+    }
 
     let shouldUpdateOrchestrator = false
     const orchestratorConfig: OrchestratorConfig = {}
@@ -403,6 +471,7 @@ export class LLMReporter implements Reporter {
     // Update orchestrator if console-related config changed
     const consoleConfigKeys = [
       'captureConsoleOnFailure',
+      'captureConsoleOnSuccess',
       'maxConsoleBytes',
       'maxConsoleLines',
       'includeDebugOutput',
@@ -410,6 +479,7 @@ export class LLMReporter implements Reporter {
     ]
     if (consoleConfigKeys.some((key) => key in partialConfig)) {
       orchestratorConfig.captureConsoleOnFailure = this.config.captureConsoleOnFailure
+      orchestratorConfig.captureConsoleOnSuccess = this.config.captureConsoleOnSuccess
       orchestratorConfig.maxConsoleBytes = this.config.maxConsoleBytes
       orchestratorConfig.maxConsoleLines = this.config.maxConsoleLines
       orchestratorConfig.includeDebugOutput = this.config.includeDebugOutput
@@ -424,6 +494,10 @@ export class LLMReporter implements Reporter {
 
     if (shouldUpdateOrchestrator) {
       this.orchestrator.updateConfig(orchestratorConfig)
+    }
+
+    if (hasPartialStdio || Object.hasOwn(partialConfig, 'captureConsoleOnSuccess')) {
+      this.refreshStdioFilter()
     }
   }
 
@@ -506,6 +580,12 @@ export class LLMReporter implements Reporter {
     // Update the orchestrator's error extractor reference
     this.orchestrator.updateErrorExtractor(this.errorExtractor)
 
+    this.applyAutoDetectedFrameworkPresets(this.rootDir)
+
+    if (this.config.stdio.frameworkPresets.length > 0) {
+      this.debug('stdio framework presets active: %o', this.config.stdio.frameworkPresets)
+    }
+
     // Start stdio interception early if configured to catch test setup logs
     if (this.config.stdio.suppressStdout || this.config.stdio.suppressStderr) {
       this.stdioInterceptor = new StdioInterceptor(this.config.stdio)
@@ -515,7 +595,179 @@ export class LLMReporter implements Reporter {
       const originalWriters = this.stdioInterceptor.getOriginalWriters()
       this.originalStdoutWrite = originalWriters.stdout
       this.originalStderrWrite = originalWriters.stderr
+    } else {
+      this.stdioInterceptor = undefined
+      this.originalStdoutWrite = undefined
+      this.originalStderrWrite = undefined
     }
+  }
+
+  private applyAutoDetectedFrameworkPresets(rootDir?: string): void {
+    if (!this.config.stdio.autoDetectFrameworks) {
+      return
+    }
+
+    const packageJson = this.loadNearestPackageJson(rootDir)
+    const detected = detectFrameworkPresets({
+      packageJson,
+      env: process.env
+    })
+
+    if (detected.length === 0) {
+      this.debug('auto-detect stdio frameworks: no matches found')
+      return
+    }
+
+    const combined = new Set<FrameworkPresetName>(this.config.stdio.frameworkPresets)
+    let changed = false
+    for (const preset of detected) {
+      if (!combined.has(preset)) {
+        combined.add(preset)
+        changed = true
+      }
+    }
+
+    if (changed) {
+      this.config.stdio.frameworkPresets = Array.from(combined)
+      this.refreshStdioFilter()
+    }
+
+    this.debug('auto-detected stdio framework presets: %o', detected)
+  }
+
+  private refreshStdioFilter(): void {
+    const stdio = this.config.stdio
+    const presets = stdio.frameworkPresets ?? []
+    this.stdioFilter = new StdioFilterEvaluator(stdio.filterPattern, presets)
+    this.orchestrator?.updateStdioFilter(this.stdioFilter, this.shouldFilterSuccessLogs())
+  }
+
+  private shouldFilterSuccessLogs(): boolean {
+    const stdio = this.config.stdio
+    return (
+      this.config.captureConsoleOnSuccess &&
+      (stdio.suppressStdout ||
+        stdio.filterPattern !== undefined ||
+        (stdio.frameworkPresets?.length ?? 0) > 0)
+    )
+  }
+
+  private mergeResolvedStdioConfig(
+    current: ResolvedStdioConfig,
+    update?: StdioConfig
+  ): ResolvedStdioConfig {
+    const merged: ResolvedStdioConfig = {
+      ...current,
+      frameworkPresets: [...current.frameworkPresets]
+    }
+
+    if (!update) {
+      return merged
+    }
+
+    if (Object.hasOwn(update, 'suppressStdout')) {
+      merged.suppressStdout = update.suppressStdout ?? merged.suppressStdout
+    }
+    if (Object.hasOwn(update, 'suppressStderr')) {
+      merged.suppressStderr = update.suppressStderr ?? merged.suppressStderr
+    }
+    if (Object.hasOwn(update, 'filterPattern')) {
+      merged.filterPattern = update.filterPattern
+    }
+    if (Object.hasOwn(update, 'frameworkPresets')) {
+      const presets = update.frameworkPresets
+      merged.frameworkPresets = presets ? [...presets] : []
+    }
+    if (Object.hasOwn(update, 'autoDetectFrameworks')) {
+      merged.autoDetectFrameworks = update.autoDetectFrameworks ?? merged.autoDetectFrameworks
+    }
+    if (Object.hasOwn(update, 'redirectToStderr')) {
+      merged.redirectToStderr = update.redirectToStderr ?? merged.redirectToStderr
+    }
+    if (Object.hasOwn(update, 'flushWithFiltering')) {
+      merged.flushWithFiltering = update.flushWithFiltering ?? merged.flushWithFiltering
+    }
+
+    return merged
+  }
+
+  private mergeTruncationConfig(
+    current: ResolvedLLMReporterConfig['truncation'],
+    update?: TruncationConfig
+  ): ResolvedLLMReporterConfig['truncation'] {
+    const merged: ResolvedLLMReporterConfig['truncation'] = { ...current }
+
+    if (!update) {
+      return merged
+    }
+
+    if (Object.hasOwn(update, 'enabled')) {
+      merged.enabled = update.enabled ?? merged.enabled
+    }
+    if (Object.hasOwn(update, 'maxTokens')) {
+      merged.maxTokens = update.maxTokens
+    }
+    if (Object.hasOwn(update, 'enableEarlyTruncation')) {
+      merged.enableEarlyTruncation = update.enableEarlyTruncation ?? merged.enableEarlyTruncation
+    }
+    if (Object.hasOwn(update, 'enableLateTruncation')) {
+      merged.enableLateTruncation = update.enableLateTruncation ?? merged.enableLateTruncation
+    }
+    if (Object.hasOwn(update, 'enableMetrics')) {
+      merged.enableMetrics = update.enableMetrics ?? merged.enableMetrics
+    }
+
+    return merged
+  }
+
+  private mergePerformanceConfig(
+    current: ResolvedLLMReporterConfig['performance'],
+    update?: MonitoringConfig
+  ): ResolvedLLMReporterConfig['performance'] {
+    const merged: ResolvedLLMReporterConfig['performance'] = { ...current }
+
+    if (!update) {
+      return merged
+    }
+
+    if (Object.hasOwn(update, 'enabled')) {
+      merged.enabled = update.enabled ?? merged.enabled
+    }
+    if (Object.hasOwn(update, 'cacheSize')) {
+      merged.cacheSize = update.cacheSize ?? merged.cacheSize
+    }
+    if (Object.hasOwn(update, 'memoryWarningThreshold')) {
+      merged.memoryWarningThreshold = update.memoryWarningThreshold ?? merged.memoryWarningThreshold
+    }
+
+    return merged
+  }
+
+  private loadNearestPackageJson(rootDir?: string): Record<string, unknown> | undefined {
+    const searchRoots: string[] = []
+    if (rootDir) {
+      searchRoots.push(rootDir)
+    }
+
+    const cwd = process.cwd()
+    if (!searchRoots.includes(cwd)) {
+      searchRoots.push(cwd)
+    }
+
+    for (const base of searchRoots) {
+      const packagePath = path.join(base, 'package.json')
+      try {
+        if (!fs.existsSync(packagePath)) {
+          continue
+        }
+        const contents = fs.readFileSync(packagePath, 'utf8')
+        return JSON.parse(contents) as Record<string, unknown>
+      } catch (error) {
+        this.debug('Failed to read package.json for stdio auto-detection: %O', error)
+      }
+    }
+
+    return undefined
   }
 
   /**

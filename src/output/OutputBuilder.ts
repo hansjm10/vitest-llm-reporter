@@ -92,6 +92,10 @@ export class OutputBuilder {
       output.skipped = options.testResults.skipped
     }
 
+    if (options.testResults.successLogs.length > 0) {
+      output.successLogs = options.testResults.successLogs
+    }
+
     // Apply late-stage truncation if enabled
     return this.applyLateTruncation(output)
   }
