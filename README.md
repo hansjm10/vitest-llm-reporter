@@ -9,10 +9,10 @@ Vitest reporter that generates structured JSON output optimized for LLM parsing.
 
 ## Features
 
-- 50% smaller output than default reporter
-- Structured JSON output for LLM parsing
-- Automatic code context extraction for test failures
-- TypeScript support included
+- Compact structured JSON tailored for LLM consumption
+- Automatic code-context extraction for test failures
+- Optional streaming reporter for live progress updates
+- First-class TypeScript types and validation helpers
 
 ## Requirements
 
@@ -170,15 +170,29 @@ Control output content and size limits.
 - `verbose`: Include passed and skipped tests
 - `includePassedTests` / `includeSkippedTests`: Include specific test categories
 - `outputFile`: Write JSON to file
-- `enableConsoleOutput`: Emit JSON to console (default: true with TTY)
+- `enableConsoleOutput`: Emit JSON to stdout (default: true when no `outputFile`; otherwise true when the run has a TTY)
 - `fileJsonSpacing`: File output indentation (default: 0)
 - `consoleJsonSpacing`: Console output indentation (default: 2)
 
-### Spinner Control
-Test spinner disabled automatically in CI. Override with:
-- Config setting
-- Environment: `LLM_REPORTER_SPINNER=0`
-- Default: Enabled with TTY, disabled in CI
+### Console Capture & Limits
+- `captureConsoleOnFailure`: Include console output for failing tests (default: true)
+- `captureConsoleOnSuccess`: Include filtered console output for passing tests (default: false)
+- `maxConsoleBytes` / `maxConsoleLines`: Per-test capture limits (defaults: 50 KB & 100 lines)
+- `includeDebugOutput`: Keep `console.debug` / `console.trace` messages (default: false)
+- `warnWhenConsoleBlocked`: Emit a stderr warning if stdout seems blocked (default: true)
+- `fallbackToStderrOnBlocked`: Mirror JSON to stderr if stdout write fails (default: true)
+
+### Paths & Error Detail
+- `includeAbsolutePaths`: Add absolute file paths alongside repo-relative paths (default: false)
+- `filterNodeModules`: Omit node_modules stack frames (default: true)
+- `includeStackString`: Preserve the raw stack string in addition to parsed frames (default: false)
+- `tokenCountingEnabled`: Collect token-counting metrics for custom pipelines (default: false)
+- `performance`: Enable memory/processing monitors for large suites (`enabled`, `cacheSize`, `memoryWarningThreshold`)
+
+### Spinner Behavior
+- Enabled automatically when running in a TTY outside CI (`stderr` stream)
+- Disable globally with `LLM_REPORTER_SPINNER=0`
+- Spinner output stops automatically if stderr suppression is enabled
 
 ### Suppress External Logs / Pure Output
 
@@ -384,10 +398,29 @@ Without deduplication:
 ✓ test-3: Connecting to database...
 ```
 
-With deduplication:
-```
-✓ test-1: Connecting to database...
-✓ test-2: [Deduplicated: "Connecting to database..." (×3)]
+With deduplication the duplicate entries are collapsed and annotated in the JSON payload:
+
+```json
+{
+  "failures": [
+    {
+      "test": "connects to the database",
+      "consoleEvents": [
+        {
+          "level": "log",
+          "text": "Connecting to database...",
+          "deduplication": {
+            "deduplicated": true,
+            "count": 3,
+            "firstSeen": "2024-01-01T12:00:00.000Z",
+            "lastSeen": "2024-01-01T12:00:01.200Z",
+            "sources": ["test-1", "test-2"]
+          }
+        }
+      ]
+    }
+  ]
+}
 ```
 
 #### Performance Impact
