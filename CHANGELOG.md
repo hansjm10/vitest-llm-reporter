@@ -1,5 +1,11 @@
 # vitest-llm-reporter
 
+## 0.2.5
+
+### Patch Changes
+
+- b26010f: Point the internal dev dependency at the local package via `file:.`.
+
 ## 0.2.4
 
 ### Patch Changes
