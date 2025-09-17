@@ -169,6 +169,8 @@ jobs:
     if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup
