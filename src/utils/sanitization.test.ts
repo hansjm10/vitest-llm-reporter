@@ -3,7 +3,8 @@ import {
   escapeJsonString,
   escapeJsonArray,
   validateFilePath,
-  createSafeObject
+  createSafeObject,
+  validateFilePathDiagnostics
 } from './sanitization.js'
 
 describe('Sanitization Utilities', () => {
@@ -238,7 +239,11 @@ describe('Sanitization Utilities', () => {
           expect(validateFilePath('C:\\test\\file.txt')).toBe(true)
           expect(validateFilePath('D:\\projects\\app.js')).toBe(true)
           expect(validateFilePath('C:\\')).toBe(true) // Root drive
-          expect(validateFilePath('E:\\folder\\')).toBe(true) // Folder with trailing slash
+          const trailingPath = 'E:\\folder\\'
+          const diagnostics = validateFilePathDiagnostics(trailingPath)
+          console.log('validateFilePath diagnostics for trailing path', diagnostics)
+          expect(diagnostics.valid).toBe(true)
+          expect(validateFilePath(trailingPath)).toBe(true) // Folder with trailing slash
         })
 
         it('should reject Windows reserved device names', () => {
