@@ -267,7 +267,9 @@ export default defineConfig({
 Available presets: `nest`, `next`, `nuxt`, `angular`, `vite`, `fastify`, `express`, `strapi`, `remix`, `sveltekit`.
 
 👉 Check out the runnable [framework preset demo config](examples/framework-presets-demo/vitest.config.ts) for a complete
-Vitest setup that combines curated presets with a custom filter and per-test log deduplication.
+Vitest setup that combines curated presets with a custom filter and per-test log deduplication. The demo also disables
+Vitest's silent console mode (`test.silent = false`) so the simulated framework banners would normally appear even on
+successful runs, making it easy to see the presets blocking them.
 
 #### Auto-detect Frameworks
 Let the reporter inspect dependencies and enable presets automatically:
