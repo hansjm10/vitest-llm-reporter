@@ -44,7 +44,9 @@ describe('Release Workflow Validation', () => {
     expect(workflow.jobs.release).toBeDefined()
     const releaseJob = workflow.jobs.release
     expect(releaseJob['runs-on']).toBe('ubuntu-latest')
-    expect(releaseJob.steps.some((step) => step.uses && step.uses.includes('actions/checkout'))).toBe(true)
+    expect(
+      releaseJob.steps.some((step) => step.uses && step.uses.includes('actions/checkout'))
+    ).toBe(true)
     expect(
       releaseJob.steps.some((step) => step.uses && step.uses.includes('actions/setup-node'))
     ).toBe(true)
