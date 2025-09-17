@@ -47,7 +47,7 @@ describe('Release Workflow Validation', () => {
       'windows-latest',
       'macos-latest'
     ])
-    expect(workflow.jobs.validate.strategy.matrix['node-version']).toEqual([17, 18, 20, 22])
+    expect(workflow.jobs.validate.strategy.matrix['node-version']).toEqual([18, 20, 22])
   })
 
   it('should have publish job', () => {

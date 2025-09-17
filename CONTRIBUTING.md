@@ -5,7 +5,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 ## Development Setup
 
 1. Fork and clone the repository
-2. Install Node.js 17 or higher
+2. Install Node.js 18 or higher
 3. Install dependencies: `npm ci`
 4. Run tests: `npm test`
 
@@ -36,7 +36,7 @@ Our automated pipeline ensures code quality:
 ### Required Checks
 
 All PRs must pass these checks:
-- **Tests**: Run on Node.js 17, 18, 20, and 22
+- **Tests**: Run on Node.js 18, 20, and 22
 - **Linting**: ESLint validation
 - **Type Checking**: TypeScript validation
 - **Build**: Package builds successfully
