@@ -246,6 +246,11 @@ describe('Sanitization Utilities', () => {
           expect(validateFilePath(trailingPath)).toBe(true) // Folder with trailing slash
         })
 
+        it('should reject extended-length path prefixes', () => {
+          expect(validateFilePath('\\\\?\\C:\\temp\\file.txt')).toBe(false)
+          expect(validateFilePath('\\\\?\\UNC\\server\\share\\file.txt')).toBe(false)
+        })
+
         it('should reject Windows reserved device names', () => {
           expect(validateFilePath('CON')).toBe(false)
           expect(validateFilePath('PRN.txt')).toBe(false)
