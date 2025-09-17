@@ -16,7 +16,7 @@ This repository uses GitHub Actions for continuous integration and automated NPM
 - Manual dispatch via GitHub UI
 
 **Jobs**:
-- **Test**: Runs test suite on Node.js 17, 18, 20, and 22
+- **Test**: Runs test suite on Node.js 18, 20, and 22
 - **Lint**: Validates code style with ESLint
 - **Type Check**: Validates TypeScript types
 - **Build**: Ensures package builds successfully

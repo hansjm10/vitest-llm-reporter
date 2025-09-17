@@ -65,7 +65,7 @@ GC monitoring has been simplified away in the current suite; we focus on timing,
 - CPU: Modern multi-core processor (2GHz+)
 - Memory: 8GB+ available RAM
 - Storage: SSD with 100MB/s+ write speed
-- Node.js: Version 17.0.0+
+- Node.js: Version 18.0.0+
 
 ### Test Conditions
 - Iterations: 10–100 per benchmark (varies by complexity)

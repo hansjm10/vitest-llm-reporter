@@ -20,7 +20,7 @@ Working on implementing log deduplication to reduce duplicate console output in 
 - Preserves backward compatibility when disabled
 
 ### Tech Stack
-- **Node.js**: 17+ (required for native structuredClone)
+- **Node.js**: 18+ (native structuredClone support)
 - **Testing**: Vitest with coverage reporting
 - **CI/CD**: GitHub Actions (latest versions)
 - **Package Manager**: NPM with automated publishing
@@ -28,7 +28,7 @@ Working on implementing log deduplication to reduce duplicate console output in 
 
 ### CI/CD Configuration
 - **Workflows**: `.github/workflows/ci.yml` and `release.yml`
-- **Node Versions**: Test matrix includes 17, 18, 20, 22
+- **Node Versions**: Test matrix includes 18, 20, 22
 - **Coverage Threshold**: 80% minimum
 - **NPM Publishing**: Manual trigger via GitHub Release
 - **Required Checks**: test, lint, type-check, build, coverage

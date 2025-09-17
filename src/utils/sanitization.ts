@@ -124,9 +124,17 @@ export function validateFilePath(filePath: string): boolean {
   // For absolute paths, ensure resolution doesn't change the path
   // This prevents escaping through complex resolution patterns
   if (path.isAbsolute(normalizedPath)) {
+    const normalizeForComparison = (p: string): string => {
+      // Normalize separators and trim trailing ones so C:\path and C:\path\ compare equal
+      const normalized = path.normalize(p)
+      const { root } = path.parse(normalized)
+      const withoutTrailing = normalized.replace(/[\\/]+$/, '')
+      const comparable = withoutTrailing.length === 0 ? root || normalized : withoutTrailing
+      return process.platform === 'win32' ? comparable.toLowerCase() : comparable
+    }
+
     const resolved = path.resolve(normalizedPath)
-    // If resolution changes the path, it's trying to escape
-    if (resolved !== normalizedPath) {
+    if (normalizeForComparison(resolved) !== normalizeForComparison(normalizedPath)) {
       return false
     }
   }
@@ -174,7 +182,7 @@ export function validateFilePath(filePath: string): boolean {
 /**
  * Creates a safe deep clone without prototype pollution risk
  * Uses native structuredClone for performance and simplicity
- * Requires Node.js 17+ or modern browsers
+ * Requires Node.js 18+ or modern browsers
  * @param source - The source object to clone
  * @returns A safe deep clone with prohibited keys filtered
  */
