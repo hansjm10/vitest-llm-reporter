@@ -55,6 +55,12 @@ export default defineConfig({
 
 The reporter automatically extracts failure context and outputs structured JSON.
 
+You can also enable the reporter directly from the CLI:
+
+```bash
+vitest run --reporter=vitest-llm-reporter
+```
+
 ### Streaming Output
 
 For live per-test updates, use `StreamingReporter`:
