@@ -169,12 +169,24 @@ export function validateFilePath(filePath: string): boolean {
 
     // Check for alternative data streams (ADS)
     if (normalizedPath.includes(':')) {
-      // Check if it's ONLY a drive letter at the start
-      const driveLetterOnly = /^[A-Z]:\\/i.test(normalizedPath)
-      const colonCount = (normalizedPath.match(/:/g) || []).length
+      const colonMatches = normalizedPath.match(/:/g) || []
 
-      if (!driveLetterOnly || colonCount > 1) {
+      if (colonMatches.length > 1) {
         return false // Multiple colons = ADS attempt
+      }
+
+      const firstColonIndex = normalizedPath.indexOf(':')
+      const hasDriveLetterPrefix = firstColonIndex === 1 && /^[A-Z]$/i.test(normalizedPath[0])
+
+      if (!hasDriveLetterPrefix) {
+        return false
+      }
+
+      const separator = normalizedPath[firstColonIndex + 1]
+      const hasRequiredSeparator = separator === '\\' || separator === '/'
+
+      if (!hasRequiredSeparator) {
+        return false
       }
     }
 
