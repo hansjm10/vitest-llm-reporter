@@ -8,7 +8,10 @@ import { getFrameworkPresetPatterns } from './framework-log-presets.js'
 export class StdioFilterEvaluator {
   private readonly predicates: ((line: string) => boolean)[] | null
 
-  constructor(filterPattern: StdioConfig['filterPattern'], frameworkPresets: FrameworkPresetName[]) {
+  constructor(
+    filterPattern: StdioConfig['filterPattern'],
+    frameworkPresets: FrameworkPresetName[]
+  ) {
     this.predicates = this.compileFilterPredicates(filterPattern, frameworkPresets)
   }
 
@@ -73,12 +76,16 @@ export class StdioFilterEvaluator {
       return pattern
     }
 
-    return (line: string) => {
-      if (pattern.global || pattern.sticky) {
-        pattern.lastIndex = 0
+    if (pattern instanceof RegExp) {
+      return (line: string) => {
+        if (pattern.global || pattern.sticky) {
+          pattern.lastIndex = 0
+        }
+        return pattern.test(line)
       }
-      return pattern.test(line)
     }
+
+    // Fallback for unexpected inputs from untyped consumers
+    return () => false
   }
 }
-

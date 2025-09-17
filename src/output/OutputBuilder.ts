@@ -12,8 +12,7 @@ import type {
   TestSummary,
   TestResult,
   TestFailure,
-  TestError,
-  TestSuccessLog
+  TestError
 } from '../types/schema.js'
 import type { SerializedError } from 'vitest'
 import type { OutputBuilderConfig, BuildOptions } from './types.js'

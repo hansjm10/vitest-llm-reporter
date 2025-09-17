@@ -55,8 +55,8 @@ export class StdioInterceptor {
   private isEnabled = false
 
   constructor(config: StdioConfig = {}) {
-    const hasFilterPatternProperty = Object.prototype.hasOwnProperty.call(config, 'filterPattern')
-    const hasFrameworkPresets = Object.prototype.hasOwnProperty.call(config, 'frameworkPresets')
+    const hasFilterPatternProperty = Object.hasOwn(config, 'filterPattern')
+    const hasFrameworkPresets = Object.hasOwn(config, 'frameworkPresets')
 
     const filterPatternValue = hasFilterPatternProperty
       ? config.filterPattern
@@ -78,10 +78,7 @@ export class StdioInterceptor {
       flushWithFiltering: config.flushWithFiltering ?? DEFAULT_CONFIG.flushWithFiltering
     }
 
-    this.filter = new StdioFilterEvaluator(
-      this.config.filterPattern,
-      this.config.frameworkPresets
-    )
+    this.filter = new StdioFilterEvaluator(this.config.filterPattern, this.config.frameworkPresets)
   }
 
   /**

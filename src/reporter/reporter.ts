@@ -176,14 +176,8 @@ export class LLMReporter implements Reporter {
       }
     } else {
       const stdioOptions = config.stdio ?? {}
-      const hasFilterPatternProperty = Object.prototype.hasOwnProperty.call(
-        stdioOptions,
-        'filterPattern'
-      )
-      const hasFrameworkPresets = Object.prototype.hasOwnProperty.call(
-        stdioOptions,
-        'frameworkPresets'
-      )
+      const hasFilterPatternProperty = Object.hasOwn(stdioOptions, 'filterPattern')
+      const hasFrameworkPresets = Object.hasOwn(stdioOptions, 'frameworkPresets')
       const filterPatternValue = hasFilterPatternProperty ? stdioOptions.filterPattern : undefined
       const filterPatternProvided = hasFilterPatternProperty && filterPatternValue !== undefined
       const filterPattern = filterPatternProvided ? filterPatternValue : undefined

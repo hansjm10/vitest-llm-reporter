@@ -270,10 +270,7 @@ export class EventOrchestrator {
 
         const filtered = this.filterConsoleEventsForSuccess(consoleEvents)
 
-        if (
-          (filtered.events && filtered.events.length > 0) ||
-          filtered.suppressedLines > 0
-        ) {
+        if ((filtered.events && filtered.events.length > 0) || filtered.suppressedLines > 0) {
           const successLog = this.resultBuilder.buildSuccessLog(extracted, filtered.events, {
             totalLines: filtered.totalLines,
             suppressedLines: filtered.suppressedLines
@@ -589,14 +586,19 @@ export class EventOrchestrator {
   /**
    * Updates the stdio filter used for success console suppression
    */
-  public updateStdioFilter(filter: StdioFilterEvaluator | undefined, filterSuccessLogs: boolean): void {
+  public updateStdioFilter(
+    filter: StdioFilterEvaluator | undefined,
+    filterSuccessLogs: boolean
+  ): void {
     this.stdioFilter = filter
     this.filterSuccessLogs = filterSuccessLogs
   }
 
-  private filterConsoleEventsForSuccess(
-    consoleEvents?: ConsoleEvent[]
-  ): { events?: ConsoleEvent[]; totalLines: number; suppressedLines: number } {
+  private filterConsoleEventsForSuccess(consoleEvents?: ConsoleEvent[]): {
+    events?: ConsoleEvent[]
+    totalLines: number
+    suppressedLines: number
+  } {
     if (!consoleEvents || consoleEvents.length === 0) {
       return { events: consoleEvents, totalLines: 0, suppressedLines: 0 }
     }
