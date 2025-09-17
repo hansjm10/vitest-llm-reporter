@@ -10,7 +10,12 @@
 import type { Vitest, SerializedError, Reporter, UserConsoleLog, File } from 'vitest'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
-import type { FrameworkPresetName, LLMReporterConfig, StdioConfig } from '../types/reporter.js'
+import type {
+  FrameworkPresetName,
+  LLMReporterConfig,
+  StdioConfig,
+  TruncationConfig
+} from '../types/reporter.js'
 import type { OrchestratorConfig } from '../events/types.js'
 import type { LLMReporterOutput, TestError } from '../types/schema.js'
 import { StdioFilterEvaluator } from '../console/stdio-filter.js'
@@ -425,8 +430,40 @@ export class LLMReporter implements Reporter {
   updateConfig(partialConfig: Partial<LLMReporterConfig>): void {
     this.validateConfig({ ...this.config, ...partialConfig } as LLMReporterConfig)
 
-    // Update configuration properties
-    Object.assign(this.config, partialConfig)
+    const hasPartialStdio = Object.hasOwn(partialConfig, 'stdio')
+    const hasPartialTruncation = Object.hasOwn(partialConfig, 'truncation')
+    const hasPartialPerformance = Object.hasOwn(partialConfig, 'performance')
+
+    const shallowConfig: Partial<LLMReporterConfig> = { ...partialConfig }
+    if (hasPartialStdio) {
+      delete shallowConfig.stdio
+    }
+    if (hasPartialTruncation) {
+      delete shallowConfig.truncation
+    }
+    if (hasPartialPerformance) {
+      delete shallowConfig.performance
+    }
+
+    Object.assign(this.config, shallowConfig)
+
+    if (hasPartialPerformance) {
+      this.config.performance = this.mergePerformanceConfig(
+        this.config.performance,
+        partialConfig.performance
+      )
+    }
+
+    if (hasPartialTruncation) {
+      this.config.truncation = this.mergeTruncationConfig(
+        this.config.truncation,
+        partialConfig.truncation
+      )
+    }
+
+    if (hasPartialStdio) {
+      this.config.stdio = this.mergeResolvedStdioConfig(this.config.stdio, partialConfig.stdio)
+    }
 
     let shouldUpdateOrchestrator = false
     const orchestratorConfig: OrchestratorConfig = {}
@@ -459,7 +496,7 @@ export class LLMReporter implements Reporter {
       this.orchestrator.updateConfig(orchestratorConfig)
     }
 
-    if ('stdio' in partialConfig || 'captureConsoleOnSuccess' in partialConfig) {
+    if (hasPartialStdio || Object.hasOwn(partialConfig, 'captureConsoleOnSuccess')) {
       this.refreshStdioFilter()
     }
   }
@@ -613,6 +650,97 @@ export class LLMReporter implements Reporter {
         stdio.filterPattern !== undefined ||
         (stdio.frameworkPresets?.length ?? 0) > 0)
     )
+  }
+
+  private mergeResolvedStdioConfig(
+    current: ResolvedStdioConfig,
+    update?: StdioConfig
+  ): ResolvedStdioConfig {
+    const merged: ResolvedStdioConfig = {
+      ...current,
+      frameworkPresets: [...current.frameworkPresets]
+    }
+
+    if (!update) {
+      return merged
+    }
+
+    if (Object.hasOwn(update, 'suppressStdout')) {
+      merged.suppressStdout = update.suppressStdout ?? merged.suppressStdout
+    }
+    if (Object.hasOwn(update, 'suppressStderr')) {
+      merged.suppressStderr = update.suppressStderr ?? merged.suppressStderr
+    }
+    if (Object.hasOwn(update, 'filterPattern')) {
+      merged.filterPattern = update.filterPattern
+    }
+    if (Object.hasOwn(update, 'frameworkPresets')) {
+      const presets = update.frameworkPresets
+      merged.frameworkPresets = presets ? [...presets] : []
+    }
+    if (Object.hasOwn(update, 'autoDetectFrameworks')) {
+      merged.autoDetectFrameworks = update.autoDetectFrameworks ?? merged.autoDetectFrameworks
+    }
+    if (Object.hasOwn(update, 'redirectToStderr')) {
+      merged.redirectToStderr = update.redirectToStderr ?? merged.redirectToStderr
+    }
+    if (Object.hasOwn(update, 'flushWithFiltering')) {
+      merged.flushWithFiltering = update.flushWithFiltering ?? merged.flushWithFiltering
+    }
+
+    return merged
+  }
+
+  private mergeTruncationConfig(
+    current: ResolvedLLMReporterConfig['truncation'],
+    update?: TruncationConfig
+  ): ResolvedLLMReporterConfig['truncation'] {
+    const merged: ResolvedLLMReporterConfig['truncation'] = { ...current }
+
+    if (!update) {
+      return merged
+    }
+
+    if (Object.hasOwn(update, 'enabled')) {
+      merged.enabled = update.enabled ?? merged.enabled
+    }
+    if (Object.hasOwn(update, 'maxTokens')) {
+      merged.maxTokens = update.maxTokens
+    }
+    if (Object.hasOwn(update, 'enableEarlyTruncation')) {
+      merged.enableEarlyTruncation = update.enableEarlyTruncation ?? merged.enableEarlyTruncation
+    }
+    if (Object.hasOwn(update, 'enableLateTruncation')) {
+      merged.enableLateTruncation = update.enableLateTruncation ?? merged.enableLateTruncation
+    }
+    if (Object.hasOwn(update, 'enableMetrics')) {
+      merged.enableMetrics = update.enableMetrics ?? merged.enableMetrics
+    }
+
+    return merged
+  }
+
+  private mergePerformanceConfig(
+    current: ResolvedLLMReporterConfig['performance'],
+    update?: MonitoringConfig
+  ): ResolvedLLMReporterConfig['performance'] {
+    const merged: ResolvedLLMReporterConfig['performance'] = { ...current }
+
+    if (!update) {
+      return merged
+    }
+
+    if (Object.hasOwn(update, 'enabled')) {
+      merged.enabled = update.enabled ?? merged.enabled
+    }
+    if (Object.hasOwn(update, 'cacheSize')) {
+      merged.cacheSize = update.cacheSize ?? merged.cacheSize
+    }
+    if (Object.hasOwn(update, 'memoryWarningThreshold')) {
+      merged.memoryWarningThreshold = update.memoryWarningThreshold ?? merged.memoryWarningThreshold
+    }
+
+    return merged
   }
 
   private loadNearestPackageJson(rootDir?: string): Record<string, unknown> | undefined {

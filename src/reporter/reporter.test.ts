@@ -875,6 +875,56 @@ describe('LLMReporter', () => {
     })
   })
 
+  describe('updateConfig merging', () => {
+    it('merges partial stdio updates without dropping defaults', () => {
+      const reporter = new LLMReporter({ captureConsoleOnSuccess: true })
+
+      const initialStdoutSuppression = reporter.getConfig().stdio.suppressStdout
+      const initialPresets = [...reporter.getConfig().stdio.frameworkPresets]
+      const pattern = [/^Foo/]
+
+      reporter.updateConfig({ stdio: { filterPattern: [...pattern] } })
+
+      const stdio = reporter.getConfig().stdio
+      expect(stdio.filterPattern).toEqual(pattern)
+      expect(stdio.suppressStdout).toBe(initialStdoutSuppression)
+      expect(stdio.frameworkPresets).toEqual(initialPresets)
+    })
+
+    it('preserves previous stdio fields across successive partial updates', () => {
+      const reporter = new LLMReporter()
+      const filterPattern = [/^KeepMe/]
+
+      reporter.updateConfig({ stdio: { filterPattern } })
+      reporter.updateConfig({ stdio: { frameworkPresets: ['next'], suppressStdout: false } })
+
+      const stdio = reporter.getConfig().stdio
+      expect(stdio.filterPattern).toBe(filterPattern)
+      expect(stdio.frameworkPresets).toEqual(['next'])
+      expect(stdio.suppressStdout).toBe(false)
+    })
+
+    it('merges truncation and performance updates without resetting defaults', () => {
+      const reporter = new LLMReporter()
+      const initialTruncation = { ...reporter.getConfig().truncation }
+      const initialPerformance = { ...reporter.getConfig().performance }
+
+      reporter.updateConfig({ truncation: { enabled: true, maxTokens: 123 } })
+      reporter.updateConfig({ performance: { enabled: true } })
+
+      const updated = reporter.getConfig()
+      expect(updated.truncation.enabled).toBe(true)
+      expect(updated.truncation.maxTokens).toBe(123)
+      expect(updated.truncation.enableLateTruncation).toBe(initialTruncation.enableLateTruncation)
+      expect(updated.truncation.enableMetrics).toBe(initialTruncation.enableMetrics)
+      expect(updated.performance.enabled).toBe(true)
+      expect(updated.performance.cacheSize).toBe(initialPerformance.cacheSize)
+      expect(updated.performance.memoryWarningThreshold).toBe(
+        initialPerformance.memoryWarningThreshold
+      )
+    })
+  })
+
   describe('includeStackString configuration', () => {
     it('should include stack strings when includeStackString is true', async () => {
       const reporter = new LLMReporter({ includeStackString: true })
