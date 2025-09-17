@@ -175,18 +175,25 @@ export function validateFilePath(filePath: string): boolean {
         return false // Multiple colons = ADS attempt
       }
 
-      const firstColonIndex = normalizedPath.indexOf(':')
-      const hasDriveLetterPrefix = firstColonIndex === 1 && /^[A-Z]$/i.test(normalizedPath[0])
+      const parsed = path.parse(normalizedPath)
+      const { root } = parsed
 
-      if (!hasDriveLetterPrefix) {
-        return false
+      if (!root) {
+        return false // Colon outside of recognizable drive root
       }
 
-      const separator = normalizedPath[firstColonIndex + 1]
-      const hasRequiredSeparator = separator === '\\' || separator === '/'
+      if (/^[A-Z]:$/i.test(root)) {
+        return false // Drive-relative paths like C:folder are ambiguous
+      }
 
-      if (!hasRequiredSeparator) {
-        return false
+      if (!/^[A-Z]:[\\/]*$/i.test(root)) {
+        return false // Non-drive root with colon is invalid
+      }
+
+      const remainder = normalizedPath.slice(root.length)
+
+      if (remainder.includes(':')) {
+        return false // Colon outside root indicates ADS
       }
     }
 
