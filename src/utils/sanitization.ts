@@ -167,7 +167,7 @@ function validateFilePathInternal(
       // Normalize separators and trim trailing ones so C:\path and C:\path\ compare equal
       const normalized = path.normalize(p)
       const { root } = path.parse(normalized)
-      const withoutTrailing = normalized.replace(/[\/]+$/, '')
+      const withoutTrailing = normalized.replace(/[\\/]+$/, '')
       const comparable = withoutTrailing.length === 0 ? root || normalized : withoutTrailing
       return process.platform === 'win32' ? comparable.toLowerCase() : comparable
     }
@@ -180,7 +180,7 @@ function validateFilePathInternal(
     note(`Normalized comparable: ${normalizedComparable}`)
 
     if (process.platform === 'win32') {
-      const hasExplicitDrive = /^[a-z]:[\/]/i.test(normalizedPath)
+      const hasExplicitDrive = /^[a-z]:[\\/]/i.test(normalizedPath)
       note(`Has explicit drive: ${hasExplicitDrive}`)
 
       if (hasExplicitDrive) {
@@ -216,34 +216,30 @@ function validateFilePathInternal(
         return fail('Multiple colons detected (potential ADS)')
       }
 
-      const firstColonIndex = normalizedPath.indexOf(':')
-      const hasDriveLetterPrefix = firstColonIndex === 1 && /^[A-Z]$/i.test(normalizedPath[0])
-      note(`Drive letter prefix detected: ${hasDriveLetterPrefix}`)
-
-      if (!hasDriveLetterPrefix) {
-        return fail('Colon present without drive letter prefix')
-      }
-
-      const remainder = normalizedPath.slice(firstColonIndex + 1)
-      record('remainderAfterRoot', remainder)
-
-      if (remainder.length === 0) {
-        return fail('Drive-relative path missing separator after colon')
-      }
-
-      const separator = remainder[0]
-      const hasRequiredSeparator = separator === '\\' || separator === '/'
-
-      if (!hasRequiredSeparator) {
-        return fail('Drive letter must be followed by path separator')
-      }
-
-      if (remainder.includes(':')) {
-        return fail('Colon detected outside of drive root (ADS)')
-      }
-
       const parsed = path.parse(normalizedPath)
       record('parsedRoot', parsed.root)
+
+      if (/^[A-Z]:$/i.test(normalizedPath.slice(0, 2))) {
+        const remainder = normalizedPath.slice(2)
+        record('remainderAfterRoot', remainder)
+
+        if (remainder.length === 0) {
+          return fail('Drive path missing separator after colon')
+        }
+
+        const separator = remainder[0]
+        const hasRequiredSeparator = separator === '\\' || separator === '/'
+
+        if (!hasRequiredSeparator) {
+          return fail('Drive letter must be followed by path separator')
+        }
+
+        if (remainder.includes(':')) {
+          return fail('Colon detected outside of drive root (ADS)')
+        }
+      } else if (!parsed.root) {
+        return fail('Colon present without drive letter prefix')
+      }
     }
 
     const pathParts = normalizedPath.split(path.sep)
