@@ -128,13 +128,34 @@ export function validateFilePath(filePath: string): boolean {
       // Normalize separators and trim trailing ones so C:\path and C:\path\ compare equal
       const normalized = path.normalize(p)
       const { root } = path.parse(normalized)
-      const withoutTrailing = normalized.replace(/[\\/]+$/, '')
+      const withoutTrailing = normalized.replace(/[\/]+$/, '')
       const comparable = withoutTrailing.length === 0 ? root || normalized : withoutTrailing
       return process.platform === 'win32' ? comparable.toLowerCase() : comparable
     }
 
     const resolved = path.resolve(normalizedPath)
-    if (normalizeForComparison(resolved) !== normalizeForComparison(normalizedPath)) {
+    const resolvedComparable = normalizeForComparison(resolved)
+    const normalizedComparable = normalizeForComparison(normalizedPath)
+
+    if (process.platform === 'win32') {
+      const hasExplicitDrive = /^[a-z]:[\/]/i.test(normalizedPath)
+
+      if (hasExplicitDrive) {
+        if (resolvedComparable !== normalizedComparable) {
+          return false
+        }
+      } else {
+        const stripRoot = (value: string): string => {
+          const parsed = path.parse(value)
+          const rootComparable = normalizeForComparison(parsed.root || '')
+          return value.slice(rootComparable.length).replace(/^[\\/]+/, '')
+        }
+
+        if (stripRoot(resolvedComparable) !== stripRoot(normalizedComparable)) {
+          return false
+        }
+      }
+    } else if (resolvedComparable !== normalizedComparable) {
       return false
     }
   }
