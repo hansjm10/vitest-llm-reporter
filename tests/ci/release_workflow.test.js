@@ -63,6 +63,8 @@ describe('Release Workflow Validation', () => {
     expect(changesetStep).toBeDefined()
     expect(changesetStep.with.version).toContain('release:version')
     expect(changesetStep.with.publish).toContain('release:publish')
+    expect(changesetStep.with.branch).toBe('master')
+    expect(changesetStep.with.createGithubReleases).toBe(true)
   })
 
   it('should use NPM_TOKEN secret', () => {
