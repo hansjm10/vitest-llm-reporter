@@ -38,7 +38,8 @@ jobs:
           publish: 'npm run release:publish'
           commit: 'chore: release'
           title: 'chore: release'
-          createGithubRelease: true
+          createGithubReleases: true
+          branch: master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
