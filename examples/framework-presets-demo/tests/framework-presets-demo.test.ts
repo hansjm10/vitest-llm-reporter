@@ -11,6 +11,8 @@ describe('framework preset demo', () => {
     console.log('{"level":30,"time":1712345678901,"pid":12345,"hostname":"local","msg":"Server listening"}')
     console.log('CI : verbose banner that we still want filtered')
 
+    process.stdout.write('✅ Reporter still surfaces regular test output\n')
+
     expect(true).toBe(true)
   })
 })
