@@ -108,7 +108,7 @@ export default defineConfig({
     disableConsoleIntercept: false,
     reporters: [
       new LLMReporter({
-        outputFile: '${outputFile}',
+        outputFile: ${JSON.stringify(outputFile)},
         verbose: false,  // Disable verbose for cleaner output
         includePassedTests: false,
         includeSkippedTests: false,
@@ -153,7 +153,8 @@ export default defineConfig({
   it('should extract code context for failing tests', async () => {
     // Run the test with our reporter
     try {
-      await execAsync(`npx vitest run --config ${configFile} ${testFile}`)
+      const command = `npx vitest run --config ${JSON.stringify(configFile)} ${JSON.stringify(testFile)}`
+      await execAsync(command)
     } catch {
       // Tests are expected to fail
     }

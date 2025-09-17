@@ -72,58 +72,97 @@ const WINDOWS_RESERVED_NAMES = [
   'LPT9'
 ]
 
-/**
- * Validates a file path for security issues
- * Uses strict whitelist-based validation to prevent traversal attacks
- *
- * @param filePath - The file path to validate
- * @returns true if the path is valid, false otherwise
- */
-export function validateFilePath(filePath: string): boolean {
+export interface FilePathValidationDiagnostics {
+  input: string
+  platform: NodeJS.Platform
+  normalizedPath?: string
+  decodedPath?: string
+  isAbsolute?: boolean
+  colonCount?: number
+  parsedRoot?: string
+  remainderAfterRoot?: string
+  failureReason?: string
+  notes: string[]
+  valid: boolean
+}
+
+const MAX_WINDOWS_PATH_LENGTH = 260
+const MAX_POSIX_PATH_LENGTH = 4096
+
+function validateFilePathInternal(
+  filePath: string,
+  diagnostics?: FilePathValidationDiagnostics
+): boolean {
+  const record = <K extends keyof FilePathValidationDiagnostics>(
+    key: K,
+    value: FilePathValidationDiagnostics[K]
+  ): void => {
+    if (diagnostics) {
+      diagnostics[key] = value
+    }
+  }
+
+  const note = (message: string): void => {
+    if (diagnostics) {
+      diagnostics.notes.push(message)
+    }
+  }
+
+  const fail = (reason: string): boolean => {
+    if (diagnostics) {
+      diagnostics.failureReason = reason
+      diagnostics.valid = false
+      diagnostics.notes.push(`FAIL: ${reason}`)
+    }
+    return false
+  }
+
+  if (diagnostics && !diagnostics.notes) {
+    diagnostics.notes = []
+  }
+
   if (typeof filePath !== 'string' || filePath.length === 0) {
-    return false
+    return fail('Path must be a non-empty string')
   }
 
-  // Reject null bytes - critical security issue
+  note(`Input length: ${filePath.length}`)
+
   if (filePath.includes('\0')) {
-    return false
+    return fail('Path contains null byte')
   }
 
-  // Check for directory traversal attempts BEFORE normalization
-  // because path.normalize can resolve .. in absolute paths
   if (filePath.includes('..')) {
-    return false
+    return fail('Path contains traversal sequence before normalization')
   }
 
-  // Check for dangerous protocols BEFORE normalization
-  // because normalization may strip them
   const lowerPath = filePath.toLowerCase()
   if (
     lowerPath.includes('javascript:') ||
     lowerPath.includes('data:') ||
     lowerPath.includes('file://')
   ) {
-    return false
+    return fail('Path contains disallowed protocol')
   }
 
-  // Also check for URL-encoded traversal patterns
   const decodedPath = decodeURIComponent(filePath)
-  if (decodedPath !== filePath && (decodedPath.includes('..') || decodedPath.includes('\0'))) {
-    return false
+  if (decodedPath !== filePath) {
+    record('decodedPath', decodedPath)
+    if (decodedPath.includes('..') || decodedPath.includes('\0')) {
+      return fail('Decoded path contains traversal sequence or null byte')
+    }
   }
 
-  // Normalize the path to clean it up
   const normalizedPath = path.normalize(filePath)
+  record('normalizedPath', normalizedPath)
 
-  // CRITICAL: Re-check for traversal after normalization
-  // This catches cases where normalization introduces .. sequences
   if (normalizedPath.includes('..')) {
-    return false
+    return fail('Normalized path contains traversal sequence')
   }
 
-  // For absolute paths, ensure resolution doesn't change the path
-  // This prevents escaping through complex resolution patterns
-  if (path.isAbsolute(normalizedPath)) {
+  const isAbsolute = path.isAbsolute(normalizedPath)
+  record('isAbsolute', isAbsolute)
+
+  if (isAbsolute) {
     const normalizeForComparison = (p: string): string => {
       // Normalize separators and trim trailing ones so C:\path and C:\path\ compare equal
       const normalized = path.normalize(p)
@@ -134,49 +173,141 @@ export function validateFilePath(filePath: string): boolean {
     }
 
     const resolved = path.resolve(normalizedPath)
-    if (normalizeForComparison(resolved) !== normalizeForComparison(normalizedPath)) {
-      return false
+    const resolvedComparable = normalizeForComparison(resolved)
+    const normalizedComparable = normalizeForComparison(normalizedPath)
+
+    note(`Resolved comparable: ${resolvedComparable}`)
+    note(`Normalized comparable: ${normalizedComparable}`)
+
+    if (process.platform === 'win32') {
+      const firstColonIndex = normalizedPath.indexOf(':')
+      const hasExplicitDrive = firstColonIndex === 1 && /^[a-z]$/i.test(normalizedPath[0])
+      note(`Has explicit drive: ${hasExplicitDrive}`)
+
+      if (hasExplicitDrive) {
+        if (resolvedComparable !== normalizedComparable) {
+          return fail('Resolved path differs from normalized path (explicit drive)')
+        }
+      } else {
+        const stripRoot = (value: string): string => {
+          const parsed = path.parse(value)
+          const rootComparable = normalizeForComparison(parsed.root || '')
+          return value.slice(rootComparable.length).replace(/^[\\/]+/, '')
+        }
+
+        if (stripRoot(resolvedComparable) !== stripRoot(normalizedComparable)) {
+          return fail('Resolved path escapes root (implicit drive)')
+        }
+      }
+    } else if (resolvedComparable !== normalizedComparable) {
+      return fail('Resolved path differs from normalized path')
     }
   }
 
-  // Platform-specific validation
   if (process.platform === 'win32') {
-    // Check for Windows path length limit
-    if (normalizedPath.length > 260) {
-      return false
+    if (normalizedPath.length > MAX_WINDOWS_PATH_LENGTH) {
+      return fail('Path exceeds Windows MAX_PATH limit')
     }
 
-    // Check for alternative data streams (ADS)
-    if (normalizedPath.includes(':')) {
-      // Check if it's ONLY a drive letter at the start
-      const driveLetterOnly = /^[A-Z]:\\/i.test(normalizedPath)
-      const colonCount = (normalizedPath.match(/:/g) || []).length
+    const normalizedLower = normalizedPath.toLowerCase()
+    if (
+      normalizedLower.startsWith('\\\\?\\') ||
+      normalizedLower.startsWith('//?/') ||
+      normalizedLower.startsWith('\\\\.\\') ||
+      normalizedLower.startsWith('//./')
+    ) {
+      return fail('Extended-length or device paths are not allowed')
+    }
 
-      if (!driveLetterOnly || colonCount > 1) {
-        return false // Multiple colons = ADS attempt
+    const colonMatches = normalizedPath.match(/:/g)
+    const colonCount = colonMatches ? colonMatches.length : 0
+    record('colonCount', colonCount)
+
+    if (colonCount > 0) {
+      if (colonCount > 1) {
+        return fail('Multiple colons detected (potential ADS)')
+      }
+
+      const firstColonIndex = normalizedPath.indexOf(':')
+      const hasDriveLetterPrefix = firstColonIndex === 1 && /^[A-Z]$/i.test(normalizedPath[0])
+      note(`Drive letter prefix detected: ${hasDriveLetterPrefix}`)
+
+      if (!hasDriveLetterPrefix) {
+        return fail('Colon present without drive letter prefix')
+      }
+
+      const remainder = normalizedPath.slice(firstColonIndex + 1)
+      record('remainderAfterRoot', remainder)
+
+      if (remainder.length === 0) {
+        return fail('Drive path missing separator after colon')
+      }
+
+      const separator = remainder[0]
+      const hasRequiredSeparator = separator === '\\' || separator === '/'
+
+      if (!hasRequiredSeparator) {
+        return fail('Drive letter must be followed by path separator')
+      }
+
+      if (remainder.includes(':')) {
+        return fail('Colon detected outside of drive root (ADS)')
       }
     }
 
-    // Check for Windows reserved device names
+    record('parsedRoot', path.parse(normalizedPath).root)
+
     const pathParts = normalizedPath.split(path.sep)
     for (const part of pathParts) {
       if (part) {
         const nameWithoutExt = part.split('.')[0].toUpperCase()
         if (WINDOWS_RESERVED_NAMES.includes(nameWithoutExt)) {
-          return false
+          return fail(`Reserved device name detected: ${nameWithoutExt}`)
         }
       }
     }
   } else {
-    // Unix-like systems: check for very long paths
-    if (normalizedPath.length > 4096) {
-      return false
+    if (normalizedPath.length > MAX_POSIX_PATH_LENGTH) {
+      return fail('Path exceeds POSIX length limit')
     }
+  }
+
+  if (diagnostics) {
+    diagnostics.valid = true
+    diagnostics.notes.push('Validation passed')
   }
 
   // Allow both relative and absolute paths
   // Let the OS and test framework handle the rest
   return true
+}
+
+/**
+ * Validates a file path for security issues
+ * Uses strict whitelist-based validation to prevent traversal attacks
+ *
+ * @param filePath - The file path to validate
+ * @returns true if the path is valid, false otherwise
+ */
+export function validateFilePath(filePath: string): boolean {
+  return validateFilePathInternal(filePath)
+}
+
+/**
+ * Provides detailed diagnostics for validateFilePath consumers.
+ * Primarily intended for debugging and tests so failures can surface
+ * rich context without altering the public return type.
+ */
+export function validateFilePathDiagnostics(filePath: string): FilePathValidationDiagnostics {
+  const diagnostics: FilePathValidationDiagnostics = {
+    input: filePath,
+    platform: process.platform,
+    notes: [],
+    valid: false
+  }
+
+  validateFilePathInternal(filePath, diagnostics)
+  return diagnostics
 }
 
 /**
