@@ -98,6 +98,48 @@ describe('LLMReporter stdio suppression', () => {
     // which is complex to mock. The core suppression behavior is verified above.
   })
 
+  it('retains default presets when optional filterPattern resolves to undefined', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const optionalPattern: RegExp | undefined = undefined
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: true,
+        filterPattern: optionalPattern
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('[Nest] 12345 - Starting application...\n')
+    process.stdout.write('Some other log\n')
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    process.stdout.write = originalWrite
+
+    const hasNestLog = stdoutWrites.some((write) => write.includes('[Nest]'))
+    expect(hasNestLog).toBe(false)
+
+    const hasOtherLog = stdoutWrites.some((write) => write.includes('Some other log'))
+    expect(hasOtherLog).toBe(true)
+  })
+
   it('allows stdout when suppressStdout is explicitly disabled', async () => {
     // Collect output
     const stdoutWrites: string[] = []

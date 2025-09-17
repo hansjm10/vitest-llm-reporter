@@ -164,10 +164,11 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput.length).toBe(0)
     })
 
-    it('does not suppress when pattern is undefined', () => {
+    it('does not suppress when pattern is undefined and presets are cleared', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
-        filterPattern: undefined // Undefined means no filtering
+        filterPattern: undefined, // Undefined means no filtering
+        frameworkPresets: []
       })
 
       interceptor.enable()
@@ -178,8 +179,28 @@ describe('StdioInterceptor', () => {
 
       interceptor.disable()
 
-      // No suppression with undefined pattern
-      expect(stdoutOutput.length).toBe(3)
+      // No suppression with undefined pattern when presets are cleared
+      expect(stdoutOutput).toContain('[Nest] Log\n')
+      expect(stdoutOutput).toContain('Regular log\n')
+      expect(stdoutOutput).toContain('Any other output\n')
+    })
+
+    it('retains default presets when filterPattern resolves to undefined', () => {
+      const optionalPattern: RegExp | undefined = undefined
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: optionalPattern
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('[Nest] Log\n')
+      process.stdout.write('Regular log\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).not.toContain('[Nest] Log\n')
+      expect(stdoutOutput).toContain('Regular log\n')
     })
   })
 

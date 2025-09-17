@@ -55,19 +55,24 @@ export class StdioInterceptor {
   private isEnabled = false
 
   constructor(config: StdioConfig = {}) {
-    const hasFilterPattern = Object.prototype.hasOwnProperty.call(config, 'filterPattern')
+    const hasFilterPatternProperty = Object.prototype.hasOwnProperty.call(config, 'filterPattern')
     const hasFrameworkPresets = Object.prototype.hasOwnProperty.call(config, 'frameworkPresets')
+
+    const filterPatternValue = hasFilterPatternProperty
+      ? config.filterPattern
+      : DEFAULT_CONFIG.filterPattern
+    const filterPatternProvided = hasFilterPatternProperty && filterPatternValue !== undefined
 
     const frameworkPresets = hasFrameworkPresets
       ? [...(config.frameworkPresets ?? [])]
-      : hasFilterPattern
+      : filterPatternProvided
         ? []
         : [...DEFAULT_CONFIG.frameworkPresets]
 
     this.config = {
       suppressStdout: config.suppressStdout ?? DEFAULT_CONFIG.suppressStdout,
       suppressStderr: config.suppressStderr ?? DEFAULT_CONFIG.suppressStderr,
-      filterPattern: hasFilterPattern ? config.filterPattern : DEFAULT_CONFIG.filterPattern,
+      filterPattern: filterPatternProvided ? filterPatternValue : DEFAULT_CONFIG.filterPattern,
       frameworkPresets,
       redirectToStderr: config.redirectToStderr ?? DEFAULT_CONFIG.redirectToStderr,
       flushWithFiltering: config.flushWithFiltering ?? DEFAULT_CONFIG.flushWithFiltering
