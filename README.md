@@ -231,7 +231,7 @@ export default defineConfig({
             /^(DEBUG:|TRACE:)/,
             (line: string) => line.startsWith('Verbose:')
           ],
-          frameworkPresets: []  // Disable default Nest preset when providing your own patterns
+          frameworkPresets: ['nest']  // Re-enable the default Nest preset alongside custom patterns
         }
       }]
     ]
@@ -265,6 +265,9 @@ export default defineConfig({
 ```
 
 Available presets: `nest`, `next`, `nuxt`, `angular`, `vite`, `fastify`, `express`, `strapi`, `remix`, `sveltekit`.
+
+👉 Check out the runnable [framework preset demo config](examples/framework-presets-demo/vitest.config.ts) for a complete
+Vitest setup that combines curated presets with a custom filter and per-test log deduplication.
 
 #### Auto-detect Frameworks
 Let the reporter inspect dependencies and enable presets automatically:
@@ -430,9 +433,12 @@ Diagnostics print to stderr while stdout remains clean JSON.
 Run the included demo test to see failure reporting and console capture:
 
 - Demo: `npm run test:demo` or `LLM_REPORTER_DEMO=1 vitest run`
+- Framework suppression demo: `npm run test:demo:framework` (uses
+  `examples/framework-presets-demo/vitest.config.ts` to show curated presets in action)
 - Normal: `npm test`
 
-Demo test at `tests/demo/reporter-demo.test.ts` runs only with `LLM_REPORTER_DEMO=1`.
+Demo test at `tests/demo/reporter-demo.test.ts` runs only with `LLM_REPORTER_DEMO=1`. The framework preset demo lives under
+`examples/framework-presets-demo/` so you can inspect both the config and the sample test.
 
 ## Contributing
 

@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:demo": "LLM_REPORTER_DEMO=1 vitest run",
+    "test:demo:framework": "vitest --config examples/framework-presets-demo/vitest.config.ts run",
     "test:ui": "vitest --ui",
     "test:bench": "vitest -c vitest.bench.config.ts run tests/benchmarks",
     "bench": "npm run test:bench",
