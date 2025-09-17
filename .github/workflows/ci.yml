@@ -161,3 +161,23 @@ jobs:
             } catch (error) {
               console.log('Coverage comment failed:', error.message);
             }
+
+  changeset:
+    name: Changeset Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        if: github.base_ref != ''
+        run: git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup
+
+      - name: Ensure changeset added
+        run: npm run changeset status

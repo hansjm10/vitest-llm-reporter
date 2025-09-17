@@ -17,13 +17,14 @@ describe('Release Workflow Validation', () => {
     expect(workflow.name).toBe('Release')
   })
 
-  it('should trigger on release published', () => {
+  it('should trigger on push to master and support manual runs', () => {
     const content = readFileSync(workflowPath, 'utf8')
     const workflow = load(content)
 
     expect(workflow.on).toBeDefined()
-    expect(workflow.on.release).toBeDefined()
-    expect(workflow.on.release.types).toContain('published')
+    expect(workflow.on.push).toBeDefined()
+    expect(workflow.on.push.branches).toContain('master')
+    expect(workflow.on.workflow_dispatch).toBeDefined()
   })
 
   it('should have correct permissions', () => {
@@ -31,53 +32,58 @@ describe('Release Workflow Validation', () => {
     const workflow = load(content)
 
     expect(workflow.permissions).toBeDefined()
-    expect(workflow.permissions.contents).toBe('read')
+    expect(workflow.permissions.contents).toBe('write')
     expect(workflow.permissions.packages).toBe('write')
     expect(workflow.permissions['id-token']).toBe('write')
   })
 
-  it('should have validate job with multi-OS matrix', () => {
+  it('should run release job with proper setup', () => {
     const content = readFileSync(workflowPath, 'utf8')
     const workflow = load(content)
 
-    expect(workflow.jobs.validate).toBeDefined()
-    expect(workflow.jobs.validate.strategy).toBeDefined()
-    expect(workflow.jobs.validate.strategy.matrix.os).toEqual([
-      'ubuntu-latest',
-      'windows-latest',
-      'macos-latest'
-    ])
-    expect(workflow.jobs.validate.strategy.matrix['node-version']).toEqual([18, 20, 22])
+    expect(workflow.jobs.release).toBeDefined()
+    const releaseJob = workflow.jobs.release
+    expect(releaseJob['runs-on']).toBe('ubuntu-latest')
+    expect(
+      releaseJob.steps.some((step) => step.uses && step.uses.includes('actions/checkout'))
+    ).toBe(true)
+    expect(
+      releaseJob.steps.some((step) => step.uses && step.uses.includes('actions/setup-node'))
+    ).toBe(true)
   })
 
-  it('should have publish job', () => {
+  it('should use changesets action to handle publishing', () => {
     const content = readFileSync(workflowPath, 'utf8')
     const workflow = load(content)
 
-    expect(workflow.jobs.publish).toBeDefined()
-    expect(workflow.jobs.publish.needs).toContain('validate')
-    expect(workflow.jobs.publish.environment).toBe('npm-production')
+    const releaseJob = workflow.jobs.release
+    const changesetStep = releaseJob.steps.find(
+      (step) => step.uses && step.uses.includes('changesets/action')
+    )
+    expect(changesetStep).toBeDefined()
+    expect(changesetStep.with.version).toContain('release:version')
+    expect(changesetStep.with.publish).toContain('release:publish')
   })
 
   it('should use NPM_TOKEN secret', () => {
     const content = readFileSync(workflowPath, 'utf8')
     const workflow = load(content)
 
-    const publishJob = workflow.jobs.publish
-    // Find the actual publish step (not dry-run)
-    const publishStep = publishJob.steps.find(
-      (step) => step.run && step.run.includes('npm publish --provenance')
+    const releaseJob = workflow.jobs.release
+    const changesetStep = releaseJob.steps.find(
+      (step) => step.uses && step.uses.includes('changesets/action')
     )
-    expect(publishStep).toBeDefined()
-    expect(publishStep.env.NODE_AUTH_TOKEN).toBe('${{ secrets.NPM_TOKEN }}')
+    expect(changesetStep).toBeDefined()
+    expect(changesetStep.env.NPM_TOKEN).toBe('${{ secrets.NPM_TOKEN }}')
+    expect(changesetStep.env.NODE_AUTH_TOKEN).toBe('${{ secrets.NPM_TOKEN }}')
   })
 
   it('should setup Node with registry URL', () => {
     const content = readFileSync(workflowPath, 'utf8')
     const workflow = load(content)
 
-    const publishJob = workflow.jobs.publish
-    const setupStep = publishJob.steps.find(
+    const releaseJob = workflow.jobs.release
+    const setupStep = releaseJob.steps.find(
       (step) => step.uses && step.uses.includes('actions/setup-node')
     )
     expect(setupStep).toBeDefined()
@@ -87,26 +93,23 @@ describe('Release Workflow Validation', () => {
   it('should run build before publish', () => {
     const content = readFileSync(workflowPath, 'utf8')
     const workflow = load(content)
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'))
 
-    const publishJob = workflow.jobs.publish
-    const buildStepIndex = publishJob.steps.findIndex(
-      (step) => step.run && step.run.includes('npm run build')
+    const releaseJob = workflow.jobs.release
+    const changesetStep = releaseJob.steps.find(
+      (step) => step.uses && step.uses.includes('changesets/action')
     )
-    const publishStepIndex = publishJob.steps.findIndex(
-      (step) => step.run && step.run.includes('npm publish')
-    )
-
-    expect(buildStepIndex).toBeGreaterThanOrEqual(0)
-    expect(publishStepIndex).toBeGreaterThanOrEqual(0)
-    expect(buildStepIndex).toBeLessThan(publishStepIndex)
+    expect(changesetStep).toBeDefined()
+    expect(changesetStep.with.publish).toContain('npm run release:publish')
+    expect(pkg.scripts['release:publish']).toContain('npm run build')
   })
 
   it('should use npm ci with ignore-scripts for security', () => {
     const content = readFileSync(workflowPath, 'utf8')
     const workflow = load(content)
 
-    const publishJob = workflow.jobs.publish
-    const installStep = publishJob.steps.find((step) => step.run && step.run.includes('npm ci'))
+    const releaseJob = workflow.jobs.release
+    const installStep = releaseJob.steps.find((step) => step.run && step.run.includes('npm ci'))
     expect(installStep).toBeDefined()
     expect(installStep.run).toContain('--ignore-scripts')
   })

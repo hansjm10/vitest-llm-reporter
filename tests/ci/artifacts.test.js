@@ -95,12 +95,13 @@ describe('Artifact Management Validation', () => {
     const content = readFileSync(releaseWorkflowPath, 'utf8')
     const workflow = load(content)
 
-    const publishJob = workflow.jobs.publish
-    const buildStep = publishJob.steps.find(
-      (step) => step.run && step.run.includes('npm run build')
+    const releaseJob = workflow.jobs.release
+    const changesetStep = releaseJob.steps.find(
+      (step) => step.uses && step.uses.includes('changesets/action')
     )
 
-    expect(buildStep).toBeDefined()
+    expect(changesetStep).toBeDefined()
+    expect(changesetStep.with.publish).toContain('npm run release:publish')
   })
 
   it('should have timeout configuration for long-running jobs', () => {
