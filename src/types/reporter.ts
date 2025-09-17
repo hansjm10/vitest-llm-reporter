@@ -43,6 +43,8 @@ export interface LLMReporterConfig {
   includeSkippedTests?: boolean
   /** Capture console output for failing tests (default: true) */
   captureConsoleOnFailure?: boolean
+  /** Capture console output for successful tests (default: false) */
+  captureConsoleOnSuccess?: boolean
   /** Maximum bytes of console output to capture per test (default: 50000) */
   maxConsoleBytes?: number
   /** Maximum lines of console output to capture per test (default: 100) */

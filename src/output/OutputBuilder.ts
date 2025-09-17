@@ -12,7 +12,8 @@ import type {
   TestSummary,
   TestResult,
   TestFailure,
-  TestError
+  TestError,
+  TestSuccessLog
 } from '../types/schema.js'
 import type { SerializedError } from 'vitest'
 import type { OutputBuilderConfig, BuildOptions } from './types.js'
@@ -90,6 +91,10 @@ export class OutputBuilder {
     // Add skipped tests based on configuration
     if (this.shouldIncludeSkippedTests(options.testResults.skipped)) {
       output.skipped = options.testResults.skipped
+    }
+
+    if (options.testResults.successLogs.length > 0) {
+      output.successLogs = options.testResults.successLogs
     }
 
     // Apply late-stage truncation if enabled

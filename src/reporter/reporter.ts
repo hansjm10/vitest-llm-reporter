@@ -13,6 +13,7 @@ import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from '
 import type { FrameworkPresetName, LLMReporterConfig, StdioConfig } from '../types/reporter.js'
 import type { OrchestratorConfig } from '../events/types.js'
 import type { LLMReporterOutput, TestError } from '../types/schema.js'
+import { StdioFilterEvaluator } from '../console/stdio-filter.js'
 
 interface ResolvedStdioConfig {
   suppressStdout: boolean
@@ -35,6 +36,7 @@ interface ResolvedLLMReporterConfig
   includePassedTests: boolean
   includeSkippedTests: boolean
   captureConsoleOnFailure: boolean
+  captureConsoleOnSuccess: boolean
   maxConsoleBytes: number
   maxConsoleLines: number
   includeDebugOutput: boolean
@@ -125,6 +127,7 @@ export class LLMReporter implements Reporter {
   private performanceManager?: PerformanceManager
   // Stdio interceptor
   private stdioInterceptor?: StdioInterceptor
+  private stdioFilter: StdioFilterEvaluator
   private originalStdoutWrite?: typeof process.stdout.write
   private originalStderrWrite?: typeof process.stderr.write
   // Spinner state
@@ -209,6 +212,7 @@ export class LLMReporter implements Reporter {
       includePassedTests: config.includePassedTests ?? false,
       includeSkippedTests: config.includeSkippedTests ?? false,
       captureConsoleOnFailure: config.captureConsoleOnFailure ?? true,
+      captureConsoleOnSuccess: config.captureConsoleOnSuccess ?? false,
       maxConsoleBytes: config.maxConsoleBytes ?? 50_000,
       maxConsoleLines: config.maxConsoleLines ?? 100,
       includeDebugOutput: config.includeDebugOutput ?? false,
@@ -246,6 +250,11 @@ export class LLMReporter implements Reporter {
       fallbackToStderrOnBlocked: config.fallbackToStderrOnBlocked ?? true
     }
 
+    this.stdioFilter = new StdioFilterEvaluator(
+      stdioConfig.filterPattern,
+      stdioConfig.frameworkPresets ?? []
+    )
+
     // Initialize components
     this.stateManager = new StateManager()
     this.testExtractor = new TestCaseExtractor()
@@ -277,12 +286,15 @@ export class LLMReporter implements Reporter {
       this.contextBuilder,
       {
         captureConsoleOnFailure: this.config.captureConsoleOnFailure,
+        captureConsoleOnSuccess: this.config.captureConsoleOnSuccess,
         maxConsoleBytes: this.config.maxConsoleBytes,
         maxConsoleLines: this.config.maxConsoleLines,
         includeDebugOutput: this.config.includeDebugOutput,
         truncationConfig: this.config.truncation,
         deduplicationConfig: this.getDeduplicationConfig()
-      }
+      },
+      this.stdioFilter,
+      this.shouldFilterSuccessLogs()
     )
 
     // Initialize performance manager if enabled
@@ -428,6 +440,7 @@ export class LLMReporter implements Reporter {
     // Update orchestrator if console-related config changed
     const consoleConfigKeys = [
       'captureConsoleOnFailure',
+      'captureConsoleOnSuccess',
       'maxConsoleBytes',
       'maxConsoleLines',
       'includeDebugOutput',
@@ -435,6 +448,7 @@ export class LLMReporter implements Reporter {
     ]
     if (consoleConfigKeys.some((key) => key in partialConfig)) {
       orchestratorConfig.captureConsoleOnFailure = this.config.captureConsoleOnFailure
+      orchestratorConfig.captureConsoleOnSuccess = this.config.captureConsoleOnSuccess
       orchestratorConfig.maxConsoleBytes = this.config.maxConsoleBytes
       orchestratorConfig.maxConsoleLines = this.config.maxConsoleLines
       orchestratorConfig.includeDebugOutput = this.config.includeDebugOutput
@@ -449,6 +463,10 @@ export class LLMReporter implements Reporter {
 
     if (shouldUpdateOrchestrator) {
       this.orchestrator.updateConfig(orchestratorConfig)
+    }
+
+    if ('stdio' in partialConfig || 'captureConsoleOnSuccess' in partialConfig) {
+      this.refreshStdioFilter()
     }
   }
 
@@ -546,6 +564,10 @@ export class LLMReporter implements Reporter {
       const originalWriters = this.stdioInterceptor.getOriginalWriters()
       this.originalStdoutWrite = originalWriters.stdout
       this.originalStderrWrite = originalWriters.stderr
+    } else {
+      this.stdioInterceptor = undefined
+      this.originalStdoutWrite = undefined
+      this.originalStderrWrite = undefined
     }
   }
 
@@ -576,9 +598,27 @@ export class LLMReporter implements Reporter {
 
     if (changed) {
       this.config.stdio.frameworkPresets = Array.from(combined)
+      this.refreshStdioFilter()
     }
 
     this.debug('auto-detected stdio framework presets: %o', detected)
+  }
+
+  private refreshStdioFilter(): void {
+    const stdio = this.config.stdio
+    const presets = stdio.frameworkPresets ?? []
+    this.stdioFilter = new StdioFilterEvaluator(stdio.filterPattern, presets)
+    this.orchestrator?.updateStdioFilter(this.stdioFilter, this.shouldFilterSuccessLogs())
+  }
+
+  private shouldFilterSuccessLogs(): boolean {
+    const stdio = this.config.stdio
+    return (
+      this.config.captureConsoleOnSuccess &&
+      (stdio.suppressStdout ||
+        stdio.filterPattern !== undefined ||
+        (stdio.frameworkPresets?.length ?? 0) > 0)
+    )
   }
 
   private loadNearestPackageJson(rootDir?: string): Record<string, unknown> | undefined {

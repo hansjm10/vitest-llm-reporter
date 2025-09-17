@@ -20,6 +20,7 @@ export default defineConfig({
         'vitest-llm-reporter',
         {
           enableConsoleOutput: true,
+          captureConsoleOnSuccess: true,
           stdio: {
             suppressStdout: true,
             frameworkPresets: ['nest', 'next', 'fastify'],

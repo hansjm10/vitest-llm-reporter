@@ -13,6 +13,7 @@ export { ConsoleBuffer } from './buffer.js'
 export { ConsoleInterceptor } from './interceptor.js'
 export { ConsoleCapture, consoleCapture } from './capture.js'
 export { ConsoleMerger, consoleMerger } from './merge.js'
+export { StdioFilterEvaluator } from './stdio-filter.js'
 
 // Type exports
 export type {

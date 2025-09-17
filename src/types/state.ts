@@ -7,7 +7,7 @@
  * @module state-types
  */
 
-import type { TestResult, TestFailure } from './schema.js'
+import type { TestResult, TestFailure, TestSuccessLog } from './schema.js'
 
 /**
  * Configuration for StateManager
@@ -27,6 +27,8 @@ export interface TestResults {
   failed: TestFailure[]
   /** Tests that were skipped */
   skipped: TestResult[]
+  /** Console output from successful tests */
+  successLogs: TestSuccessLog[]
 }
 
 /**

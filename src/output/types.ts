@@ -1,4 +1,4 @@
-import type { TestResult, TestFailure } from '../types/schema.js'
+import type { TestResult, TestFailure, TestSuccessLog } from '../types/schema.js'
 import type { SerializedError } from 'vitest'
 import type { TruncationConfig } from '../types/reporter.js'
 
@@ -29,6 +29,7 @@ export interface BuildOptions {
     passed: TestResult[]
     failed: TestFailure[]
     skipped: TestResult[]
+    successLogs: TestSuccessLog[]
   }
   /** Test run duration in milliseconds */
   duration: number

@@ -21,6 +21,7 @@ import type { ConsoleEvent, ConsoleLevel } from '../types/schema.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import { consoleCapture } from '../console/index.js'
 import { consoleMerger } from '../console/merge.js'
+import { StdioFilterEvaluator } from '../console/stdio-filter.js'
 import { LogDeduplicator } from '../console/LogDeduplicator.js'
 import type { ILogDeduplicator } from '../types/deduplication.js'
 // Truncation handled by LateTruncator in OutputBuilder
@@ -42,6 +43,7 @@ export const DEFAULT_ORCHESTRATOR_CONFIG: Required<OrchestratorConfig> = {
   gracefulErrorHandling: true,
   logErrors: false,
   captureConsoleOnFailure: true,
+  captureConsoleOnSuccess: false,
   maxConsoleBytes: 50_000,
   maxConsoleLines: 100,
   includeDebugOutput: false,
@@ -92,6 +94,8 @@ export class EventOrchestrator {
   private deduplicator?: ILogDeduplicator
   private debug = coreLogger()
   private debugError = errorLogger()
+  private stdioFilter?: StdioFilterEvaluator
+  private filterSuccessLogs = false
   // Truncator removed - simplified truncation in OutputBuilder
 
   constructor(
@@ -100,7 +104,9 @@ export class EventOrchestrator {
     errorExtractor: ErrorExtractor,
     resultBuilder: TestResultBuilder,
     contextBuilder: ErrorContextBuilder,
-    config: OrchestratorConfig = {}
+    config: OrchestratorConfig = {},
+    stdioFilter?: StdioFilterEvaluator,
+    filterSuccessLogs = false
   ) {
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config }
     this.stateManager = stateManager
@@ -108,6 +114,8 @@ export class EventOrchestrator {
     this.errorExtractor = errorExtractor
     this.resultBuilder = resultBuilder
     this.contextBuilder = contextBuilder
+    this.stdioFilter = stdioFilter
+    this.filterSuccessLogs = filterSuccessLogs
 
     // Initialize deduplicator if config is provided
     if (this.config.deduplicationConfig) {
@@ -117,7 +125,7 @@ export class EventOrchestrator {
 
     // Configure console capture
     consoleCapture.updateConfig({
-      enabled: this.config.captureConsoleOnFailure,
+      enabled: this.config.captureConsoleOnFailure || this.config.captureConsoleOnSuccess,
       maxBytes: this.config.maxConsoleBytes,
       maxLines: this.config.maxConsoleLines,
       gracePeriodMs: 100,
@@ -252,10 +260,30 @@ export class EventOrchestrator {
 
     // Handle based on test state
     if (this.testExtractor.isPassedTest(extracted)) {
-      // Stop console capture for passed test (discard output)
-      if (extracted.id) {
+      let consoleEvents: ConsoleEvent[] | undefined
+
+      if (this.config.captureConsoleOnSuccess) {
+        const consoleFromTask = this.extractConsoleFromTask(testCase)
+        const captureResult = extracted.id ? consoleCapture.stopCapture(extracted.id) : undefined
+        const consoleFromCapture = captureResult?.entries
+        consoleEvents = consoleMerger.merge(consoleFromTask, consoleFromCapture)
+
+        const filtered = this.filterConsoleEventsForSuccess(consoleEvents)
+
+        if (
+          (filtered.events && filtered.events.length > 0) ||
+          filtered.suppressedLines > 0
+        ) {
+          const successLog = this.resultBuilder.buildSuccessLog(extracted, filtered.events, {
+            totalLines: filtered.totalLines,
+            suppressedLines: filtered.suppressedLines
+          })
+          this.stateManager.recordSuccessLog(successLog)
+        }
+      } else if (extracted.id) {
         consoleCapture.clearBuffer(extracted.id)
       }
+
       const result = this.resultBuilder.buildPassedTest(extracted)
       this.stateManager.recordPassedTest(result)
       this.unregisterTestFromStreaming(extracted.id)
@@ -445,6 +473,10 @@ export class EventOrchestrator {
     for (const failure of results.failed) {
       applyMetadata(failure.consoleEvents)
     }
+
+    for (const success of results.successLogs) {
+      applyMetadata(success.consoleEvents)
+    }
   }
 
   /**
@@ -453,7 +485,7 @@ export class EventOrchestrator {
    * @param log - The console log event from Vitest
    */
   public handleUserConsoleLog(log: UserConsoleLog): void {
-    if (!this.config.captureConsoleOnFailure) return
+    if (!(this.config.captureConsoleOnFailure || this.config.captureConsoleOnSuccess)) return
     const testId = log.taskId
     if (!testId) return
 
@@ -532,7 +564,7 @@ export class EventOrchestrator {
 
     // Propagate to console capture
     consoleCapture.updateConfig({
-      enabled: this.config.captureConsoleOnFailure,
+      enabled: this.config.captureConsoleOnFailure || this.config.captureConsoleOnSuccess,
       maxBytes: this.config.maxConsoleBytes,
       maxLines: this.config.maxConsoleLines,
       includeDebugOutput: this.config.includeDebugOutput
@@ -552,5 +584,75 @@ export class EventOrchestrator {
    */
   public updateErrorExtractor(errorExtractor: ErrorExtractor): void {
     this.errorExtractor = errorExtractor
+  }
+
+  /**
+   * Updates the stdio filter used for success console suppression
+   */
+  public updateStdioFilter(filter: StdioFilterEvaluator | undefined, filterSuccessLogs: boolean): void {
+    this.stdioFilter = filter
+    this.filterSuccessLogs = filterSuccessLogs
+  }
+
+  private filterConsoleEventsForSuccess(
+    consoleEvents?: ConsoleEvent[]
+  ): { events?: ConsoleEvent[]; totalLines: number; suppressedLines: number } {
+    if (!consoleEvents || consoleEvents.length === 0) {
+      return { events: consoleEvents, totalLines: 0, suppressedLines: 0 }
+    }
+
+    if (!this.filterSuccessLogs || !this.stdioFilter) {
+      return { events: consoleEvents, totalLines: 0, suppressedLines: 0 }
+    }
+
+    const filtered: ConsoleEvent[] = []
+    let totalLines = 0
+    let suppressedLines = 0
+
+    for (const event of consoleEvents) {
+      const originalText = event.text ?? ''
+      const hadTrailingNewline = originalText.endsWith('\n')
+      const segments = originalText.split('\n')
+      if (hadTrailingNewline && segments[segments.length - 1] === '') {
+        segments.pop()
+      }
+
+      const kept: string[] = []
+      for (const segment of segments) {
+        const normalized = segment.replace(/\r$/, '')
+        if (!normalized) {
+          continue
+        }
+        totalLines += 1
+        if (!this.stdioFilter.shouldSuppress(normalized)) {
+          kept.push(normalized)
+        } else {
+          suppressedLines += 1
+        }
+      }
+
+      if (kept.length === 0) {
+        continue
+      }
+
+      let text = kept.join('\n')
+      if (hadTrailingNewline) {
+        text += '\n'
+      }
+
+      const filteredEvent: ConsoleEvent = {
+        ...event,
+        text,
+        ...(event.message !== undefined ? { message: text } : {})
+      }
+
+      filtered.push(filteredEvent)
+    }
+
+    return {
+      events: filtered.length > 0 ? filtered : undefined,
+      totalLines,
+      suppressedLines
+    }
   }
 }

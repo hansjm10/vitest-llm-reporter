@@ -244,6 +244,7 @@ export default defineConfig({
 - `stdio.redirectToStderr`: Redirect filtered stdout to stderr for debugging (default: false)
 - `stdio.frameworkPresets`: Apply curated suppression presets for popular frameworks (e.g. `'nest'`, `'next'`, `'nuxt'`)
 - `stdio.autoDetectFrameworks`: Inspect `package.json`/environment to automatically load matching presets (default: false)
+- `captureConsoleOnSuccess`: Include console output from passing tests in the JSON `successLogs` section, with suppression stats (default: false)
 
 **Note:** The test progress spinner writes to stderr and continues to work unless stderr suppression is enabled.
 
@@ -269,9 +270,8 @@ Available presets: `nest`, `next`, `nuxt`, `angular`, `vite`, `fastify`, `expres
 👉 Check out the runnable [framework preset demo config](examples/framework-presets-demo/vitest.config.ts) for a complete
 Vitest setup that combines curated presets with a custom filter and per-test log deduplication. The demo also disables
 Vitest's silent console mode (`test.silent = false`) so the simulated framework banners would normally appear even on
-successful runs, making it easy to see the presets blocking them. One non-matching log
-(`✅ Reporter still surfaces regular test output`) is intentionally left visible so you can confirm stdout is otherwise
-unchanged.
+successful runs. A single non-matching log (`✅ Reporter still surfaces regular test output`) is captured and emitted in the
+`successLogs` section of the JSON output, along with a `suppressed` summary that shows how many framework lines were filtered.
 
 #### Auto-detect Frameworks
 Let the reporter inspect dependencies and enable presets automatically:

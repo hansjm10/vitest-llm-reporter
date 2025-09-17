@@ -7,8 +7,8 @@
  * @module console/stdio-interceptor
  */
 
-import type { FrameworkPresetName, StdioConfig, StdioFilter } from '../types/reporter.js'
-import { getFrameworkPresetPatterns } from './framework-log-presets.js'
+import type { FrameworkPresetName, StdioConfig } from '../types/reporter.js'
+import { StdioFilterEvaluator } from './stdio-filter.js'
 
 /** Internal representation of normalized stdio configuration */
 interface NormalizedStdioConfig {
@@ -47,7 +47,7 @@ type WriteFunction = typeof process.stdout.write
  */
 export class StdioInterceptor {
   private config: NormalizedStdioConfig
-  private readonly filterPredicates: ((line: string) => boolean)[] | null
+  private readonly filter: StdioFilterEvaluator
   private originalStdoutWrite?: WriteFunction
   private originalStderrWrite?: WriteFunction
   private stdoutLineBuffer = ''
@@ -78,7 +78,7 @@ export class StdioInterceptor {
       flushWithFiltering: config.flushWithFiltering ?? DEFAULT_CONFIG.flushWithFiltering
     }
 
-    this.filterPredicates = this.compileFilterPredicates(
+    this.filter = new StdioFilterEvaluator(
       this.config.filterPattern,
       this.config.frameworkPresets
     )
@@ -202,7 +202,7 @@ export class StdioInterceptor {
         const lineToTest = line.replace(/\r$/, '')
         const lineWithNewline = line + '\n'
 
-        if (!this.shouldSuppress(lineToTest)) {
+        if (!this.filter.shouldSuppress(lineToTest)) {
           // Pass through non-suppressed lines (bind to correct stream)
           const result = originalWrite.call(
             stream === 'stdout' ? process.stdout : process.stderr,
@@ -231,83 +231,6 @@ export class StdioInterceptor {
   }
 
   /**
-   * Compile the effective filter predicates from user supplied patterns and presets.
-   */
-  private compileFilterPredicates(
-    filterPattern: StdioConfig['filterPattern'],
-    frameworkPresets: FrameworkPresetName[]
-  ): ((line: string) => boolean)[] | null {
-    if (filterPattern === null) {
-      return null
-    }
-
-    const predicates: ((line: string) => boolean)[] = []
-    const seen = new Set<StdioFilter>()
-
-    const registerPattern = (pattern: StdioFilter): void => {
-      if (seen.has(pattern)) {
-        return
-      }
-      seen.add(pattern)
-      predicates.push(this.toPredicate(pattern))
-    }
-
-    for (const presetPattern of getFrameworkPresetPatterns(frameworkPresets)) {
-      registerPattern(presetPattern)
-    }
-
-    if (filterPattern !== undefined) {
-      const patterns = Array.isArray(filterPattern) ? filterPattern : [filterPattern]
-      for (const pattern of patterns) {
-        registerPattern(pattern)
-      }
-    }
-
-    return predicates
-  }
-
-  /** Convert a filter into a predicate function */
-  private toPredicate(pattern: StdioFilter): (line: string) => boolean {
-    if (typeof pattern === 'function') {
-      return pattern
-    }
-
-    return (line: string) => {
-      if (pattern.global || pattern.sticky) {
-        pattern.lastIndex = 0
-      }
-      return pattern.test(line)
-    }
-  }
-
-  /**
-   * Check if a line should be suppressed based on configuration
-   */
-  private shouldSuppress(line: string): boolean {
-    // In pure mode (null pattern), suppress everything
-    if (this.filterPredicates === null) {
-      return true
-    }
-
-    // If no patterns are configured, don't suppress anything
-    if (this.filterPredicates.length === 0) {
-      return false
-    }
-
-    for (const predicate of this.filterPredicates) {
-      try {
-        if (predicate(line)) {
-          return true
-        }
-      } catch {
-        // Ignore predicate errors and continue. We do not want to break stdout.
-      }
-    }
-
-    return false
-  }
-
-  /**
    * Flush any remaining buffered content
    */
   private flushBuffers(): void {
@@ -315,7 +238,7 @@ export class StdioInterceptor {
       if (this.config.flushWithFiltering) {
         // Apply filtering to the final partial line
         const lineToTest = this.stdoutLineBuffer.replace(/\r$/, '')
-        if (!this.shouldSuppress(lineToTest)) {
+        if (!this.filter.shouldSuppress(lineToTest)) {
           this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
         } else if (this.config.redirectToStderr && this.originalStderrWrite) {
           this.originalStderrWrite.call(process.stderr, this.stdoutLineBuffer)
@@ -331,7 +254,7 @@ export class StdioInterceptor {
       if (this.config.flushWithFiltering && this.config.suppressStderr) {
         // Apply filtering to the final partial line
         const lineToTest = this.stderrLineBuffer.replace(/\r$/, '')
-        if (!this.shouldSuppress(lineToTest)) {
+        if (!this.filter.shouldSuppress(lineToTest)) {
           this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
         }
       } else {
