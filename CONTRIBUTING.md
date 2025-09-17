@@ -117,11 +117,14 @@ We use ESLint and Prettier for consistent code style:
 
 ## Release Process
 
-Releases are automated via GitHub Actions:
+We use [Changesets](https://github.com/changesets/changesets) to automate versioning and publishing:
 
-1. Maintainer updates version in `package.json`
-2. Creates GitHub release with changelog
-3. CI automatically publishes to NPM
+1. For every user-facing change, run `npm run changeset` and follow the prompts to describe it.
+2. Commit the generated file in `.changeset/` alongside your code changes.
+3. When pending changesets land on `master`, the **Release** workflow opens a `chore: release` pull request that bumps versions and updates the changelog.
+4. Review and merge that pull request. The workflow will build, publish to npm, push tags, and create a GitHub release automatically.
+
+If you ever need to publish manually, ensure `NPM_TOKEN` is available and run `npm run release:publish` from the default branch after `npm ci`.
 
 ## Getting Help
 
