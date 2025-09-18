@@ -96,10 +96,18 @@ function getBaseEnvironment(): RuntimeEnvironmentSummary & {
     }
 
     cachedBaseEnvironment = base
+
+    return {
+      os: { ...base.os },
+      node: { ...base.node },
+      ...(base.vitest ? { vitest: { ...base.vitest } } : {}),
+      ...(base.ci !== undefined ? { ci: base.ci } : {}),
+      ...(base.packageManager ? { packageManager: base.packageManager } : {})
+    }
   }
 
   // Return a shallow copy to prevent external mutation of the cached instance
-  const cached = cachedBaseEnvironment!
+  const cached = cachedBaseEnvironment
   return {
     os: { ...cached.os },
     node: { ...cached.node },

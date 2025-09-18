@@ -18,7 +18,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -67,7 +67,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -119,7 +119,7 @@ describe('Security Validation Tests', () => {
             skipped: 0,
             duration: 100,
             timestamp: '2024-01-15T10:30:00Z',
-            environment: getRuntimeEnvironmentSummary(),
+            environment: getRuntimeEnvironmentSummary()
           },
           failures: [
             {
@@ -154,7 +154,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         __proto__: {
           polluted: true
@@ -269,7 +269,7 @@ describe('Security Validation Tests', () => {
         skipped: 0,
         duration: 100,
         timestamp: redosPattern,
-        environment: getRuntimeEnvironmentSummary(),
+        environment: getRuntimeEnvironmentSummary()
       }
 
       const result = isValidTestSummary(summary)
@@ -381,7 +381,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -435,7 +435,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 1000,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures
       }
@@ -460,7 +460,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -497,7 +497,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -532,7 +532,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -566,7 +566,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -607,7 +607,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -639,7 +639,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 0,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [],
         passed: [],
@@ -665,7 +665,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: Array.from({ length: 20 }, (_, i) => ({
           test: `x${i}`,
@@ -718,7 +718,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: largeArray
       }
@@ -739,7 +739,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -775,7 +775,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: []
       }
@@ -814,7 +814,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -849,7 +849,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: []
       }
@@ -862,7 +862,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -923,7 +923,7 @@ describe('Security Validation Tests', () => {
             skipped: 0,
             duration: 100,
             timestamp: '2024-01-15T10:30:00Z',
-            environment: getRuntimeEnvironmentSummary(),
+            environment: getRuntimeEnvironmentSummary()
           },
           failures: Array(6)
             .fill(null)
@@ -962,7 +962,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -994,7 +994,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         passed: [
           {
@@ -1025,7 +1025,7 @@ describe('Security Validation Tests', () => {
           skipped: 1,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -1083,7 +1083,7 @@ describe('Security Validation Tests', () => {
           skipped: 0,
           duration: 100,
           timestamp: '2024-01-15T10:30:00Z',
-          environment: getRuntimeEnvironmentSummary(),
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {

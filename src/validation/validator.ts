@@ -402,12 +402,20 @@ export class SchemaValidator {
     const envObj = createSafeObject(environment as Record<string, unknown>)
 
     if (!hasProperty(envObj, 'os') || !envObj.os || typeof envObj.os !== 'object') {
-      this.addError(context, ErrorMessages.TYPE_OBJECT(`${path}.os`, typeof envObj.os), `${path}.os`)
+      this.addError(
+        context,
+        ErrorMessages.TYPE_OBJECT(`${path}.os`, typeof envObj.os),
+        `${path}.os`
+      )
       return false
     }
 
     const osObj = createSafeObject(envObj.os as Record<string, unknown>)
-    const osStringFields: Array<keyof RuntimeEnvironmentSummary['os']> = ['platform', 'release', 'arch']
+    const osStringFields: Array<keyof RuntimeEnvironmentSummary['os']> = [
+      'platform',
+      'release',
+      'arch'
+    ]
     for (const field of osStringFields) {
       const value = osObj[field]
       if (typeof value !== 'string') {

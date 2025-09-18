@@ -343,23 +343,25 @@ export class JsonSanitizer {
     const osRaw = createSafeObject(safeEnv.os as Record<string, unknown>)
     const nodeRaw = createSafeObject(safeEnv.node as Record<string, unknown>)
 
+    const toSanitizedString = (value: unknown): string => (typeof value === 'string' ? value : '')
+
     const sanitized: RuntimeEnvironmentSummary = {
       os: {
-        platform: escapeJsonString(String(osRaw.platform ?? '')),
-        release: escapeJsonString(String(osRaw.release ?? '')),
-        arch: escapeJsonString(String(osRaw.arch ?? ''))
+        platform: escapeJsonString(toSanitizedString(osRaw.platform)),
+        release: escapeJsonString(toSanitizedString(osRaw.release)),
+        arch: escapeJsonString(toSanitizedString(osRaw.arch))
       },
       node: {
-        version: escapeJsonString(String(nodeRaw.version ?? ''))
+        version: escapeJsonString(toSanitizedString(nodeRaw.version))
       }
     }
 
     if (osRaw.version !== undefined) {
-      sanitized.os.version = escapeJsonString(String(osRaw.version))
+      sanitized.os.version = escapeJsonString(toSanitizedString(osRaw.version))
     }
 
     if (nodeRaw.runtime !== undefined) {
-      sanitized.node.runtime = escapeJsonString(String(nodeRaw.runtime))
+      sanitized.node.runtime = escapeJsonString(toSanitizedString(nodeRaw.runtime))
     }
 
     if (safeEnv.vitest) {
@@ -367,7 +369,7 @@ export class JsonSanitizer {
       const version = vitestRaw.version
       if (version !== undefined) {
         sanitized.vitest = {
-          version: escapeJsonString(String(version))
+          version: escapeJsonString(toSanitizedString(version))
         }
       }
     }
@@ -377,7 +379,7 @@ export class JsonSanitizer {
     }
 
     if (safeEnv.packageManager !== undefined) {
-      sanitized.packageManager = escapeJsonString(String(safeEnv.packageManager))
+      sanitized.packageManager = escapeJsonString(toSanitizedString(safeEnv.packageManager))
     }
 
     return sanitized
