@@ -230,6 +230,81 @@ describe('OutputBuilder', () => {
       expect(output.summary.skipped).toBe(0)
       expect(output.failures).toBeUndefined() // No failures array when empty
     })
+
+    it('should include runtime environment metadata in the summary', () => {
+      const builder = new OutputBuilder()
+
+      const output = builder.build({
+        testResults: {
+          passed: [],
+          failed: [],
+          skipped: [],
+          successLogs: []
+        },
+        duration: 0
+      })
+
+      expect(output.summary.environment).toBeDefined()
+      expect(output.summary.environment).toMatchObject({
+        os: {
+          platform: expect.any(String),
+          release: expect.any(String),
+          arch: expect.any(String)
+        },
+        node: {
+          version: expect.any(String)
+        }
+      })
+    })
+
+    it('should allow disabling optional environment fields', () => {
+      const builder = new OutputBuilder({
+        environmentMetadata: {
+          includeVitest: false,
+          includePackageManager: false,
+          includeCi: false,
+          includeNodeRuntime: false,
+          includeOsVersion: false
+        }
+      })
+
+      const output = builder.build({
+        testResults: {
+          passed: [],
+          failed: [],
+          skipped: [],
+          successLogs: []
+        },
+        duration: 0
+      })
+
+      expect(output.summary.environment).toBeDefined()
+      expect(output.summary.environment?.vitest).toBeUndefined()
+      expect(output.summary.environment?.packageManager).toBeUndefined()
+      expect(output.summary.environment?.ci).toBeUndefined()
+      expect(output.summary.environment?.node.runtime).toBeUndefined()
+      expect(output.summary.environment?.os.version).toBeUndefined()
+    })
+
+    it('should allow disabling environment metadata entirely', () => {
+      const builder = new OutputBuilder({
+        environmentMetadata: {
+          enabled: false
+        }
+      })
+
+      const output = builder.build({
+        testResults: {
+          passed: [],
+          failed: [],
+          skipped: [],
+          successLogs: []
+        },
+        duration: 0
+      })
+
+      expect(output.summary.environment).toBeUndefined()
+    })
   })
 
   describe('unhandled error conversion', () => {

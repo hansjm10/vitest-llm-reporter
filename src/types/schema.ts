@@ -20,6 +20,39 @@ export type AssertionValue =
   | unknown[]
 
 /**
+ * Runtime environment details captured alongside the summary
+ */
+export interface RuntimeEnvironmentSummary {
+  /** Operating system information */
+  os: {
+    /** Platform identifier (e.g., linux, darwin, win32) */
+    platform: string
+    /** OS release string (e.g., kernel version) */
+    release: string
+    /** CPU architecture */
+    arch: string
+    /** Optional OS version string when available */
+    version?: string
+  }
+  /** Node.js runtime information */
+  node: {
+    /** Normalized Node.js version */
+    version: string
+    /** Optional runtime identifier (e.g., node) */
+    runtime?: string
+  }
+  /** Vitest runtime metadata, when available */
+  vitest?: {
+    /** Installed vitest version */
+    version?: string
+  }
+  /** Indicates whether the reporter detected a CI environment */
+  ci?: boolean
+  /** Package manager identifier derived from npm_config_user_agent */
+  packageManager?: string
+}
+
+/**
  * High-level test run statistics
  */
 export interface TestSummary {
@@ -35,6 +68,8 @@ export interface TestSummary {
   duration: number
   /** ISO 8601 timestamp of test run */
   timestamp: string
+  /** Runtime environment metadata */
+  environment?: RuntimeEnvironmentSummary
 }
 
 /**

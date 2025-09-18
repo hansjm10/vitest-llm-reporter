@@ -15,7 +15,8 @@ import type {
   TestResult,
   TestError,
   ErrorContext,
-  AssertionValue
+  AssertionValue,
+  RuntimeEnvironmentSummary
 } from '../types/schema.js'
 import type { ValidationConfig, ValidationError, ValidationResult } from './types.js'
 
@@ -364,6 +365,12 @@ export class SchemaValidator {
       return false
     }
 
+    if (hasProperty(obj, 'environment') && obj.environment !== undefined) {
+      if (!this.isValidRuntimeEnvironment(obj.environment, context, `${path}.environment`)) {
+        return false
+      }
+    }
+
     // Validate total equals sum
     const total = obj.total as number
     const passed = obj.passed as number
@@ -375,6 +382,124 @@ export class SchemaValidator {
         context,
         `Total (${total}) must equal sum of passed (${passed}) + failed (${failed}) + skipped (${skipped})`,
         `${path}.total`
+      )
+      return false
+    }
+
+    return true
+  }
+
+  private isValidRuntimeEnvironment(
+    environment: unknown,
+    context: ValidationContext,
+    path: string
+  ): environment is RuntimeEnvironmentSummary {
+    if (!environment || typeof environment !== 'object' || environment === null) {
+      this.addError(context, ErrorMessages.TYPE_OBJECT(path, typeof environment), path, environment)
+      return false
+    }
+
+    const envObj = createSafeObject(environment as Record<string, unknown>)
+
+    if (!hasProperty(envObj, 'os') || !envObj.os || typeof envObj.os !== 'object') {
+      this.addError(context, ErrorMessages.TYPE_OBJECT(`${path}.os`, typeof envObj.os), `${path}.os`)
+      return false
+    }
+
+    const osObj = createSafeObject(envObj.os as Record<string, unknown>)
+    const osStringFields: Array<keyof RuntimeEnvironmentSummary['os']> = ['platform', 'release', 'arch']
+    for (const field of osStringFields) {
+      const value = osObj[field]
+      if (typeof value !== 'string') {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_STRING(`${path}.os.${field}`, typeof value),
+          `${path}.os.${field}`,
+          value
+        )
+        return false
+      }
+    }
+
+    if (osObj.version !== undefined && typeof osObj.version !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.os.version`, typeof osObj.version),
+        `${path}.os.version`,
+        osObj.version
+      )
+      return false
+    }
+
+    if (!hasProperty(envObj, 'node') || !envObj.node || typeof envObj.node !== 'object') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_OBJECT(`${path}.node`, typeof envObj.node),
+        `${path}.node`
+      )
+      return false
+    }
+
+    const nodeObj = createSafeObject(envObj.node as Record<string, unknown>)
+    if (typeof nodeObj.version !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.node.version`, typeof nodeObj.version),
+        `${path}.node.version`,
+        nodeObj.version
+      )
+      return false
+    }
+
+    if (nodeObj.runtime !== undefined && typeof nodeObj.runtime !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.node.runtime`, typeof nodeObj.runtime),
+        `${path}.node.runtime`,
+        nodeObj.runtime
+      )
+      return false
+    }
+
+    if (hasProperty(envObj, 'vitest') && envObj.vitest !== undefined) {
+      if (!envObj.vitest || typeof envObj.vitest !== 'object') {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_OBJECT(`${path}.vitest`, typeof envObj.vitest),
+          `${path}.vitest`,
+          envObj.vitest
+        )
+        return false
+      }
+
+      const vitestObj = createSafeObject(envObj.vitest as Record<string, unknown>)
+      if (vitestObj.version !== undefined && typeof vitestObj.version !== 'string') {
+        this.addError(
+          context,
+          ErrorMessages.TYPE_STRING(`${path}.vitest.version`, typeof vitestObj.version),
+          `${path}.vitest.version`,
+          vitestObj.version
+        )
+        return false
+      }
+    }
+
+    if (envObj.ci !== undefined && typeof envObj.ci !== 'boolean') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_BOOLEAN(`${path}.ci`, typeof envObj.ci),
+        `${path}.ci`,
+        envObj.ci
+      )
+      return false
+    }
+
+    if (envObj.packageManager !== undefined && typeof envObj.packageManager !== 'string') {
+      this.addError(
+        context,
+        ErrorMessages.TYPE_STRING(`${path}.packageManager`, typeof envObj.packageManager),
+        `${path}.packageManager`,
+        envObj.packageManager
       )
       return false
     }

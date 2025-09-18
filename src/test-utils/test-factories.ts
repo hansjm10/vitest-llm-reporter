@@ -6,6 +6,7 @@
  */
 
 import type { LLMReporterOutput, TestSummary, TestFailure, TestResult } from '../types/schema.js'
+import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
 
 /**
  * Creates a valid TestSummary with sensible defaults
@@ -19,6 +20,7 @@ export const createTestSummary = (overrides?: Partial<TestSummary>): TestSummary
   skipped: 0,
   duration: 1234,
   timestamp: '2024-01-15T10:30:00Z',
+  environment: getRuntimeEnvironmentSummary(),
   ...overrides
 })
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { JsonSanitizer } from './json-sanitizer.js'
 import type { LLMReporterOutput } from '../types/schema.js'
+import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
 
 describe('JsonSanitizer', () => {
   describe('Type Preservation', () => {
@@ -14,7 +15,8 @@ describe('JsonSanitizer', () => {
           failed: 1,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -63,7 +65,8 @@ describe('JsonSanitizer', () => {
           failed: 1,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -105,7 +108,8 @@ describe('JsonSanitizer', () => {
           failed: 1,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -150,7 +154,8 @@ describe('JsonSanitizer', () => {
           failed: 1,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -187,7 +192,8 @@ describe('JsonSanitizer', () => {
           failed: 0,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         passed: [
           {
@@ -217,7 +223,8 @@ describe('JsonSanitizer', () => {
           failed: 1,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -260,7 +267,8 @@ describe('JsonSanitizer', () => {
           failed: 0,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         passed: [
           {
@@ -287,7 +295,8 @@ describe('JsonSanitizer', () => {
           failed: 0,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         passed: [
           {
@@ -316,7 +325,8 @@ describe('JsonSanitizer', () => {
           failed: 1,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -372,7 +382,8 @@ describe('JsonSanitizer', () => {
           failed: 1,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -412,7 +423,8 @@ describe('JsonSanitizer', () => {
           failed: 1,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -446,7 +458,8 @@ describe('JsonSanitizer', () => {
           failed: 1,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {

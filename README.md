@@ -93,7 +93,24 @@ When all tests pass:
     "failed": 0,
     "skipped": 5,
     "duration": 5264,
-    "timestamp": "2025-08-28T14:06:21.581Z"
+    "timestamp": "2025-08-28T14:06:21.581Z",
+    "environment": {
+      "os": {
+        "platform": "linux",
+        "release": "6.6.20-200.fc39.x86_64",
+        "arch": "x64",
+        "version": "#1 SMP PREEMPT_DYNAMIC"
+      },
+      "node": {
+        "version": "20.12.2",
+        "runtime": "node"
+      },
+      "vitest": {
+        "version": "3.2.4"
+      },
+      "ci": false,
+      "packageManager": "npm@10.7.0"
+    }
   }
 }
 ```
@@ -108,7 +125,18 @@ When tests fail, detailed context is included:
     "failed": 1,
     "skipped": 4,
     "duration": 7294,
-    "timestamp": "2025-08-28T14:05:34.313Z"
+    "timestamp": "2025-08-28T14:05:34.313Z",
+    "environment": {
+      "os": {
+        "platform": "linux",
+        "release": "6.6.20-200.fc39.x86_64",
+        "arch": "x64"
+      },
+      "node": {
+        "version": "20.12.2"
+      },
+      "ci": false
+    }
   },
   "failures": [
     {
@@ -188,6 +216,31 @@ Control output content and size limits.
 - `includeStackString`: Preserve the raw stack string in addition to parsed frames (default: false)
 - `tokenCountingEnabled`: Collect token-counting metrics for custom pipelines (default: false)
 - `performance`: Enable memory/processing monitors for large suites (`enabled`, `cacheSize`, `memoryWarningThreshold`)
+
+### Environment Metadata
+The summary includes host metadata (OS, Node.js, Vitest version, package manager, CI flag) to help LLMs reason about failures. You can fine-tune or disable this via `environmentMetadata`:
+
+```ts
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    reporters: [
+      ['vitest-llm-reporter', {
+        environmentMetadata: {
+          includeVitest: false,
+          includePackageManager: false,
+          includeCi: false,
+          includeNodeRuntime: false,
+          includeOsVersion: false
+        }
+      }]
+    ]
+  }
+})
+```
+
+Set `environmentMetadata.enabled = false` to omit the block entirely.
 
 ### Spinner Behavior
 - Enabled automatically when running in a TTY outside CI (`stderr` stream)

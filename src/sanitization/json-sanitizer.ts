@@ -17,7 +17,8 @@ import type {
   AssertionValue,
   AssertionDetails,
   StackFrame,
-  ConsoleEvent
+  ConsoleEvent,
+  RuntimeEnvironmentSummary
 } from '../types/schema.js'
 import type { JsonSanitizerConfig } from './types.js'
 
@@ -63,10 +64,25 @@ export class JsonSanitizer {
     // Use createSafeObject to prevent prototype pollution
     const safeOutput = createSafeObject(output as unknown as Record<string, unknown>)
 
+    const summary = createSafeObject(safeOutput.summary as Record<string, unknown>)
+
+    const sanitizedSummary: LLMReporterOutput['summary'] = {
+      total: summary.total as number,
+      passed: summary.passed as number,
+      failed: summary.failed as number,
+      skipped: summary.skipped as number,
+      duration: summary.duration as number,
+      timestamp: escapeJsonString(String(summary.timestamp))
+    }
+
+    if (summary.environment) {
+      sanitizedSummary.environment = this.sanitizeEnvironment(
+        summary.environment as RuntimeEnvironmentSummary
+      )
+    }
+
     const sanitized: LLMReporterOutput = {
-      summary: {
-        ...(safeOutput.summary as Record<string, unknown>)
-      } as unknown as LLMReporterOutput['summary']
+      summary: sanitizedSummary
     }
 
     if (safeOutput.failures && Array.isArray(safeOutput.failures)) {
@@ -320,5 +336,50 @@ export class JsonSanitizer {
     return escapedPath.replace(/(?:^|\/)(?:Users|home)\/[^/]+/, (match) =>
       match.startsWith('/') ? '/Users/***' : 'Users/***'
     )
+  }
+
+  private sanitizeEnvironment(environment: RuntimeEnvironmentSummary): RuntimeEnvironmentSummary {
+    const safeEnv = createSafeObject(environment as unknown as Record<string, unknown>)
+    const osRaw = createSafeObject(safeEnv.os as Record<string, unknown>)
+    const nodeRaw = createSafeObject(safeEnv.node as Record<string, unknown>)
+
+    const sanitized: RuntimeEnvironmentSummary = {
+      os: {
+        platform: escapeJsonString(String(osRaw.platform ?? '')),
+        release: escapeJsonString(String(osRaw.release ?? '')),
+        arch: escapeJsonString(String(osRaw.arch ?? ''))
+      },
+      node: {
+        version: escapeJsonString(String(nodeRaw.version ?? ''))
+      }
+    }
+
+    if (osRaw.version !== undefined) {
+      sanitized.os.version = escapeJsonString(String(osRaw.version))
+    }
+
+    if (nodeRaw.runtime !== undefined) {
+      sanitized.node.runtime = escapeJsonString(String(nodeRaw.runtime))
+    }
+
+    if (safeEnv.vitest) {
+      const vitestRaw = createSafeObject(safeEnv.vitest as Record<string, unknown>)
+      const version = vitestRaw.version
+      if (version !== undefined) {
+        sanitized.vitest = {
+          version: escapeJsonString(String(version))
+        }
+      }
+    }
+
+    if (safeEnv.ci !== undefined) {
+      sanitized.ci = Boolean(safeEnv.ci)
+    }
+
+    if (safeEnv.packageManager !== undefined) {
+      sanitized.packageManager = escapeJsonString(String(safeEnv.packageManager))
+    }
+
+    return sanitized
   }
 }

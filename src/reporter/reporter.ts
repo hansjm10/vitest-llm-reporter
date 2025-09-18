@@ -14,7 +14,8 @@ import type {
   FrameworkPresetName,
   LLMReporterConfig,
   StdioConfig,
-  TruncationConfig
+  TruncationConfig,
+  EnvironmentMetadataConfig
 } from '../types/reporter.js'
 import type { OrchestratorConfig } from '../events/types.js'
 import type { LLMReporterOutput, TestError } from '../types/schema.js'
@@ -83,6 +84,7 @@ interface ResolvedLLMReporterConfig
         scope?: 'global' | 'per-test'
       }
     | undefined
+  environmentMetadata: EnvironmentMetadataConfig | undefined
 }
 
 // Import new components
@@ -106,6 +108,7 @@ import type { DeduplicationConfig } from '../types/deduplication.js'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { isTTY, isCI } from '../utils/environment.js'
+import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
 import {
   PerformanceManager,
   createPerformanceManager,
@@ -247,7 +250,8 @@ export class LLMReporter implements Reporter {
       pureStdout: config.pureStdout ?? false,
       stdio: stdioConfig,
       warnWhenConsoleBlocked: config.warnWhenConsoleBlocked ?? true,
-      fallbackToStderrOnBlocked: config.fallbackToStderrOnBlocked ?? true
+      fallbackToStderrOnBlocked: config.fallbackToStderrOnBlocked ?? true,
+      environmentMetadata: config.environmentMetadata ?? undefined
     }
 
     this.stdioFilter = new StdioFilterEvaluator(
@@ -275,7 +279,8 @@ export class LLMReporter implements Reporter {
       includeStackString: this.config.includeStackString,
       includeAbsolutePaths: this.config.includeAbsolutePaths,
       rootDir: process.cwd(),
-      truncation: this.config.truncation
+      truncation: this.config.truncation,
+      environmentMetadata: this.config.environmentMetadata
     })
     this.outputWriter = new OutputWriter()
 
@@ -350,6 +355,25 @@ export class LLMReporter implements Reporter {
       if (typeof config.deduplicateLogs === 'object' && config.deduplicateLogs !== null) {
         // Delegate to centralized validation
         validateDeduplicationConfig(config.deduplicateLogs)
+      }
+    }
+
+    if (config.environmentMetadata) {
+      const metadata = config.environmentMetadata
+      const booleanKeys: Array<keyof EnvironmentMetadataConfig> = [
+        'enabled',
+        'includeOsVersion',
+        'includeNodeRuntime',
+        'includeVitest',
+        'includeCi',
+        'includePackageManager'
+      ]
+
+      for (const key of booleanKeys) {
+        const value = metadata[key]
+        if (value !== undefined && typeof value !== 'boolean') {
+          throw new Error(`environmentMetadata.${key.toString()} must be a boolean`)
+        }
       }
     }
   }
@@ -527,6 +551,10 @@ export class LLMReporter implements Reporter {
     }
     if ('truncation' in partialConfig) {
       outputBuilderConfig.truncation = this.config.truncation
+      shouldUpdateOutputBuilder = true
+    }
+    if ('environmentMetadata' in partialConfig) {
+      outputBuilderConfig.environmentMetadata = this.config.environmentMetadata
       shouldUpdateOutputBuilder = true
     }
 
@@ -958,6 +986,7 @@ export class LLMReporter implements Reporter {
       } catch (buildError) {
         this.debugError('Error building output: %O', buildError)
         // Create minimal output if builder fails
+        const environment = getRuntimeEnvironmentSummary(this.config.environmentMetadata)
         this.output = {
           summary: {
             total: 0,
@@ -965,7 +994,8 @@ export class LLMReporter implements Reporter {
             failed: 0,
             skipped: 0,
             duration: 0,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            ...(environment ? { environment } : {})
           }
         }
       }
