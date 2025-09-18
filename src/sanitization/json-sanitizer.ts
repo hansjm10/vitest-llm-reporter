@@ -287,7 +287,7 @@ export class JsonSanitizer {
   private sanitizeConsoleEvent(event: ConsoleEvent): ConsoleEvent {
     const sanitized: ConsoleEvent = {
       level: event.level,
-      text: escapeJsonString(event.text)
+      message: escapeJsonString(event.message)
     }
 
     if (event.timestampMs !== undefined) {

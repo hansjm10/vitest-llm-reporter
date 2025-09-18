@@ -93,7 +93,7 @@ export class ConsoleMerger {
     for (const event of events) {
       // Skip if it's an exact duplicate of the previous event
       if (previous && this.areEventsEqual(previous, event)) {
-        this.debug('Skipping duplicate event: %s', event.text)
+        this.debug('Skipping duplicate event: %s', event.message)
         continue
       }
       deduplicated.push(event)
@@ -125,20 +125,20 @@ export class ConsoleMerger {
     }
 
     // Compare normalized text
-    return this.normalizeText(a.text) === this.normalizeText(b.text)
+    return this.normalizeText(a.message) === this.normalizeText(b.message)
   }
 
   /**
-   * Normalize event text for comparison
+   * Normalize event message for comparison
    * Removes timestamps and excessive whitespace
    * Uses caching to avoid re-normalizing the same strings
    *
-   * @param text - Event text to normalize
+   * @param text - Event message to normalize
    * @returns Normalized text
    */
-  private normalizeText(text: string): string {
+  private normalizeText(message: string): string {
     return (
-      text
+      message
         // Remove timestamp prefixes like [123ms]
         .replace(/^\[\d+(?:ms)?\]\s*/, '')
         // Remove ISO timestamps

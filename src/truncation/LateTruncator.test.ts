@@ -88,7 +88,7 @@ describe('LateTruncator', () => {
         for (let j = 0; j < logCount; j++) {
           events.push({
             level: 'log' as const,
-            text: `Log message ${j + 1} from test ${i + 1}`,
+            message: `Log message ${j + 1} from test ${i + 1}`,
             timestampMs: j * 10
           })
         }
@@ -97,7 +97,7 @@ describe('LateTruncator', () => {
         for (let j = 0; j < Math.floor(logCount / 2); j++) {
           events.push({
             level: 'error' as const,
-            text: `Error ${j + 1} from test ${i + 1}`,
+            message: `Error ${j + 1} from test ${i + 1}`,
             timestampMs: (logCount + j) * 10
           })
         }
@@ -106,7 +106,7 @@ describe('LateTruncator', () => {
         for (let j = 0; j < Math.floor(logCount / 4); j++) {
           events.push({
             level: 'warn' as const,
-            text: `Warning ${j + 1} from test ${i + 1}`,
+            message: `Warning ${j + 1} from test ${i + 1}`,
             timestampMs: (logCount * 1.5 + j) * 10
           })
         }
@@ -115,7 +115,7 @@ describe('LateTruncator', () => {
         for (let j = 0; j < Math.floor(logCount / 4); j++) {
           events.push({
             level: 'info' as const,
-            text: `Info ${j + 1} from test ${i + 1}`,
+            message: `Info ${j + 1} from test ${i + 1}`,
             timestampMs: (logCount * 1.75 + j) * 10
           })
         }
@@ -124,7 +124,7 @@ describe('LateTruncator', () => {
         for (let j = 0; j < Math.floor(logCount / 10); j++) {
           events.push({
             level: 'debug' as const,
-            text: `Debug ${j + 1} from test ${i + 1}`,
+            message: `Debug ${j + 1} from test ${i + 1}`,
             timestampMs: (logCount * 2 + j) * 10
           })
         }
@@ -293,12 +293,12 @@ describe('LateTruncator', () => {
         const warnEvents = events.filter((e) => e.level === 'warn')
 
         if (infoEvents.length > 0) {
-          const infoText = infoEvents.map((e) => e.text).join('\n')
+          const infoText = infoEvents.map((e) => e.message).join('\n')
           expect(infoText.length).toBeLessThanOrEqual(150) // Rough check for capping
         }
 
         if (warnEvents.length > 0) {
-          const warnText = warnEvents.map((e) => e.text).join('\n')
+          const warnText = warnEvents.map((e) => e.message).join('\n')
           expect(warnText.length).toBeLessThanOrEqual(150)
         }
       })
@@ -317,7 +317,7 @@ describe('LateTruncator', () => {
         const errorEvents = events.filter((e) => e.level === 'error')
         expect(errorEvents.length).toBeGreaterThan(0)
         if (errorEvents.length > 0) {
-          const errorText = errorEvents.map((e) => e.text).join('\n')
+          const errorText = errorEvents.map((e) => e.message).join('\n')
           expect(errorText.length).toBeGreaterThan(0)
         }
       })

@@ -47,8 +47,12 @@ describe('ConsoleCapture', () => {
 
       expect(output).toBeDefined()
       expect(output.entries).toBeInstanceOf(Array)
-      expect(output.entries.some((e) => e.level === 'log' && e.text === 'Test output')).toBe(true)
-      expect(output.entries.some((e) => e.level === 'error' && e.text === 'Test error')).toBe(true)
+      expect(output.entries.some((e) => e.level === 'log' && e.message === 'Test output')).toBe(
+        true
+      )
+      expect(output.entries.some((e) => e.level === 'error' && e.message === 'Test error')).toBe(
+        true
+      )
     })
 
     it('should not capture output when disabled', () => {
@@ -82,17 +86,17 @@ describe('ConsoleCapture', () => {
       const output1 = capture.stopCapture(test1)
       const output2 = capture.stopCapture(test2)
 
-      expect(output1.entries.some((e) => e.level === 'log' && e.text === 'Test 1 output')).toBe(
+      expect(output1.entries.some((e) => e.level === 'log' && e.message === 'Test 1 output')).toBe(
         true
       )
-      expect(output1.entries.some((e) => e.level === 'log' && e.text === 'Test 2 output')).toBe(
+      expect(output1.entries.some((e) => e.level === 'log' && e.message === 'Test 2 output')).toBe(
         false
       )
 
-      expect(output2.entries.some((e) => e.level === 'log' && e.text === 'Test 2 output')).toBe(
+      expect(output2.entries.some((e) => e.level === 'log' && e.message === 'Test 2 output')).toBe(
         true
       )
-      expect(output2.entries.some((e) => e.level === 'log' && e.text === 'Test 1 output')).toBe(
+      expect(output2.entries.some((e) => e.level === 'log' && e.message === 'Test 1 output')).toBe(
         false
       )
     })
@@ -113,7 +117,7 @@ describe('ConsoleCapture', () => {
       await new Promise((resolve) => setTimeout(resolve, 15))
 
       const output = capture.stopCapture(testId)
-      const messages = output.entries.map((event) => event.text)
+      const messages = output.entries.map((event) => event.message)
       expect(messages).toContain('Immediate log')
       expect(messages).toContain('Deferred log')
     })
@@ -131,7 +135,7 @@ describe('ConsoleCapture', () => {
           await new Promise((resolve) => setTimeout(resolve, Math.random() * 10))
           const output = capture.stopCapture(testId)
           const logEvents = output.entries.filter((e) => e.level === 'log')
-          results.set(i, logEvents[0]?.text || '')
+          results.set(i, logEvents[0]?.message || '')
         })
       })
 
@@ -165,7 +169,7 @@ describe('ConsoleCapture', () => {
       expect(output).toBeDefined()
       expect(output.entries.length).toBeGreaterThan(0)
       // Should have truncation event
-      const truncationEvent = output.entries.find((e) => e.text.includes('truncated'))
+      const truncationEvent = output.entries.find((e) => e.message.includes('truncated'))
       expect(truncationEvent).toBeDefined()
       expect(truncationEvent?.level).toBe('warn')
     })
@@ -191,11 +195,11 @@ describe('ConsoleCapture', () => {
       const logEvents = output.entries.filter((e) => e.level === 'log')
       // Should have at most 3 lines (might have truncation message as 4th)
       expect(output.entries.length).toBeLessThanOrEqual(4)
-      expect(logEvents.some((e) => e.text === 'Line 1')).toBe(true)
-      expect(logEvents.some((e) => e.text === 'Line 2')).toBe(true)
-      expect(logEvents.some((e) => e.text === 'Line 3')).toBe(true)
+      expect(logEvents.some((e) => e.message === 'Line 1')).toBe(true)
+      expect(logEvents.some((e) => e.message === 'Line 2')).toBe(true)
+      expect(logEvents.some((e) => e.message === 'Line 3')).toBe(true)
       // Line 4 and 5 should not be in the first 3 entries
-      const firstThreeTexts = logEvents.slice(0, 3).map((e) => e.text)
+      const firstThreeTexts = logEvents.slice(0, 3).map((e) => e.message)
       expect(firstThreeTexts).not.toContain('Line 4 - should not be captured')
       expect(firstThreeTexts).not.toContain('Line 5 - should not be captured')
     })
@@ -255,13 +259,19 @@ describe('ConsoleCapture', () => {
 
       const output = capture.stopCapture(testId)
 
-      expect(output.entries.some((e) => e.level === 'log' && e.text === 'Log message')).toBe(true)
-      expect(output.entries.some((e) => e.level === 'error' && e.text === 'Error message')).toBe(
+      expect(output.entries.some((e) => e.level === 'log' && e.message === 'Log message')).toBe(
         true
       )
-      expect(output.entries.some((e) => e.level === 'warn' && e.text === 'Warn message')).toBe(true)
-      expect(output.entries.some((e) => e.level === 'info' && e.text === 'Info message')).toBe(true)
-      expect(output.entries.some((e) => e.level === 'debug' && e.text === 'Debug message')).toBe(
+      expect(output.entries.some((e) => e.level === 'error' && e.message === 'Error message')).toBe(
+        true
+      )
+      expect(output.entries.some((e) => e.level === 'warn' && e.message === 'Warn message')).toBe(
+        true
+      )
+      expect(output.entries.some((e) => e.level === 'info' && e.message === 'Info message')).toBe(
+        true
+      )
+      expect(output.entries.some((e) => e.level === 'debug' && e.message === 'Debug message')).toBe(
         true
       )
     })
@@ -278,9 +288,9 @@ describe('ConsoleCapture', () => {
       const output = capture.stopCapture(testId)
 
       const logEvents = output.entries.filter((e) => e.level === 'log')
-      expect(logEvents[0]?.text).toContain('key')
-      expect(logEvents[0]?.text).toContain('value')
-      expect(logEvents[1]?.text).toContain('item1')
+      expect(logEvents[0]?.message).toContain('key')
+      expect(logEvents[0]?.message).toContain('value')
+      expect(logEvents[1]?.message).toContain('item1')
     })
 
     it('should handle circular references', () => {
@@ -297,7 +307,7 @@ describe('ConsoleCapture', () => {
       const output = capture.stopCapture(testId)
 
       const logEvents = output.entries.filter((e) => e.level === 'log')
-      expect(logEvents[0]?.text).toContain('[Circular')
+      expect(logEvents[0]?.message).toContain('[Circular')
     })
   })
 

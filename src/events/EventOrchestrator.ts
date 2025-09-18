@@ -383,7 +383,7 @@ export class EventOrchestrator {
       // Create the event
       const event: ConsoleEvent = {
         level,
-        text: content,
+        message: content,
         origin: 'task'
       }
 
@@ -432,7 +432,7 @@ export class EventOrchestrator {
       }
 
       for (const event of events) {
-        const message = event.message ?? event.text
+        const { message } = event
         if (!message) {
           continue
         }
@@ -446,7 +446,6 @@ export class EventOrchestrator {
         const metadata = deduplicator.getMetadata(key)
 
         if (metadata && metadata.count > 1) {
-          event.message = message
           let sources: string[] | undefined
           if (metadata.sources.size > 0) {
             sources = Array.from(metadata.sources)
@@ -612,9 +611,9 @@ export class EventOrchestrator {
     let suppressedLines = 0
 
     for (const event of consoleEvents) {
-      const originalText = event.text ?? ''
-      const hadTrailingNewline = originalText.endsWith('\n')
-      const segments = originalText.split('\n')
+      const originalMessage = event.message ?? ''
+      const hadTrailingNewline = originalMessage.endsWith('\n')
+      const segments = originalMessage.split('\n')
       if (hadTrailingNewline && segments[segments.length - 1] === '') {
         segments.pop()
       }
@@ -637,15 +636,14 @@ export class EventOrchestrator {
         continue
       }
 
-      let text = kept.join('\n')
+      let message = kept.join('\n')
       if (hadTrailingNewline) {
-        text += '\n'
+        message += '\n'
       }
 
       const filteredEvent: ConsoleEvent = {
         ...event,
-        text,
-        ...(event.message !== undefined ? { message: text } : {})
+        message
       }
 
       filtered.push(filteredEvent)

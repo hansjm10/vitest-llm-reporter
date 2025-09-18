@@ -151,7 +151,7 @@ export class ConsoleCapture {
     if (deduplicator?.isEnabled()) {
       const entriesWithMetadata = events.map((event) => {
         const logEntry = {
-          message: event.text,
+          message: event.message,
           level: event.level,
           timestamp: new Date(),
           testId: event.testId ?? testId
@@ -161,7 +161,6 @@ export class ConsoleCapture {
 
         return {
           ...event,
-          message: event.text,
           deduplication:
             metadata && metadata.count > 1
               ? {
@@ -180,8 +179,7 @@ export class ConsoleCapture {
 
     return {
       entries: events.map((event) => ({
-        ...event,
-        message: event.text
+        ...event
       }))
     }
   }

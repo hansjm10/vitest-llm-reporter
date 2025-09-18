@@ -151,7 +151,7 @@ When tests fail, detailed context is included:
       "consoleEvents": [
         {
           "level": "error",
-          "text": "Tax calculation failed\n",
+          "message": "Tax calculation failed\n",
           "origin": "task"
         }
       ]
