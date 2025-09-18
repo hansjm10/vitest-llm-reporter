@@ -496,7 +496,8 @@ export class EventOrchestrator {
     const method: ConsoleMethod = log.type === 'stderr' ? 'error' : 'log'
 
     try {
-      consoleCapture.ingest(testId, method, [log.content])
+      const timestamp = typeof log.time === 'number' ? log.time : undefined
+      consoleCapture.ingest(testId, method, [log.content], { timestamp })
     } catch (error) {
       this.debugError('Failed to ingest console log: %O', error)
     }

@@ -40,6 +40,7 @@ export class ConsoleCapture {
   private cleanupTimers = new Map<string, ReturnType<typeof globalThis.setTimeout>>()
   // Track test generation to prevent race conditions in cleanup
   private testGeneration = new Map<string, number>()
+  private testStartTimes = new Map<string, number>()
   public deduplicator?: ILogDeduplicator
 
   constructor(config: ConsoleCaptureConfig & { deduplicator?: ILogDeduplicator } = {}) {
@@ -50,9 +51,15 @@ export class ConsoleCapture {
   /**
    * Start capturing console output for a test
    */
-  startCapture(testId: string, forceNew = false): void {
+  startCapture(testId: string, forceNew = false, startTime?: number): void {
     if (!this.config.enabled) {
       return
+    }
+
+    if (startTime !== undefined) {
+      this.testStartTimes.set(testId, startTime)
+    } else if (!this.testStartTimes.has(testId) || forceNew) {
+      this.testStartTimes.set(testId, Date.now())
     }
 
     // Clear any existing timer for this test first
@@ -111,7 +118,7 @@ export class ConsoleCapture {
     }
 
     // Start capturing for this test
-    this.startCapture(testId)
+    this.startCapture(testId, false, context.startTime)
 
     // AsyncLocalStorage.run() automatically cleans up the context after the callback completes
     // This happens even if the callback throws an error
@@ -194,6 +201,7 @@ export class ConsoleCapture {
       buffer.clear()
       this.buffers.delete(testId)
     }
+    this.testStartTimes.delete(testId)
   }
 
   /**
@@ -310,6 +318,7 @@ export class ConsoleCapture {
       buffer.clear()
     }
     this.buffers.clear()
+    this.testStartTimes.clear()
 
     // Clear generation tracking to prevent memory leaks in watch mode
     this.testGeneration.clear()
@@ -339,7 +348,7 @@ export class ConsoleCapture {
     }
 
     // Start capturing for this test
-    this.startCapture(testId)
+    this.startCapture(testId, false, context.startTime)
 
     // Run with context so console methods are captured
     this.testContext.run(context, () => {
@@ -353,12 +362,38 @@ export class ConsoleCapture {
   /**
    * Ingest a console event coming from reporter hooks (no AsyncLocalStorage context)
    */
-  ingest(testId: string, method: ConsoleMethod, args: unknown[], elapsed?: number): void {
+  ingest(
+    testId: string,
+    method: ConsoleMethod,
+    args: unknown[],
+    elapsedOrMetadata?: number | { elapsed?: number; timestamp?: number }
+  ): void {
     if (!this.config.enabled) return
 
     // Respect debug/trace filtering
     if (!this.config.includeDebugOutput && (method === 'debug' || method === 'trace')) {
       return
+    }
+
+    let elapsed: number | undefined
+    let explicitTimestamp: number | undefined
+
+    if (typeof elapsedOrMetadata === 'object' && elapsedOrMetadata !== null) {
+      elapsed = elapsedOrMetadata.elapsed
+      explicitTimestamp = elapsedOrMetadata.timestamp
+    } else {
+      elapsed = elapsedOrMetadata
+    }
+
+    const testStartTime = this.testStartTimes.get(testId)
+    let dedupeTimestamp: number
+
+    if (explicitTimestamp !== undefined) {
+      dedupeTimestamp = explicitTimestamp
+    } else if (elapsed !== undefined && testStartTime !== undefined) {
+      dedupeTimestamp = testStartTime + elapsed
+    } else {
+      dedupeTimestamp = Date.now()
     }
 
     let deduplicationKey: string | undefined
@@ -369,7 +404,7 @@ export class ConsoleCapture {
       const logEntry = {
         message,
         level: method,
-        timestamp: new Date(),
+        timestamp: new Date(dedupeTimestamp),
         testId
       }
 
@@ -387,7 +422,7 @@ export class ConsoleCapture {
       this.buffers.set(testId, buffer)
     }
 
-    buffer.add(method, args, elapsed, 'task', false, deduplicationKey, testId)
+    buffer.add(method, args, dedupeTimestamp, 'task', false, deduplicationKey, testId)
   }
 
   /**
