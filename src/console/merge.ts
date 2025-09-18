@@ -12,7 +12,6 @@ import { createLogger } from '../utils/logger.js'
 
 export class ConsoleMerger {
   private debug = createLogger('console-merger')
-  private normalizationCache = new Map<string, string>()
 
   /**
    * Merge console events from multiple sources
@@ -131,7 +130,6 @@ export class ConsoleMerger {
   /**
    * Normalize event message for comparison
    * Removes timestamps and excessive whitespace
-   * Uses caching to avoid re-normalizing the same strings
    *
    * @param text - Event message to normalize
    * @returns Normalized text
