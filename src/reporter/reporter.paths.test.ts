@@ -249,6 +249,30 @@ describe('Reporter Path Hygiene', () => {
       }
     })
 
+    it('should include absolute paths for unhandled errors when configured', async () => {
+      const reporterWithAbsolute = new LLMReporter({ includeAbsolutePaths: true })
+      reporterWithAbsolute.onInit(mockVitest as Vitest)
+      reporterWithAbsolute.onTestRunStart([])
+
+      const unhandledError = {
+        name: 'Error',
+        message: 'Unhandled import failure',
+        stack: `Error: Unhandled import failure\n  at loadSetup (/home/project/src/setup.ts:12:3)`
+      }
+
+      await reporterWithAbsolute.onTestRunEnd([], [unhandledError as any], 'failed')
+
+      const output = reporterWithAbsolute.getOutput()
+      expect(output).toBeDefined()
+      expect(output!.failures).toBeDefined()
+      const failure = output!.failures![0]
+
+      expect(failure.error.stackFrames).toBeDefined()
+      const frame = failure.error.stackFrames![0]
+      expect(frame.fileRelative).toBe('src/setup.ts')
+      expect(frame.fileAbsolute).toBe('/home/project/src/setup.ts')
+    })
+
     it('should handle Windows-style paths', async () => {
       const windowsVitest = {
         config: {

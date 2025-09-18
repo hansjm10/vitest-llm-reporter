@@ -18,6 +18,10 @@ export interface OutputBuilderConfig {
   truncation?: TruncationConfig
   /** Whether to include raw stack strings in error output */
   includeStackString?: boolean
+  /** Whether to include absolute paths in error output */
+  includeAbsolutePaths?: boolean
+  /** Root directory used for repo-relative path conversion */
+  rootDir?: string
 }
 
 /**
