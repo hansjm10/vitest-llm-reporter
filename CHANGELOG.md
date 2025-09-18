@@ -1,5 +1,17 @@
 # vitest-llm-reporter
 
+## 1.1.0
+
+### Minor Changes
+
+- 611acd5: Add richer environment metadata to the summary and expose configuration switches to trim or disable individual fields.
+
+### Patch Changes
+
+- 3dcb97c: Fix teardown error accounting to keep summary totals consistent.
+- 8ff87e6: Ensure `includeAbsolutePaths` propagates to unhandled errors so their stack frames retain absolute paths.
+- 4412ed7: Preserve Vitest log timestamps when routing console events so log ordering and dedup heuristics remain stable.
+
 ## 1.0.0
 
 ### Major Changes
