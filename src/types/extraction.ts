@@ -85,6 +85,8 @@ export interface ExtractionConfig {
     duration?: number
     state?: string
   }
+  /** Root directory used to resolve relative file paths */
+  rootDir?: string
 }
 
 /**

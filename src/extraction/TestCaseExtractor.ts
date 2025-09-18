@@ -9,6 +9,7 @@
 
 import type { TestCaseData } from '../types/reporter-internal.js'
 import type { ExtractedTestCase, ExtractionConfig } from '../types/extraction.js'
+import { TestEndResolver } from './TestEndResolver.js'
 import { extractSuiteNames } from '../utils/suites.js'
 
 /**
@@ -37,16 +38,39 @@ export const DEFAULT_EXTRACTION_CONFIG: ExtractionConfig = {
  * const extracted = extractor.extract(rawTestCase);
  * ```
  */
+type ExtractionDefaults = Required<NonNullable<ExtractionConfig['defaults']>>
+
 export class TestCaseExtractor {
-  private config: Required<ExtractionConfig>
+  private config: {
+    defaults: ExtractionDefaults
+    rootDir: string
+  }
+  private endResolver: TestEndResolver
 
   constructor(config: ExtractionConfig = {}) {
-    this.config = {
-      defaults: {
-        ...DEFAULT_EXTRACTION_CONFIG.defaults,
-        ...config.defaults
-      }
+    const baseDefaults: ExtractionDefaults = {
+      name: DEFAULT_EXTRACTION_CONFIG.defaults?.name ?? 'Unknown Test',
+      filepath: DEFAULT_EXTRACTION_CONFIG.defaults?.filepath ?? '',
+      startLine: DEFAULT_EXTRACTION_CONFIG.defaults?.startLine ?? 0,
+      endLine: DEFAULT_EXTRACTION_CONFIG.defaults?.endLine ?? 0,
+      duration: DEFAULT_EXTRACTION_CONFIG.defaults?.duration ?? 0,
+      state: DEFAULT_EXTRACTION_CONFIG.defaults?.state ?? 'unknown'
     }
+
+    const defaults: ExtractionDefaults = {
+      name: config.defaults?.name ?? baseDefaults.name,
+      filepath: config.defaults?.filepath ?? baseDefaults.filepath,
+      startLine: config.defaults?.startLine ?? baseDefaults.startLine,
+      endLine: config.defaults?.endLine ?? baseDefaults.endLine,
+      duration: config.defaults?.duration ?? baseDefaults.duration,
+      state: config.defaults?.state ?? baseDefaults.state
+    }
+
+    this.config = {
+      defaults,
+      rootDir: config.rootDir ?? process.cwd()
+    }
+    this.endResolver = new TestEndResolver(this.config.rootDir)
   }
 
   /**
@@ -67,12 +91,21 @@ export class TestCaseExtractor {
       tc = testCaseWithTask.task as TestCaseData
     }
 
+    const filepath = this.extractFilepath(tc)
+    const startLine = this.extractStartLine(tc)
+    let endLine = this.extractEndLine(tc)
+
+    const resolvedEndLine = this.endResolver.resolve(filepath, startLine)
+    if (resolvedEndLine !== undefined && resolvedEndLine >= startLine) {
+      endLine = Math.max(endLine, resolvedEndLine)
+    }
+
     return {
       id: this.extractId(tc),
       name: this.extractName(tc),
-      filepath: this.extractFilepath(tc),
-      startLine: this.extractStartLine(tc),
-      endLine: this.extractEndLine(tc),
+      filepath,
+      startLine,
+      endLine,
       suite: this.extractSuite(tc),
       state: this.extractState(tc),
       mode: this.extractMode(tc),
@@ -99,14 +132,14 @@ export class TestCaseExtractor {
    * Extracts the test name
    */
   private extractName(tc: TestCaseData): string {
-    return tc.name ?? this.config.defaults.name!
+    return tc.name ?? this.config.defaults.name
   }
 
   /**
    * Extracts the file path
    */
   private extractFilepath(tc: TestCaseData): string {
-    return tc.file?.filepath ?? tc.filepath ?? this.config.defaults.filepath!
+    return tc.file?.filepath ?? tc.filepath ?? this.config.defaults.filepath
   }
 
   /**
@@ -127,7 +160,7 @@ export class TestCaseExtractor {
       }
     }
 
-    return this.config.defaults.startLine!
+    return this.config.defaults.startLine
   }
 
   /**
@@ -148,7 +181,7 @@ export class TestCaseExtractor {
       }
     }
 
-    return this.config.defaults.endLine!
+    return this.config.defaults.endLine
   }
 
   /**
@@ -162,7 +195,7 @@ export class TestCaseExtractor {
    * Extracts the test state and normalizes it
    */
   private extractState(tc: TestCaseData): string {
-    const rawState = tc.result?.state ?? this.config.defaults.state!
+    const rawState = tc.result?.state ?? this.config.defaults.state
 
     // Normalize Vitest v3 state values to our expected format
     if (rawState === 'pass') return 'passed'
@@ -183,7 +216,7 @@ export class TestCaseExtractor {
    * Extracts the test duration
    */
   private extractDuration(tc: TestCaseData): number {
-    return tc.result?.duration ?? this.config.defaults.duration!
+    return tc.result?.duration ?? this.config.defaults.duration
   }
 
   /**
