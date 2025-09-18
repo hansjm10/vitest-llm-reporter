@@ -1091,6 +1091,7 @@ export class LLMReporter implements Reporter {
         // Update summary to reflect the teardown errors
         if (this.output.summary) {
           this.output.summary.failed = (this.output.summary.failed || 0) + errors.length
+          this.output.summary.total = (this.output.summary.total || 0) + errors.length
         }
       }
 
