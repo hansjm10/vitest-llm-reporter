@@ -54,8 +54,9 @@ describe('LLMReporter afterAll error handling', () => {
     expect(teardownError.suite).toEqual(['AfterAll Hook'])
     expect(teardownError.error.message).toBe('Database connection failed during cleanup')
 
-    // Verify summary was updated
+    // Verify summary was updated consistently
     expect(jsonOutput.summary.failed).toBeGreaterThan(0)
+    expect(jsonOutput.summary.total).toBe(jsonOutput.summary.failed)
   })
 
   it('should handle multiple teardown errors', async () => {
@@ -82,6 +83,7 @@ describe('LLMReporter afterAll error handling', () => {
     expect(jsonOutput.failures).toBeDefined()
     expect(jsonOutput.failures.length).toBe(2)
     expect(jsonOutput.summary.failed).toBe(2)
+    expect(jsonOutput.summary.total).toBe(2)
   })
 
   it('should work correctly when no teardown errors occur', async () => {
