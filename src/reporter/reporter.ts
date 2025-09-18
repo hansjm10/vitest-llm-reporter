@@ -92,6 +92,7 @@ import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
 import { TestResultBuilder } from '../builders/TestResultBuilder.js'
 import { ErrorContextBuilder } from '../builders/ErrorContextBuilder.js'
 import { OutputBuilder } from '../output/OutputBuilder.js'
+import type { OutputBuilderConfig } from '../output/types.js'
 import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
 import { StdioInterceptor } from '../console/stdio-interceptor.js'
@@ -272,6 +273,8 @@ export class LLMReporter implements Reporter {
       includeSkippedTests: this.config.includeSkippedTests,
       filterNodeModules: this.config.filterNodeModules ?? true,
       includeStackString: this.config.includeStackString,
+      includeAbsolutePaths: this.config.includeAbsolutePaths,
+      rootDir: process.cwd(),
       truncation: this.config.truncation
     })
     this.outputWriter = new OutputWriter()
@@ -496,6 +499,41 @@ export class LLMReporter implements Reporter {
       this.orchestrator.updateConfig(orchestratorConfig)
     }
 
+    let shouldUpdateOutputBuilder = false
+    const outputBuilderConfig: OutputBuilderConfig = {}
+    if ('includeAbsolutePaths' in partialConfig) {
+      outputBuilderConfig.includeAbsolutePaths = this.config.includeAbsolutePaths
+      shouldUpdateOutputBuilder = true
+    }
+    if ('filterNodeModules' in partialConfig) {
+      outputBuilderConfig.filterNodeModules = this.config.filterNodeModules
+      shouldUpdateOutputBuilder = true
+    }
+    if ('includeStackString' in partialConfig) {
+      outputBuilderConfig.includeStackString = this.config.includeStackString
+      shouldUpdateOutputBuilder = true
+    }
+    if ('verbose' in partialConfig) {
+      outputBuilderConfig.verbose = this.config.verbose
+      shouldUpdateOutputBuilder = true
+    }
+    if ('includePassedTests' in partialConfig) {
+      outputBuilderConfig.includePassedTests = this.config.includePassedTests
+      shouldUpdateOutputBuilder = true
+    }
+    if ('includeSkippedTests' in partialConfig) {
+      outputBuilderConfig.includeSkippedTests = this.config.includeSkippedTests
+      shouldUpdateOutputBuilder = true
+    }
+    if ('truncation' in partialConfig) {
+      outputBuilderConfig.truncation = this.config.truncation
+      shouldUpdateOutputBuilder = true
+    }
+
+    if (shouldUpdateOutputBuilder) {
+      this.outputBuilder.updateConfig(outputBuilderConfig)
+    }
+
     if (hasPartialStdio || Object.hasOwn(partialConfig, 'captureConsoleOnSuccess')) {
       this.refreshStdioFilter()
     }
@@ -570,6 +608,10 @@ export class LLMReporter implements Reporter {
       rootDir: this.rootDir,
       includeAbsolutePaths: this.config.includeAbsolutePaths,
       includeStackString: this.config.includeStackString
+    })
+    this.outputBuilder.updateConfig({
+      rootDir: this.rootDir,
+      includeAbsolutePaths: this.config.includeAbsolutePaths
     })
     // Recreate ErrorExtractor with updated rootDir and config
     this.errorExtractor = new ErrorExtractor({

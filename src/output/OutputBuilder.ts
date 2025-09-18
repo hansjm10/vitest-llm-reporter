@@ -28,6 +28,8 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
   verbose: false,
   filterNodeModules: true, // Default to filtering node_modules from stack frames
   includeStackString: false,
+  includeAbsolutePaths: false,
+  rootDir: process.cwd(),
   truncation: {
     enabled: false,
     maxTokens: undefined,
@@ -142,7 +144,9 @@ export class OutputBuilder {
   private convertUnhandledErrors(errors: SerializedError[]): TestFailure[] {
     const extractor = new ErrorExtractor({
       includeSourceCode: true,
-      filterNodeModules: this.config.filterNodeModules
+      filterNodeModules: this.config.filterNodeModules,
+      includeAbsolutePaths: this.config.includeAbsolutePaths,
+      rootDir: this.config.rootDir
     })
 
     return errors.map((err) => {
