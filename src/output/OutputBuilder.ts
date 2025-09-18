@@ -16,6 +16,7 @@ import type {
 } from '../types/schema.js'
 import type { SerializedError } from 'vitest'
 import type { OutputBuilderConfig, BuildOptions } from './types.js'
+import type { EnvironmentMetadataConfig } from '../types/reporter.js'
 import { LateTruncator } from '../truncation/LateTruncator.js'
 import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
 import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
@@ -23,7 +24,11 @@ import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
 /**
  * Default output builder configuration
  */
-export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
+type ResolvedOutputBuilderConfig = Omit<Required<OutputBuilderConfig>, 'environmentMetadata'> & {
+  environmentMetadata?: EnvironmentMetadataConfig
+}
+
+export const DEFAULT_OUTPUT_CONFIG: ResolvedOutputBuilderConfig = {
   includePassedTests: false,
   includeSkippedTests: false,
   verbose: false,
@@ -31,7 +36,6 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
   includeStackString: false,
   includeAbsolutePaths: false,
   rootDir: process.cwd(),
-  environmentMetadata: undefined,
   truncation: {
     enabled: false,
     maxTokens: undefined,
@@ -57,7 +61,7 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
  * ```
  */
 export class OutputBuilder {
-  private config: Required<OutputBuilderConfig>
+  private config: ResolvedOutputBuilderConfig
   private lateTruncator?: LateTruncator
 
   constructor(config: OutputBuilderConfig = {}) {
