@@ -67,13 +67,15 @@ export class ConsoleBuffer {
       }
     }
 
-    const { serializedArgs, message } = formatConsoleArgs(args)
+    const { serializedArgs, message: formattedMessage } = formatConsoleArgs(args)
 
     // Strip ANSI codes if configured
-    const text = this.config.stripAnsi ? this.stripAnsiCodes(message) : message
+    const renderedMessage = this.config.stripAnsi
+      ? this.stripAnsiCodes(formattedMessage)
+      : formattedMessage
 
     // Check byte limit (based on text content)
-    const bytes = Buffer.byteLength(text, 'utf8')
+    const bytes = Buffer.byteLength(renderedMessage, 'utf8')
     if (this.totalBytes + bytes > this.config.maxBytes) {
       this.addTruncationEvent()
       return false
@@ -91,7 +93,7 @@ export class ConsoleBuffer {
     // Create the event
     const event: ConsoleEvent = {
       level,
-      text,
+      message: renderedMessage,
       origin
     }
 
@@ -133,7 +135,7 @@ export class ConsoleBuffer {
     if (!this.truncated) {
       const event: ConsoleEvent = {
         level: 'warn',
-        text: '[Console output truncated - limit reached]'
+        message: '[Console output truncated - limit reached]'
       }
       this.events.push(event)
       this.truncated = true

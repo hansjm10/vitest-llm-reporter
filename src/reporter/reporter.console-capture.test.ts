@@ -62,15 +62,19 @@ describe('LLMReporter Console Capture Integration', () => {
 
     // Check individual events
     const events = failure?.consoleEvents || []
-    expect(events[0]).toMatchObject({ level: 'log', text: 'Starting test', origin: 'intercepted' })
+    expect(events[0]).toMatchObject({
+      level: 'log',
+      message: 'Starting test',
+      origin: 'intercepted'
+    })
     expect(events[1]).toMatchObject({
       level: 'error',
-      text: 'Something went wrong',
+      message: 'Something went wrong',
       origin: 'intercepted'
     })
     expect(events[2]).toMatchObject({
       level: 'warn',
-      text: 'Warning message',
+      message: 'Warning message',
       origin: 'intercepted'
     })
   })
@@ -158,11 +162,11 @@ describe('LLMReporter Console Capture Integration', () => {
     expect(successLog?.consoleEvents?.length).toBe(2)
     expect(successLog?.consoleEvents?.[0]).toMatchObject({
       level: 'log',
-      text: 'First log message'
+      message: 'First log message'
     })
     expect(successLog?.consoleEvents?.[1]).toMatchObject({
       level: 'info',
-      text: 'Informational message'
+      message: 'Informational message'
     })
     expect(successLog?.suppressed).toMatchObject({ totalLines: 2, suppressedLines: 0 })
   })
@@ -205,7 +209,7 @@ describe('LLMReporter Console Capture Integration', () => {
     expect(output?.successLogs).toBeDefined()
     const successLog = output?.successLogs?.[0]
     expect(successLog?.consoleEvents).toHaveLength(1)
-    expect(successLog?.consoleEvents?.[0]?.text).toBe('Visible message')
+    expect(successLog?.consoleEvents?.[0]?.message).toBe('Visible message')
     expect(successLog?.suppressed).toMatchObject({ totalLines: 2, suppressedLines: 1 })
   })
 

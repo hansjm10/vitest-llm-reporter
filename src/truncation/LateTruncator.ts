@@ -317,7 +317,7 @@ export class LateTruncator {
         if (result.length === limits.maxTotal) {
           result.push({
             level: 'warn',
-            text: '[Console output truncated - limit reached]'
+            message: '[Console output truncated - limit reached]'
           })
         }
         break

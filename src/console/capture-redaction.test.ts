@@ -63,10 +63,10 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
       expect(logEvents).toHaveLength(4)
 
       // Verify exact preservation of user's redaction
-      expect(logEvents[0]?.text).toBe('API Key: [REDACTED]')
-      expect(logEvents[1]?.text).toBe('Password: ***HIDDEN***')
-      expect(logEvents[2]?.text).toBe('Token: <SANITIZED>')
-      expect(logEvents[3]?.text).toBe('Secret: [REMOVED_BY_USER]')
+      expect(logEvents[0]?.message).toBe('API Key: [REDACTED]')
+      expect(logEvents[1]?.message).toBe('Password: ***HIDDEN***')
+      expect(logEvents[2]?.message).toBe('Token: <SANITIZED>')
+      expect(logEvents[3]?.message).toBe('Secret: [REMOVED_BY_USER]')
     })
 
     it('should preserve redaction in multi-line strings', async () => {
@@ -84,8 +84,8 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
       const output = capture.stopCapture(testId)
 
       const logEvents = output.entries.filter((e) => e.level === 'log')
-      expect(logEvents[0]?.text).toContain('password: [REDACTED]')
-      expect(logEvents[0]?.text).toContain('host: localhost') // Other data preserved
+      expect(logEvents[0]?.message).toContain('password: [REDACTED]')
+      expect(logEvents[0]?.message).toContain('host: localhost') // Other data preserved
     })
   })
 
@@ -109,7 +109,7 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
 
       expect(output).toBeDefined()
       const logEvents = output.entries.filter((e) => e.level === 'log')
-      const logOutput = logEvents[0]?.text || ''
+      const logOutput = logEvents[0]?.message || ''
 
       // Verify redacted values are preserved in the object output
       expect(logOutput).toContain("apiKey: '[REDACTED]'")
@@ -138,7 +138,7 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
 
       const output = capture.stopCapture(testId)
       const logEvents = output.entries.filter((e) => e.level === 'log')
-      const logOutput = logEvents[0]?.text || ''
+      const logOutput = logEvents[0]?.message || ''
 
       expect(logOutput).toContain('[REDACTED_BY_LOGGER]')
       expect(logOutput).toContain("apiKey: '***'")
@@ -163,9 +163,9 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
       const logEvents = output.entries.filter((e) => e.level === 'log')
       const errorEvents = output.entries.filter((e) => e.level === 'error')
       const warnEvents = output.entries.filter((e) => e.level === 'warn')
-      expect(logEvents[0]?.text).toBe('User: john@example.com Password: [REDACTED]')
-      expect(errorEvents[0]?.text).toBe('Auth failed for token: [SANITIZED]')
-      expect(warnEvents[0]?.text).toBe('Sensitive operation on key: ***')
+      expect(logEvents[0]?.message).toBe('User: john@example.com Password: [REDACTED]')
+      expect(errorEvents[0]?.message).toBe('Auth failed for token: [SANITIZED]')
+      expect(warnEvents[0]?.message).toBe('Sensitive operation on key: ***')
     })
   })
 
@@ -190,7 +190,7 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
 
       // All patterns should be preserved exactly
       const logEvents2 = output.entries.filter((e) => e.level === 'log')
-      const logTexts = logEvents2.map((e) => e.text)
+      const logTexts = logEvents2.map((e) => e.message)
       expect(logTexts).toEqual([
         'fastRedact style: [REDACTED]',
         'Winston style: ***',
@@ -218,9 +218,9 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
       const output = capture.stopCapture(testId)
 
       const logEvents3 = output.entries.filter((e) => e.level === 'log')
-      expect(logEvents3[0]?.text).toBe('Password: ')
-      expect(logEvents3[1]?.text).toBe('Token: []')
-      expect(logEvents3[2]?.text).toBe('Secret: ()')
+      expect(logEvents3[0]?.message).toBe('Password: ')
+      expect(logEvents3[1]?.message).toBe('Token: []')
+      expect(logEvents3[2]?.message).toBe('Secret: ()')
     })
 
     it('should preserve redaction in error objects', async () => {
@@ -237,7 +237,7 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
 
       const output = capture.stopCapture(testId)
       const errorEvents = output.entries.filter((e) => e.level === 'error')
-      const errorOutput = errorEvents[0]?.text || ''
+      const errorOutput = errorEvents[0]?.message || ''
 
       expect(errorOutput).toContain('[REDACTED]')
       expect(errorOutput).toContain('***REMOVED***')
@@ -259,9 +259,9 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
 
       // Should capture exactly what user logged - no added redaction
       const logEvents4 = output.entries.filter((e) => e.level === 'log')
-      expect(logEvents4[0]?.text).toBe('password: myPassword123')
-      expect(logEvents4[1]?.text).toBe('apiKey: sk_test_realkey')
-      expect(logEvents4[2]?.text).toContain('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')
+      expect(logEvents4[0]?.message).toBe('password: myPassword123')
+      expect(logEvents4[1]?.message).toBe('apiKey: sk_test_realkey')
+      expect(logEvents4[2]?.message).toContain('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')
     })
   })
 
@@ -277,7 +277,7 @@ describe('ConsoleCapture - User Redaction Preservation', () => {
 
       const output = capture.stopCapture(testId)
       const logEvents = output.entries.filter((e) => e.level === 'log')
-      const logOutput = logEvents[0]?.text || ''
+      const logOutput = logEvents[0]?.message || ''
 
       // Even if truncated, the redaction marker should be preserved if it's within the limit
       expect(logOutput).toContain('[REDACTED]')

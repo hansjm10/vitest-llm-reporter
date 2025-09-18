@@ -133,10 +133,8 @@ export type ConsoleLevel = 'log' | 'error' | 'warn' | 'info' | 'debug' | 'trace'
 export interface ConsoleEvent {
   /** Console method level */
   level: ConsoleLevel
-  /** Serialized text representation of the console call */
-  text: string
-  /** Message content (same as text, for deduplication compatibility) */
-  message?: string
+  /** Serialized message representation of the console call */
+  message: string
   /** Timestamp in milliseconds since test start (optional) */
   timestampMs?: number
   /** Timestamp (alias for timestampMs, optional) */
