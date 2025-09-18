@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { EventOrchestrator } from '../../src/events/EventOrchestrator.js'
 import { StateManager } from '../../src/state/StateManager.js'
 import { TestCaseExtractor } from '../../src/extraction/TestCaseExtractor.js'
@@ -76,5 +76,31 @@ describe('Integration: Deduplication finalization', () => {
     expect(metadata).toBeDefined()
     expect(metadata?.count).toBe(2)
     expect(metadata?.sources).toEqual(expect.arrayContaining(['test-1', 'test-2']))
+  })
+
+  it('forwards Vitest log timestamps to console capture', () => {
+    const testId = 'timestamp-test'
+    const timestamp = 1_700_000_000_000
+
+    const ingestSpy = vi.spyOn(consoleCapture, 'ingest')
+
+    orchestrator.handleUserConsoleLog({
+      taskId: testId,
+      type: 'stdout',
+      content: 'hello from vitest',
+      time: timestamp
+    } as any)
+
+    expect(ingestSpy).toHaveBeenCalledWith(
+      testId,
+      'log',
+      ['hello from vitest'],
+      expect.objectContaining({ timestamp })
+    )
+
+    ingestSpy.mockRestore()
+
+    const result = consoleCapture.stopCapture(testId)
+    expect(result.entries[0]?.timestampMs).toBe(timestamp)
   })
 })

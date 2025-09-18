@@ -353,13 +353,30 @@ export class ConsoleCapture {
   /**
    * Ingest a console event coming from reporter hooks (no AsyncLocalStorage context)
    */
-  ingest(testId: string, method: ConsoleMethod, args: unknown[], elapsed?: number): void {
+  ingest(
+    testId: string,
+    method: ConsoleMethod,
+    args: unknown[],
+    elapsedOrMetadata?: number | { elapsed?: number; timestamp?: number }
+  ): void {
     if (!this.config.enabled) return
 
     // Respect debug/trace filtering
     if (!this.config.includeDebugOutput && (method === 'debug' || method === 'trace')) {
       return
     }
+
+    let elapsed: number | undefined
+    let explicitTimestamp: number | undefined
+
+    if (typeof elapsedOrMetadata === 'object' && elapsedOrMetadata !== null) {
+      elapsed = elapsedOrMetadata.elapsed
+      explicitTimestamp = elapsedOrMetadata.timestamp
+    } else {
+      elapsed = elapsedOrMetadata
+    }
+
+    const timestampMs = explicitTimestamp ?? elapsed
 
     let deduplicationKey: string | undefined
 
@@ -369,7 +386,7 @@ export class ConsoleCapture {
       const logEntry = {
         message,
         level: method,
-        timestamp: new Date(),
+        timestamp: new Date(timestampMs ?? Date.now()),
         testId
       }
 
@@ -387,7 +404,7 @@ export class ConsoleCapture {
       this.buffers.set(testId, buffer)
     }
 
-    buffer.add(method, args, elapsed, 'task', false, deduplicationKey, testId)
+    buffer.add(method, args, timestampMs, 'task', false, deduplicationKey, testId)
   }
 
   /**
