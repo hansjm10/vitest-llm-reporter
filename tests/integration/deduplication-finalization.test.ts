@@ -106,7 +106,6 @@ describe('Integration: Deduplication finalization', () => {
     const result = consoleCapture.stopCapture(testId)
     expect(result.entries[0]?.timestampMs).toBe(timestamp)
   })
-
   it('deduplicates mixed console sources with normalized timestamps', () => {
     const testId = 'mixed-sources'
     const message = 'same message'
