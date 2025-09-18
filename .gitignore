@@ -50,3 +50,6 @@ specs/
 
 # Serena
 .serena/
+
+# Agents guide
+AGENTS.md
