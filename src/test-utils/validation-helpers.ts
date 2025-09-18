@@ -8,6 +8,7 @@
 
 import type { TestSummary, TestFailure, TestResult } from '../types/schema.js'
 import { SchemaValidator } from '../validation/validator.js'
+import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
 
 /**
  * Creates a new instance of SchemaValidator for testing
@@ -39,7 +40,8 @@ export const isValidTestFailure = (failure: unknown): failure is TestFailure => 
     failed: 1,
     skipped: 0,
     duration: 100,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    environment: getRuntimeEnvironmentSummary()
   }
   const result = validator.validate({ summary, failures: [failure] })
   return result.valid
@@ -58,7 +60,8 @@ export const isValidTestResult = (result: unknown): result is TestResult => {
     failed: 0,
     skipped: 0,
     duration: 100,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    environment: getRuntimeEnvironmentSummary()
   }
   const output = validator.validate({ summary, passed: [result] })
   return output.valid

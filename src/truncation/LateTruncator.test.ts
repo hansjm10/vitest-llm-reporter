@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { LateTruncator } from './LateTruncator.js'
 import type { LLMReporterOutput, TestFailure, TestResult } from '../types/schema.js'
 import type { TruncationConfig } from '../types/reporter.js'
+import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
 
 describe('LateTruncator', () => {
   let truncator: LateTruncator
@@ -167,7 +168,8 @@ describe('LateTruncator', () => {
         failed: failureCount,
         skipped: skippedCount,
         duration: 1000,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        environment: getRuntimeEnvironmentSummary()
       }
     }
 
@@ -304,10 +306,11 @@ describe('LateTruncator', () => {
       })
 
       it('should preserve error console output more generously', () => {
-        const config: TruncationConfig = { ...defaultConfig, maxTokens: 400 }
+        // Slightly higher budget to account for environment metadata in the summary
+        const config: TruncationConfig = { ...defaultConfig, maxTokens: 900 }
         const output = createTestOutput({
           failureCount: 1,
-          consoleSize: 'large'
+          consoleSize: 'medium'
         })
 
         const result = truncator.apply(output, config)
@@ -480,7 +483,8 @@ describe('LateTruncator', () => {
             failed: 1,
             skipped: 0,
             duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
+            timestamp: '2024-01-15T10:30:00Z',
+            environment: getRuntimeEnvironmentSummary()
           },
           failures: [
             {
@@ -524,7 +528,8 @@ describe('LateTruncator', () => {
             failed: 1,
             skipped: 0,
             duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
+            timestamp: '2024-01-15T10:30:00Z',
+            environment: getRuntimeEnvironmentSummary()
           },
           failures: [
             {
@@ -565,7 +570,8 @@ describe('LateTruncator', () => {
             failed: 1,
             skipped: 0,
             duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
+            timestamp: '2024-01-15T10:30:00Z',
+            environment: getRuntimeEnvironmentSummary()
           },
           failures: [
             {
@@ -612,7 +618,8 @@ describe('LateTruncator', () => {
             failed: 1,
             skipped: 0,
             duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
+            timestamp: '2024-01-15T10:30:00Z',
+            environment: getRuntimeEnvironmentSummary()
           },
           failures: [
             {

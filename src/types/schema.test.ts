@@ -6,6 +6,7 @@ import {
   isValidTestFailure,
   isValidTestResult
 } from '../test-utils/validation-helpers.js'
+import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
 
 describe('LLM Reporter Schema', () => {
   const validator = new SchemaValidator()
@@ -17,7 +18,8 @@ describe('LLM Reporter Schema', () => {
         failed: 2,
         skipped: 0,
         duration: 1234,
-        timestamp: '2024-01-15T10:30:00Z'
+        timestamp: '2024-01-15T10:30:00Z',
+        environment: getRuntimeEnvironmentSummary()
       }
 
       expect(isValidTestSummary(summary)).toBe(true)
@@ -40,7 +42,8 @@ describe('LLM Reporter Schema', () => {
         failed: 2,
         skipped: 0,
         duration: 1234,
-        timestamp: '2024-01-15T10:30:00Z'
+        timestamp: '2024-01-15T10:30:00Z',
+        environment: getRuntimeEnvironmentSummary()
       }
 
       expect(isValidTestSummary(invalidSummary)).toBe(false)
@@ -53,7 +56,8 @@ describe('LLM Reporter Schema', () => {
         failed: 2,
         skipped: 1, // sum is 11, not 10
         duration: 1234,
-        timestamp: '2024-01-15T10:30:00Z'
+        timestamp: '2024-01-15T10:30:00Z',
+        environment: getRuntimeEnvironmentSummary()
       }
 
       expect(isValidTestSummary(invalidSummary)).toBe(false)
@@ -153,7 +157,8 @@ describe('LLM Reporter Schema', () => {
           failed: 0,
           skipped: 0,
           duration: 0,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         }
       }
 
@@ -168,7 +173,8 @@ describe('LLM Reporter Schema', () => {
           failed: 2,
           skipped: 0,
           duration: 1234,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -203,7 +209,8 @@ describe('LLM Reporter Schema', () => {
           failed: 0,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         passed: [
           {
@@ -228,7 +235,8 @@ describe('LLM Reporter Schema', () => {
           failed: 1,
           skipped: 1,
           duration: 500,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -256,7 +264,8 @@ describe('LLM Reporter Schema', () => {
           failed: 0,
           skipped: 0,
           duration: 0,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         }
       }
 
@@ -282,7 +291,8 @@ describe('LLM Reporter Schema', () => {
           failed: 100,
           skipped: 0,
           duration: 5000,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures
       }
@@ -304,7 +314,8 @@ describe('LLM Reporter Schema', () => {
           failed: 2,
           skipped: 0,
           duration: 1234,
-          timestamp: '2024-01-15T10:30:00Z'
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
         }
       }
 

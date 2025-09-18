@@ -1,6 +1,6 @@
 import type { TestResult, TestFailure, TestSuccessLog } from '../types/schema.js'
 import type { SerializedError } from 'vitest'
-import type { TruncationConfig } from '../types/reporter.js'
+import type { TruncationConfig, EnvironmentMetadataConfig } from '../types/reporter.js'
 
 /**
  * Output builder configuration
@@ -22,6 +22,8 @@ export interface OutputBuilderConfig {
   includeAbsolutePaths?: boolean
   /** Root directory used for repo-relative path conversion */
   rootDir?: string
+  /** Options controlling environment metadata included in the summary */
+  environmentMetadata?: EnvironmentMetadataConfig
 }
 
 /**

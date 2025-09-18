@@ -10,6 +10,24 @@
 import type { PerformanceConfig } from './monitoring.js'
 
 /**
+ * Configuration for environment metadata included in the summary output
+ */
+export interface EnvironmentMetadataConfig {
+  /** Disable environment metadata entirely */
+  enabled?: boolean
+  /** Include operating system version string (default: true) */
+  includeOsVersion?: boolean
+  /** Include Node.js runtime identifier (default: true) */
+  includeNodeRuntime?: boolean
+  /** Include detected vitest version (default: true) */
+  includeVitest?: boolean
+  /** Include CI detection flag (default: true) */
+  includeCi?: boolean
+  /** Include detected package manager identifier (default: true) */
+  includePackageManager?: boolean
+}
+
+/**
  * Predicate type used for stdout/stderr filtering
  */
 export type StdioFilter = RegExp | ((line: string) => boolean)
@@ -97,6 +115,8 @@ export interface LLMReporterConfig {
         stripAnsiCodes?: boolean
         scope?: 'global' | 'per-test'
       }
+  /** Configure which environment metadata fields are included in the summary */
+  environmentMetadata?: EnvironmentMetadataConfig
 }
 
 /**

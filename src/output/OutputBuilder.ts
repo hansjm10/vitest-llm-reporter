@@ -16,13 +16,19 @@ import type {
 } from '../types/schema.js'
 import type { SerializedError } from 'vitest'
 import type { OutputBuilderConfig, BuildOptions } from './types.js'
+import type { EnvironmentMetadataConfig } from '../types/reporter.js'
 import { LateTruncator } from '../truncation/LateTruncator.js'
 import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
+import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
 
 /**
  * Default output builder configuration
  */
-export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
+type ResolvedOutputBuilderConfig = Omit<Required<OutputBuilderConfig>, 'environmentMetadata'> & {
+  environmentMetadata?: EnvironmentMetadataConfig
+}
+
+export const DEFAULT_OUTPUT_CONFIG: ResolvedOutputBuilderConfig = {
   includePassedTests: false,
   includeSkippedTests: false,
   verbose: false,
@@ -55,7 +61,7 @@ export const DEFAULT_OUTPUT_CONFIG: Required<OutputBuilderConfig> = {
  * ```
  */
 export class OutputBuilder {
-  private config: Required<OutputBuilderConfig>
+  private config: ResolvedOutputBuilderConfig
   private lateTruncator?: LateTruncator
 
   constructor(config: OutputBuilderConfig = {}) {
@@ -111,13 +117,16 @@ export class OutputBuilder {
     // Count unhandled errors (suite-level failures, import errors, etc.)
     const unhandledErrorCount = options.unhandledErrors?.length || 0
 
+    const environment = getRuntimeEnvironmentSummary(this.config.environmentMetadata)
+
     return {
       total: passed.length + failed.length + skipped.length + unhandledErrorCount,
       passed: passed.length,
       failed: failed.length + unhandledErrorCount, // Include unhandled errors in failed count
       skipped: skipped.length,
       duration: options.duration,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      ...(environment ? { environment } : {})
     }
   }
 

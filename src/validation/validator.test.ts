@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { SchemaValidator, ValidationConfig } from './validator.js'
 import type { LLMReporterOutput } from '../types/schema.js'
+import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
 import {
   createOutputWithFailures,
   createOutputWithPassed,
@@ -105,7 +106,8 @@ describe('SchemaValidator', () => {
           failed: 1,
           skipped: 0,
           duration: 100,
-          timestamp: '2024-01-15T10:30:00.000Z'
+          timestamp: '2024-01-15T10:30:00.000Z',
+          environment: getRuntimeEnvironmentSummary()
         },
         failures: [
           {
@@ -383,7 +385,8 @@ describe('SchemaValidator', () => {
             failed: 1,
             skipped: 0,
             duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
+            timestamp: '2024-01-15T10:30:00Z',
+            environment: getRuntimeEnvironmentSummary()
           },
           failures: [
             {
@@ -422,7 +425,8 @@ describe('SchemaValidator', () => {
             failed: 1,
             skipped: 0,
             duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
+            timestamp: '2024-01-15T10:30:00Z',
+            environment: getRuntimeEnvironmentSummary()
           },
           failures: [
             {
@@ -455,7 +459,8 @@ describe('SchemaValidator', () => {
             failed: 1,
             skipped: 0,
             duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
+            timestamp: '2024-01-15T10:30:00Z',
+            environment: getRuntimeEnvironmentSummary()
           },
           failures: [
             {
@@ -509,7 +514,8 @@ describe('SchemaValidator', () => {
             failed: 1,
             skipped: 0,
             duration: 100,
-            timestamp: '2024-01-15T10:30:00Z'
+            timestamp: '2024-01-15T10:30:00Z',
+            environment: getRuntimeEnvironmentSummary()
           },
           failures: [
             {
