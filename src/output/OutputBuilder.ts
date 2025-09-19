@@ -225,41 +225,26 @@ export class OutputBuilder {
     const consoleView = this.config.view.console
 
     const mapped: ConsoleEvent = {
-      level: event.level,
-      message: event.message
+      ...event,
+      // Shallow clone of args/deduplication arrays to avoid accidental mutation downstream
+      ...(event.args ? { args: [...event.args] } : {}),
+      ...(event.deduplication
+        ? {
+            deduplication: {
+              ...event.deduplication,
+              ...(event.deduplication.sources ? { sources: [...event.deduplication.sources] } : {})
+            }
+          }
+        : {})
     }
 
-    if (consoleView.includeTimestampMs) {
-      if (event.timestampMs !== undefined) {
-        mapped.timestampMs = event.timestampMs
-      }
-      if (event.timestamp !== undefined) {
-        mapped.timestamp = event.timestamp
-      }
+    if (!consoleView.includeTimestampMs) {
+      delete mapped.timestampMs
+      delete mapped.timestamp
     }
 
-    if (consoleView.includeTestId && event.testId !== undefined) {
-      mapped.testId = event.testId
-    }
-
-    if (event.origin) {
-      mapped.origin = event.origin
-    }
-
-    if (event.args) {
-      mapped.args = [...event.args]
-    }
-
-    if (event.deduplication) {
-      mapped.deduplication = {
-        count: event.deduplication.count,
-        deduplicated: event.deduplication.deduplicated,
-        firstSeen: event.deduplication.firstSeen,
-        ...(event.deduplication.lastSeen ? { lastSeen: event.deduplication.lastSeen } : {}),
-        ...(event.deduplication.sources
-          ? { sources: [...event.deduplication.sources] }
-          : {})
-      }
+    if (!consoleView.includeTestId) {
+      delete mapped.testId
     }
 
     return mapped
@@ -438,8 +423,7 @@ export class OutputBuilder {
 
     return {
       console: {
-        includeTestId:
-          override.console?.includeTestId ?? current.console.includeTestId,
+        includeTestId: override.console?.includeTestId ?? current.console.includeTestId,
         includeTimestampMs:
           override.console?.includeTimestampMs ?? current.console.includeTimestampMs
       }
