@@ -23,7 +23,9 @@ test-output.json
 vitest-llm-output.json
 tests/**/*.js
 tests/**/*.js.map
+tests/**/*.d.ts.map
 tests/**/*.d.ts
+tmp/
 
 # Environment
 .env

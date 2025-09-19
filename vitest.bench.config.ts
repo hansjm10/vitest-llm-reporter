@@ -1,5 +1,8 @@
+import { mkdirSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
 import { LLMReporter } from './src/reporter/reporter.ts';
+
+mkdirSync('tmp', { recursive: true });
 
 export default defineConfig({
   test: {
@@ -10,7 +13,7 @@ export default defineConfig({
     reporters: [
       // Only emit LLM reporter output for benches
       new LLMReporter({
-        outputFile: 'test-output.json',
+        outputFile: 'tmp/test-output.json',
         verbose: true,
         includePassedTests: true,
         includeSkippedTests: true

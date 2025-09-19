@@ -8,8 +8,7 @@
     "src/**/*",
     "tests/**/*",
     "specs/**/*",
-    "test-console.test.ts",
-    "test-npm-package.spec.ts"
+    "test-console.test.ts"
   ],
   "exclude": []
 }

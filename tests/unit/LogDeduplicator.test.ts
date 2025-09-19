@@ -386,6 +386,56 @@ describe('LogDeduplicator', () => {
       expect(deduplicator.isDuplicate(entry1)).toBe(false)
     })
 
+    it('should treat reintroduced messages as unique after eviction', () => {
+      const deduplicator = new LogDeduplicator({
+        enabled: true,
+        maxCacheEntries: 3
+      })
+
+      const baseTime = new Date('2024-01-01T00:00:00.000Z')
+      const makeEntry = (message: string, offsetSeconds: number): LogEntry => ({
+        message,
+        level: 'info',
+        timestamp: new Date(baseTime.getTime() + offsetSeconds * 1000)
+      })
+
+      const initialEntries: LogEntry[] = [
+        makeEntry('Message 0', 0),
+        makeEntry('Message 1', 1),
+        makeEntry('Message 2', 2)
+      ]
+
+      for (const entry of initialEntries) {
+        expect(deduplicator.isDuplicate(entry)).toBe(false)
+      }
+
+      let stats = deduplicator.getStats()
+      expect(stats.cacheSize).toBe(3)
+      expect(stats.uniqueLogs).toBe(3)
+      expect(stats.duplicatesRemoved).toBe(0)
+
+      const evictionTrigger = makeEntry('Message 3', 3)
+      expect(deduplicator.isDuplicate(evictionTrigger)).toBe(false)
+
+      stats = deduplicator.getStats()
+      expect(stats.cacheSize).toBe(3)
+      expect(stats.uniqueLogs).toBe(4)
+      expect(stats.duplicatesRemoved).toBe(0)
+
+      const reintroduced = makeEntry('Message 0', 4)
+      expect(deduplicator.isDuplicate(reintroduced)).toBe(false)
+
+      stats = deduplicator.getStats()
+      expect(stats.cacheSize).toBe(3)
+      expect(stats.uniqueLogs).toBe(5)
+      expect(stats.duplicatesRemoved).toBe(0)
+
+      const key = deduplicator.generateKey(reintroduced)
+      const metadata = deduplicator.getMetadata(key)
+      expect(metadata?.firstSeen).toEqual(reintroduced.timestamp)
+      expect(metadata?.count).toBe(1)
+    })
+
     it('should track cache size correctly', () => {
       const deduplicator = new LogDeduplicator({
         enabled: true,
