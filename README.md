@@ -540,6 +540,12 @@ Demo test at `tests/demo/reporter-demo.test.ts` runs only with `LLM_REPORTER_DEM
 
 See [GitHub issues](https://github.com/hansjm10/vitest-llm-reporter/issues) for open tasks.
 
+## Project documentation
+
+- [Contributing Guide](./docs/CONTRIBUTING.md)
+- [Security Policy](./docs/SECURITY.md)
+- [Claude Usage Notes](./docs/CLAUDE.md)
+
 ## License
 
 MIT
