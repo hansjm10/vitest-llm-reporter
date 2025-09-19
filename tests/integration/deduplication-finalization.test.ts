@@ -76,8 +76,8 @@ describe('Integration: Deduplication finalization', () => {
     expect(metadata).toBeDefined()
     expect(metadata?.count).toBe(2)
     expect(metadata?.sources).toEqual(expect.arrayContaining(['test-1', 'test-2']))
-    expect(finalizedFailure.consoleEvents?.[0]?.testId).toBeUndefined()
-    expect(finalizedFailure.consoleEvents?.[0]?.timestampMs).toBeUndefined()
+    expect(finalizedFailure.consoleEvents?.[0]?.testId).toBe('test-1')
+    expect(typeof finalizedFailure.consoleEvents?.[0]?.timestampMs).toBe('number')
   })
 
   it('forwards Vitest log timestamps to console capture', () => {

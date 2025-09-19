@@ -466,31 +466,10 @@ export class EventOrchestrator {
 
     for (const failure of results.failed) {
       applyMetadata(failure.consoleEvents)
-      this.stripInternalConsoleFields(failure.consoleEvents)
     }
 
     for (const success of results.successLogs) {
       applyMetadata(success.consoleEvents)
-      this.stripInternalConsoleFields(success.consoleEvents)
-    }
-  }
-
-  /**
-   * Removes internal-only fields before output serialization
-   */
-  private stripInternalConsoleFields(events?: ConsoleEvent[]): void {
-    if (!events || events.length === 0) {
-      return
-    }
-
-    for (const event of events) {
-      if ('testId' in event) {
-        delete event.testId
-      }
-
-      if ('timestampMs' in event) {
-        delete event.timestampMs
-      }
     }
   }
 

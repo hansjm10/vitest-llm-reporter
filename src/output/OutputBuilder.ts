@@ -12,11 +12,13 @@ import type {
   TestSummary,
   TestResult,
   TestFailure,
-  TestError
+  TestError,
+  TestSuccessLog,
+  ConsoleEvent
 } from '../types/schema.js'
 import type { SerializedError } from 'vitest'
 import type { OutputBuilderConfig, BuildOptions } from './types.js'
-import type { EnvironmentMetadataConfig } from '../types/reporter.js'
+import type { EnvironmentMetadataConfig, OutputViewConfig } from '../types/reporter.js'
 import { LateTruncator } from '../truncation/LateTruncator.js'
 import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
 import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
@@ -24,8 +26,41 @@ import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
 /**
  * Default output builder configuration
  */
-type ResolvedOutputBuilderConfig = Omit<Required<OutputBuilderConfig>, 'environmentMetadata'> & {
+interface ResolvedConsoleViewConfig {
+  includeTestId: boolean
+  includeTimestampMs: boolean
+}
+
+interface ResolvedOutputViewConfig {
+  console: ResolvedConsoleViewConfig
+}
+
+interface ResolvedTruncationConfig {
+  enabled: boolean
+  maxTokens?: number
+  enableEarlyTruncation: boolean
+  enableLateTruncation: boolean
+  enableMetrics: boolean
+}
+
+interface ResolvedOutputBuilderConfig {
+  includePassedTests: boolean
+  includeSkippedTests: boolean
+  verbose: boolean
+  filterNodeModules: boolean
+  truncation: ResolvedTruncationConfig
+  includeStackString: boolean
+  includeAbsolutePaths: boolean
+  rootDir: string
   environmentMetadata?: EnvironmentMetadataConfig
+  view: ResolvedOutputViewConfig
+}
+
+const DEFAULT_VIEW_CONFIG: ResolvedOutputViewConfig = {
+  console: {
+    includeTestId: false,
+    includeTimestampMs: false
+  }
 }
 
 export const DEFAULT_OUTPUT_CONFIG: ResolvedOutputBuilderConfig = {
@@ -42,7 +77,9 @@ export const DEFAULT_OUTPUT_CONFIG: ResolvedOutputBuilderConfig = {
     enableEarlyTruncation: false,
     enableLateTruncation: false,
     enableMetrics: false
-  }
+  },
+  view: DEFAULT_VIEW_CONFIG,
+  environmentMetadata: undefined
 }
 
 /**
@@ -65,7 +102,7 @@ export class OutputBuilder {
   private lateTruncator?: LateTruncator
 
   constructor(config: OutputBuilderConfig = {}) {
-    this.config = { ...DEFAULT_OUTPUT_CONFIG, ...config }
+    this.config = this.resolveConfig(config)
 
     // Initialize late truncator if enabled
     if (this.config.truncation.enabled && this.config.truncation.enableLateTruncation) {
@@ -85,23 +122,26 @@ export class OutputBuilder {
 
     // Add failures (always included if present)
     const allFailures = this.collectAllFailures(options.testResults.failed, options.unhandledErrors)
+    const failuresForView = this.mapFailuresForView(allFailures)
 
-    if (allFailures.length > 0) {
-      output.failures = allFailures
+    if (failuresForView.length > 0) {
+      output.failures = failuresForView
     }
 
     // Add passed tests based on configuration
     if (this.shouldIncludePassedTests(options.testResults.passed)) {
-      output.passed = options.testResults.passed
+      output.passed = options.testResults.passed.map((test) => this.mapTestResultForView(test))
     }
 
     // Add skipped tests based on configuration
     if (this.shouldIncludeSkippedTests(options.testResults.skipped)) {
-      output.skipped = options.testResults.skipped
+      output.skipped = options.testResults.skipped.map((test) => this.mapTestResultForView(test))
     }
 
     if (options.testResults.successLogs.length > 0) {
-      output.successLogs = options.testResults.successLogs
+      output.successLogs = options.testResults.successLogs.map((log) =>
+        this.mapSuccessLogForView(log)
+      )
     }
 
     // Apply late-stage truncation if enabled
@@ -145,6 +185,84 @@ export class OutputBuilder {
     }
 
     return failures
+  }
+
+  private mapFailuresForView(failures: TestFailure[]): TestFailure[] {
+    return failures.map((failure) => {
+      const consoleEvents = this.mapConsoleEventsForView(failure.consoleEvents)
+      return {
+        ...failure,
+        consoleEvents
+      }
+    })
+  }
+
+  private mapSuccessLogForView(log: TestSuccessLog): TestSuccessLog {
+    const consoleEvents = this.mapConsoleEventsForView(log.consoleEvents)
+    return {
+      ...log,
+      consoleEvents
+    }
+  }
+
+  private mapTestResultForView(result: TestResult): TestResult {
+    return { ...result }
+  }
+
+  private mapConsoleEventsForView(events?: ConsoleEvent[]): ConsoleEvent[] | undefined {
+    if (!events) {
+      return events
+    }
+
+    if (events.length === 0) {
+      return []
+    }
+
+    return events.map((event) => this.mapConsoleEventForView(event))
+  }
+
+  private mapConsoleEventForView(event: ConsoleEvent): ConsoleEvent {
+    const consoleView = this.config.view.console
+
+    const mapped: ConsoleEvent = {
+      level: event.level,
+      message: event.message
+    }
+
+    if (consoleView.includeTimestampMs) {
+      if (event.timestampMs !== undefined) {
+        mapped.timestampMs = event.timestampMs
+      }
+      if (event.timestamp !== undefined) {
+        mapped.timestamp = event.timestamp
+      }
+    }
+
+    if (consoleView.includeTestId && event.testId !== undefined) {
+      mapped.testId = event.testId
+    }
+
+    if (event.origin) {
+      mapped.origin = event.origin
+    }
+
+    if (event.args) {
+      mapped.args = [...event.args]
+    }
+
+    if (event.deduplication) {
+      mapped.deduplication = {
+        count: event.deduplication.count,
+        deduplicated: event.deduplication.deduplicated,
+        firstSeen: event.deduplication.firstSeen,
+        ...(event.deduplication.lastSeen ? { lastSeen: event.deduplication.lastSeen } : {}),
+        ...(event.deduplication.sources
+          ? { sources: [...event.deduplication.sources] }
+          : {})
+      }
+    }
+
+    return mapped
   }
 
   /**
@@ -215,6 +333,119 @@ export class OutputBuilder {
     return this.config.verbose || this.config.includeSkippedTests
   }
 
+  private resolveConfig(config: OutputBuilderConfig): ResolvedOutputBuilderConfig {
+    const resolved: ResolvedOutputBuilderConfig = {
+      includePassedTests: DEFAULT_OUTPUT_CONFIG.includePassedTests,
+      includeSkippedTests: DEFAULT_OUTPUT_CONFIG.includeSkippedTests,
+      verbose: DEFAULT_OUTPUT_CONFIG.verbose,
+      filterNodeModules: DEFAULT_OUTPUT_CONFIG.filterNodeModules,
+      includeStackString: DEFAULT_OUTPUT_CONFIG.includeStackString,
+      includeAbsolutePaths: DEFAULT_OUTPUT_CONFIG.includeAbsolutePaths,
+      rootDir: DEFAULT_OUTPUT_CONFIG.rootDir,
+      truncation: { ...DEFAULT_OUTPUT_CONFIG.truncation },
+      view: {
+        console: { ...DEFAULT_OUTPUT_CONFIG.view.console }
+      },
+      environmentMetadata: DEFAULT_OUTPUT_CONFIG.environmentMetadata
+    }
+
+    if (config.includePassedTests !== undefined) {
+      resolved.includePassedTests = config.includePassedTests
+    }
+    if (config.includeSkippedTests !== undefined) {
+      resolved.includeSkippedTests = config.includeSkippedTests
+    }
+    if (config.verbose !== undefined) {
+      resolved.verbose = config.verbose
+    }
+    if (config.filterNodeModules !== undefined) {
+      resolved.filterNodeModules = config.filterNodeModules
+    }
+    if (config.includeStackString !== undefined) {
+      resolved.includeStackString = config.includeStackString
+    }
+    if (config.includeAbsolutePaths !== undefined) {
+      resolved.includeAbsolutePaths = config.includeAbsolutePaths
+    }
+    if (config.rootDir !== undefined) {
+      resolved.rootDir = config.rootDir
+    }
+    if (config.environmentMetadata !== undefined) {
+      resolved.environmentMetadata = config.environmentMetadata
+    }
+
+    resolved.truncation = { ...resolved.truncation, ...(config.truncation ?? {}) }
+    resolved.view = this.mergeViewConfig(resolved.view, config.view)
+
+    return resolved
+  }
+
+  private mergeResolvedConfig(
+    current: ResolvedOutputBuilderConfig,
+    update: OutputBuilderConfig
+  ): ResolvedOutputBuilderConfig {
+    const next: ResolvedOutputBuilderConfig = {
+      ...current,
+      truncation: { ...current.truncation },
+      view: {
+        console: { ...current.view.console }
+      }
+    }
+
+    if (update.includePassedTests !== undefined) {
+      next.includePassedTests = update.includePassedTests
+    }
+    if (update.includeSkippedTests !== undefined) {
+      next.includeSkippedTests = update.includeSkippedTests
+    }
+    if (update.verbose !== undefined) {
+      next.verbose = update.verbose
+    }
+    if (update.filterNodeModules !== undefined) {
+      next.filterNodeModules = update.filterNodeModules
+    }
+    if (update.includeStackString !== undefined) {
+      next.includeStackString = update.includeStackString
+    }
+    if (update.includeAbsolutePaths !== undefined) {
+      next.includeAbsolutePaths = update.includeAbsolutePaths
+    }
+    if (update.rootDir !== undefined) {
+      next.rootDir = update.rootDir
+    }
+    if (update.environmentMetadata !== undefined) {
+      next.environmentMetadata = update.environmentMetadata
+    }
+
+    if (update.truncation) {
+      next.truncation = { ...next.truncation, ...update.truncation }
+    }
+
+    next.view = this.mergeViewConfig(next.view, update.view)
+
+    return next
+  }
+
+  private mergeViewConfig(
+    current: ResolvedOutputViewConfig,
+    override?: OutputViewConfig
+  ): ResolvedOutputViewConfig {
+    if (!override) {
+      return {
+        console: { ...current.console }
+      }
+    }
+
+    return {
+      console: {
+        includeTestId:
+          override.console?.includeTestId ?? current.console.includeTestId,
+        includeTimestampMs:
+          override.console?.includeTimestampMs ?? current.console.includeTimestampMs
+      }
+    }
+  }
+
   /**
    * Applies late-stage truncation to the complete output
    */
@@ -248,7 +479,7 @@ export class OutputBuilder {
    * Updates builder configuration
    */
   public updateConfig(config: OutputBuilderConfig): void {
-    this.config = { ...this.config, ...config }
+    this.config = this.mergeResolvedConfig(this.config, config)
 
     // Update late truncator configuration
     if (this.lateTruncator && config.truncation) {

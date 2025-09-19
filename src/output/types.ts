@@ -1,6 +1,10 @@
 import type { TestResult, TestFailure, TestSuccessLog } from '../types/schema.js'
 import type { SerializedError } from 'vitest'
-import type { TruncationConfig, EnvironmentMetadataConfig } from '../types/reporter.js'
+import type {
+  TruncationConfig,
+  EnvironmentMetadataConfig,
+  OutputViewConfig
+} from '../types/reporter.js'
 
 /**
  * Output builder configuration
@@ -24,6 +28,8 @@ export interface OutputBuilderConfig {
   rootDir?: string
   /** Options controlling environment metadata included in the summary */
   environmentMetadata?: EnvironmentMetadataConfig
+  /** Output view configuration */
+  view?: OutputViewConfig
 }
 
 /**

@@ -15,7 +15,8 @@ import type {
   LLMReporterConfig,
   StdioConfig,
   TruncationConfig,
-  EnvironmentMetadataConfig
+  EnvironmentMetadataConfig,
+  OutputViewConfig
 } from '../types/reporter.js'
 import type { OrchestratorConfig } from '../events/types.js'
 import type { LLMReporterOutput, TestError } from '../types/schema.js'
@@ -85,6 +86,7 @@ interface ResolvedLLMReporterConfig
       }
     | undefined
   environmentMetadata: EnvironmentMetadataConfig | undefined
+  outputView: OutputViewConfig | undefined
 }
 
 // Import new components
@@ -251,7 +253,8 @@ export class LLMReporter implements Reporter {
       stdio: stdioConfig,
       warnWhenConsoleBlocked: config.warnWhenConsoleBlocked ?? true,
       fallbackToStderrOnBlocked: config.fallbackToStderrOnBlocked ?? true,
-      environmentMetadata: config.environmentMetadata ?? undefined
+      environmentMetadata: config.environmentMetadata ?? undefined,
+      outputView: config.outputView ?? undefined
     }
 
     this.stdioFilter = new StdioFilterEvaluator(
@@ -280,7 +283,8 @@ export class LLMReporter implements Reporter {
       includeAbsolutePaths: this.config.includeAbsolutePaths,
       rootDir: process.cwd(),
       truncation: this.config.truncation,
-      environmentMetadata: this.config.environmentMetadata
+      environmentMetadata: this.config.environmentMetadata,
+      view: this.config.outputView
     })
     this.outputWriter = new OutputWriter()
 
@@ -374,6 +378,16 @@ export class LLMReporter implements Reporter {
         if (value !== undefined && typeof value !== 'boolean') {
           throw new Error(`environmentMetadata.${key.toString()} must be a boolean`)
         }
+      }
+    }
+
+    if (config.outputView?.console) {
+      const { includeTestId, includeTimestampMs } = config.outputView.console
+      if (includeTestId !== undefined && typeof includeTestId !== 'boolean') {
+        throw new Error('outputView.console.includeTestId must be a boolean')
+      }
+      if (includeTimestampMs !== undefined && typeof includeTimestampMs !== 'boolean') {
+        throw new Error('outputView.console.includeTimestampMs must be a boolean')
       }
     }
   }
