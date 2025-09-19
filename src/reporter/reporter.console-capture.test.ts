@@ -168,6 +168,8 @@ describe('LLMReporter Console Capture Integration', () => {
       level: 'info',
       message: 'Informational message'
     })
+    expect(successLog?.consoleEvents?.every((event) => event.testId === undefined)).toBe(true)
+    expect(successLog?.consoleEvents?.every((event) => event.timestampMs === undefined)).toBe(true)
     expect(successLog?.suppressed).toMatchObject({ totalLines: 2, suppressedLines: 0 })
   })
 
