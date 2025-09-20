@@ -571,6 +571,11 @@ export class LLMReporter implements Reporter {
       outputBuilderConfig.environmentMetadata = this.config.environmentMetadata
       shouldUpdateOutputBuilder = true
     }
+    if ('outputView' in partialConfig) {
+      // Forward view projection changes to OutputBuilder
+      outputBuilderConfig.view = this.config.outputView
+      shouldUpdateOutputBuilder = true
+    }
 
     if (shouldUpdateOutputBuilder) {
       this.outputBuilder.updateConfig(outputBuilderConfig)
