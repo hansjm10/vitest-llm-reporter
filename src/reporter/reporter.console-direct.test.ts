@@ -77,6 +77,54 @@ describe('LLMReporter Console Capture - Direct Test', () => {
 
     expect(logEvents.some((e) => e.message === 'Test log message')).toBe(true)
     expect(errorEvents.some((e) => e.message === 'Test error message')).toBe(true)
+    expect(failure?.consoleEvents?.every((event) => event.testId === undefined)).toBe(true)
+    expect(failure?.consoleEvents?.every((event) => event.timestampMs === undefined)).toBe(true)
+  })
+
+  it('allows including internal console metadata via outputView config', async () => {
+    reporter = new LLMReporter({
+      verbose: false,
+      captureConsoleOnFailure: true,
+      outputView: {
+        console: {
+          includeTestId: true,
+          includeTimestampMs: true
+        }
+      }
+    })
+    reporter.onTestRunStart([])
+
+    const testId = 'test-console-view'
+    const mockTestCase = {
+      id: testId,
+      type: 'test',
+      name: 'test with console metadata',
+      result: {
+        state: 'fail',
+        error: new Error('Test failed')
+      },
+      fileRelative: '/test/file.ts',
+      location: { start: { line: 10 }, end: { line: 20 } }
+    } as unknown as TestCase
+
+    reporter.onUserConsoleLog({
+      content: 'metadata log',
+      type: 'stdout',
+      taskId: testId,
+      time: Date.now(),
+      size: 12
+    })
+
+    reporter.onTestCaseResult(mockTestCase)
+
+    await reporter.onTestRunEnd([], [], 'failed')
+
+    const output = reporter.getOutput()
+    const failure = output?.failures?.[0]
+    const event = failure?.consoleEvents?.[0]
+
+    expect(event?.testId).toBe(testId)
+    expect(typeof event?.timestampMs).toBe('number')
   })
 
   it('should not capture console for passing tests', () => {

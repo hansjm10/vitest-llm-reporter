@@ -168,7 +168,52 @@ describe('LLMReporter Console Capture Integration', () => {
       level: 'info',
       message: 'Informational message'
     })
+    expect(successLog?.consoleEvents?.every((event) => event.testId === undefined)).toBe(true)
+    expect(successLog?.consoleEvents?.every((event) => event.timestampMs === undefined)).toBe(true)
     expect(successLog?.suppressed).toMatchObject({ totalLines: 2, suppressedLines: 0 })
+  })
+
+  it('surfaces console metadata when outputView enables it', async () => {
+    reporter = new LLMReporter({
+      captureConsoleOnSuccess: true,
+      captureConsoleOnFailure: false,
+      outputView: {
+        console: {
+          includeTestId: true,
+          includeTimestampMs: true
+        }
+      }
+    })
+
+    const testCase = {
+      id: 'view-success-log',
+      name: 'passing test with metadata',
+      fileRelative: { filepath: '/test.ts' },
+      location: {
+        start: { line: 10 },
+        end: { line: 20 }
+      },
+      result: {
+        state: 'passed',
+        duration: 21
+      }
+    } as unknown as TestCase
+
+    reporter.onTestCaseReady(testCase)
+
+    await consoleCapture.runWithCapture('view-success-log', () => {
+      console.log('metadata message')
+    })
+
+    reporter.onTestCaseResult(testCase)
+    await reporter.onTestRunEnd([], [], 'completed' as TestRunEndReason)
+
+    const output = reporter.getOutput()
+    const successLog = output?.successLogs?.[0]
+    const event = successLog?.consoleEvents?.[0]
+
+    expect(event?.testId).toBe('view-success-log')
+    expect(typeof event?.timestampMs).toBe('number')
   })
 
   it('should record suppression metadata when filters drop success logs', async () => {

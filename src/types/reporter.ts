@@ -28,6 +28,24 @@ export interface EnvironmentMetadataConfig {
 }
 
 /**
+ * Controls which console event fields are surfaced in reporter output
+ */
+export interface ConsoleOutputViewConfig {
+  /** Include the originating testId for each console event (default: false) */
+  includeTestId?: boolean
+  /** Include the timestamp in milliseconds relative to test start (default: false) */
+  includeTimestampMs?: boolean
+}
+
+/**
+ * Output view configuration
+ */
+export interface OutputViewConfig {
+  /** Console event visibility controls */
+  console?: ConsoleOutputViewConfig
+}
+
+/**
  * Predicate type used for stdout/stderr filtering
  */
 export type StdioFilter = RegExp | ((line: string) => boolean)
@@ -117,6 +135,8 @@ export interface LLMReporterConfig {
       }
   /** Configure which environment metadata fields are included in the summary */
   environmentMetadata?: EnvironmentMetadataConfig
+  /** Configure how test results are projected into the final output */
+  outputView?: OutputViewConfig
 }
 
 /**

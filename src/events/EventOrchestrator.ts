@@ -422,12 +422,10 @@ export class EventOrchestrator {
    */
   private finalizeDeduplicationMetadata(): void {
     const deduplicator = this.deduplicator
-    if (!deduplicator?.isEnabled()) {
-      return
-    }
+    const shouldApplyMetadata = deduplicator?.isEnabled() ?? false
 
     const applyMetadata = (events?: ConsoleEvent[]): void => {
-      if (!events || events.length === 0) {
+      if (!shouldApplyMetadata || !deduplicator || !events || events.length === 0) {
         return
       }
 
