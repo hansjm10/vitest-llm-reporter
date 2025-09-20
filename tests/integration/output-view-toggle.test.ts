@@ -62,4 +62,3 @@ describe('Integration: outputView runtime updates', () => {
     expect(ev2?.timestamp).toBe(123)
   })
 })
-
