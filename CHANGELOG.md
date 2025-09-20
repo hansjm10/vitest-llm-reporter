@@ -1,5 +1,12 @@
 # vitest-llm-reporter
 
+## 1.1.1
+
+### Patch Changes
+
+- dfed6d9: -Keep full-fidelity console metadata in internal state while trimming the default output view for LLM consumption.
+  -Expose `outputView.console.includeTestId` and `outputView.console.includeTimestampMs` flags so downstream tooling can surface those fields when needed.
+
 ## 1.1.0
 
 ### Minor Changes
