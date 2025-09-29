@@ -162,10 +162,22 @@ export class OutputBuilder {
     // Calculate retry statistics
     let flakyCount = 0
     let retriedCount = 0
+
+    // Count retried/flaky tests in failed array
     for (const failure of failed) {
       if (failure.retryInfo) {
         retriedCount++
         if (failure.retryInfo.flakiness.isFlaky) {
+          flakyCount++
+        }
+      }
+    }
+
+    // Count retried/flaky tests in passed array (flaky tests that ultimately passed)
+    for (const pass of passed) {
+      if (pass.retryInfo) {
+        retriedCount++
+        if (pass.retryInfo.flakiness.isFlaky) {
           flakyCount++
         }
       }

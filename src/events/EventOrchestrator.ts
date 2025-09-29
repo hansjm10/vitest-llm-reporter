@@ -272,6 +272,15 @@ export class EventOrchestrator {
       // Record retry attempt
       if (extracted.id) {
         this.recordTestAttempt(extracted.id, 'passed', extracted.duration || 0)
+
+        // If this test previously failed but now passed (flaky test), remove it from failed array
+        const retryHistory = this.testRetryHistory.get(extracted.id)
+        if (retryHistory && retryHistory.length > 1) {
+          const hadPreviousFailure = retryHistory.some((attempt) => attempt.status === 'failed')
+          if (hadPreviousFailure) {
+            this.stateManager.removeFailedTest(extracted.id)
+          }
+        }
       }
 
       let consoleEvents: ConsoleEvent[] | undefined
@@ -296,7 +305,7 @@ export class EventOrchestrator {
       }
 
       const result = this.resultBuilder.buildPassedTest(extracted)
-      this.stateManager.recordPassedTest(result)
+      this.stateManager.recordPassedTest(result, extracted.id)
       this.unregisterTestFromStreaming(extracted.id)
     } else if (this.testExtractor.isFailedTest(extracted)) {
       this.processFailedTest(extracted, testCase)
@@ -770,6 +779,13 @@ export class EventOrchestrator {
    */
   public getRetryInfo(testId: string): RetryInfo | undefined {
     return this.buildRetryInfo(testId)
+  }
+
+  /**
+   * Get all test IDs that have retry history
+   */
+  public getAllRetryTestIds(): string[] {
+    return Array.from(this.testRetryHistory.keys())
   }
 
   /**

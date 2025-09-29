@@ -64,6 +64,7 @@ export class StateManager {
   private testAttempts: Map<string, number> = new Map() // testId -> attempt count
   private testFirstAttemptTime: Map<string, number> = new Map() // testId -> first attempt timestamp
   private testIdToFailureIndex: Map<string, number> = new Map() // testId -> index in failed array
+  private testIdToPassedIndex: Map<string, number> = new Map() // testId -> index in passed array
 
   constructor(config: StateConfig = {}) {
     this.config = { ...DEFAULT_STATE_CONFIG, ...config }
@@ -144,8 +145,14 @@ export class StateManager {
   /**
    * Records a passed test result
    */
-  public recordPassedTest(test: TestResult): void {
+  public recordPassedTest(test: TestResult, testId?: string): void {
+    const index = this.testResults.passed.length
     this.testResults.passed.push(test)
+
+    // Track the mapping for retry info lookup
+    if (testId) {
+      this.testIdToPassedIndex.set(testId, index)
+    }
   }
 
   /**
@@ -165,6 +172,28 @@ export class StateManager {
     // Track the mapping for retry info lookup
     if (testId) {
       this.testIdToFailureIndex.set(testId, index)
+    }
+  }
+
+  /**
+   * Remove a failed test from the failed array (e.g., when it passes on retry)
+   * This prevents flaky tests from being counted as failures in the summary
+   */
+  public removeFailedTest(testId: string): void {
+    const index = this.testIdToFailureIndex.get(testId)
+    if (index !== undefined && index < this.testResults.failed.length) {
+      // Remove the test from the failed array
+      this.testResults.failed.splice(index, 1)
+
+      // Remove from mapping
+      this.testIdToFailureIndex.delete(testId)
+
+      // Update all subsequent indices in the mapping
+      for (const [id, idx] of this.testIdToFailureIndex.entries()) {
+        if (idx > index) {
+          this.testIdToFailureIndex.set(id, idx - 1)
+        }
+      }
     }
   }
 
@@ -306,6 +335,13 @@ export class StateManager {
   }
 
   /**
+   * Get mapping of test IDs to their indices in the passed array
+   */
+  public getTestIdToPassedMapping(): Map<string, number> {
+    return new Map(this.testIdToPassedIndex)
+  }
+
+  /**
    * Resets the state to initial values
    */
   public reset(): void {
@@ -328,6 +364,7 @@ export class StateManager {
     this.testAttempts.clear()
     this.testFirstAttemptTime.clear()
     this.testIdToFailureIndex.clear()
+    this.testIdToPassedIndex.clear()
   }
 
   /**

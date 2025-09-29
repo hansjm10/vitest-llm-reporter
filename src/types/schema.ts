@@ -254,6 +254,8 @@ export interface TestResult extends TestBase {
   duration?: number
   /** Test status */
   status: 'passed' | 'skipped'
+  /** Retry information if test was retried (optional) */
+  retryInfo?: RetryInfo
 }
 
 /**

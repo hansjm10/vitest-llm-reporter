@@ -1002,8 +1002,9 @@ export class LLMReporter implements Reporter {
       const statistics = this.stateManager.getStatistics()
       const testResults = this.stateManager.getTestResults()
 
-      // Enrich test failures with retry information if enabled
+      // Enrich tests with retry information if enabled
       if (this.config.trackRetries) {
+        // Enrich failed tests with retry info
         const testIdMapping = this.stateManager.getTestIdToFailureMapping()
         for (const [testId, failureIndex] of testIdMapping) {
           const failure = testResults.failed[failureIndex]
@@ -1011,6 +1012,18 @@ export class LLMReporter implements Reporter {
             const retryInfo = this.orchestrator.getRetryInfo(testId)
             if (retryInfo && (this.config.includeAllAttempts || retryInfo.attempts.length > 1)) {
               failure.retryInfo = retryInfo
+            }
+          }
+        }
+
+        // Enrich passed tests with retry info (for flaky tests)
+        const passedIdMapping = this.stateManager.getTestIdToPassedMapping()
+        for (const [testId, passedIndex] of passedIdMapping) {
+          const passed = testResults.passed[passedIndex]
+          if (passed) {
+            const retryInfo = this.orchestrator.getRetryInfo(testId)
+            if (retryInfo && (this.config.includeAllAttempts || retryInfo.attempts.length > 1)) {
+              passed.retryInfo = retryInfo
             }
           }
         }
