@@ -7,6 +7,7 @@ import {
   isValidTestResult
 } from '../test-utils/validation-helpers.js'
 import { getRuntimeEnvironmentSummary } from '../utils/runtime-environment.js'
+import { prepareForSnapshot } from '../test-utils/snapshot-helpers.js'
 
 describe('LLM Reporter Schema', () => {
   const validator = new SchemaValidator()
@@ -199,6 +200,93 @@ describe('LLM Reporter Schema', () => {
       }
 
       expect(validator.validate(output).valid).toBe(true)
+    })
+
+    it('should validate output with only failures (snapshot)', () => {
+      const output: LLMReporterOutput = {
+        summary: {
+          total: 10,
+          passed: 8,
+          failed: 2,
+          skipped: 0,
+          duration: 1234,
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
+        },
+        failures: [
+          {
+            test: 'should calculate tax correctly',
+            fileRelative: '/src/tax.test.ts',
+            startLine: 45,
+            endLine: 45,
+            error: {
+              message: 'Expected 105.50 but got 105.00',
+              type: 'AssertionError',
+              context: {
+                code: [
+                  '44: const price = 100;',
+                  '45: expect(calculateTax(price)).toBe(105.50);',
+                  '46: // Tax should be 5.5%'
+                ],
+                lineNumber: 45
+              }
+            }
+          }
+        ]
+      }
+
+      const normalized = prepareForSnapshot(output, { stripConsole: true })
+      expect(normalized).toMatchInlineSnapshot(`
+        {
+          "failures": [
+            {
+              "duration": undefined,
+              "endLine": 45,
+              "error": {
+                "context": {
+                  "code": [
+                    "44: const price = 100;",
+                    "45: expect(calculateTax(price)).toBe(105.50);",
+                    "46: // Tax should be 5.5%",
+                  ],
+                  "lineNumber": 45,
+                },
+                "message": "Expected 105.50 but got 105.00",
+                "stackFrames": undefined,
+                "type": "AssertionError",
+              },
+              "fileRelative": "src/tax.test.ts",
+              "startLine": 45,
+              "test": "should calculate tax correctly",
+            },
+          ],
+          "summary": {
+            "duration": 0,
+            "environment": {
+              "ci": false,
+              "node": {
+                "runtime": "node",
+                "version": "v18.0.0",
+              },
+              "os": {
+                "arch": "x64",
+                "platform": "linux",
+                "release": "5.0.0",
+                "version": "5.0.0",
+              },
+              "packageManager": "npm@9.0.0",
+              "vitest": {
+                "version": "3.0.0",
+              },
+            },
+            "failed": 2,
+            "passed": 8,
+            "skipped": 0,
+            "timestamp": "2024-01-01T00:00:00.000Z",
+            "total": 10,
+          },
+        }
+      `)
     })
 
     it('should validate output with passed tests in verbose mode', () => {

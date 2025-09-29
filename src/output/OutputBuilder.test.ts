@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest'
 import { OutputBuilder } from './OutputBuilder.js'
 import type { BuildOptions } from './types.js'
 import type { SerializedError } from 'vitest'
+import { prepareForSnapshot } from '../test-utils/snapshot-helpers.js'
 
 describe('OutputBuilder', () => {
   describe('buildSummary with unhandled errors', () => {
@@ -45,6 +46,85 @@ describe('OutputBuilder', () => {
       expect(output.failures).toHaveLength(1)
       expect(output.failures![0].test).toBe('Unhandled Error')
       expect(output.failures![0].error.message).toContain('beforeAll is not defined')
+    })
+
+    it('should include unhandled errors in failed count (snapshot)', () => {
+      const builder = new OutputBuilder()
+
+      const unhandledError: SerializedError = {
+        message: 'ReferenceError: beforeAll is not defined',
+        stack: 'ReferenceError: beforeAll is not defined\n  at test.js:1:1',
+        name: 'ReferenceError'
+      }
+
+      const options: BuildOptions = {
+        testResults: {
+          passed: [],
+          failed: [],
+          skipped: [],
+          successLogs: []
+        },
+        duration: 1000,
+        unhandledErrors: [unhandledError]
+      }
+
+      const output = builder.build(options)
+      const normalized = prepareForSnapshot(output, { stripConsole: true })
+
+      expect(normalized).toMatchInlineSnapshot(`
+        {
+          "failures": [
+            {
+              "consoleEvents": undefined,
+              "duration": undefined,
+              "endLine": 0,
+              "error": {
+                "assertion": undefined,
+                "context": undefined,
+                "message": "ReferenceError: beforeAll is not defined",
+                "stackFrames": [
+                  {
+                    "column": 1,
+                    "fileRelative": "test.js",
+                    "inNodeModules": false,
+                    "inProject": false,
+                    "line": 1,
+                  },
+                ],
+                "type": "UnhandledError",
+              },
+              "fileRelative": "",
+              "startLine": 0,
+              "test": "Unhandled Error",
+            },
+          ],
+          "summary": {
+            "duration": 0,
+            "environment": {
+              "ci": false,
+              "node": {
+                "runtime": "node",
+                "version": "v18.0.0",
+              },
+              "os": {
+                "arch": "x64",
+                "platform": "linux",
+                "release": "5.0.0",
+                "version": "5.0.0",
+              },
+              "packageManager": "npm@9.0.0",
+              "vitest": {
+                "version": "3.0.0",
+              },
+            },
+            "failed": 1,
+            "passed": 0,
+            "skipped": 0,
+            "timestamp": "2024-01-01T00:00:00.000Z",
+            "total": 1,
+          },
+        }
+      `)
     })
 
     it('should handle multiple unhandled errors', () => {

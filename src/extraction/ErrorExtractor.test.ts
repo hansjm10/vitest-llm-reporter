@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { ErrorExtractor } from './ErrorExtractor.js'
 import type { ErrorExtractionConfig } from '../types/extraction.js'
 import * as fs from 'node:fs'
+import { normalizeErrorForSnapshot } from '../test-utils/snapshot-helpers.js'
 
 // Mock fs module
 vi.mock('node:fs', () => ({
@@ -51,6 +52,26 @@ describe('ErrorExtractor', () => {
       expect(result.stack).toBeDefined()
     })
 
+    it('should extract basic error properties (snapshot)', () => {
+      const error = new Error('Test error message')
+      error.stack = 'Error: Test error message\n    at /src/test.ts:10:5'
+      const result = extractor.extract(error)
+      const normalized = normalizeErrorForSnapshot(result)
+
+      expect(normalized).toMatchInlineSnapshot(`
+        {
+          "actual": undefined,
+          "context": undefined,
+          "expected": undefined,
+          "lineNumber": 10,
+          "message": "Test error message",
+          "stack": "Error: Test error message
+            at /src/test.ts:10:5",
+          "type": "Error",
+        }
+      `)
+    })
+
     it('should handle assertion errors with expected and actual values', () => {
       const assertionError = {
         name: 'AssertionError',
@@ -67,6 +88,33 @@ describe('ErrorExtractor', () => {
       expect(result.type).toBe('AssertionError')
       expect(result.expected).toBe(5)
       expect(result.actual).toBe(4)
+    })
+
+    it('should handle assertion errors with expected and actual values (snapshot)', () => {
+      const assertionError = {
+        name: 'AssertionError',
+        message: 'Expected 5 but received 4',
+        expected: 5,
+        actual: 4,
+        operator: 'toBe',
+        stack: 'AssertionError: Expected 5 but received 4\n  at /src/math.test.ts:15:12'
+      }
+
+      const result = extractor.extract(assertionError)
+      const normalized = normalizeErrorForSnapshot(result)
+
+      expect(normalized).toMatchInlineSnapshot(`
+        {
+          "actual": 4,
+          "context": undefined,
+          "expected": 5,
+          "lineNumber": 15,
+          "message": "Expected 5 but received 4",
+          "stack": "AssertionError: Expected 5 but received 4
+          at /src/math.test.ts:15:12",
+          "type": "AssertionError",
+        }
+      `)
     })
 
     it('should handle null and undefined errors gracefully', () => {

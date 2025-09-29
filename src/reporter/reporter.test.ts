@@ -8,6 +8,7 @@ import {
   createMockTestModule,
   createMockTestSpecification
 } from '../test-utils/mock-data.js'
+import { prepareForSnapshot } from '../test-utils/snapshot-helpers.js'
 
 describe('LLMReporter', () => {
   let reporter: LLMReporter
@@ -328,6 +329,44 @@ describe('LLMReporter', () => {
       expect(output!.summary).toHaveProperty('timestamp')
     })
 
+    it('should generate valid JSON output structure (snapshot)', async () => {
+      reporter.onTestCaseResult(createMockTestCase({ name: 'test1', state: 'pass' }))
+      await reporter.onTestRunEnd([], [], 'passed')
+
+      const output = reporter.getOutput()
+      const normalized = prepareForSnapshot(output, { stripConsole: true })
+
+      expect(normalized).toMatchInlineSnapshot(`
+        {
+          "summary": {
+            "duration": 0,
+            "environment": {
+              "ci": false,
+              "node": {
+                "runtime": "node",
+                "version": "v18.0.0",
+              },
+              "os": {
+                "arch": "x64",
+                "platform": "linux",
+                "release": "5.0.0",
+                "version": "5.0.0",
+              },
+              "packageManager": "npm@9.0.0",
+              "vitest": {
+                "version": "3.0.0",
+              },
+            },
+            "failed": 0,
+            "passed": 1,
+            "skipped": 0,
+            "timestamp": "2024-01-01T00:00:00.000Z",
+            "total": 1,
+          },
+        }
+      `)
+    })
+
     it('should calculate accurate summary statistics', async () => {
       // Add various test results
       for (let i = 0; i < 5; i++) {
@@ -379,6 +418,79 @@ describe('LLMReporter', () => {
       expect(failure.error.stackFrames).toBeDefined()
       expect(failure.error.stackFrames![0].fileRelative).toContain('test/file.ts')
       expect(failure.error.stackFrames![0].line).toBe(25)
+    })
+
+    it('should include failure context for failed tests (snapshot)', async () => {
+      const error = new Error('Expected true to be false')
+      error.stack = 'Error: Expected true to be false\n    at /test/file.ts:25:10'
+
+      const failedTest = {
+        ...createMockTestCase({ name: 'failing-test', state: 'fail', error }),
+        location: { start: { line: 20 }, end: { line: 30 } }
+      }
+
+      reporter.onTestCaseResult(failedTest)
+      await reporter.onTestRunEnd([], [], 'failed')
+
+      const output = reporter.getOutput()
+      const normalized = prepareForSnapshot(output, { stripConsole: true })
+
+      expect(normalized).toMatchInlineSnapshot(`
+        {
+          "failures": [
+            {
+              "consoleEvents": undefined,
+              "duration": undefined,
+              "endLine": 30,
+              "error": {
+                "context": {
+                  "code": [],
+                  "lineNumber": 25,
+                },
+                "message": "Expected true to be false",
+                "stackFrames": [
+                  {
+                    "column": 10,
+                    "fileRelative": "test/file.ts",
+                    "inNodeModules": false,
+                    "inProject": false,
+                    "line": 25,
+                  },
+                ],
+                "type": "Error",
+              },
+              "fileRelative": "test/file.ts",
+              "startLine": 20,
+              "test": "failing-test",
+            },
+          ],
+          "summary": {
+            "duration": 0,
+            "environment": {
+              "ci": false,
+              "node": {
+                "runtime": "node",
+                "version": "v18.0.0",
+              },
+              "os": {
+                "arch": "x64",
+                "platform": "linux",
+                "release": "5.0.0",
+                "version": "5.0.0",
+              },
+              "packageManager": "npm@9.0.0",
+              "vitest": {
+                "version": "3.0.0",
+              },
+            },
+            "failed": 1,
+            "passed": 0,
+            "skipped": 0,
+            "timestamp": "2024-01-01T00:00:00.000Z",
+            "total": 1,
+          },
+        }
+      `)
     })
 
     it('should include passed tests in verbose mode', async () => {
