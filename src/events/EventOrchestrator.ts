@@ -347,13 +347,19 @@ export class EventOrchestrator {
     // Record retry attempt with error details
     // Convert normalized error to TestError format for retry tracking
     if (extracted.id) {
+      // Extract diff for assertion errors
+      const diff = normalizedError.assertion
+        ? this.errorExtractor.extractDiffContext(extracted.error)
+        : undefined
+
       const testError: TestError = {
         message: normalizedError.message,
         type: normalizedError.type,
         ...(normalizedError.stack && { stack: normalizedError.stack }),
         ...(normalizedError.stackFrames && { stackFrames: normalizedError.stackFrames }),
         ...(normalizedError.assertion && { assertion: normalizedError.assertion }),
-        ...(errorContext && { context: errorContext })
+        ...(errorContext && { context: errorContext }),
+        ...(diff && { diff })
       }
       this.recordTestAttempt(extracted.id, 'failed', extracted.duration || 0, testError)
     }
@@ -363,7 +369,8 @@ export class EventOrchestrator {
       extracted,
       normalizedError,
       errorContext,
-      consoleEvents
+      consoleEvents,
+      extracted.error // Pass raw error for diff generation
     )
 
     // Record in state with test ID for retry tracking
