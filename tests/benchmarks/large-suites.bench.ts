@@ -5,7 +5,7 @@
  * and the simplified assertion API.
  */
 
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, beforeAll } from 'vitest'
 import type { Vitest, TestModule } from 'vitest'
 import { LLMReporter } from '../../src/reporter/reporter'
 import {
@@ -14,6 +14,7 @@ import {
   PerformanceAssertions,
   BASELINE_METRICS
 } from './utils'
+import { loadBaseline, assertNoRegression, type BaselineMetrics } from './baseline-comparator'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { unlink } from 'node:fs/promises'
@@ -22,6 +23,16 @@ describe('Large Test Suite Performance Benchmarks', () => {
   const runner = new BenchmarkRunner({ iterations: 10, warmupIterations: 2, timeout: 30000 })
 
   let tempFiles: string[] = []
+  let baseline: BaselineMetrics
+
+  beforeAll(() => {
+    try {
+      baseline = loadBaseline()
+    } catch (_error) {
+      console.warn('⚠️  No baseline metrics found, skipping regression detection')
+    }
+  })
+
   afterEach(async () => {
     for (const file of tempFiles) {
       try {
@@ -62,6 +73,11 @@ describe('Large Test Suite Performance Benchmarks', () => {
       PerformanceAssertions.assertReliability(result, 85)
       PerformanceAssertions.assertResources(result, maxMemMB)
 
+      // Check against baseline if available
+      if (baseline) {
+        assertNoRegression(`large_suite_${_label}`, result, baseline)
+      }
+
       expect(result.averageTime).toBeLessThanOrEqual(maxMs)
     })
   })
@@ -95,5 +111,10 @@ describe('Large Test Suite Performance Benchmarks', () => {
     PerformanceAssertions.assertPerformance(result, 12000, 'Memory pressure suite')
     PerformanceAssertions.assertReliability(result, 85)
     PerformanceAssertions.assertResources(result, 900)
+
+    // Check against baseline if available
+    if (baseline) {
+      assertNoRegression('large_suite_memory_pressure', result, baseline)
+    }
   })
 })
