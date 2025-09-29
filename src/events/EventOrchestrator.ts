@@ -569,6 +569,7 @@ export class EventOrchestrator {
   public reset(): void {
     this.stateManager.reset()
     consoleCapture.reset()
+    this.clearRetryHistory()
 
     // Streaming removed - simplified implementation
     // this.activeTests.clear() // Removed with streaming
