@@ -18,7 +18,8 @@ export default [
         process: 'readonly',
         Buffer: 'readonly',
         __dirname: 'readonly',
-        __filename: 'readonly'
+        __filename: 'readonly',
+        structuredClone: 'readonly'
       }
     },
     plugins: {
@@ -79,7 +80,8 @@ export default [
         clearInterval: 'readonly',
         setImmediate: 'readonly',
         clearImmediate: 'readonly',
-        global: 'readonly'
+        global: 'readonly',
+        structuredClone: 'readonly'
       }
     },
     plugins: {
