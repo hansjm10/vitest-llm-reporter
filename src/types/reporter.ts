@@ -145,6 +145,8 @@ export interface LLMReporterConfig {
   includeAllAttempts?: boolean
   /** Report flaky tests separately even if they eventually pass (default: false) */
   reportFlakyAsWarnings?: boolean
+  /** Enable self-validation of output against schema (default: false) */
+  validateOutput?: boolean
 }
 
 /**
