@@ -9,6 +9,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import { writeFileSync, unlinkSync, existsSync, readFileSync } from 'fs'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import type { LLMReporterConfig } from '../../src/types/reporter.js'
 import type { LLMReporterOutput } from '../../src/types/schema.js'
 
@@ -97,9 +98,10 @@ describe('E2E Matrix Tests', () => {
 export async function runReporterE2E(options: E2ERunnerOptions): Promise<E2ERunnerResult> {
   const { config, testContent = DEFAULT_TEST_CONTENT, timeout = 30000, rebuild = false } = options
 
-  const testFile = join(process.cwd(), `.tmp-e2e-matrix-${Date.now()}.test.ts`)
-  const outputFile = join(process.cwd(), `.tmp-e2e-matrix-output-${Date.now()}.json`)
-  const configFile = join(process.cwd(), `.tmp-e2e-matrix-config-${Date.now()}.ts`)
+  const uniqueId = randomUUID()
+  const testFile = join(process.cwd(), `.tmp-e2e-matrix-${uniqueId}.test.ts`)
+  const outputFile = join(process.cwd(), `.tmp-e2e-matrix-output-${uniqueId}.json`)
+  const configFile = join(process.cwd(), `.tmp-e2e-matrix-config-${uniqueId}.ts`)
 
   try {
     // Create test file
