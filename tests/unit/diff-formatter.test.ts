@@ -309,6 +309,20 @@ describe('deepEqual', () => {
     expect(deepEqual([], {})).toBe(false)
     expect(deepEqual(null, 0)).toBe(false)
   })
+
+  it('should safely compare circular references', () => {
+    const obj1: Record<string, unknown> = { name: 'circular' }
+    obj1.self = obj1
+
+    const obj2: Record<string, unknown> = { name: 'circular' }
+    obj2.self = obj2
+
+    const obj3: Record<string, unknown> = { name: 'circular', extra: true }
+    obj3.self = obj3
+
+    expect(deepEqual(obj1, obj2)).toBe(true)
+    expect(deepEqual(obj1, obj3)).toBe(false)
+  })
 })
 
 describe('shouldGenerateDiff', () => {

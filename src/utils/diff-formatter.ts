@@ -280,6 +280,35 @@ function serializeToJson(value: AssertionValue, options: Required<DiffOptions>):
  * Compares two values and returns true if they are deeply equal
  */
 export function deepEqual(a: AssertionValue, b: AssertionValue): boolean {
+  return deepEqualInternal(a, b, new WeakMap())
+}
+
+type SeenPairs = WeakMap<object, WeakSet<object>>
+
+function hasSeenPair(a: object, b: object, seen: SeenPairs): boolean {
+  const seenForA = seen.get(a)
+  const seenForB = seen.get(b)
+
+  if (seenForA?.has(b) || seenForB?.has(a)) {
+    return true
+  }
+
+  const updatedA = seenForA ?? new WeakSet<object>()
+  updatedA.add(b)
+  if (!seenForA) {
+    seen.set(a, updatedA)
+  }
+
+  const updatedB = seenForB ?? new WeakSet<object>()
+  updatedB.add(a)
+  if (!seenForB) {
+    seen.set(b, updatedB)
+  }
+
+  return false
+}
+
+function deepEqualInternal(a: AssertionValue, b: AssertionValue, seen: SeenPairs): boolean {
   // Handle primitives and null
   if (a === b) return true
   if (a === null || b === null) return false
@@ -292,12 +321,23 @@ export function deepEqual(a: AssertionValue, b: AssertionValue): boolean {
 
   // Handle arrays
   if (Array.isArray(a) && Array.isArray(b)) {
+    if (hasSeenPair(a, b, seen)) {
+      return true
+    }
+
     if (a.length !== b.length) return false
-    return a.every((val, idx) => deepEqual(val as AssertionValue, b[idx] as AssertionValue))
+
+    return a.every((val, idx) =>
+      deepEqualInternal(val as AssertionValue, b[idx] as AssertionValue, seen),
+    )
   }
 
   // Handle objects
   if (typeof a === 'object' && typeof b === 'object') {
+    if (hasSeenPair(a as object, b as object, seen)) {
+      return true
+    }
+
     const objA = a as Record<string, unknown>
     const objB = b as Record<string, unknown>
     const keysA = Object.keys(objA)
@@ -305,9 +345,9 @@ export function deepEqual(a: AssertionValue, b: AssertionValue): boolean {
 
     if (keysA.length !== keysB.length) return false
 
-    return keysA.every((key) => {
-      return deepEqual(objA[key] as AssertionValue, objB[key] as AssertionValue)
-    })
+    return keysA.every((key) =>
+      deepEqualInternal(objA[key] as AssertionValue, objB[key] as AssertionValue, seen),
+    )
   }
 
   return false
