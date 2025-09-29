@@ -328,7 +328,7 @@ function deepEqualInternal(a: AssertionValue, b: AssertionValue, seen: SeenPairs
     if (a.length !== b.length) return false
 
     return a.every((val, idx) =>
-      deepEqualInternal(val as AssertionValue, b[idx] as AssertionValue, seen),
+      deepEqualInternal(val as AssertionValue, b[idx] as AssertionValue, seen)
     )
   }
 
@@ -346,7 +346,7 @@ function deepEqualInternal(a: AssertionValue, b: AssertionValue, seen: SeenPairs
     if (keysA.length !== keysB.length) return false
 
     return keysA.every((key) =>
-      deepEqualInternal(objA[key] as AssertionValue, objB[key] as AssertionValue, seen),
+      deepEqualInternal(objA[key] as AssertionValue, objB[key] as AssertionValue, seen)
     )
   }
 
