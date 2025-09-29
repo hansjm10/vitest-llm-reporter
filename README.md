@@ -11,6 +11,7 @@ Vitest reporter that generates structured JSON output optimized for LLM parsing.
 
 - Compact structured JSON tailored for LLM consumption
 - Automatic code-context extraction for test failures
+- **Retry and flakiness detection** to identify intermittent failures
 - Optional streaming reporter for live progress updates
 - First-class TypeScript types and validation helpers
 
@@ -45,9 +46,12 @@ Or specify an output file:
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', { 
-        outputFile: './test-results.json' 
-      }]
+      [
+        'vitest-llm-reporter',
+        {
+          outputFile: './test-results.json'
+        }
+      ]
     ]
   }
 })
@@ -84,7 +88,9 @@ Note: `StreamingReporter` prints real-time updates as tests complete without cha
 JSON output includes only essential test information.
 
 ### Success Output
+
 When all tests pass:
+
 ```json
 {
   "summary": {
@@ -92,6 +98,8 @@ When all tests pass:
     "passed": 427,
     "failed": 0,
     "skipped": 5,
+    "flaky": 2,
+    "retried": 3,
     "duration": 5264,
     "timestamp": "2025-08-28T14:06:21.581Z",
     "environment": {
@@ -115,8 +123,12 @@ When all tests pass:
 }
 ```
 
+The `flaky` count shows tests that failed initially but passed after retry. The `retried` count shows all tests that required retries. These fields help LLMs identify timing issues and unreliable tests.
+
 ### Failure Output
+
 When tests fail, detailed context is included:
+
 ```json
 {
   "summary": {
@@ -158,8 +170,8 @@ When tests fail, detailed context is included:
           }
         ],
         "assertion": {
-          "expected": 105.50,
-          "actual": 105.00,
+          "expected": 105.5,
+          "actual": 105.0,
           "operator": "strictEqual",
           "expectedType": "number",
           "actualType": "number"
@@ -182,19 +194,49 @@ When tests fail, detailed context is included:
           "message": "Tax calculation failed\n",
           "origin": "task"
         }
-      ]
+      ],
+      "retryInfo": {
+        "attempts": [
+          {
+            "attemptNumber": 1,
+            "status": "failed",
+            "duration": 42,
+            "timestamp": "2025-08-28T14:05:34.100Z",
+            "error": {
+              "message": "expected 105.00 to be 105.50",
+              "type": "AssertionError"
+            }
+          },
+          {
+            "attemptNumber": 2,
+            "status": "failed",
+            "duration": 38,
+            "timestamp": "2025-08-28T14:05:34.150Z",
+            "error": {
+              "message": "expected 105.00 to be 105.50",
+              "type": "AssertionError"
+            }
+          }
+        ],
+        "flakiness": {
+          "isFlaky": false,
+          "totalAttempts": 2,
+          "failedAttempts": 2
+        }
+      }
     }
   ]
 }
 ```
 
-Failed tests include full context and console output. Passed tests are omitted to reduce size.
+Failed tests include full context, console output, and retry information. The `retryInfo` field tracks all attempts with status, duration, and error details. Flaky tests (failed then passed) are automatically detected.
 
 ## Configuration
 
 Control output content and size limits.
 
 ### Output Control
+
 - `verbose`: Include passed and skipped tests
 - `includePassedTests` / `includeSkippedTests`: Include specific test categories
 - `outputFile`: Write JSON to file
@@ -202,7 +244,47 @@ Control output content and size limits.
 - `fileJsonSpacing`: File output indentation (default: 0)
 - `consoleJsonSpacing`: Console output indentation (default: 2)
 
+### Retry and Flakiness Detection
+
+Track test retries and detect flaky tests to help LLMs identify intermittent failures:
+
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      [
+        'vitest-llm-reporter',
+        {
+          trackRetries: true, // Track retry attempts (default: true)
+          detectFlakiness: true, // Detect flaky tests (default: true)
+          includeAllAttempts: false, // Include all attempts in output (default: false)
+          reportFlakyAsWarnings: false // Reserved for future use (default: false)
+        }
+      ]
+    ]
+  }
+})
+```
+
+**Configuration Options:**
+
+- `trackRetries` (default: `true`): Track and report all retry attempts for each test with status, duration, and error details
+- `detectFlakiness` (default: `true`): Automatically detect flaky tests (tests that fail initially but pass after retry)
+- `includeAllAttempts` (default: `false`): Include all retry attempts in the output, not just tests that were retried
+- `reportFlakyAsWarnings` (default: `false`): Reserved for future feature to report flaky tests separately even if they eventually pass
+
+**Output Fields:**
+
+- `summary.flaky`: Count of flaky tests that failed initially but passed after retry
+- `summary.retried`: Count of all tests that required retries
+- `failure.retryInfo`: Detailed retry information including:
+  - `attempts[]`: Array of all retry attempts with status, duration, timestamp, and error details
+  - `flakiness`: Flakiness analysis with `isFlaky`, `totalAttempts`, `failedAttempts`, and `successAttempt`
+
+This feature helps LLMs identify timing issues, concurrency problems, and unreliable tests. It's fully backward compatible - existing code continues to work without changes.
+
 ### Console Capture & Limits
+
 - `captureConsoleOnFailure`: Include console output for failing tests (default: true)
 - `captureConsoleOnSuccess`: Include filtered console output for passing tests (default: false)
 - `maxConsoleBytes` / `maxConsoleLines`: Per-test capture limits (defaults: 50 KB & 100 lines)
@@ -210,7 +292,37 @@ Control output content and size limits.
 - `warnWhenConsoleBlocked`: Emit a stderr warning if stdout seems blocked (default: true)
 - `fallbackToStderrOnBlocked`: Mirror JSON to stderr if stdout write fails (default: true)
 
+### Console Event Metadata
+
+By default, console events in the output are trimmed to reduce size for LLM consumption. You can optionally include additional metadata:
+
+```typescript
+export default defineConfig({
+  test: {
+    reporters: [
+      [
+        'vitest-llm-reporter',
+        {
+          outputView: {
+            console: {
+              includeTestId: true, // Include originating test ID (default: false)
+              includeTimestampMs: true // Include timestamp in ms (default: false)
+            }
+          }
+        }
+      ]
+    ]
+  }
+})
+```
+
+- `outputView.console.includeTestId` (default: `false`): Include the originating test ID for each console event
+- `outputView.console.includeTimestampMs` (default: `false`): Include the timestamp in milliseconds relative to test start
+
+These options allow downstream tooling to access full-fidelity console metadata when needed while keeping the default output clean for LLM parsing.
+
 ### Paths & Error Detail
+
 - `includeAbsolutePaths`: Add absolute file paths alongside repo-relative paths (default: false)
 - `filterNodeModules`: Omit node_modules stack frames (default: true)
 - `includeStackString`: Preserve the raw stack string in addition to parsed frames (default: false)
@@ -218,6 +330,7 @@ Control output content and size limits.
 - `performance`: Enable memory/processing monitors for large suites (`enabled`, `cacheSize`, `memoryWarningThreshold`)
 
 ### Environment Metadata
+
 The summary includes host metadata (OS, Node.js, Vitest version, package manager, CI flag) to help LLMs reason about failures. You can fine-tune or disable this via `environmentMetadata`:
 
 ```ts
@@ -226,15 +339,18 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', {
-        environmentMetadata: {
-          includeVitest: false,
-          includePackageManager: false,
-          includeCi: false,
-          includeNodeRuntime: false,
-          includeOsVersion: false
+      [
+        'vitest-llm-reporter',
+        {
+          environmentMetadata: {
+            includeVitest: false,
+            includePackageManager: false,
+            includeCi: false,
+            includeNodeRuntime: false,
+            includeOsVersion: false
+          }
         }
-      }]
+      ]
     ]
   }
 })
@@ -243,6 +359,7 @@ export default defineConfig({
 Set `environmentMetadata.enabled = false` to omit the block entirely.
 
 ### Spinner Behavior
+
 - Enabled automatically when running in a TTY outside CI (`stderr` stream)
 - Disable globally with `LLM_REPORTER_SPINNER=0`
 - Spinner output stops automatically if stderr suppression is enabled
@@ -252,7 +369,9 @@ Set `environmentMetadata.enabled = false` to omit the block entirely.
 By default, the reporter suppresses external framework logs (like NestJS startup messages) to keep the JSON output clean. This prevents logs from polluting the structured output that LLMs need to parse.
 
 #### Default Behavior (Enabled)
+
 The reporter automatically filters out common framework logs:
+
 ```typescript
 // By default, filters logs matching /^\[Nest\]\s/
 export default defineConfig({
@@ -263,56 +382,69 @@ export default defineConfig({
 ```
 
 #### Disable Suppression
+
 To see all stdout output (framework logs, etc.):
+
 ```typescript
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', { 
-        stdio: { suppressStdout: false } 
-      }]
+      [
+        'vitest-llm-reporter',
+        {
+          stdio: { suppressStdout: false }
+        }
+      ]
     ]
   }
 })
 ```
 
 #### Pure Output Mode
+
 For maximum cleanliness, suppress ALL external stdout:
+
 ```typescript
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', { 
-        pureStdout: true  // Suppresses all non-reporter stdout
-      }]
+      [
+        'vitest-llm-reporter',
+        {
+          pureStdout: true // Suppresses all non-reporter stdout
+        }
+      ]
     ]
   }
 })
 ```
 
 #### Custom Filter Patterns
+
 Filter specific log patterns or provide multiple matchers:
+
 ```typescript
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', {
-        stdio: {
-          suppressStdout: true,
-          // Mix and match regular expressions and predicates
-          filterPattern: [
-            /^(DEBUG:|TRACE:)/,
-            (line: string) => line.startsWith('Verbose:')
-          ],
-          frameworkPresets: ['nest']  // Re-enable the default Nest preset alongside custom patterns
+      [
+        'vitest-llm-reporter',
+        {
+          stdio: {
+            suppressStdout: true,
+            // Mix and match regular expressions and predicates
+            filterPattern: [/^(DEBUG:|TRACE:)/, (line: string) => line.startsWith('Verbose:')],
+            frameworkPresets: ['nest'] // Re-enable the default Nest preset alongside custom patterns
+          }
         }
-      }]
+      ]
     ]
   }
 })
 ```
 
 #### Advanced Options
+
 - `stdio.suppressStderr`: Also suppress stderr (default: false)
 - `stdio.redirectToStderr`: Redirect filtered stdout to stderr for debugging (default: false)
 - `stdio.frameworkPresets`: Apply curated suppression presets for popular frameworks (e.g. `'nest'`, `'next'`, `'nuxt'`)
@@ -322,17 +454,22 @@ export default defineConfig({
 **Note:** The test progress spinner writes to stderr and continues to work unless stderr suppression is enabled.
 
 #### Framework Presets
+
 Suppress startup banners from known frameworks without crafting custom regexes:
+
 ```typescript
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', {
-        stdio: {
-          suppressStdout: true,
-          frameworkPresets: ['next', 'fastify']
+      [
+        'vitest-llm-reporter',
+        {
+          stdio: {
+            suppressStdout: true,
+            frameworkPresets: ['next', 'fastify']
+          }
         }
-      }]
+      ]
     ]
   }
 })
@@ -347,29 +484,37 @@ successful runs. A single non-matching log (`✅ Reporter still surfaces regular
 `successLogs` section of the JSON output, along with a `suppressed` summary that shows how many framework lines were filtered.
 
 #### Auto-detect Frameworks
+
 Let the reporter inspect dependencies and enable presets automatically:
+
 ```typescript
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', {
-        stdio: {
-          suppressStdout: true,
-          autoDetectFrameworks: true
+      [
+        'vitest-llm-reporter',
+        {
+          stdio: {
+            suppressStdout: true,
+            autoDetectFrameworks: true
+          }
         }
-      }]
+      ]
     ]
   }
 })
 ```
+
 When `DEBUG=vitest-llm-reporter:*` is set, the reporter logs which presets were applied so you can confirm nothing important is filtered.
 
 #### Application-Level Alternative
+
 For NestJS applications, you can also disable logging in tests:
+
 ```typescript
 // In your test setup
 import { Logger } from '@nestjs/common'
-Logger.overrideLogger(false)  // Disable NestJS logging
+Logger.overrideLogger(false) // Disable NestJS logging
 
 // Or set log level
 const app = await NestFactory.create(AppModule, {
@@ -378,17 +523,23 @@ const app = await NestFactory.create(AppModule, {
 ```
 
 ### Log Deduplication
+
 Log deduplication is enabled by default to reduce duplicate console output across tests. This feature consolidates identical log messages at the same level, showing occurrence counts instead of repeating the same message multiple times. By default the reporter deduplicates globally across the entire test run; switch to per-test scoping if you prefer isolation between suites.
 
 #### Basic Usage
+
 Explicitly confirm the default or override it if needed:
+
 ```typescript
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', {
-        deduplicateLogs: true  // Enabled by default
-      }]
+      [
+        'vitest-llm-reporter',
+        {
+          deduplicateLogs: true // Enabled by default
+        }
+      ]
     ]
   }
 })
@@ -400,31 +551,39 @@ To disable deduplication and surface every log message:
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', {
-        deduplicateLogs: false
-      }]
+      [
+        'vitest-llm-reporter',
+        {
+          deduplicateLogs: false
+        }
+      ]
     ]
   }
 })
 ```
 
 #### Advanced Configuration
+
 Fine-tune deduplication behavior:
+
 ```typescript
 export default defineConfig({
   test: {
     reporters: [
-      ['vitest-llm-reporter', {
-        deduplicateLogs: {
-          enabled: true,
-          maxCacheEntries: 10000,     // Max unique entries to track
-          includeSources: true,        // Show which tests logged
-          normalizeWhitespace: true,   // Ignore whitespace differences
-          stripTimestamps: true,       // Ignore timestamp differences
-          stripAnsiCodes: true,        // Ignore color codes
-          scope: 'per-test'            // Optional: scope deduplication per test
+      [
+        'vitest-llm-reporter',
+        {
+          deduplicateLogs: {
+            enabled: true,
+            maxCacheEntries: 10000, // Max unique entries to track
+            includeSources: true, // Show which tests logged
+            normalizeWhitespace: true, // Ignore whitespace differences
+            stripTimestamps: true, // Ignore timestamp differences
+            stripAnsiCodes: true, // Ignore color codes
+            scope: 'per-test' // Optional: scope deduplication per test
+          }
         }
-      }]
+      ]
     ]
   }
 })
@@ -432,19 +591,20 @@ export default defineConfig({
 
 #### Configuration Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | `boolean` | `true` | Enable/disable deduplication |
-| `maxCacheEntries` | `number` | `10000` | Maximum unique log entries to track |
-| `includeSources` | `boolean` | `false` | Include test IDs that generated the log |
-| `normalizeWhitespace` | `boolean` | `true` | Collapse multiple spaces for comparison |
-| `stripTimestamps` | `boolean` | `true` | Ignore timestamps when comparing |
-| `stripAnsiCodes` | `boolean` | `true` | Strip color codes when comparing |
-| `scope` | `'global' \| 'per-test'` | `'global'` | Deduplicate across the entire run or per test |
+| Option                | Type                     | Default    | Description                                   |
+| --------------------- | ------------------------ | ---------- | --------------------------------------------- |
+| `enabled`             | `boolean`                | `true`     | Enable/disable deduplication                  |
+| `maxCacheEntries`     | `number`                 | `10000`    | Maximum unique log entries to track           |
+| `includeSources`      | `boolean`                | `false`    | Include test IDs that generated the log       |
+| `normalizeWhitespace` | `boolean`                | `true`     | Collapse multiple spaces for comparison       |
+| `stripTimestamps`     | `boolean`                | `true`     | Ignore timestamps when comparing              |
+| `stripAnsiCodes`      | `boolean`                | `true`     | Strip color codes when comparing              |
+| `scope`               | `'global' \| 'per-test'` | `'global'` | Deduplicate across the entire run or per test |
 
 #### Example Output
 
 Without deduplication:
+
 ```
 ✓ test-1: Connecting to database...
 ✓ test-2: Connecting to database...
@@ -477,12 +637,14 @@ With deduplication the duplicate entries are collapsed and annotated in the JSON
 ```
 
 #### Performance Impact
+
 - Designed for test suites with 1000+ tests
 - Overhead: <5% execution time
 - Memory: <50MB for 10,000 unique entries
 - Automatically evicts oldest entries when cache limit is reached
 
 ### Truncation
+
 Limit output size with truncation settings.
 
 Example truncation config:
@@ -511,6 +673,7 @@ export default defineConfig({
 ```
 
 Truncation notes:
+
 - Uses explicit `maxTokens` setting (default: 100,000)
 - Token estimates based on character count heuristics
 
