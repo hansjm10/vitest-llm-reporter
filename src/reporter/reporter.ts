@@ -87,6 +87,10 @@ interface ResolvedLLMReporterConfig
     | undefined
   environmentMetadata: EnvironmentMetadataConfig | undefined
   outputView: OutputViewConfig | undefined
+  trackRetries: boolean
+  detectFlakiness: boolean
+  includeAllAttempts: boolean
+  reportFlakyAsWarnings: boolean
 }
 
 // Import new components
@@ -254,7 +258,11 @@ export class LLMReporter implements Reporter {
       warnWhenConsoleBlocked: config.warnWhenConsoleBlocked ?? true,
       fallbackToStderrOnBlocked: config.fallbackToStderrOnBlocked ?? true,
       environmentMetadata: config.environmentMetadata ?? undefined,
-      outputView: config.outputView ?? undefined
+      outputView: config.outputView ?? undefined,
+      trackRetries: config.trackRetries ?? true,
+      detectFlakiness: config.detectFlakiness ?? true,
+      includeAllAttempts: config.includeAllAttempts ?? false,
+      reportFlakyAsWarnings: config.reportFlakyAsWarnings ?? false
     }
 
     this.stdioFilter = new StdioFilterEvaluator(
@@ -993,6 +1001,33 @@ export class LLMReporter implements Reporter {
       // Get statistics and test results
       const statistics = this.stateManager.getStatistics()
       const testResults = this.stateManager.getTestResults()
+
+      // Enrich tests with retry information if enabled
+      if (this.config.trackRetries) {
+        // Enrich failed tests with retry info
+        const testIdMapping = this.stateManager.getTestIdToFailureMapping()
+        for (const [testId, failureIndex] of testIdMapping) {
+          const failure = testResults.failed[failureIndex]
+          if (failure) {
+            const retryInfo = this.orchestrator.getRetryInfo(testId)
+            if (retryInfo && (this.config.includeAllAttempts || retryInfo.attempts.length > 1)) {
+              failure.retryInfo = retryInfo
+            }
+          }
+        }
+
+        // Enrich passed tests with retry info (for flaky tests)
+        const passedIdMapping = this.stateManager.getTestIdToPassedMapping()
+        for (const [testId, passedIndex] of passedIdMapping) {
+          const passed = testResults.passed[passedIndex]
+          if (passed) {
+            const retryInfo = this.orchestrator.getRetryInfo(testId)
+            if (retryInfo && (this.config.includeAllAttempts || retryInfo.attempts.length > 1)) {
+              passed.retryInfo = retryInfo
+            }
+          }
+        }
+      }
 
       // Build output using OutputBuilder
       try {

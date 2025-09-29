@@ -14,7 +14,10 @@ export type {
   TestResult,
   TestError,
   ErrorContext,
-  AssertionValue
+  AssertionValue,
+  RetryAttempt,
+  RetryInfo,
+  FlakinessInfo
 } from './types/schema.js'
 
 // Export validation module
