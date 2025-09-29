@@ -70,6 +70,10 @@ export interface TestSummary {
   timestamp: string
   /** Runtime environment metadata */
   environment?: RuntimeEnvironmentSummary
+  /** Number of flaky tests (passed after retry) */
+  flaky?: number
+  /** Number of tests that were retried */
+  retried?: number
 }
 
 /**
@@ -191,6 +195,46 @@ export interface ConsoleEvent {
 }
 
 /**
+ * Individual retry attempt for a test
+ */
+export interface RetryAttempt {
+  /** Attempt number (1-indexed: 1, 2, 3...) */
+  attemptNumber: number
+  /** Status of this attempt */
+  status: 'passed' | 'failed'
+  /** Duration of this attempt in milliseconds */
+  duration: number
+  /** Error details if this attempt failed */
+  error?: TestError
+  /** ISO 8601 timestamp when this attempt started */
+  timestamp: string
+}
+
+/**
+ * Flakiness information for tests that were retried
+ */
+export interface FlakinessInfo {
+  /** Whether the test is flaky (failed at least once but eventually passed) */
+  isFlaky: boolean
+  /** Total number of attempts made */
+  totalAttempts: number
+  /** Number of attempts that failed */
+  failedAttempts: number
+  /** Which attempt number succeeded (if any) */
+  successAttempt?: number
+}
+
+/**
+ * Retry information for a test
+ */
+export interface RetryInfo {
+  /** All attempts made for this test */
+  attempts: RetryAttempt[]
+  /** Flakiness analysis */
+  flakiness: FlakinessInfo
+}
+
+/**
  * Failed test information
  */
 export interface TestFailure extends TestBase {
@@ -198,6 +242,8 @@ export interface TestFailure extends TestBase {
   error: TestError
   /** Console events captured during test (optional) */
   consoleEvents?: ConsoleEvent[]
+  /** Retry information if test was retried (optional) */
+  retryInfo?: RetryInfo
 }
 
 /**

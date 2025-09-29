@@ -60,6 +60,10 @@ export class StateManager {
   }
   private startTime?: number
   private endTime?: number
+  // Retry tracking
+  private testAttempts: Map<string, number> = new Map() // testId -> attempt count
+  private testFirstAttemptTime: Map<string, number> = new Map() // testId -> first attempt timestamp
+  private testIdToFailureIndex: Map<string, number> = new Map() // testId -> index in failed array
 
   constructor(config: StateConfig = {}) {
     this.config = { ...DEFAULT_STATE_CONFIG, ...config }
@@ -154,8 +158,14 @@ export class StateManager {
   /**
    * Records a failed test result
    */
-  public recordFailedTest(test: TestFailure): void {
+  public recordFailedTest(test: TestFailure, testId?: string): void {
+    const index = this.testResults.failed.length
     this.testResults.failed.push(test)
+
+    // Track the mapping for retry info lookup
+    if (testId) {
+      this.testIdToFailureIndex.set(testId, index)
+    }
   }
 
   /**
@@ -235,6 +245,67 @@ export class StateManager {
   }
 
   /**
+   * Records a test attempt for retry tracking
+   * @param testId - The test identifier
+   * @returns The attempt number (1-indexed)
+   */
+  public recordTestAttempt(testId: string): number {
+    const currentAttempts = this.testAttempts.get(testId) || 0
+    const attemptNumber = currentAttempts + 1
+    this.testAttempts.set(testId, attemptNumber)
+
+    // Record first attempt timestamp
+    if (attemptNumber === 1) {
+      this.testFirstAttemptTime.set(testId, Date.now())
+    }
+
+    return attemptNumber
+  }
+
+  /**
+   * Gets the current attempt number for a test
+   * @param testId - The test identifier
+   * @returns The attempt number (1-indexed), or 0 if not yet attempted
+   */
+  public getTestAttemptNumber(testId: string): number {
+    return this.testAttempts.get(testId) || 0
+  }
+
+  /**
+   * Checks if a test has been retried (attempted more than once)
+   * @param testId - The test identifier
+   * @returns True if the test has been retried
+   */
+  public hasTestBeenRetried(testId: string): boolean {
+    return (this.testAttempts.get(testId) || 0) > 1
+  }
+
+  /**
+   * Gets the first attempt timestamp for a test
+   * @param testId - The test identifier
+   * @returns The timestamp in milliseconds, or undefined if not yet attempted
+   */
+  public getTestFirstAttemptTime(testId: string): number | undefined {
+    return this.testFirstAttemptTime.get(testId)
+  }
+
+  /**
+   * Gets all test attempt counts
+   * @returns Map of testId to attempt count
+   */
+  public getAllTestAttempts(): Map<string, number> {
+    return new Map(this.testAttempts)
+  }
+
+  /**
+   * Gets the test ID to failure index mapping
+   * @returns Map of testId to failure array index
+   */
+  public getTestIdToFailureMapping(): Map<string, number> {
+    return new Map(this.testIdToFailureIndex)
+  }
+
+  /**
    * Resets the state to initial values
    */
   public reset(): void {
@@ -253,6 +324,10 @@ export class StateManager {
     }
     this.startTime = undefined
     this.endTime = undefined
+    // Clear retry tracking
+    this.testAttempts.clear()
+    this.testFirstAttemptTime.clear()
+    this.testIdToFailureIndex.clear()
   }
 
   /**

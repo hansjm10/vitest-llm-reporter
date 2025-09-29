@@ -137,6 +137,14 @@ export interface LLMReporterConfig {
   environmentMetadata?: EnvironmentMetadataConfig
   /** Configure how test results are projected into the final output */
   outputView?: OutputViewConfig
+  /** Track and report test retry attempts (default: true) */
+  trackRetries?: boolean
+  /** Detect flaky tests that pass after retry (default: true) */
+  detectFlakiness?: boolean
+  /** Include all retry attempts in output (default: false, only final shown) */
+  includeAllAttempts?: boolean
+  /** Report flaky tests separately even if they eventually pass (default: false) */
+  reportFlakyAsWarnings?: boolean
 }
 
 /**
