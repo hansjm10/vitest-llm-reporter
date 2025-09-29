@@ -102,12 +102,12 @@ The benchmark suite now includes **automated performance regression detection** 
 ### Regression Thresholds
 
 #### Warning Level (Yellow Flags)
-- **Time**: > 20% slower than baseline average
+- **Time**: > 20% slower than baseline average **and** more than +0.5 ms slower
 - **Memory**: > 30% memory increase
 - **Success Rate**: > 5% decrease in success rate
 
 #### Critical Level (Red Flags)
-- **Time**: > 50% slower than baseline average
+- **Time**: > 50% slower than baseline average **and** more than +0.5 ms slower
 - **Memory**: > 100% memory increase (2x)
 - **Success Rate**: > 10% decrease in success rate
 

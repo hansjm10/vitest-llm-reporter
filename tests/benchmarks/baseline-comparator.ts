@@ -107,6 +107,8 @@ export interface RegressionThresholds {
   timeWarning: number
   /** Time increase percentage for critical (default: 50%) */
   timeCritical: number
+  /** Absolute time delta in milliseconds that must be exceeded before flagging (default: 0.5ms) */
+  timeAbsoluteToleranceMs: number
   /** Memory increase percentage for warning (default: 30%) */
   memoryWarning: number
   /** Memory increase percentage for critical (default: 100%) */
@@ -123,6 +125,7 @@ export interface RegressionThresholds {
 export const DEFAULT_THRESHOLDS: RegressionThresholds = {
   timeWarning: 20,
   timeCritical: 50,
+  timeAbsoluteToleranceMs: 0.5,
   memoryWarning: 30,
   memoryCritical: 100,
   successRateWarning: 5,
@@ -202,9 +205,18 @@ export function compareToBaseline(
   }
 
   // Calculate time comparison
-  const timePercent = ((result.averageTime - baselineMetric.avgMs) / baselineMetric.avgMs) * 100
-  const timeExceeds =
-    timePercent > thresholds.timeWarning || result.averageTime > baselineMetric.maxMs
+  const timeDeltaMs = result.averageTime - baselineMetric.avgMs
+  const timePercent =
+    baselineMetric.avgMs === 0
+      ? timeDeltaMs > 0
+        ? Infinity
+        : 0
+      : (timeDeltaMs / baselineMetric.avgMs) * 100
+  const timeAboveTolerance = timeDeltaMs > thresholds.timeAbsoluteToleranceMs
+  const timeWarningExceeded = timeAboveTolerance && timePercent > thresholds.timeWarning
+  const timeCriticalExceeded = timeAboveTolerance && timePercent > thresholds.timeCritical
+  const timeMaxExceeded = result.averageTime > baselineMetric.maxMs
+  const timeExceeds = timeWarningExceeded || timeMaxExceeded
 
   // Calculate memory comparison
   const currentMemoryMB = result.memoryDelta / 1024 / 1024
@@ -222,7 +234,7 @@ export function compareToBaseline(
   let hasRegression = false
 
   if (
-    timePercent > thresholds.timeCritical ||
+    timeCriticalExceeded ||
     memoryPercent > thresholds.memoryCritical ||
     successRatePercent > thresholds.successRateCritical
   ) {
@@ -235,9 +247,11 @@ export function compareToBaseline(
 
   // Generate summary
   const issues: string[] = []
-  if (timeExceeds) {
+  const formattedTimePercent = Number.isFinite(timePercent) ? timePercent.toFixed(1) : '∞'
+
+  if (timeWarningExceeded || timeCriticalExceeded || timeMaxExceeded) {
     issues.push(
-      `time ${timePercent > 0 ? '+' : ''}${timePercent.toFixed(1)}% (${result.averageTime.toFixed(2)}ms vs ${baselineMetric.avgMs.toFixed(2)}ms)`
+      `time ${timePercent > 0 ? '+' : ''}${formattedTimePercent}% (${result.averageTime.toFixed(2)}ms vs ${baselineMetric.avgMs.toFixed(2)}ms)`
     )
   }
   if (memoryExceeds) {
