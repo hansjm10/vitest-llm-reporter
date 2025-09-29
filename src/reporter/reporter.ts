@@ -91,6 +91,7 @@ interface ResolvedLLMReporterConfig
   detectFlakiness: boolean
   includeAllAttempts: boolean
   reportFlakyAsWarnings: boolean
+  validateOutput: boolean
 }
 
 // Import new components
@@ -110,6 +111,7 @@ import {
   normalizeDeduplicationConfig,
   validateDeduplicationConfig
 } from '../config/deduplication-config.js'
+import { SchemaValidator } from '../validation/validator.js'
 import type { DeduplicationConfig } from '../types/deduplication.js'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
@@ -262,7 +264,8 @@ export class LLMReporter implements Reporter {
       trackRetries: config.trackRetries ?? true,
       detectFlakiness: config.detectFlakiness ?? true,
       includeAllAttempts: config.includeAllAttempts ?? false,
-      reportFlakyAsWarnings: config.reportFlakyAsWarnings ?? false
+      reportFlakyAsWarnings: config.reportFlakyAsWarnings ?? false,
+      validateOutput: config.validateOutput ?? false
     }
 
     this.stdioFilter = new StdioFilterEvaluator(
@@ -1051,6 +1054,32 @@ export class LLMReporter implements Reporter {
             timestamp: new Date().toISOString(),
             ...(environment ? { environment } : {})
           }
+        }
+      }
+
+      // Validate output if enabled
+      if (this.config.validateOutput && this.output) {
+        try {
+          const validator = new SchemaValidator()
+          const result = validator.validate(this.output)
+          if (!result.valid) {
+            this.debugError('Output validation failed: %O', result.errors)
+            // Log to stderr for visibility
+            const errorMsg = `vitest-llm-reporter: Output validation failed with ${result.errors.length} error(s)\n`
+            try {
+              process.stderr.write(errorMsg)
+              for (const error of result.errors) {
+                const errorDetail = `  - ${error.path}: ${error.message}\n`
+                process.stderr.write(errorDetail)
+              }
+            } catch (stderrError) {
+              this.debugError('Failed to write validation errors to stderr: %O', stderrError)
+            }
+          } else {
+            this.debug('Output validation passed')
+          }
+        } catch (validationError) {
+          this.debugError('Validation error: %O', validationError)
         }
       }
 
