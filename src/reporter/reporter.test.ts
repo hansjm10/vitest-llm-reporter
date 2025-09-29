@@ -873,6 +873,57 @@ describe('LLMReporter', () => {
       // Verify they are different instances
       expect(secondOutput).not.toBe(firstOutput)
     })
+
+    it('should clear retry history when resetting between watch mode runs', async () => {
+      const spec = createMockTestSpecification('test.spec.ts')
+      const module = createMockTestModule('test.spec.ts')
+
+      // Create a test that will be retried
+      const testId = 'test-flaky-test'
+      const flakyTestAttempt1 = createMockTestCase({
+        name: 'flaky-test',
+        state: 'fail',
+        error: new Error('Flaky failure')
+      })
+      const flakyTestAttempt2 = createMockTestCase({
+        name: 'flaky-test',
+        state: 'pass'
+      })
+
+      // First run with retries
+      reporter.onTestRunStart([spec])
+      reporter.onTestCaseResult(flakyTestAttempt1)
+      reporter.onTestCaseResult(flakyTestAttempt2)
+
+      // Verify retry info exists BEFORE ending the run
+      const orchestrator = (reporter as any).orchestrator
+      const retryInfoFirstRun = orchestrator.getRetryInfo(testId)
+      expect(retryInfoFirstRun).toBeDefined()
+      expect(retryInfoFirstRun?.attempts?.length).toBe(2)
+
+      await reporter.onTestRunEnd([module], [], 'passed')
+
+      // Second run in watch mode (triggers reset)
+      reporter.onTestRunStart([spec])
+
+      // Run same test but passes on first attempt this time
+      const successfulTest = createMockTestCase({
+        name: 'flaky-test',
+        state: 'pass'
+      })
+      reporter.onTestCaseResult(successfulTest)
+      await reporter.onTestRunEnd([module], [], 'passed')
+
+      // Verify retry history was cleared - should only have 1 attempt now
+      const retryInfoSecondRun = orchestrator.getRetryInfo(testId)
+      // Should be undefined because only 1 attempt means no retries
+      expect(retryInfoSecondRun).toBeUndefined()
+
+      // Verify the test is in passed state, not marked as flaky
+      const output = reporter.getOutput()
+      expect(output?.summary.passed).toBe(1)
+      expect(output?.summary.failed).toBe(0)
+    })
   })
 
   describe('updateConfig merging', () => {

@@ -17,7 +17,14 @@ import { ErrorContextBuilder } from '../builders/ErrorContextBuilder.js'
 import { isTestModule, isTestCase, hasProperty } from '../utils/type-guards.js'
 import { extractSuiteNames } from '../utils/suites.js'
 import type { ConsoleMethod } from '../types/console.js'
-import type { ConsoleEvent, ConsoleLevel } from '../types/schema.js'
+import type {
+  ConsoleEvent,
+  ConsoleLevel,
+  RetryAttempt,
+  RetryInfo,
+  FlakinessInfo,
+  TestError
+} from '../types/schema.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import { consoleCapture } from '../console/index.js'
 import { consoleMerger } from '../console/merge.js'
@@ -97,6 +104,8 @@ export class EventOrchestrator {
   private stdioFilter?: StdioFilterEvaluator
   private filterSuccessLogs = false
   // Truncator removed - simplified truncation in OutputBuilder
+  // Retry tracking: Map of testId -> array of retry attempts
+  private testRetryHistory: Map<string, RetryAttempt[]> = new Map()
 
   constructor(
     stateManager: StateManager,
@@ -260,6 +269,20 @@ export class EventOrchestrator {
 
     // Handle based on test state
     if (this.testExtractor.isPassedTest(extracted)) {
+      // Record retry attempt
+      if (extracted.id) {
+        this.recordTestAttempt(extracted.id, 'passed', extracted.duration || 0)
+
+        // If this test previously failed but now passed (flaky test), remove it from failed array
+        const retryHistory = this.testRetryHistory.get(extracted.id)
+        if (retryHistory && retryHistory.length > 1) {
+          const hadPreviousFailure = retryHistory.some((attempt) => attempt.status === 'failed')
+          if (hadPreviousFailure) {
+            this.stateManager.removeFailedTest(extracted.id)
+          }
+        }
+      }
+
       let consoleEvents: ConsoleEvent[] | undefined
 
       if (this.config.captureConsoleOnSuccess) {
@@ -282,7 +305,7 @@ export class EventOrchestrator {
       }
 
       const result = this.resultBuilder.buildPassedTest(extracted)
-      this.stateManager.recordPassedTest(result)
+      this.stateManager.recordPassedTest(result, extracted.id)
       this.unregisterTestFromStreaming(extracted.id)
     } else if (this.testExtractor.isFailedTest(extracted)) {
       this.processFailedTest(extracted, testCase)
@@ -321,6 +344,20 @@ export class EventOrchestrator {
     // Build error context from the normalized error
     const errorContext = this.contextBuilder.buildFromError(normalizedError)
 
+    // Record retry attempt with error details
+    // Convert normalized error to TestError format for retry tracking
+    if (extracted.id) {
+      const testError: TestError = {
+        message: normalizedError.message,
+        type: normalizedError.type,
+        ...(normalizedError.stack && { stack: normalizedError.stack }),
+        ...(normalizedError.stackFrames && { stackFrames: normalizedError.stackFrames }),
+        ...(normalizedError.assertion && { assertion: normalizedError.assertion }),
+        ...(errorContext && { context: errorContext })
+      }
+      this.recordTestAttempt(extracted.id, 'failed', extracted.duration || 0, testError)
+    }
+
     // Build failure result with console events
     const failure = this.resultBuilder.buildFailedTest(
       extracted,
@@ -329,8 +366,8 @@ export class EventOrchestrator {
       consoleEvents
     )
 
-    // Record in state
-    this.stateManager.recordFailedTest(failure)
+    // Record in state with test ID for retry tracking
+    this.stateManager.recordFailedTest(failure, extracted.id)
     this.unregisterTestFromStreaming(extracted.id)
   }
 
@@ -532,6 +569,7 @@ export class EventOrchestrator {
   public reset(): void {
     this.stateManager.reset()
     consoleCapture.reset()
+    this.clearRetryHistory()
 
     // Streaming removed - simplified implementation
     // this.activeTests.clear() // Removed with streaming
@@ -653,5 +691,108 @@ export class EventOrchestrator {
       totalLines,
       suppressedLines
     }
+  }
+
+  /**
+   * Records a test attempt for retry tracking
+   * @param testId - The test identifier
+   * @param status - Test status (passed or failed)
+   * @param duration - Test duration in milliseconds
+   * @param error - Error details if test failed
+   * @returns The attempt number
+   */
+  private recordTestAttempt(
+    testId: string,
+    status: 'passed' | 'failed',
+    duration: number,
+    error?: TestError
+  ): number {
+    // Record attempt in state manager
+    const attemptNumber = this.stateManager.recordTestAttempt(testId)
+
+    // Get or create retry history
+    if (!this.testRetryHistory.has(testId)) {
+      this.testRetryHistory.set(testId, [])
+    }
+
+    const history = this.testRetryHistory.get(testId)!
+    const timestamp = new Date().toISOString()
+
+    const attempt: RetryAttempt = {
+      attemptNumber,
+      status,
+      duration,
+      timestamp,
+      ...(error && { error })
+    }
+
+    history.push(attempt)
+
+    this.debug('Recorded attempt %d for test %s: %s', attemptNumber, testId, status)
+
+    return attemptNumber
+  }
+
+  /**
+   * Builds retry information for a test
+   * @param testId - The test identifier
+   * @returns Retry information, or undefined if no retries occurred
+   */
+  public buildRetryInfo(testId: string): RetryInfo | undefined {
+    const history = this.testRetryHistory.get(testId)
+    if (!history || history.length <= 1) {
+      return undefined // No retries occurred
+    }
+
+    const flakiness = this.calculateFlakiness(history)
+
+    return {
+      attempts: history,
+      flakiness
+    }
+  }
+
+  /**
+   * Calculates flakiness information from retry attempt history
+   * @param attempts - Array of retry attempts
+   * @returns Flakiness information
+   */
+  private calculateFlakiness(attempts: RetryAttempt[]): FlakinessInfo {
+    const totalAttempts = attempts.length
+    const failedAttempts = attempts.filter((a) => a.status === 'failed').length
+    const lastAttempt = attempts[attempts.length - 1]
+    const isFlaky = failedAttempts > 0 && lastAttempt.status === 'passed'
+
+    const successAttempt = attempts.findIndex((a) => a.status === 'passed')
+
+    return {
+      isFlaky,
+      totalAttempts,
+      failedAttempts,
+      successAttempt: successAttempt >= 0 ? successAttempt + 1 : undefined
+    }
+  }
+
+  /**
+   * Gets retry information for a test
+   * @param testId - The test identifier
+   * @returns Retry info, or undefined if test was not retried
+   */
+  public getRetryInfo(testId: string): RetryInfo | undefined {
+    return this.buildRetryInfo(testId)
+  }
+
+  /**
+   * Get all test IDs that have retry history
+   */
+  public getAllRetryTestIds(): string[] {
+    return Array.from(this.testRetryHistory.keys())
+  }
+
+  /**
+   * Clears retry history (useful for testing/reset)
+   */
+  public clearRetryHistory(): void {
+    this.testRetryHistory.clear()
   }
 }

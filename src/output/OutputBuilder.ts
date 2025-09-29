@@ -159,7 +159,31 @@ export class OutputBuilder {
 
     const environment = getRuntimeEnvironmentSummary(this.config.environmentMetadata)
 
-    return {
+    // Calculate retry statistics
+    let flakyCount = 0
+    let retriedCount = 0
+
+    // Count retried/flaky tests in failed array
+    for (const failure of failed) {
+      if (failure.retryInfo) {
+        retriedCount++
+        if (failure.retryInfo.flakiness.isFlaky) {
+          flakyCount++
+        }
+      }
+    }
+
+    // Count retried/flaky tests in passed array (flaky tests that ultimately passed)
+    for (const pass of passed) {
+      if (pass.retryInfo) {
+        retriedCount++
+        if (pass.retryInfo.flakiness.isFlaky) {
+          flakyCount++
+        }
+      }
+    }
+
+    const summary: TestSummary = {
       total: passed.length + failed.length + skipped.length + unhandledErrorCount,
       passed: passed.length,
       failed: failed.length + unhandledErrorCount, // Include unhandled errors in failed count
@@ -168,6 +192,16 @@ export class OutputBuilder {
       timestamp: new Date().toISOString(),
       ...(environment ? { environment } : {})
     }
+
+    // Add retry statistics if any tests were retried
+    if (retriedCount > 0) {
+      summary.retried = retriedCount
+    }
+    if (flakyCount > 0) {
+      summary.flaky = flakyCount
+    }
+
+    return summary
   }
 
   /**
