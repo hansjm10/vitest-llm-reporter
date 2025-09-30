@@ -126,16 +126,6 @@ export interface AssertionDetails {
 }
 
 /**
- * Diff output format for assertion failures
- */
-export interface DiffOutput {
-  /** Formatted diff string with visual indicators */
-  formatted: string
-  /** Format type used for the diff */
-  format: 'json' | 'string' | 'object'
-}
-
-/**
  * Detailed error information
  */
 export interface TestError {
@@ -151,8 +141,6 @@ export interface TestError {
   assertion?: AssertionDetails
   /** Additional context for the error */
   context?: ErrorContext
-  /** Visual diff output for assertion failures */
-  diff?: DiffOutput
 }
 
 /**
