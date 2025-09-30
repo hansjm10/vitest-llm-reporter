@@ -4,10 +4,11 @@
  * Consolidated reporter tests using parameterization and minimal core checks.
  */
 
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, beforeAll } from 'vitest'
 import type { Vitest, TestModule } from 'vitest'
 import { LLMReporter } from '../../src/reporter/reporter'
 import { BenchmarkRunner, TestDataGenerator, PerformanceAssertions } from './utils'
+import { loadBaseline, assertNoRegression, type BaselineMetrics } from './baseline-comparator'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { unlink } from 'node:fs/promises'
@@ -16,6 +17,15 @@ describe('Reporter Performance Benchmarks', () => {
   const runner = new BenchmarkRunner({ iterations: 50, warmupIterations: 5, timeout: 5000 })
 
   let tempFiles: string[] = []
+  let baseline: BaselineMetrics
+
+  beforeAll(() => {
+    try {
+      baseline = loadBaseline()
+    } catch (_error) {
+      console.warn('⚠️  No baseline metrics found, skipping regression detection')
+    }
+  })
 
   afterEach(async () => {
     for (const file of tempFiles) {
@@ -50,6 +60,11 @@ describe('Reporter Performance Benchmarks', () => {
       PerformanceAssertions.assertPerformance(result, maxMs, `Reporter ${_label}`)
       PerformanceAssertions.assertReliability(result, 95)
       PerformanceAssertions.assertResources(result, _label === 'medium' ? 75 : 50)
+
+      // Check against baseline if available
+      if (baseline) {
+        assertNoRegression(`reporter_${_label}_suite`, result, baseline)
+      }
 
       expect(result.averageTime).toBeLessThanOrEqual(maxMs)
     })
@@ -91,6 +106,12 @@ describe('Reporter Performance Benchmarks', () => {
     expect(ratio).toBeLessThan(3)
     PerformanceAssertions.assertReliability(verboseTrunc, 95)
     PerformanceAssertions.assertReliability(simple, 95)
+
+    // Check against baseline if available
+    if (baseline) {
+      assertNoRegression('reporter_verbose_trunc', verboseTrunc, baseline)
+      assertNoRegression('reporter_simple', simple, baseline)
+    }
   })
 
   it('handles error-heavy suites efficiently', async () => {
@@ -110,5 +131,10 @@ describe('Reporter Performance Benchmarks', () => {
     PerformanceAssertions.assertPerformance(result, 800, 'Error handling')
     PerformanceAssertions.assertReliability(result, 80)
     PerformanceAssertions.assertResources(result, 100)
+
+    // Check against baseline if available
+    if (baseline) {
+      assertNoRegression('reporter_errors', result, baseline)
+    }
   })
 })

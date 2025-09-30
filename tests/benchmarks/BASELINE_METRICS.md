@@ -89,20 +89,119 @@ GC monitoring has been simplified away in the current suite; we focus on timing,
 
 ## Performance Regression Detection
 
-### Red Flags (Investigation Required)
-- > 50% slower than baseline for any component
-- > 30% memory increase for equivalent operations
-- < 80% success rate for any benchmark
+The benchmark suite now includes **automated performance regression detection** to ensure code changes don't degrade performance beyond acceptable thresholds.
 
-### Yellow Flags (Monitor Closely)
-- 20–50% slower than baseline
-- 10–30% memory increase
-- 80–90% success rate
+### How Regression Detection Works
 
-### Green Status (Acceptable)
+1. **Baseline Metrics**: Current performance baselines are stored in `baseline-metrics.json`
+2. **Automatic Comparison**: Each benchmark run compares results against baselines
+3. **Threshold-Based Alerts**: Regressions trigger warnings or errors based on severity
+4. **Non-Blocking Warnings**: Minor regressions (warnings) log alerts but don't fail tests
+5. **Critical Failures**: Severe regressions (critical) cause tests to fail
+
+### Regression Thresholds
+
+#### Warning Level (Yellow Flags)
+- **Time**: > 20% slower than baseline average **and** more than +0.5 ms slower
+- **Memory**: > 30% memory increase
+- **Success Rate**: > 5% decrease in success rate
+
+#### Critical Level (Red Flags)
+- **Time**: > 50% slower than baseline average **and** more than +0.5 ms slower
+- **Memory**: > 100% memory increase (2x)
+- **Success Rate**: > 10% decrease in success rate
+
+#### Green Status (Acceptable)
 - Within 20% of baseline performance
-- Within 10% of baseline memory usage
-- > 90% success rate (scenario dependent)
+- Within 30% of baseline memory usage
+- Within 5% of baseline success rate
+
+### Baseline Metrics File
+
+The `baseline-metrics.json` file contains:
+```json
+{
+  "version": "1.0.0",
+  "capturedAt": "2025-09-29T15:54:43.000Z",
+  "metrics": {
+    "reporter_single_suite": {
+      "maxMs": 50,
+      "avgMs": 0.16,
+      "memoryMB": 0.96,
+      "successRate": 100,
+      "description": "Reporter processing 1 test"
+    },
+    // ... more benchmarks
+  }
+}
+```
+
+### Using the Baseline Comparator
+
+The `baseline-comparator.ts` module provides utilities for regression detection:
+
+```typescript
+import { loadBaseline, assertNoRegression } from './baseline-comparator'
+
+// Load baseline metrics
+const baseline = loadBaseline()
+
+// Assert no regression for a benchmark
+assertNoRegression('reporter_single_suite', result, baseline)
+
+// Compare and get detailed report
+const comparison = compareToBaseline('reporter_single_suite', result, baseline)
+console.log(comparison.summary) // "Performance within baseline thresholds"
+```
+
+### Updating Baselines
+
+Baselines should be updated when:
+1. **Legitimate improvements**: Performance optimizations that improve metrics
+2. **Architectural changes**: Significant refactoring that changes performance characteristics
+3. **Hardware upgrades**: CI environment changes that affect baseline measurements
+
+**How to update baselines:**
+
+1. Run benchmarks multiple times to ensure stability:
+   ```bash
+   npm run bench
+   npm run bench
+   npm run bench
+   ```
+
+2. Review the results to ensure they're consistent and expected
+
+3. Update `baseline-metrics.json` with new metrics:
+   - Update `capturedAt` timestamp
+   - Update metric values (`avgMs`, `memoryMB`, `successRate`)
+   - Update `maxMs` thresholds if needed
+   - Add notes about why baselines were updated
+
+4. Document the change in git commit:
+   ```bash
+   git add tests/benchmarks/baseline-metrics.json
+   git commit -m "test: update performance baselines after optimization"
+   ```
+
+### Interpreting Regression Reports
+
+When a regression is detected, you'll see output like:
+
+```
+⚠️  Performance warning for reporter_medium_suite:
+WARNING: time +25.3% (0.19ms vs 0.15ms)
+```
+
+Or for critical regressions:
+```
+❌ Error: Performance regression detected for large_suite_1000:
+CRITICAL: time +65.2% (0.53ms vs 0.32ms), memory +45.1% (0.60MB vs 0.41MB)
+```
+
+**What to do:**
+1. **Warning**: Investigate the cause, but test can proceed
+2. **Critical**: Fix the regression or update baselines if justified
 
 ## Optimization Priorities
 
@@ -143,11 +242,15 @@ npm run test:bench -- tests/benchmarks/reporter.bench.ts
 4. Monitor consistency across runs
 5. Flag regressions > 30% performance decrease
 
-### Updating Baselines
+### Updating Baselines (Legacy Instructions)
+
+See **Performance Regression Detection** section above for current baseline update procedures.
+
 When legitimate performance improvements are made:
-1. Run `npm run bench:all` multiple times to establish stability
-2. Update thresholds here if warranted (prefer modest tightening)
-3. Note the change and reason in this document
+1. Run `npm run bench` multiple times to establish stability
+2. Update `baseline-metrics.json` with new measurements
+3. Update thresholds in this document if warranted (prefer modest tightening)
+4. Document the change and reason in git commit
 
 ## Historical Performance Data
 

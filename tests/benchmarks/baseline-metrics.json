@@ -1,0 +1,90 @@
+{
+  "$schema": "./baseline-metrics.schema.json",
+  "version": "1.0.0",
+  "capturedAt": "2025-09-29T15:54:43.000Z",
+  "description": "Baseline performance metrics for regression detection",
+  "metrics": {
+    "reporter_single_suite": {
+      "maxMs": 50,
+      "avgMs": 0.16,
+      "memoryMB": 0.96,
+      "successRate": 100,
+      "description": "Reporter processing 1 test"
+    },
+    "reporter_small_suite": {
+      "maxMs": 200,
+      "avgMs": 0.16,
+      "memoryMB": 1.27,
+      "successRate": 100,
+      "description": "Reporter processing 10 tests"
+    },
+    "reporter_medium_suite": {
+      "maxMs": 1000,
+      "avgMs": 0.15,
+      "memoryMB": 1.26,
+      "successRate": 100,
+      "description": "Reporter processing 100 tests"
+    },
+    "reporter_verbose_trunc": {
+      "maxMs": 500,
+      "avgMs": 0.14,
+      "memoryMB": 1.28,
+      "successRate": 100,
+      "description": "Reporter with verbose and truncation enabled (50 tests)"
+    },
+    "reporter_simple": {
+      "maxMs": 500,
+      "avgMs": 0.14,
+      "memoryMB": 1.30,
+      "successRate": 100,
+      "description": "Reporter with minimal configuration (50 tests)"
+    },
+    "reporter_errors": {
+      "maxMs": 800,
+      "avgMs": 0.16,
+      "memoryMB": 1.24,
+      "successRate": 100,
+      "description": "Reporter processing error-heavy suite (30 tests)"
+    },
+    "large_suite_1000": {
+      "maxMs": 5000,
+      "avgMs": 0.32,
+      "memoryMB": 0.41,
+      "successRate": 100,
+      "description": "Large suite with 1000 tests"
+    },
+    "large_suite_2000": {
+      "maxMs": 10000,
+      "avgMs": 0.16,
+      "memoryMB": 0.27,
+      "successRate": 100,
+      "description": "Large suite with 2000 tests"
+    },
+    "large_suite_memory_pressure": {
+      "maxMs": 12000,
+      "avgMs": 0.13,
+      "memoryMB": 0.25,
+      "successRate": 100,
+      "description": "Large suite with memory pressure (1500 tests)"
+    },
+    "deduplication_10k_logs": {
+      "maxMs": 5000,
+      "avgMs": 39.86,
+      "memoryMB": 2.0,
+      "successRate": 100,
+      "description": "Deduplication of 10,000 log entries"
+    }
+  },
+  "environment": {
+    "nodeVersion": "18.0.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpuModel": "Modern multi-core processor"
+  },
+  "notes": [
+    "These baselines were established using the simplified benchmark architecture",
+    "Memory values represent delta from baseline (heap used increase)",
+    "Average times may vary based on system load and hardware",
+    "Regression thresholds: >20% slower or >30% memory increase triggers warning"
+  ]
+}
