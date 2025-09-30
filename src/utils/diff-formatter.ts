@@ -405,8 +405,8 @@ function deepEqualInternal(a: AssertionValue, b: AssertionValue, seen: SeenPairs
     if (keysA.length !== keysB.length) return false
 
     if (keysA.length === 0) {
-      const protoA = Object.getPrototypeOf(objA)
-      const protoB = Object.getPrototypeOf(objB)
+      const protoA = Object.getPrototypeOf(objA) as object | null
+      const protoB = Object.getPrototypeOf(objB) as object | null
 
       if (protoA === protoB && (protoA === Object.prototype || protoA === null)) {
         return true
