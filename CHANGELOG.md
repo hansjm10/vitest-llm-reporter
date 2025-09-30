@@ -1,5 +1,97 @@
 # vitest-llm-reporter
 
+## 1.2.0
+
+### Minor Changes
+
+- 5106f35: Add self-validation to ensure reporter output complies with the JSON schema.
+
+  **New Features:**
+  - Add `validateOutput` configuration option to enable schema validation of reporter output
+  - Reporter validates its own output after generation and logs any schema violations
+  - Validation errors are logged to stderr for visibility without failing the test run
+  - E2E test verifies that reporter output passes schema validation
+
+  **New Configuration Option:**
+  - `validateOutput`: Enable/disable output validation (default: false)
+
+  **Developer Experience:**
+  - Enabled by default in vitest.config.ts for dogfooding
+  - Helps catch schema compliance issues during development and testing
+  - Provides detailed error messages when validation fails
+
+  This feature ensures the reporter always generates valid JSON that conforms to the documented schema, improving reliability for LLM consumers.
+
+- 01c0110: Add test retry and flakiness detection to help LLMs understand intermittent test failures.
+
+  **New Features:**
+  - Track all retry attempts for each test with status, duration, and error details
+  - Automatically detect flaky tests (tests that pass after failing)
+  - Add `flaky` and `retried` counts to test summary
+  - Include detailed retry history in failure reports with `retryInfo` field
+
+  **New Configuration Options:**
+  - `trackRetries`: Enable/disable retry tracking (default: true)
+  - `detectFlakiness`: Enable/disable flaky test detection (default: true)
+  - `includeAllAttempts`: Include all attempts or only retried tests (default: false)
+  - `reportFlakyAsWarnings`: Reserved for future flaky test reporting (default: false)
+
+  **Schema Changes:**
+  - Added `RetryAttempt`, `RetryInfo`, and `FlakinessInfo` types
+  - Extended `TestFailure` with optional `retryInfo` field
+  - Added `flaky` and `retried` counts to `TestSummary`
+
+  This feature is fully backward compatible and helps LLMs identify timing issues, concurrency problems, and unreliable tests.
+
+- 69bf1c7: Add inline snapshot testing support to improve test maintenance. Introduced snapshot helper utilities that normalize test output (timestamps, durations, environment metadata, file paths) for stable snapshot comparisons. Converted key tests in reporter.test.ts, ErrorExtractor.test.ts, OutputBuilder.test.ts, and schema.test.ts to use toMatchInlineSnapshot() for structural validation. This reduces manual assertion maintenance and makes it easier to detect unintended changes in output structure.
+
+### Patch Changes
+
+- def67f0: Add determinism validation to ensure stable output across test runs.
+
+  **New Test Utilities:**
+  - `normalizeOutput()` - Strips time-dependent fields for deterministic comparison
+  - `areOutputsDeterministic()` - Convenience function for comparing outputs
+  - `extractNonDeterministicValues()` - Extracts time-dependent fields for debugging
+
+  **New Test Coverage:**
+  - 12 comprehensive test cases validating deterministic output behavior
+  - Tests for multiple runs with identical input data
+  - Tests for console events, retry info, and deduplication
+  - Edge case coverage for empty results and missing optional fields
+
+  **Documentation:**
+  - `docs/OUTPUT_DETERMINISM.md` - Complete documentation of deterministic vs. non-deterministic fields
+  - Documents all 9 time-dependent fields that vary between runs
+  - Provides best practices for testing and CI/CD integration
+
+  This ensures reliable CI/CD pipelines, reproducible test results, and consistent LLM parsing behavior. The output structure remains deterministic while allowing natural timing variations.
+
+- edf144a: Add comprehensive integration matrix testing for real-world configuration scenarios.
+
+  **Test Infrastructure:**
+  - Created `tests/e2e/scenarios.ts` with 6 real-world configuration scenarios
+  - Added `tests/utils/e2e-runner.ts` helper for E2E test execution
+  - Implemented `tests/e2e/config-matrix.test.ts` with 22 automated tests
+
+  **Tested Scenarios:**
+  - CI Mode: Pure stdout with compact JSON for CI/CD pipelines
+  - Local Development: Verbose output with readable formatting
+  - Production with Truncation: Token-limited output for LLM context windows
+  - Minimal (Defaults): Zero-configuration setup validation
+  - Flakiness Detection: Retry tracking and flaky test detection
+  - Framework Preset (NestJS): Framework log suppression
+
+  **Documentation:**
+  - Added `docs/TESTED_CONFIGURATIONS.md` with detailed scenario documentation
+  - Explains what each scenario tests and when to use it
+  - Includes instructions for adding new test scenarios
+
+  This ensures the reporter works correctly across different configuration combinations and validates backward compatibility for all future changes.
+
+- dfed6d9: -Keep full-fidelity console metadata in internal state while trimming the default output view for LLM consumption.
+  -Expose `outputView.console.includeTestId` and `outputView.console.includeTimestampMs` flags so downstream tooling can surface those fields when needed.
+
 ## 1.1.0
 
 ### Minor Changes
