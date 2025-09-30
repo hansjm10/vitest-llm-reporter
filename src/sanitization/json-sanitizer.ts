@@ -18,7 +18,8 @@ import type {
   AssertionDetails,
   StackFrame,
   ConsoleEvent,
-  RuntimeEnvironmentSummary
+  RuntimeEnvironmentSummary,
+  DiffOutput
 } from '../types/schema.js'
 import type { JsonSanitizerConfig } from './types.js'
 
@@ -158,7 +159,21 @@ export class JsonSanitizer {
       sanitized.assertion = this.sanitizeAssertionDetails(error.assertion)
     }
 
+    if (error.diff) {
+      sanitized.diff = this.sanitizeDiffOutput(error.diff)
+    }
+
     return sanitized
+  }
+
+  /**
+   * Sanitizes diff output
+   */
+  private sanitizeDiffOutput(diff: DiffOutput): DiffOutput {
+    return {
+      formatted: escapeJsonString(diff.formatted),
+      format: diff.format
+    }
   }
 
   /**

@@ -17,8 +17,9 @@ import {
 } from '../utils/type-guards.js'
 import { extractLineNumber } from '../reporter/helpers.js'
 import { ContextExtractor } from './ContextExtractor.js'
+import { formatJsonDiff, shouldGenerateDiff } from '../utils/diff-formatter.js'
 import type { NormalizedError, ErrorExtractionConfig } from '../types/extraction.js'
-import type { StackFrame, AssertionDetails, ErrorContext } from '../types/schema.js'
+import type { StackFrame, AssertionDetails, ErrorContext, DiffOutput } from '../types/schema.js'
 
 /**
  * Default error extraction configuration
@@ -484,5 +485,50 @@ export class ErrorExtractor {
     // Check multiple possible property names for assertion operator
     const candidates = ['operator', 'matcherName', 'assertion', 'matcher', 'op'] as const
     return extractStringProperty(error, candidates)
+  }
+
+  /**
+   * Extracts diff context for assertion errors
+   *
+   * Generates a visual diff between expected and actual values
+   * for assertion failures to make differences more visible.
+   *
+   * @param error - The error object to extract diff from
+   * @returns Diff output if applicable, undefined otherwise
+   *
+   * @example
+   * ```typescript
+   * const extractor = new ErrorExtractor()
+   * const diff = extractor.extractDiffContext(assertionError)
+   * console.log(diff?.formatted)
+   * ```
+   */
+  public extractDiffContext(error: unknown): DiffOutput | undefined {
+    if (!error || typeof error !== 'object') {
+      return undefined
+    }
+
+    const extracted = extractErrorProperties(error)
+
+    // Only generate diff for assertion errors with both expected and actual values
+    if (extracted.expected === undefined || extracted.actual === undefined) {
+      return undefined
+    }
+
+    // Normalize the values to AssertionValue type
+    const normalizedExpected = normalizeAssertionValue(extracted.expected)
+    const normalizedActual = normalizeAssertionValue(extracted.actual)
+
+    // Check if we should generate a diff
+    if (!shouldGenerateDiff(normalizedExpected, normalizedActual)) {
+      return undefined
+    }
+
+    try {
+      return formatJsonDiff(normalizedExpected, normalizedActual)
+    } catch (_error) {
+      // If diff generation fails, return undefined
+      return undefined
+    }
   }
 }

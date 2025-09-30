@@ -486,4 +486,115 @@ describe('JsonSanitizer', () => {
       expect(context.columnNumber).toBe(15)
     })
   })
+
+  describe('Diff Output', () => {
+    it('should preserve and sanitize diff output', () => {
+      const sanitizer = new JsonSanitizer()
+
+      const input: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
+        },
+        failures: [
+          {
+            test: 'test with diff',
+            fileRelative: '/test/file.ts',
+            startLine: 1,
+            endLine: 1,
+            error: {
+              message: 'assertion failed',
+              type: 'AssertionError',
+              diff: {
+                formatted: '- Expected: "value"\n+ Received: "other"',
+                format: 'string'
+              }
+            }
+          }
+        ]
+      }
+
+      const result = sanitizer.sanitize(input)
+      const diff = result.failures![0].error.diff!
+
+      expect(diff).toBeDefined()
+      expect(diff.formatted).toBe('- Expected: \\"value\\"\\n+ Received: \\"other\\"')
+      expect(diff.format).toBe('string')
+    })
+
+    it('should sanitize diff with special characters', () => {
+      const sanitizer = new JsonSanitizer()
+
+      const input: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
+        },
+        failures: [
+          {
+            test: 'test',
+            fileRelative: '/test/file.ts',
+            startLine: 1,
+            endLine: 1,
+            error: {
+              message: 'error',
+              type: 'AssertionError',
+              diff: {
+                formatted: '{\n  "key": "value",\n  "tab": "\t"\n}',
+                format: 'json'
+              }
+            }
+          }
+        ]
+      }
+
+      const result = sanitizer.sanitize(input)
+      const diff = result.failures![0].error.diff!
+
+      expect(diff).toBeDefined()
+      expect(diff.formatted).toBe('{\\n  \\"key\\": \\"value\\",\\n  \\"tab\\": \\"\\t\\"\\n}')
+      expect(diff.format).toBe('json')
+    })
+
+    it('should handle missing diff field', () => {
+      const sanitizer = new JsonSanitizer()
+
+      const input: LLMReporterOutput = {
+        summary: {
+          total: 1,
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+          timestamp: '2024-01-15T10:30:00Z',
+          environment: getRuntimeEnvironmentSummary()
+        },
+        failures: [
+          {
+            test: 'test without diff',
+            fileRelative: '/test/file.ts',
+            startLine: 1,
+            endLine: 1,
+            error: {
+              message: 'error',
+              type: 'Error'
+            }
+          }
+        ]
+      }
+
+      const result = sanitizer.sanitize(input)
+      expect(result.failures![0].error.diff).toBeUndefined()
+    })
+  })
 })

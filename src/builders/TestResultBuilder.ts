@@ -18,6 +18,7 @@ import type {
 import type { ExtractedTestCase, NormalizedError } from '../types/extraction.js'
 import type { BuilderConfig } from './types.js'
 import { processFilePath } from '../utils/paths.js'
+import { ErrorExtractor } from '../extraction/ErrorExtractor.js'
 
 /**
  * Default builder configuration
@@ -143,7 +144,8 @@ export class TestResultBuilder {
     extracted: ExtractedTestCase,
     error: NormalizedError,
     errorContext?: TestError['context'],
-    consoleEvents?: ConsoleEvent[]
+    consoleEvents?: ConsoleEvent[],
+    rawError?: unknown
   ): TestFailure {
     const testError: TestError = {
       message: error.message,
@@ -164,6 +166,15 @@ export class TestResultBuilder {
 
     if (errorContext) {
       testError.context = errorContext
+    }
+
+    // Add diff for assertion errors if raw error is provided
+    if (rawError && error.assertion) {
+      const extractor = new ErrorExtractor({ rootDir: this.config.rootDir })
+      const diff = extractor.extractDiffContext(rawError)
+      if (diff) {
+        testError.diff = diff
+      }
     }
 
     const failure: TestFailure = {
