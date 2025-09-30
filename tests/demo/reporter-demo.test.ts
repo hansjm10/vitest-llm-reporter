@@ -16,4 +16,49 @@ describe.runIf(DEMO_ENABLED)('LLM Reporter Demo', () => {
     // Intentional failure for demonstration of failure reporting
     expect(1).toBe(2)
   })
+
+  it('demonstrates comparison insights for complex objects', () => {
+    console.log('Testing complex nested structure comparison')
+
+    const expected = {
+      user: {
+        id: 123,
+        name: 'John Doe',
+        profile: {
+          email: 'john@example.com',
+          settings: {
+            theme: 'dark',
+            notifications: ['email', 'sms', 'push']
+          }
+        }
+      },
+      metadata: {
+        lastLogin: '2024-01-15T10:30:00Z',
+        loginCount: 42
+      }
+    }
+
+    const actual = {
+      user: {
+        id: 123,
+        name: 'Jane Smith',
+        profile: {
+          email: 'jane@example.com',
+          settings: {
+            theme: 'light',
+            notifications: ['email', 'push']
+          }
+        }
+      },
+      metadata: {
+        lastLogin: '2024-01-15T10:30:00Z',
+        loginCount: 43
+      }
+    }
+
+    console.warn('This will show structured comparison insights')
+
+    // This failure will demonstrate the comparison insights feature
+    expect(actual).toEqual(expected)
+  })
 })

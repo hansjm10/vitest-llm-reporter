@@ -17,6 +17,7 @@ import {
 } from '../utils/type-guards.js'
 import { extractLineNumber } from '../reporter/helpers.js'
 import { ContextExtractor } from './ContextExtractor.js'
+import { analyzeAssertionDiff } from '../utils/assertion-diff.js'
 import type { NormalizedError, ErrorExtractionConfig } from '../types/extraction.js'
 import type { StackFrame, AssertionDetails, ErrorContext } from '../types/schema.js'
 
@@ -355,13 +356,21 @@ export class ErrorExtractor {
       const normalizedExpected = normalizeAssertionValue(expectedValue)
       const normalizedActual = normalizeAssertionValue(actualValue)
 
-      return {
+      const assertion: AssertionDetails = {
         expected: normalizedExpected,
         actual: normalizedActual,
         operator: this.extractOperator(error),
         expectedType: this.getAssertionValueType(normalizedExpected),
         actualType: this.getAssertionValueType(normalizedActual)
       }
+
+      // Add comparison insights for complex values
+      const insights = analyzeAssertionDiff(normalizedExpected, normalizedActual)
+      if (insights) {
+        assertion.comparisonInsights = insights
+      }
+
+      return assertion
     }
     return undefined
   }

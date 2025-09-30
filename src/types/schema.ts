@@ -110,6 +110,38 @@ export interface StackFrame {
 }
 
 /**
+ * Represents a single difference path in a nested structure comparison
+ */
+export interface DiffPath {
+  /** JSON path to the differing value (e.g., "user.profile.email") */
+  path: string
+  /** Expected value at this path */
+  expected: AssertionValue
+  /** Actual value at this path */
+  actual: AssertionValue
+}
+
+/**
+ * Structured insights about differences between expected and actual values
+ * Provides LLM-friendly summaries for complex object/array comparisons
+ */
+export interface ComparisonInsights {
+  /** Human-readable summary of differences */
+  summary: string
+  /** List of specific paths that differ in nested structures */
+  changedPaths?: DiffPath[]
+  /** Object keys present in expected but missing in actual */
+  missingKeys?: string[]
+  /** Object keys present in actual but not in expected */
+  extraKeys?: string[]
+  /** Array length mismatch information */
+  lengthMismatch?: {
+    expected: number
+    actual: number
+  }
+}
+
+/**
  * Assertion details from test failures
  */
 export interface AssertionDetails {
@@ -123,6 +155,8 @@ export interface AssertionDetails {
   expectedType?: 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array'
   /** Type of the actual value */
   actualType?: 'string' | 'number' | 'boolean' | 'null' | 'Record<string, unknown>' | 'array'
+  /** Structured analysis of differences (for complex comparisons) */
+  comparisonInsights?: ComparisonInsights
 }
 
 /**
