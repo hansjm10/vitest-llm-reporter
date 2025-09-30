@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { formatJsonDiff, deepEqual, shouldGenerateDiff } from '../../src/utils/diff-formatter.js'
+import type { AssertionValue } from '../../src/types/schema.js'
 
 describe('formatJsonDiff', () => {
   describe('primitive values', () => {
@@ -310,6 +311,60 @@ describe('deepEqual', () => {
     expect(deepEqual(null, 0)).toBe(false)
   })
 
+  it('should compare built-in objects by value', () => {
+    expect(deepEqual(new Date('2024-01-01'), new Date('2024-01-01'))).toBe(true)
+    expect(deepEqual(new Date('2024-01-01'), new Date('2024-02-01'))).toBe(false)
+
+    expect(deepEqual(/test/gi, /test/gi)).toBe(true)
+    expect(deepEqual(/test/g, /test/i)).toBe(false)
+
+    const mapA = new Map([
+      ['key', 'value'],
+      ['nested', new Map([[1, 'one']])]
+    ])
+    const mapB = new Map([
+      ['nested', new Map([[1, 'one']])],
+      ['key', 'value']
+    ])
+    const mapC = new Map([
+      ['key', 'value'],
+      ['nested', new Map([[1, 'different']])]
+    ])
+
+    expect(deepEqual(mapA as unknown as AssertionValue, mapB as unknown as AssertionValue)).toBe(
+      true
+    )
+    expect(deepEqual(mapA as unknown as AssertionValue, mapC as unknown as AssertionValue)).toBe(
+      false
+    )
+
+    const setA = new Set([1, 2, 3])
+    const setB = new Set([3, 2, 1])
+    const setC = new Set([1, 2, 4])
+
+    expect(deepEqual(setA as unknown as AssertionValue, setB as unknown as AssertionValue)).toBe(
+      true
+    )
+    expect(deepEqual(setA as unknown as AssertionValue, setC as unknown as AssertionValue)).toBe(
+      false
+    )
+  })
+
+  it('should treat objects without enumerable keys as unequal', () => {
+    class NoEnumerableFields {
+      constructor(value: number) {
+        Object.defineProperty(this, 'value', { value, enumerable: false })
+      }
+    }
+
+    const instanceA = new NoEnumerableFields(1)
+    const instanceB = new NoEnumerableFields(1)
+
+    expect(
+      deepEqual(instanceA as unknown as AssertionValue, instanceB as unknown as AssertionValue)
+    ).toBe(false)
+  })
+
   it('should safely compare circular references', () => {
     const obj1: Record<string, unknown> = { name: 'circular' }
     obj1.self = obj1
@@ -336,6 +391,20 @@ describe('shouldGenerateDiff', () => {
     expect(shouldGenerateDiff('a', 'a')).toBe(false)
     expect(shouldGenerateDiff(42, 42)).toBe(false)
     expect(shouldGenerateDiff({ a: 1 }, { a: 1 })).toBe(false)
+  })
+
+  it('should detect differences for non-plain objects', () => {
+    expect(shouldGenerateDiff(new Date('2024-01-01'), new Date('2024-02-01'))).toBe(true)
+    expect(shouldGenerateDiff(new Date('2024-01-01'), new Date('2024-01-01'))).toBe(false)
+
+    expect(shouldGenerateDiff(/test/g, /test/i)).toBe(true)
+
+    const mapA = new Map([[1, 'one']])
+    const mapB = new Map([[1, 'two']])
+
+    expect(
+      shouldGenerateDiff(mapA as unknown as AssertionValue, mapB as unknown as AssertionValue)
+    ).toBe(true)
   })
 
   it('should return false for both undefined', () => {

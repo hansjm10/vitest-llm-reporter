@@ -308,6 +308,15 @@ function hasSeenPair(a: object, b: object, seen: SeenPairs): boolean {
   return false
 }
 
+function getEnumerableKeys(obj: object): Array<string | symbol> {
+  const stringKeys = Object.keys(obj as Record<string, unknown>)
+  const symbolKeys = Object.getOwnPropertySymbols(obj).filter((symbol) =>
+    Object.prototype.propertyIsEnumerable.call(obj, symbol)
+  )
+
+  return [...stringKeys, ...symbolKeys]
+}
+
 function deepEqualInternal(a: AssertionValue, b: AssertionValue, seen: SeenPairs): boolean {
   // Handle primitives and null
   if (a === b) return true
@@ -338,16 +347,86 @@ function deepEqualInternal(a: AssertionValue, b: AssertionValue, seen: SeenPairs
       return true
     }
 
+    if (a instanceof Date && b instanceof Date) {
+      return a.getTime() === b.getTime()
+    }
+
+    if (a instanceof RegExp && b instanceof RegExp) {
+      return a.source === b.source && a.flags === b.flags
+    }
+
+    if (a instanceof Map && b instanceof Map) {
+      if (a.size !== b.size) return false
+
+      const unmatchedEntries = [...b.entries()]
+
+      for (const [keyA, valueA] of a.entries()) {
+        const matchIndex = unmatchedEntries.findIndex(
+          ([keyB, valueB]) =>
+            deepEqualInternal(keyA as AssertionValue, keyB as AssertionValue, seen) &&
+            deepEqualInternal(valueA as AssertionValue, valueB as AssertionValue, seen)
+        )
+
+        if (matchIndex === -1) {
+          return false
+        }
+
+        unmatchedEntries.splice(matchIndex, 1)
+      }
+
+      return unmatchedEntries.length === 0
+    }
+
+    if (a instanceof Set && b instanceof Set) {
+      if (a.size !== b.size) return false
+
+      const unmatchedValues = [...b.values()]
+
+      for (const valueA of a.values()) {
+        const matchIndex = unmatchedValues.findIndex((valueB) =>
+          deepEqualInternal(valueA as AssertionValue, valueB as AssertionValue, seen)
+        )
+
+        if (matchIndex === -1) {
+          return false
+        }
+
+        unmatchedValues.splice(matchIndex, 1)
+      }
+
+      return unmatchedValues.length === 0
+    }
+
     const objA = a as Record<string, unknown>
     const objB = b as Record<string, unknown>
-    const keysA = Object.keys(objA)
-    const keysB = Object.keys(objB)
+    const keysA = getEnumerableKeys(objA)
+    const keysB = getEnumerableKeys(objB)
 
     if (keysA.length !== keysB.length) return false
 
-    return keysA.every((key) =>
-      deepEqualInternal(objA[key] as AssertionValue, objB[key] as AssertionValue, seen)
-    )
+    if (keysA.length === 0) {
+      const protoA = Object.getPrototypeOf(objA)
+      const protoB = Object.getPrototypeOf(objB)
+
+      if (protoA === protoB && (protoA === Object.prototype || protoA === null)) {
+        return true
+      }
+
+      return false
+    }
+
+    const keysBSet = new Set(keysB)
+
+    return keysA.every((key) => {
+      if (!keysBSet.has(key)) {
+        return false
+      }
+
+      const valueA = Reflect.get(objA, key) as AssertionValue
+      const valueB = Reflect.get(objB, key) as AssertionValue
+
+      return deepEqualInternal(valueA, valueB, seen)
+    })
   }
 
   return false
