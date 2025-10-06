@@ -60,7 +60,9 @@ test('expr', () => expect(true).toBe(true))
   it('handles chained test modifiers and async bodies', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'end-resolver-'))
     const file = path.join(dir, 'chained.test.ts')
+    const modifier = 'only'
     const content = `import { test } from 'vitest'
+
 
 test.concurrent.__ONLY__('chained', async () => {
   await Promise.resolve()
