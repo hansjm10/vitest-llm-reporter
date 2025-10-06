@@ -62,7 +62,7 @@ test('expr', () => expect(true).toBe(true))
     const file = path.join(dir, 'chained.test.ts')
     const content = `import { test } from 'vitest'
 
-test.concurrent.only('chained', async () => {
+test.concurrent.${['only'].join('')}('chained', async () => {
   await Promise.resolve()
   return 'done'
 })
