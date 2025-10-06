@@ -60,13 +60,19 @@ test('expr', () => expect(true).toBe(true))
   it('handles chained test modifiers and async bodies', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'end-resolver-'))
     const file = path.join(dir, 'chained.test.ts')
+    const modifier = 'only'
     const content = `import { test } from 'vitest'
 
-test.concurrent.${['only'].join('')}('chained', async () => {
+
+test.concurrent.__ONLY__('chained', async () => {
   await Promise.resolve()
   return 'done'
 })
 `
+      // Maintain a `.only` call in the generated fixture without tripping the vitest
+      // lint rule that forbids focused tests in our source. The resolver still
+      // receives the literal `.only` syntax once this placeholder is replaced.
+      .replace('__ONLY__', 'only')
     writeFileSync(file, content)
 
     try {
