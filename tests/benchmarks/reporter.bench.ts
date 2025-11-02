@@ -5,7 +5,8 @@
  */
 
 import { describe, it, expect, afterEach, beforeAll } from 'vitest'
-import type { Vitest, TestModule } from 'vitest'
+import type { TestModule } from 'vitest'
+import type { Vitest } from 'vitest/node'
 import { LLMReporter } from '../../src/reporter/reporter'
 import { BenchmarkRunner, TestDataGenerator, PerformanceAssertions } from './utils'
 import { loadBaseline, assertNoRegression, type BaselineMetrics } from './baseline-comparator'

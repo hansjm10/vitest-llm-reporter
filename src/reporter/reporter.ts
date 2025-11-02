@@ -7,7 +7,8 @@
  * @module reporter
  */
 
-import type { Vitest, SerializedError, Reporter, UserConsoleLog, File } from 'vitest'
+import type { SerializedError, UserConsoleLog, RunnerTestFile as File } from 'vitest'
+import type { Reporter, Vitest } from 'vitest/node'
 // These types come from vitest/node exports
 import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from 'vitest/node'
 import type {
@@ -154,6 +155,7 @@ export class LLMReporter implements Reporter {
   private spinnerStartTime = 0
   private spinnerLastLength = 0
   private readonly spinnerFrames = ['|', '/', '-', '\\']
+  private outputWriteState = { file: false, console: false }
 
   /**
    * Creates a new instance of the LLM Reporter
@@ -441,6 +443,7 @@ export class LLMReporter implements Reporter {
     this.stateManager.reset()
     this.orchestrator.reset()
     this.output = undefined
+    this.outputWriteState = { file: false, console: false }
 
     // Reset performance state
     if (this.performanceManager) {
@@ -876,6 +879,9 @@ export class LLMReporter implements Reporter {
    * @param specifications - The test specifications for the run
    */
   onTestRunStart(specifications: ReadonlyArray<TestSpecification>): void {
+    // Reset output write tracking for each new run
+    this.outputWriteState = { file: false, console: false }
+
     // Handle watch mode: reset if a test run is already active
     if (this.isTestRunActive) {
       this.reset()
@@ -1109,9 +1115,8 @@ export class LLMReporter implements Reporter {
         }
       }
 
-      // Note: Output writing moved to onFinished to capture afterAll errors
-
-      // Output writing moved to onFinished to capture afterAll errors
+      // Flush output eagerly so CI runs produce artifacts even if onFinished is skipped
+      this.flushOutput()
     } finally {
       // Always cleanup, even if errors occurred
       this.cleanup()
@@ -1250,175 +1255,204 @@ export class LLMReporter implements Reporter {
         }
       }
 
-      // Write output based on configuration
-      if (this.output) {
-        // Use statistics from the already-built output
-        const statistics = this.output.summary
+      this.flushOutput({ forceFile: Boolean(errors && errors.length > 0) })
+    } finally {
+      // Always perform final cleanup
+      this.finalCleanup()
+    }
+  }
 
-        // Write to file if configured
-        if (this.config.outputFile) {
-          try {
-            // Update OutputWriter config with file spacing
-            this.outputWriter.updateConfig({ jsonSpacing: this.config.fileJsonSpacing })
-            this.outputWriter.write(this.config.outputFile, this.output)
-            this.debug('Output written to %s', this.config.outputFile)
-          } catch (writeError) {
-            this.debugError(
-              'Failed to write output file %s: %O',
-              this.config.outputFile,
-              writeError
-            )
-            // Don't propagate write errors - log is sufficient
-          }
+  private flushOutput(options: { forceFile?: boolean; forceConsole?: boolean } = {}): void {
+    if (!this.output) {
+      return
+    }
+
+    const { forceFile = false, forceConsole = false } = options
+    const statistics = this.output.summary
+    const hasMeaningfulResults =
+      (statistics.total ?? 0) > 0 || (this.output.failures && this.output.failures.length > 0)
+
+    if (this.config.outputFile && (!this.outputWriteState.file || forceFile)) {
+      try {
+        this.outputWriter.updateConfig({ jsonSpacing: this.config.fileJsonSpacing })
+        this.outputWriter.write(this.config.outputFile, this.output)
+        this.outputWriteState.file = true
+        this.debug('Output written to %s', this.config.outputFile)
+      } catch (writeError) {
+        this.debugError('Failed to write output file %s: %O', this.config.outputFile, writeError)
+      }
+    }
+
+    const canWriteConsole =
+      (!this.config.outputFile || this.config.enableConsoleOutput) && this.context
+    const shouldAttemptConsole = canWriteConsole && (!this.outputWriteState.console || forceConsole)
+
+    if (shouldAttemptConsole && hasMeaningfulResults) {
+      try {
+        const writeToStdout = this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
+        const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
+
+        if (this.config.framedOutput) {
+          writeToStdout('\n' + '='.repeat(80) + '\n')
+          writeToStdout('LLM Reporter Output:\n')
+          writeToStdout('='.repeat(80) + '\n')
         }
 
-        // Also write to console if no file is specified or console output is enabled
-        // Only when running as an actual Vitest reporter (context set).
-        // Only output when there are actual test results or errors to avoid spurious outputs
-        const canWriteConsole =
-          (!this.config.outputFile || this.config.enableConsoleOutput) && this.context
+        writeToStdout(jsonOutput + '\n')
 
-        const hasMeaningfulResults =
-          statistics.total > 0 || (this.output.failures && this.output.failures.length > 0)
+        if (this.config.framedOutput) {
+          writeToStdout('='.repeat(80) + '\n')
+        }
 
-        if (canWriteConsole && hasMeaningfulResults) {
+        this.outputWriteState.console = true
+        this.debug('Output written to console')
+      } catch (consoleError) {
+        this.debugError('Failed to write to console: %O', consoleError)
+
+        if (this.config.warnWhenConsoleBlocked) {
           try {
-            // Use original stdout writer if available (when stdio interception is active)
-            // This ensures the reporter's JSON output is never filtered
-            const writeToStdout =
-              this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
-
-            // Write to console with proper formatting
-            const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
-
-            // Only add framing if framedOutput is enabled
-            if (this.config.framedOutput) {
-              writeToStdout('\n' + '='.repeat(80) + '\n')
-              writeToStdout('LLM Reporter Output:\n')
-              writeToStdout('='.repeat(80) + '\n')
-            }
-
-            writeToStdout(jsonOutput + '\n')
-
-            if (this.config.framedOutput) {
-              writeToStdout('='.repeat(80) + '\n')
-            }
-
-            this.debug('Output written to console')
-          } catch (consoleError) {
-            // If stdout write fails, warn user on stderr and optionally fallback
-            this.debugError('Failed to write to console: %O', consoleError)
-            if (this.config.warnWhenConsoleBlocked) {
-              try {
-                // Prefer the current stderr writer so spies/mocks can observe it
-                const currentStderrWrite: typeof process.stderr.write = process.stderr.write.bind(
-                  process.stderr
-                )
-                const hint =
-                  'vitest-llm-reporter: Console output appears blocked. ' +
-                  "If you do not see the JSON output, configure `outputFile` or adjust your project's log/silent settings.\n"
-                try {
-                  currentStderrWrite(hint)
-                } catch {
-                  // Fallback to original or direct fd if current write fails
-                  try {
-                    ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(hint)
-                  } catch {
-                    try {
-                      fs.writeSync(2, hint)
-                    } catch (e) {
-                      this.debugError('fs.writeSync stderr hint failed: %O', e)
-                    }
-                  }
-                }
-
-                if (this.config.fallbackToStderrOnBlocked && this.output) {
-                  const jsonOutput = JSON.stringify(
-                    this.output,
-                    null,
-                    this.config.consoleJsonSpacing
-                  )
-                  try {
-                    currentStderrWrite(jsonOutput + '\n')
-                  } catch {
-                    try {
-                      ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(
-                        jsonOutput + '\n'
-                      )
-                    } catch {
-                      try {
-                        fs.writeSync(2, jsonOutput + '\n')
-                      } catch (e) {
-                        this.debugError('fs.writeSync stderr JSON failed: %O', e)
-                      }
-                    }
-                  }
-                }
-              } catch (stderrError) {
-                this.debugError('Failed to write fallback warning to stderr: %O', stderrError)
-              }
-            }
-          }
-        } else if (
-          (!this.config.outputFile || this.config.enableConsoleOutput) &&
-          this.context &&
-          this.config.warnWhenConsoleBlocked
-        ) {
-          // No meaningful results to print, but proactively detect a blocked stdout
-          // to still warn the user and provide fallback JSON on stderr for debugging
-          try {
-            const writeToStdout =
-              this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
+            const currentStderrWrite: typeof process.stderr.write = process.stderr.write.bind(
+              process.stderr
+            )
+            const hint =
+              'vitest-llm-reporter: Console output appears blocked. ' +
+              "If you do not see the JSON output, configure `outputFile` or adjust your project's log/silent settings.\n"
             try {
-              writeToStdout('') // probe; will throw if stdout is blocked
-            } catch (probeError) {
-              this.debugError('Stdout appears blocked during probe: %O', probeError)
-              const currentStderrWrite: typeof process.stderr.write = process.stderr.write.bind(
-                process.stderr
-              )
-              const hint =
-                'vitest-llm-reporter: Console output appears blocked. ' +
-                "If you do not see the JSON output, configure `outputFile` or adjust your project's log/silent settings.\n"
+              currentStderrWrite(hint)
+            } catch {
               try {
-                currentStderrWrite(hint)
+                ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(hint)
               } catch {
                 try {
-                  ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(hint)
-                } catch {
-                  try {
-                    fs.writeSync(2, hint)
-                  } catch (e) {
-                    this.debugError('fs.writeSync stderr hint failed: %O', e)
-                  }
+                  fs.writeSync(2, hint)
+                } catch (e) {
+                  this.debugError('fs.writeSync stderr hint failed: %O', e)
                 }
               }
-              if (this.config.fallbackToStderrOnBlocked && this.output) {
-                const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
+            }
+
+            if (this.config.fallbackToStderrOnBlocked && this.output) {
+              const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
+              try {
+                currentStderrWrite(jsonOutput + '\n')
+              } catch {
                 try {
-                  currentStderrWrite(jsonOutput + '\n')
+                  ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(
+                    jsonOutput + '\n'
+                  )
                 } catch {
                   try {
-                    ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(
-                      jsonOutput + '\n'
-                    )
-                  } catch {
-                    try {
-                      fs.writeSync(2, jsonOutput + '\n')
-                    } catch (e) {
-                      this.debugError('fs.writeSync stderr JSON failed: %O', e)
-                    }
+                    fs.writeSync(2, jsonOutput + '\n')
+                  } catch (e) {
+                    this.debugError('fs.writeSync stderr JSON failed: %O', e)
                   }
                 }
               }
             }
           } catch (stderrError) {
-            this.debugError('Failed during blocked-stdout probe/warn: %O', stderrError)
+            this.debugError('Failed to write fallback warning to stderr: %O', stderrError)
           }
         }
       }
-    } finally {
-      // Always perform final cleanup
-      this.finalCleanup()
+    } else if (
+      shouldAttemptConsole &&
+      !hasMeaningfulResults &&
+      this.config.warnWhenConsoleBlocked
+    ) {
+      try {
+        const writeToStdout = this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
+        try {
+          writeToStdout('')
+        } catch (probeError) {
+          this.debugError('Stdout appears blocked during probe: %O', probeError)
+          const currentStderrWrite: typeof process.stderr.write = process.stderr.write.bind(
+            process.stderr
+          )
+          const hint =
+            'vitest-llm-reporter: Console output appears blocked. ' +
+            "If you do not see the JSON output, configure `outputFile` or adjust your project's log/silent settings.\n"
+          try {
+            currentStderrWrite(hint)
+          } catch {
+            try {
+              ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(hint)
+            } catch {
+              try {
+                fs.writeSync(2, hint)
+              } catch (e) {
+                this.debugError('fs.writeSync stderr hint failed: %O', e)
+              }
+            }
+          }
+          if (this.config.fallbackToStderrOnBlocked && this.output) {
+            const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
+            try {
+              currentStderrWrite(jsonOutput + '\n')
+            } catch {
+              try {
+                ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(
+                  jsonOutput + '\n'
+                )
+              } catch {
+                try {
+                  fs.writeSync(2, jsonOutput + '\n')
+                } catch (e) {
+                  this.debugError('fs.writeSync stderr JSON failed: %O', e)
+                }
+              }
+            }
+          }
+        }
+      } catch (stderrError) {
+        this.debugError('Failed during blocked-stdout probe/warn: %O', stderrError)
+      }
+    }
+
+    if (
+      canWriteConsole &&
+      hasMeaningfulResults &&
+      this.config.warnWhenConsoleBlocked &&
+      this.config.fallbackToStderrOnBlocked &&
+      (!this.outputWriteState.console || forceConsole)
+    ) {
+      try {
+        const currentStdoutWrite =
+          this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
+        const probeMessage = '\n'
+        const writeResult = currentStdoutWrite(probeMessage)
+
+        if (!writeResult) {
+          const stderrWrite = this.originalStderrWrite || process.stderr.write.bind(process.stderr)
+          const warning =
+            'vitest-llm-reporter: stdout appears to be blocked. JSON results may not be visible.\n' +
+            "If you do not see the JSON output, configure `outputFile` or adjust your project's log/silent settings.\n"
+          try {
+            stderrWrite(warning)
+          } catch (stderrWriteError) {
+            this.debugError('fs.writeSync stderr hint failed: %O', stderrWriteError)
+          }
+          if (this.config.fallbackToStderrOnBlocked && this.output) {
+            const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
+            try {
+              stderrWrite(jsonOutput + '\n')
+            } catch {
+              try {
+                ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(
+                  jsonOutput + '\n'
+                )
+              } catch {
+                try {
+                  fs.writeSync(2, jsonOutput + '\n')
+                } catch (e) {
+                  this.debugError('fs.writeSync stderr JSON failed: %O', e)
+                }
+              }
+            }
+          }
+        }
+      } catch (stderrError) {
+        this.debugError('Failed during blocked-stdout probe/warn: %O', stderrError)
+      }
     }
   }
 }
