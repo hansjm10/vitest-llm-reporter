@@ -10,26 +10,32 @@ if (typeof globalThis.crypto === 'undefined' && crypto.webcrypto) {
   })
 }
 
-const globalCrypto = globalThis.crypto
+const computeHash = (algorithm, data, encoding = 'hex') => {
+  const hash = crypto.createHash(algorithm)
 
-if (globalCrypto && typeof globalCrypto.hash !== 'function') {
-  /**
-   * Polyfill for the synchronous crypto.hash API used by Vite 6+.
-   * Falls back to Node's createHash implementation when unavailable (e.g. Node 18).
-   */
-  globalCrypto.hash = (algorithm, data, encoding = 'hex') => {
-    const hash = crypto.createHash(algorithm)
+  if (typeof data === 'string' || data instanceof String) {
+    hash.update(String(data))
+  } else if (data instanceof ArrayBuffer) {
+    hash.update(Buffer.from(data))
+  } else if (ArrayBuffer.isView(data)) {
+    hash.update(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
+  } else if (data != null) {
+    hash.update(Buffer.from(String(data)))
+  }
 
-    if (typeof data === 'string') {
-      hash.update(data)
-    } else if (data instanceof ArrayBuffer) {
-      hash.update(Buffer.from(data))
-    } else if (ArrayBuffer.isView(data)) {
-      hash.update(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
-    } else {
-      hash.update(Buffer.from(String(data)))
-    }
+  return encoding ? hash.digest(encoding) : hash.digest()
+}
 
-    return encoding ? hash.digest(encoding) : hash.digest()
+const ensureHash = (target) => {
+  if (target && typeof target.hash !== 'function') {
+    Object.defineProperty(target, 'hash', {
+      value: computeHash,
+      configurable: true,
+      enumerable: false,
+      writable: true
+    })
   }
 }
+
+ensureHash(globalThis.crypto ?? crypto.webcrypto)
+ensureHash(crypto)

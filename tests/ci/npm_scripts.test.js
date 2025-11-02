@@ -13,12 +13,12 @@ describe('NPM Scripts Validation', () => {
 
   it('should have test script', () => {
     expect(packageJson.scripts.test).toBeDefined()
-    expect(packageJson.scripts.test).toContain('vitest run')
+    expect(packageJson.scripts.test).toContain('node scripts/run-vitest.mjs run')
   })
 
   it('should have coverage script', () => {
     expect(packageJson.scripts.coverage).toBeDefined()
-    expect(packageJson.scripts.coverage).toContain('vitest run --coverage')
+    expect(packageJson.scripts.coverage).toContain('node scripts/run-vitest.mjs run --coverage')
   })
 
   it('should have lint script', () => {
