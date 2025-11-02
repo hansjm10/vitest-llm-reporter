@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import type { Vitest } from 'vitest'
+import type { Vitest } from 'vitest/node'
 import { LLMReporter } from './reporter.js'
 import { createMockTestCase, createMockTestSpecification } from '../test-utils/mock-data.js'
 
