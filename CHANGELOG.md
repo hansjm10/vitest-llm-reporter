@@ -1,5 +1,17 @@
 # vitest-llm-reporter
 
+## 1.2.1
+
+### Patch Changes
+
+- 3b03ccb: chore: update @typescript-eslint/parser dev dependency
+- cc06fd8: chore: update vitest tooling to 4.0.3, align reporter output handling, and ensure Vitest CLI works on Node 18 via crypto.hash polyfill and wrapper script
+- e793141: chore: update eslint dev dependency
+- 1fabd8f: chore: update @eslint/js dev dependency
+- d66d268: chore: update typescript dev dependency
+- adb4b2b: chore: update @types/node dev dependency
+- 27f1a98: chore: update @typescript-eslint/eslint-plugin dev dependency
+
 ## Unreleased
 
 ### Documentation
