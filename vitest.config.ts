@@ -1,3 +1,4 @@
+import './scripts/node-crypto-polyfill.js';
 import { defineConfig } from 'vitest/config';
 import { LLMReporter } from './src/index.js';
 
