@@ -18,7 +18,11 @@ Vitest reporter that generates structured JSON output optimized for LLM parsing.
 ## Requirements
 
 - Node.js 18+ (uses native `structuredClone`)
-- Vitest 3.0+
+- Vitest 4.0+
+
+### Version Support
+
+Vitest 4 is the officially supported baseline and the only version exercised in CI. Earlier Vitest 3.x releases may continue to function, but that combination is no longer validated. Treat Vitest 3 compatibility as best-effort and plan to upgrade when possible.
 
 ## Installation
 

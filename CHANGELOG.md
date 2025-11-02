@@ -1,5 +1,11 @@
 # vitest-llm-reporter
 
+## Unreleased
+
+### Documentation
+
+- Clarify that Vitest 4 is the supported baseline, note the best-effort status of Vitest 3, and update public docs accordingly. (Fixes #114)
+
 ## 1.2.0
 
 ### Minor Changes

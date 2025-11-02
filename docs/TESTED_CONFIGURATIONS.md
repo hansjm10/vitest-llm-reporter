@@ -2,6 +2,8 @@
 
 This document lists all configuration scenarios that are tested through our integration matrix E2E tests. These scenarios represent real-world usage patterns and ensure the reporter works correctly across different configuration combinations.
 
+> **Vitest versions:** The matrix runs on Vitest 4.x, which is the officially supported baseline. Earlier Vitest 3.x releases may keep working, but we do not validate them in CI.
+
 ## Test Scenarios
 
 The following scenarios are automatically tested in `tests/e2e/config-matrix.test.ts`:
