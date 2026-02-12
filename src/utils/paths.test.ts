@@ -99,6 +99,12 @@ describe('Path Utilities', () => {
       expect(result.inNodeModules).toBe(true)
     })
 
+    it('should not treat node_modules substrings as dependency paths', () => {
+      const result = classify('/home/project/src/node_modules-helper.ts', '/home/project')
+      expect(result.inProject).toBe(true)
+      expect(result.inNodeModules).toBe(false)
+    })
+
     it('should handle external files', () => {
       const result = classify('/tmp/external.ts', '/home/project')
       expect(result.inProject).toBe(false)
