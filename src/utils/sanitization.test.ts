@@ -308,6 +308,13 @@ describe('Sanitization Utilities', () => {
         expect(validateFilePath('')).toBe(false)
       })
 
+      it('should return false for malformed percent-encoding without throwing', () => {
+        const malformedEncodedPath = '%E0%A4%A'
+
+        expect(() => validateFilePath(malformedEncodedPath)).not.toThrow()
+        expect(validateFilePath(malformedEncodedPath)).toBe(false)
+      })
+
       it('should reject non-string inputs', () => {
         expect(validateFilePath(null as any)).toBe(false)
         expect(validateFilePath(undefined as any)).toBe(false)

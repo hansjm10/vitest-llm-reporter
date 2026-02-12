@@ -144,7 +144,13 @@ function validateFilePathInternal(
     return fail('Path contains disallowed protocol')
   }
 
-  const decodedPath = decodeURIComponent(filePath)
+  let decodedPath = filePath
+  try {
+    decodedPath = decodeURIComponent(filePath)
+  } catch {
+    return fail('Path contains malformed percent-encoding')
+  }
+
   if (decodedPath !== filePath) {
     record('decodedPath', decodedPath)
     if (decodedPath.includes('..') || decodedPath.includes('\0')) {
