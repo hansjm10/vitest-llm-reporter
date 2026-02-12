@@ -34,11 +34,10 @@ interface ResolvedStdioConfig {
 }
 
 // Type for resolved configuration with explicit undefined handling
-interface ResolvedLLMReporterConfig
-  extends Omit<
-    LLMReporterConfig,
-    'outputFile' | 'enableStreaming' | 'enableConsoleOutput' | 'truncation' | 'deduplicateLogs'
-  > {
+interface ResolvedLLMReporterConfig extends Omit<
+  LLMReporterConfig,
+  'outputFile' | 'enableStreaming' | 'enableConsoleOutput' | 'truncation' | 'deduplicateLogs'
+> {
   verbose: boolean
   outputFile: string | undefined // Explicitly undefined, not optional
   includePassedTests: boolean
