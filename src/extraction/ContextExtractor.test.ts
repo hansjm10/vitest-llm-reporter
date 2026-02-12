@@ -256,6 +256,26 @@ Line 3`
       expect(frames[1].fileRelative).toContain('node_modules')
     })
 
+    it('should preserve user files with node_modules in filename when filtering', () => {
+      const customExtractor = new ContextExtractor({
+        rootDir: '/home/project',
+        filterNodeModules: true
+      })
+
+      const stack = `Error: Test error
+  at helper (/home/project/src/node_modules-helper.ts:10:5)
+  at /home/project/node_modules/vitest/dist/runner.js:500:10`
+
+      const frames = customExtractor.parseStackTrace(stack)
+
+      expect(frames).toHaveLength(1)
+      expect(frames[0]).toMatchObject({
+        fileRelative: 'src/node_modules-helper.ts',
+        inProject: true,
+        inNodeModules: false
+      })
+    })
+
     it('should handle V8 style stack traces exclusively', () => {
       const stack = `Error: Test failed
   at testFunction (/src/test.ts:10:15)

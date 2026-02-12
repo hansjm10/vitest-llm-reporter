@@ -29,6 +29,10 @@ function isWithinRootBoundary(path: string, root: string): boolean {
   return path === root || path.startsWith(`${root}/`)
 }
 
+function hasNodeModulesSegment(path: string): boolean {
+  return /(^|\/)node_modules(\/|$)/.test(path)
+}
+
 /**
  * Normalizes file URLs or file system paths to absolute paths.
  * Handles file:// URLs and regular paths.
@@ -125,9 +129,8 @@ export function classify(
   const normalizedPath = normalizePathForComparison(absPath)
   const normalizedRoot = normalizePathForComparison(rootDir)
 
-  // Check if path is in node_modules (cross-platform)
-  const inNodeModules =
-    normalizedPath.includes('/node_modules/') || normalizedPath.includes('node_modules')
+  // Check if path contains node_modules as a full path segment (cross-platform)
+  const inNodeModules = hasNodeModulesSegment(normalizedPath)
 
   // Check if path is in project (under root and not in node_modules)
   const inProject = isWithinRootBoundary(normalizedPath, normalizedRoot) && !inNodeModules
