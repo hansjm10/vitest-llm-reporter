@@ -59,6 +59,12 @@ describe('Path Utilities', () => {
       )
     })
 
+    it('should not convert sibling paths that share only a string prefix', () => {
+      expect(toRepoRelative('/home/project-e2e/file.ts', '/home/project')).toBe(
+        '/home/project-e2e/file.ts'
+      )
+    })
+
     it('should handle empty or invalid input', () => {
       expect(toRepoRelative('', '/home/project')).toBe('')
       expect(toRepoRelative('/home/project/test.ts', '')).toBe('/home/project/test.ts')
@@ -95,6 +101,12 @@ describe('Path Utilities', () => {
 
     it('should handle external files', () => {
       const result = classify('/tmp/external.ts', '/home/project')
+      expect(result.inProject).toBe(false)
+      expect(result.inNodeModules).toBe(false)
+    })
+
+    it('should not classify sibling prefix paths as in-project', () => {
+      const result = classify('/home/project-e2e/file.ts', '/home/project')
       expect(result.inProject).toBe(false)
       expect(result.inNodeModules).toBe(false)
     })
@@ -159,6 +171,13 @@ describe('Path Utilities', () => {
     it('should handle external paths', () => {
       const result = processFilePath('/tmp/external.ts', '/home/project', false)
       expect(result.fileRelative).toBe('/tmp/external.ts')
+      expect(result.inProject).toBe(false)
+      expect(result.inNodeModules).toBe(false)
+    })
+
+    it('should not convert sibling prefix paths during processing', () => {
+      const result = processFilePath('/home/project-e2e/file.ts', '/home/project', false)
+      expect(result.fileRelative).toBe('/home/project-e2e/file.ts')
       expect(result.inProject).toBe(false)
       expect(result.inNodeModules).toBe(false)
     })

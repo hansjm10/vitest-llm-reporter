@@ -9,6 +9,26 @@
 
 import { isAbsolute } from 'node:path'
 
+function normalizePathForComparison(path: string): string {
+  const normalized = path.replace(/\\/g, '/').replace(/\/+/g, '/')
+  if (normalized === '/') {
+    return normalized
+  }
+  return normalized.replace(/\/+$/, '')
+}
+
+function isWithinRootBoundary(path: string, root: string): boolean {
+  if (!path || !root) {
+    return false
+  }
+
+  if (root === '/') {
+    return path.startsWith('/')
+  }
+
+  return path === root || path.startsWith(`${root}/`)
+}
+
 /**
  * Normalizes file URLs or file system paths to absolute paths.
  * Handles file:// URLs and regular paths.
@@ -62,26 +82,16 @@ export function toRepoRelative(absPath: string, rootDir: string): string {
     return absPath || ''
   }
 
-  // Normalize Windows paths to Unix-style for comparison
-  const normalizeForComparison = (p: string): string => {
-    // Convert Windows backslashes to forward slashes
-    let normalized = p.replace(/\\/g, '/')
-    // Remove Windows drive letter if present for root comparison
-    return normalized
-  }
+  const pathForComparison = normalizePathForComparison(absPath)
+  const rootForComparison = normalizePathForComparison(rootDir)
 
-  const pathForComparison = normalizeForComparison(absPath)
-  const rootForComparison = normalizeForComparison(rootDir)
-
-  // Check if path is under root (handle both Unix and Windows paths)
-  if (pathForComparison.startsWith(rootForComparison)) {
+  // Check if path is truly under root (segment-aware boundary check)
+  if (isWithinRootBoundary(pathForComparison, rootForComparison)) {
     // Get the relative part
     let relativePath = pathForComparison.slice(rootForComparison.length)
 
     // Remove leading slash
-    if (relativePath.startsWith('/')) {
-      relativePath = relativePath.slice(1)
-    }
+    relativePath = relativePath.replace(/^\/+/, '')
 
     // Handle empty relative path (same directory)
     if (!relativePath) {
@@ -112,15 +122,15 @@ export function classify(
   }
 
   // Normalize paths to Unix-style for consistent comparison
-  const normalizedPath = absPath.replace(/\\/g, '/')
-  const normalizedRoot = rootDir.replace(/\\/g, '/')
+  const normalizedPath = normalizePathForComparison(absPath)
+  const normalizedRoot = normalizePathForComparison(rootDir)
 
   // Check if path is in node_modules (cross-platform)
   const inNodeModules =
     normalizedPath.includes('/node_modules/') || normalizedPath.includes('node_modules')
 
   // Check if path is in project (under root and not in node_modules)
-  const inProject = normalizedPath.startsWith(normalizedRoot) && !inNodeModules
+  const inProject = isWithinRootBoundary(normalizedPath, normalizedRoot) && !inNodeModules
 
   return { inProject, inNodeModules }
 }
