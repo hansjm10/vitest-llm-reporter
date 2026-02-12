@@ -53,14 +53,14 @@ File paths are validated to prevent directory traversal attacks:
 
 - Rejects paths containing `../` or `..\\`
 - Blocks null byte injection (`\0`)
-- Requires absolute paths only
+- Accepts both relative and absolute paths when they pass validation
 - No access to parent directories
 
 **Rejected patterns:**
 - `../../../etc/passwd`
 - `..\\..\\windows\\system32`
 - `test/../../sensitive/data.txt`
-- Relative paths like `src/test.ts`
+- `javascript:alert(1)`
 
 ### 5. Memory Protection
 
@@ -124,7 +124,7 @@ if (validateSchema(untrustedData)) {
 
 ### File Path Handling
 
-When working with file paths, ensure they are absolute and validated:
+When working with file paths, validate both relative and absolute inputs before use:
 
 ```typescript
 import { validateFilePath } from 'vitest-llm-reporter/utils';
@@ -162,7 +162,7 @@ Before using in production:
 
 - [ ] Validate all external input using `validateSchema()`
 - [ ] Reset code size counter between validations
-- [ ] Use absolute file paths only
+- [ ] Validate file paths with `validateFilePath()` before use
 - [ ] Implement rate limiting for validation endpoints
 - [ ] Monitor memory usage in production
 - [ ] Keep the library updated to the latest version
