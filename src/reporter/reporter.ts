@@ -1139,8 +1139,9 @@ export class LLMReporter implements Reporter {
       if (!module || typeof module !== 'object') continue
 
       let moduleErrors: unknown[] = []
-      if (hasProperty(module, 'errors')) {
-        const value = (module as Record<string, unknown>).errors
+      const moduleRecord = module as unknown as Record<string, unknown>
+      if (hasProperty(moduleRecord, 'errors')) {
+        const value = moduleRecord.errors
         if (typeof value === 'function') {
           try {
             const result = (value as () => unknown).call(module)
