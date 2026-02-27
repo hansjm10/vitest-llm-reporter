@@ -299,12 +299,64 @@ describe('LLMReporter', () => {
         expect(output!.failures?.[0].error.message).toContain('Unhandled rejection')
       })
 
+      it('should surface module collection errors as failures', async () => {
+        reporter.onInit(mockVitest as Vitest)
+        reporter.onTestRunStart([createMockTestSpecification('/test-project/tests/bad.test.ts')])
+
+        const moduleError: SerializedError = {
+          message: 'Failed to load test file',
+          stack:
+            'Error: Failed to load test file\n    at /test-project/tests/bad.test.ts:1:1',
+          name: 'Error'
+        }
+
+        const moduleWithError = {
+          ...createMockTestModule('/test-project/tests/bad.test.ts'),
+          errors: () => [moduleError]
+        }
+
+        await reporter.onTestRunEnd([moduleWithError], [], 'failed')
+
+        const output = reporter.getOutput()
+        expect(output).toBeDefined()
+        expect(output!.summary.failed).toBeGreaterThan(0)
+        expect(output!.failures?.some((failure) => failure.error.message.includes('Failed to load')))
+          .toBe(true)
+        expect(
+          output!.failures?.some((failure) =>
+            failure.error.stackFrames?.some(
+              (frame) => frame.fileRelative === 'tests/bad.test.ts'
+            )
+          )
+        ).toBe(true)
+      })
+
       it('should include timestamp in output', async () => {
         reporter.onTestRunStart([])
         await reporter.onTestRunEnd([], [], 'passed')
 
         const output = reporter.getOutput()
         expect(output!.summary.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+      })
+    })
+
+    describe('watcher errors', () => {
+      it('should surface watcher start errors when no tests ran', async () => {
+        const error = new Error('Typecheck failed')
+        error.stack = 'Error: Typecheck failed\n    at /test-project/src/index.ts:1:1'
+
+        reporter.onInit(mockVitest as Vitest)
+        reporter.onTestRunStart([])
+
+        // Vitest can report watcher errors before any tests run
+        reporter.onWatcherStart?.([], [error])
+        await reporter.onTestRunEnd([], [], 'failed')
+
+        const output = reporter.getOutput()
+        expect(output).toBeDefined()
+        expect(output!.summary.failed).toBeGreaterThan(0)
+        expect(output!.failures?.some((failure) => failure.error.message.includes('Typecheck')))
+          .toBe(true)
       })
     })
   })

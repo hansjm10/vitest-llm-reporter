@@ -22,6 +22,7 @@ import type {
 import type { OrchestratorConfig } from '../events/types.js'
 import type { LLMReporterOutput, TestError } from '../types/schema.js'
 import { StdioFilterEvaluator } from '../console/stdio-filter.js'
+import { hasProperty } from '../utils/type-guards.js'
 
 interface ResolvedStdioConfig {
   suppressStdout: boolean
@@ -131,6 +132,7 @@ export class LLMReporter implements Reporter {
   private debugError = errorLogger()
   private isTestRunActive = false // Track if a test run is in progress (watch mode)
   private rootDir?: string // Root directory from Vitest config
+  private watcherErrors: SerializedError[] = []
 
   // Component instances
   private stateManager: StateManager
@@ -443,6 +445,7 @@ export class LLMReporter implements Reporter {
     this.orchestrator.reset()
     this.output = undefined
     this.outputWriteState = { file: false, console: false }
+    this.watcherErrors = []
 
     // Reset performance state
     if (this.performanceManager) {
@@ -880,6 +883,7 @@ export class LLMReporter implements Reporter {
   onTestRunStart(specifications: ReadonlyArray<TestSpecification>): void {
     // Reset output write tracking for each new run
     this.outputWriteState = { file: false, console: false }
+    this.watcherErrors = []
 
     // Handle watch mode: reset if a test run is already active
     if (this.isTestRunActive) {
@@ -994,9 +998,16 @@ export class LLMReporter implements Reporter {
         // Continue to build output even if orchestrator fails
       }
 
+      const moduleErrors = this.collectModuleErrors(testModules)
+      const combinedUnhandledErrors = [
+        ...(unhandledErrors ?? []),
+        ...(moduleErrors ?? []),
+        ...(this.watcherErrors ?? [])
+      ] as ReadonlyArray<SerializedError>
+
       // Debug-log any unhandled errors in a compact formatted way
-      if (unhandledErrors && unhandledErrors.length > 0) {
-        for (const ue of unhandledErrors) {
+      if (combinedUnhandledErrors && combinedUnhandledErrors.length > 0) {
+        for (const ue of combinedUnhandledErrors) {
           try {
             const formatted = this.errorExtractor.format(this.errorExtractor.extractWithContext(ue))
             this.debug('Unhandled error (formatted):\n%s', formatted)
@@ -1043,7 +1054,7 @@ export class LLMReporter implements Reporter {
           testResults,
           duration: statistics.duration,
           startTime: this.stateManager.getStartTime(),
-          unhandledErrors: unhandledErrors
+          unhandledErrors: combinedUnhandledErrors
         })
       } catch (buildError) {
         this.debugError('Error building output: %O', buildError)
@@ -1122,6 +1133,114 @@ export class LLMReporter implements Reporter {
     }
   }
 
+  private collectModuleErrors(testModules: ReadonlyArray<TestModule>): SerializedError[] {
+    const collected: SerializedError[] = []
+
+    for (const module of testModules) {
+      if (!module || typeof module !== 'object') continue
+
+      let moduleErrors: unknown[] = []
+      if (hasProperty(module, 'errors')) {
+        const value = (module as Record<string, unknown>).errors
+        if (typeof value === 'function') {
+          try {
+            const result = (value as () => unknown)()
+            if (Array.isArray(result)) {
+              moduleErrors = result
+            }
+          } catch (error) {
+            this.debugError('Failed to read module errors: %O', error)
+          }
+        } else if (Array.isArray(value)) {
+          moduleErrors = value
+        }
+      }
+
+      if (moduleErrors.length === 0) continue
+
+      const modulePath = this.getModulePath(module as Record<string, unknown>)
+      for (const error of moduleErrors) {
+        collected.push(this.normalizeModuleError(error, modulePath))
+      }
+    }
+
+    return collected
+  }
+
+  private getModulePath(module: Record<string, unknown>): string | undefined {
+    if (hasProperty(module, 'filepath') && typeof module.filepath === 'string') {
+      return module.filepath
+    }
+    if (hasProperty(module, 'moduleId') && typeof module.moduleId === 'string') {
+      return module.moduleId
+    }
+    if (hasProperty(module, 'relativeModuleId') && typeof module.relativeModuleId === 'string') {
+      return module.relativeModuleId
+    }
+    if (hasProperty(module, 'id') && typeof module.id === 'string') {
+      return module.id
+    }
+    return undefined
+  }
+
+  private normalizeModuleError(error: unknown, modulePath?: string): SerializedError {
+    if (error && typeof error === 'object') {
+      const errorObj = error as SerializedError & {
+        message?: unknown
+        stack?: unknown
+        name?: unknown
+      }
+
+      const message =
+        typeof errorObj.message === 'string' ? errorObj.message : 'Test module error'
+      const stack = typeof errorObj.stack === 'string' ? errorObj.stack : undefined
+
+      if (!stack && modulePath) {
+        return {
+          ...errorObj,
+          message,
+          stack: `Error: ${message}\n    at ${modulePath}:1:1`
+        }
+      }
+
+      if (message !== errorObj.message) {
+        return { ...errorObj, message }
+      }
+
+      return errorObj as SerializedError
+    }
+
+    const message = typeof error === 'string' ? error : 'Test module error'
+    const stack = modulePath ? `Error: ${message}\n    at ${modulePath}:1:1` : undefined
+
+    return {
+      message,
+      stack,
+      name: 'Error'
+    } as SerializedError
+  }
+
+  private normalizeUnknownError(error: unknown): SerializedError {
+    if (error && typeof error === 'object') {
+      const errorObj = error as SerializedError & {
+        message?: unknown
+        stack?: unknown
+        name?: unknown
+      }
+      const message =
+        typeof errorObj.message === 'string' ? errorObj.message : 'Unhandled error'
+      if (message !== errorObj.message) {
+        return { ...errorObj, message }
+      }
+      return errorObj as SerializedError
+    }
+
+    return {
+      message: typeof error === 'string' ? error : 'Unhandled error',
+      name: 'Error'
+    } as SerializedError
+  }
+
   /**
    * Capture user console logs forwarded by Vitest (v3)
    *
@@ -1132,6 +1251,16 @@ export class LLMReporter implements Reporter {
       this.orchestrator.handleUserConsoleLog(log)
     } catch (error) {
       this.debugError('Error in onUserConsoleLog: %O', error)
+    }
+  }
+
+  /**
+   * Handle watcher start (may include pre-run collection/typecheck errors)
+   */
+  onWatcherStart(_files?: File[], errors?: unknown[]): void {
+    if (!errors || errors.length === 0) return
+    for (const error of errors) {
+      this.watcherErrors.push(this.normalizeUnknownError(error))
     }
   }
 
@@ -1191,7 +1320,22 @@ export class LLMReporter implements Reporter {
   onFinished(files: File[], errors: unknown[], _coverage?: unknown): void {
     try {
       // Process any additional errors that occurred during teardown (e.g., afterAll hooks)
-      if (errors && errors.length > 0 && this.output) {
+      if (errors && errors.length > 0) {
+        if (!this.output) {
+          const environment = getRuntimeEnvironmentSummary(this.config.environmentMetadata)
+          this.output = {
+            summary: {
+              total: 0,
+              passed: 0,
+              failed: 0,
+              skipped: 0,
+              duration: 0,
+              timestamp: new Date().toISOString(),
+              ...(environment ? { environment } : {})
+            }
+          }
+        }
+
         this.debug('Processing %d teardown errors in onFinished', errors.length)
 
         // Add teardown errors to the output
