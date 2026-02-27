@@ -874,7 +874,6 @@ export class LLMReporter implements Reporter {
 
     return undefined
   }
-
   /**
    * Handle test run start event
    *
@@ -1158,7 +1157,7 @@ export class LLMReporter implements Reporter {
 
       if (moduleErrors.length === 0) continue
 
-      const modulePath = this.getModulePath(module as Record<string, unknown>)
+      const modulePath = this.getModulePath(module)
       for (const error of moduleErrors) {
         collected.push(this.normalizeModuleError(error, modulePath))
       }
@@ -1167,18 +1166,27 @@ export class LLMReporter implements Reporter {
     return collected
   }
 
-  private getModulePath(module: Record<string, unknown>): string | undefined {
-    if (hasProperty(module, 'filepath') && typeof module.filepath === 'string') {
-      return module.filepath
+  private getModulePath(module: unknown): string | undefined {
+    if (!module || typeof module !== 'object') {
+      return undefined
     }
-    if (hasProperty(module, 'moduleId') && typeof module.moduleId === 'string') {
-      return module.moduleId
+
+    const moduleRecord = module as Record<string, unknown>
+
+    if (hasProperty(moduleRecord, 'filepath') && typeof moduleRecord.filepath === 'string') {
+      return moduleRecord.filepath
     }
-    if (hasProperty(module, 'relativeModuleId') && typeof module.relativeModuleId === 'string') {
-      return module.relativeModuleId
+    if (hasProperty(moduleRecord, 'moduleId') && typeof moduleRecord.moduleId === 'string') {
+      return moduleRecord.moduleId
     }
-    if (hasProperty(module, 'id') && typeof module.id === 'string') {
-      return module.id
+    if (
+      hasProperty(moduleRecord, 'relativeModuleId') &&
+      typeof moduleRecord.relativeModuleId === 'string'
+    ) {
+      return moduleRecord.relativeModuleId
+    }
+    if (hasProperty(moduleRecord, 'id') && typeof moduleRecord.id === 'string') {
+      return moduleRecord.id
     }
     return undefined
   }

@@ -320,8 +320,9 @@ describe('LLMReporter', () => {
         const output = reporter.getOutput()
         expect(output).toBeDefined()
         expect(output!.summary.failed).toBeGreaterThan(0)
-        expect(output!.failures?.some((failure) => failure.error.message.includes('Failed to load')))
-          .toBe(true)
+        expect(
+          output!.failures?.some((failure) => failure.error.message.includes('Failed to load'))
+        ).toBe(true)
         expect(
           output!.failures?.some((failure) =>
             failure.error.stackFrames?.some(
@@ -355,8 +356,9 @@ describe('LLMReporter', () => {
         const output = reporter.getOutput()
         expect(output).toBeDefined()
         expect(output!.summary.failed).toBeGreaterThan(0)
-        expect(output!.failures?.some((failure) => failure.error.message.includes('Typecheck')))
-          .toBe(true)
+        expect(
+          output!.failures?.some((failure) => failure.error.message.includes('Typecheck'))
+        ).toBe(true)
       })
     })
   })

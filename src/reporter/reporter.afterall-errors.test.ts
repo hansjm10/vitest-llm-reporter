@@ -86,6 +86,23 @@ describe('LLMReporter afterAll error handling', () => {
     expect(jsonOutput.summary.total).toBe(2)
   })
 
+  it('should build output when teardown errors occur before output is created', () => {
+    const error = new Error('Teardown failed before output')
+    error.stack =
+      'Error: Teardown failed before output\n    at afterAll (/test-project/test.spec.js:10:5)'
+
+    reporter.onFinished([], [error], undefined)
+
+    const output = stdoutSpy.mock.calls.map((call: any) => String(call[0])).join('')
+    const jsonOutput = JSON.parse(output.trim())
+
+    expect(jsonOutput.summary.failed).toBe(1)
+    expect(jsonOutput.summary.total).toBe(1)
+    expect(jsonOutput.failures).toBeDefined()
+    expect(jsonOutput.failures.length).toBe(1)
+    expect(jsonOutput.failures[0].test).toBe('Teardown Error')
+  })
+
   it('should work correctly when no teardown errors occur', async () => {
     // Start test run with a passing test
     reporter.onTestRunStart([])
