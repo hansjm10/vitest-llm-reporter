@@ -189,6 +189,7 @@ export default [
       'eslint.config.js',
       '*.cjs',
       '*.mjs',
+      '.tmp-e2e-matrix*',
       'examples/',
       'coverage/',
       'vitest.config.ts',

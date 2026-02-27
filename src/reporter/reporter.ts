@@ -1139,7 +1139,7 @@ export class LLMReporter implements Reporter {
 
       let moduleErrors: unknown[] = []
       const moduleRecord = module as unknown as Record<string, unknown>
-      if (hasProperty(moduleRecord, 'errors')) {
+      if ('errors' in moduleRecord) {
         const value = moduleRecord.errors
         if (typeof value === 'function') {
           try {
