@@ -357,6 +357,25 @@ describe('LLMReporter', () => {
           output!.failures?.some((failure) => failure.error.message.includes('Typecheck'))
         ).toBe(true)
       })
+
+      it('should preserve watcher errors captured before test run start', async () => {
+        const error = new Error('Pre-run typecheck failed')
+        error.stack = 'Error: Pre-run typecheck failed\n    at /test-project/src/index.ts:1:1'
+
+        reporter.onInit(mockVitest as Vitest)
+
+        // Vitest can emit watcher errors before the test run starts in watch mode
+        reporter.onWatcherStart?.([], [error])
+        reporter.onTestRunStart([])
+        await reporter.onTestRunEnd([], [], 'failed')
+
+        const output = reporter.getOutput()
+        expect(output).toBeDefined()
+        expect(output!.summary.failed).toBeGreaterThan(0)
+        expect(
+          output!.failures?.some((failure) => failure.error.message.includes('Pre-run typecheck'))
+        ).toBe(true)
+      })
     })
   })
 

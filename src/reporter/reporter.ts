@@ -413,6 +413,7 @@ export class LLMReporter implements Reporter {
     this.stopSpinner()
     this.orchestrator.reset()
     this.isTestRunActive = false
+    this.watcherErrors = []
 
     // Note: stdio interception is NOT stopped here since it was initialized in onInit()
     // and should remain active for the entire Vitest session (including watch mode)
@@ -445,7 +446,6 @@ export class LLMReporter implements Reporter {
     this.orchestrator.reset()
     this.output = undefined
     this.outputWriteState = { file: false, console: false }
-    this.watcherErrors = []
 
     // Reset performance state
     if (this.performanceManager) {
@@ -882,7 +882,6 @@ export class LLMReporter implements Reporter {
   onTestRunStart(specifications: ReadonlyArray<TestSpecification>): void {
     // Reset output write tracking for each new run
     this.outputWriteState = { file: false, console: false }
-    this.watcherErrors = []
 
     // Handle watch mode: reset if a test run is already active
     if (this.isTestRunActive) {
