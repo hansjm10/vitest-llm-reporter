@@ -1200,8 +1200,7 @@ export class LLMReporter implements Reporter {
         name?: unknown
       }
 
-      const message =
-        typeof errorObj.message === 'string' ? errorObj.message : 'Test module error'
+      const message = typeof errorObj.message === 'string' ? errorObj.message : 'Test module error'
       const stack = typeof errorObj.stack === 'string' ? errorObj.stack : undefined
 
       if (!stack && modulePath) {
@@ -1236,8 +1235,7 @@ export class LLMReporter implements Reporter {
         stack?: unknown
         name?: unknown
       }
-      const message =
-        typeof errorObj.message === 'string' ? errorObj.message : 'Unhandled error'
+      const message = typeof errorObj.message === 'string' ? errorObj.message : 'Unhandled error'
       if (message !== errorObj.message) {
         return { ...errorObj, message }
       }

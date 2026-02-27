@@ -305,8 +305,7 @@ describe('LLMReporter', () => {
 
         const moduleError: SerializedError = {
           message: 'Failed to load test file',
-          stack:
-            'Error: Failed to load test file\n    at /test-project/tests/bad.test.ts:1:1',
+          stack: 'Error: Failed to load test file\n    at /test-project/tests/bad.test.ts:1:1',
           name: 'Error'
         }
 
@@ -325,9 +324,7 @@ describe('LLMReporter', () => {
         ).toBe(true)
         expect(
           output!.failures?.some((failure) =>
-            failure.error.stackFrames?.some(
-              (frame) => frame.fileRelative === 'tests/bad.test.ts'
-            )
+            failure.error.stackFrames?.some((frame) => frame.fileRelative === 'tests/bad.test.ts')
           )
         ).toBe(true)
       })
