@@ -1143,7 +1143,7 @@ export class LLMReporter implements Reporter {
         const value = (module as Record<string, unknown>).errors
         if (typeof value === 'function') {
           try {
-            const result = (value as () => unknown)()
+            const result = (value as () => unknown).call(module)
             if (Array.isArray(result)) {
               moduleErrors = result
             }
