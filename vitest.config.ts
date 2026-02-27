@@ -13,14 +13,8 @@ export default defineConfig({
     ],
     // Enable location tracking for line numbers
     includeTaskLocation: true,
-    // Force exit after tests complete
     pool: 'vmThreads',
-    poolOptions: {
-      vmThreads: {
-        // Force exit after tests complete
-        useAtomics: false
-      }
-    },
+    // Force exit after tests complete
     // Add teardown timeout
     teardownTimeout: 1000,
     reporters: [
