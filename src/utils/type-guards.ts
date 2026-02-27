@@ -6,7 +6,6 @@
  * @module type-guards
  */
 
-import type { File, Test } from '@vitest/runner'
 import { ExtractedError, VitestErrorContext } from '../types/vitest-objects.js'
 import type { AssertionValue } from '../types/schema.js'
 
@@ -91,7 +90,7 @@ export function hasId(obj: unknown): obj is { id: string } {
  * While Vitest exports the File type, we receive these as `unknown`
  * in reporter hooks and must validate their shape at runtime.
  */
-export function isTestModule(obj: unknown): obj is Pick<File, 'id'> {
+export function isTestModule(obj: unknown): obj is { id: string } {
   return hasId(obj)
 }
 
@@ -101,7 +100,7 @@ export function isTestModule(obj: unknown): obj is Pick<File, 'id'> {
  * While Vitest exports the Test type, we receive these as `unknown`
  * in reporter hooks and must validate their shape at runtime.
  */
-export function isTestCase(obj: unknown): obj is Pick<Test, 'id'> {
+export function isTestCase(obj: unknown): obj is { id: string } {
   return hasId(obj)
 }
 
