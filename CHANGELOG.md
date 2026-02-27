@@ -1,5 +1,11 @@
 # vitest-llm-reporter
 
+## 1.2.2
+
+### Patch Changes
+
+- a1cc9c7: Fix reporting of test module, watcher, and teardown errors so they appear in JSON output.
+
 ## 1.2.1
 
 ### Patch Changes
