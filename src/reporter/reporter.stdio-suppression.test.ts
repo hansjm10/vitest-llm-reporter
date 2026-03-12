@@ -222,7 +222,17 @@ describe('LLMReporter stdio suppression', () => {
   })
 
   it('restores original writers after test run', async () => {
+    const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
 
     const reporter = new LLMReporter({
       framedOutput: false
@@ -241,8 +251,81 @@ describe('LLMReporter stdio suppression', () => {
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
 
-    // After cleanup, writer should be restored (though it may be a different bound function)
-    expect(typeof process.stdout.write).toBe('function')
+    process.stdout.write('[Nest] no longer intercepted after run end\n')
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites).toContain('[Nest] no longer intercepted after run end\n')
+  })
+
+  it('allows standalone terminal control sequences after onTestRunEnd', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      environmentMetadata: { enabled: false }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    process.stdout.write('\u001b[?25h')
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites).toContain('\u001b[?25h')
+  })
+
+  it('restores original writers from ctx.onClose even without onTestRunEnd', () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+    let closeHandler: (() => void) | undefined
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false
+    })
+
+    const mockVitest = {
+      config: { root: '/test-project' },
+      onClose: (handler: () => void) => {
+        closeHandler = handler
+      }
+    }
+
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    expect(process.stdout.write).not.toBe(originalWrite)
+
+    closeHandler?.()
+
+    process.stdout.write('[Nest] restored on close\n')
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites).toContain('[Nest] restored on close\n')
   })
 
   it('handles custom filter patterns', async () => {
