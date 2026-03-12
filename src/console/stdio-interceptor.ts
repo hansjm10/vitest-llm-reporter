@@ -182,11 +182,6 @@ export class StdioInterceptor {
         str = String(chunk)
       }
 
-      if (this.shouldPassthroughChunk(str)) {
-        const target = stream === 'stdout' ? process.stdout : process.stderr
-        return originalWrite.call(target, chunk, encoding, callback)
-      }
-
       // Add to line buffer
       this[lineBuffer] += str
 
@@ -230,28 +225,6 @@ export class StdioInterceptor {
 
       return ok
     }) as WriteFunction
-  }
-
-  /**
-   * Terminal control sequences should bypass line buffering so they are not lost
-   * when emitted as standalone chunks without a trailing newline.
-   */
-  private shouldPassthroughChunk(chunk: string): boolean {
-    if (!chunk) {
-      return false
-    }
-
-    if (!chunk.includes('\u001b') && !chunk.includes('\r')) {
-      return false
-    }
-
-    const withoutAnsi = chunk
-      .replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/g, '')
-      .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
-      .replace(/\u001b[@-_]/g, '')
-      .replace(/\r/g, '')
-
-    return withoutAnsi.trim().length === 0
   }
 
   /**
