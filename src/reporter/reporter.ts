@@ -149,6 +149,7 @@ export class LLMReporter implements Reporter {
   private stdioFilter: StdioFilterEvaluator
   private originalStdoutWrite?: typeof process.stdout.write
   private originalStderrWrite?: typeof process.stderr.write
+  private closeCleanupRegistered = false
   // Spinner state
   private spinnerTimer?: NodeJS.Timeout
   private spinnerActive = false
@@ -415,9 +416,6 @@ export class LLMReporter implements Reporter {
     this.isTestRunActive = false
     this.watcherErrors = []
 
-    // Note: stdio interception is NOT stopped here since it was initialized in onInit()
-    // and should remain active for the entire Vitest session (including watch mode)
-
     // Stop performance monitoring
     if (this.performanceManager) {
       this.performanceManager.stop()
@@ -425,16 +423,40 @@ export class LLMReporter implements Reporter {
   }
 
   /**
-   * Final cleanup when reporter is completely done
+   * Enable stdio interception for the active test run
    */
-  private finalCleanup(): void {
-    // Stop stdio interception
-    if (this.stdioInterceptor) {
-      this.stdioInterceptor.disable()
+  private startStdioInterception(): void {
+    if (this.stdioInterceptor?.isActive()) {
+      return
+    }
+
+    if (!this.config.stdio.suppressStdout && !this.config.stdio.suppressStderr) {
       this.stdioInterceptor = undefined
       this.originalStdoutWrite = undefined
       this.originalStderrWrite = undefined
+      return
     }
+
+    const interceptor = this.stdioInterceptor ?? new StdioInterceptor(this.config.stdio)
+    interceptor.enable()
+    this.stdioInterceptor = interceptor
+
+    const originalWriters = interceptor.getOriginalWriters()
+    this.originalStdoutWrite = originalWriters.stdout
+    this.originalStderrWrite = originalWriters.stderr
+  }
+
+  /**
+   * Disable stdio interception and restore original writers
+   */
+  private stopStdioInterception(): void {
+    if (this.stdioInterceptor) {
+      this.stdioInterceptor.disable()
+      this.stdioInterceptor = undefined
+    }
+
+    this.originalStdoutWrite = undefined
+    this.originalStderrWrite = undefined
   }
 
   /**
@@ -691,19 +713,11 @@ export class LLMReporter implements Reporter {
       this.debug('stdio framework presets active: %o', this.config.stdio.frameworkPresets)
     }
 
-    // Start stdio interception early if configured to catch test setup logs
-    if (this.config.stdio.suppressStdout || this.config.stdio.suppressStderr) {
-      this.stdioInterceptor = new StdioInterceptor(this.config.stdio)
-      this.stdioInterceptor.enable()
-
-      // Save original writers for later use
-      const originalWriters = this.stdioInterceptor.getOriginalWriters()
-      this.originalStdoutWrite = originalWriters.stdout
-      this.originalStderrWrite = originalWriters.stderr
-    } else {
-      this.stdioInterceptor = undefined
-      this.originalStdoutWrite = undefined
-      this.originalStderrWrite = undefined
+    if (!this.closeCleanupRegistered && typeof ctx.onClose === 'function') {
+      ctx.onClose(() => {
+        this.stopStdioInterception()
+      })
+      this.closeCleanupRegistered = true
     }
   }
 
@@ -890,6 +904,8 @@ export class LLMReporter implements Reporter {
     this.isTestRunActive = true
 
     try {
+      this.startStdioInterception()
+
       // Start spinner if enabled (but not if stderr is suppressed)
       if (this.config.spinner.enabled && !this.config.stdio.suppressStderr) {
         this.startSpinner()
@@ -1128,6 +1144,7 @@ export class LLMReporter implements Reporter {
     } finally {
       // Always cleanup, even if errors occurred
       this.cleanup()
+      this.stopStdioInterception()
     }
   }
 
@@ -1406,8 +1423,8 @@ export class LLMReporter implements Reporter {
 
       this.flushOutput({ forceFile: Boolean(errors && errors.length > 0) })
     } finally {
-      // Always perform final cleanup
-      this.finalCleanup()
+      // Always restore original writers in case teardown completed after run end
+      this.stopStdioInterception()
     }
   }
 

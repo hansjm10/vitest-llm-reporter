@@ -143,6 +143,21 @@ describe('StdioInterceptor', () => {
       // Buffer should be flushed
       expect(stdoutOutput.join('')).toContain('Incomplete line without newline')
     })
+
+    it('passes through standalone terminal control sequences immediately', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[?25h')
+
+      expect(stdoutOutput).toContain('\u001b[?25h')
+
+      interceptor.disable()
+    })
   })
 
   describe('pure mode', () => {
