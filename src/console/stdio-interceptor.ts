@@ -182,7 +182,7 @@ export class StdioInterceptor {
         str = String(chunk)
       }
 
-      if (this.shouldPassthroughChunk(str)) {
+      if (this.shouldPassthroughChunk(str) && !this.filter.shouldSuppress(str)) {
         const target = stream === 'stdout' ? process.stdout : process.stderr
         return originalWrite.call(target, chunk, encoding, callback)
       }
@@ -233,8 +233,8 @@ export class StdioInterceptor {
   }
 
   /**
-   * Terminal control sequences should bypass line buffering so they are not lost
-   * when emitted as standalone chunks without a trailing newline.
+   * Terminal control sequences can bypass line buffering when the active filter
+   * would otherwise allow them through unchanged.
    */
   private shouldPassthroughChunk(chunk: string): boolean {
     if (!chunk) {
@@ -259,7 +259,7 @@ export class StdioInterceptor {
    */
   private flushBuffers(): void {
     if (this.stdoutLineBuffer && this.originalStdoutWrite) {
-      if (this.config.flushWithFiltering) {
+      if (this.config.flushWithFiltering || this.config.filterPattern === null) {
         // Apply filtering to the final partial line
         const lineToTest = this.stdoutLineBuffer.replace(/\r$/, '')
         if (!this.filter.shouldSuppress(lineToTest)) {
@@ -275,7 +275,10 @@ export class StdioInterceptor {
     }
 
     if (this.stderrLineBuffer && this.originalStderrWrite) {
-      if (this.config.flushWithFiltering && this.config.suppressStderr) {
+      if (
+        (this.config.flushWithFiltering || this.config.filterPattern === null) &&
+        this.config.suppressStderr
+      ) {
         // Apply filtering to the final partial line
         const lineToTest = this.stderrLineBuffer.replace(/\r$/, '')
         if (!this.filter.shouldSuppress(lineToTest)) {

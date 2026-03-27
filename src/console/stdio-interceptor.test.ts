@@ -217,6 +217,21 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput).not.toContain('[Nest] Log\n')
       expect(stdoutOutput).toContain('Regular log\n')
     })
+
+    it('suppresses standalone terminal control sequences when pattern is null', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: null
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[?25h')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).toHaveLength(0)
+    })
   })
 
   describe('flush filtering', () => {

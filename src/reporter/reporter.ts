@@ -1142,9 +1142,9 @@ export class LLMReporter implements Reporter {
       // Flush output eagerly so CI runs produce artifacts even if onFinished is skipped
       this.flushOutput()
     } finally {
-      // Always cleanup, even if errors occurred
+      // Always cleanup, even if errors occurred. Keep stdio interception active
+      // until onFinished/onClose so Vitest post-run output is still filtered.
       this.cleanup()
-      this.stopStdioInterception()
     }
   }
 

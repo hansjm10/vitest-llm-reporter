@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { SerializedError } from 'vitest'
 import type { Vitest } from 'vitest/node'
 
@@ -14,8 +14,12 @@ import { prepareForSnapshot } from '../test-utils/snapshot-helpers.js'
 describe('LLMReporter', () => {
   let reporter: LLMReporter
   let mockVitest: Partial<Vitest>
+  let originalStdoutWrite: typeof process.stdout.write
+  let originalStderrWrite: typeof process.stderr.write
 
   beforeEach(() => {
+    originalStdoutWrite = process.stdout.write.bind(process.stdout)
+    originalStderrWrite = process.stderr.write.bind(process.stderr)
     reporter = new LLMReporter()
     mockVitest = {
       config: {
@@ -25,6 +29,11 @@ describe('LLMReporter', () => {
         getFiles: vi.fn(() => [])
       } as any
     }
+  })
+
+  afterEach(() => {
+    process.stdout.write = originalStdoutWrite
+    process.stderr.write = originalStderrWrite
   })
 
   describe('Initialization', () => {

@@ -5,6 +5,9 @@ import * as path from 'node:path'
 import { LLMReporter } from './reporter.js'
 import type { TestRunEndReason } from 'vitest/node'
 
+const nativeStdoutWrite = process.stdout.write.bind(process.stdout)
+const nativeStderrWrite = process.stderr.write.bind(process.stderr)
+
 describe('LLMReporter stdio suppression', () => {
   let originalDebug: string | undefined
 
@@ -37,6 +40,8 @@ describe('LLMReporter stdio suppression', () => {
   })
 
   afterEach(() => {
+    process.stdout.write = nativeStdoutWrite
+    process.stderr.write = nativeStderrWrite
     if (originalDebug === undefined) delete process.env.DEBUG
     else process.env.DEBUG = originalDebug
   })
@@ -85,6 +90,7 @@ describe('LLMReporter stdio suppression', () => {
 
     // End the test run
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
 
     // Restore original
     process.stdout.write = originalWrite
@@ -130,6 +136,7 @@ describe('LLMReporter stdio suppression', () => {
 
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
 
     process.stdout.write = originalWrite
 
@@ -172,6 +179,7 @@ describe('LLMReporter stdio suppression', () => {
     // Provide mock test module to ensure output generation
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
 
     // Restore original
     process.stdout.write = originalWrite
@@ -202,6 +210,7 @@ describe('LLMReporter stdio suppression', () => {
     // Provide mock test module to ensure output generation
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
 
     stdoutSpy.mockRestore()
 
@@ -221,7 +230,7 @@ describe('LLMReporter stdio suppression', () => {
     expect(nonJsonWrites.length).toBe(0)
   })
 
-  it('restores original writers after test run', async () => {
+  it('keeps stdout intercepted until onFinished, then restores original writers', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
     process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
@@ -251,13 +260,50 @@ describe('LLMReporter stdio suppression', () => {
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
 
-    process.stdout.write('[Nest] no longer intercepted after run end\n')
+    process.stdout.write('[Nest] still intercepted before reporter finished\n')
+    reporter.onFinished([], [], undefined)
+    process.stdout.write('[Nest] no longer intercepted after reporter finished\n')
     process.stdout.write = originalWrite
 
-    expect(stdoutWrites).toContain('[Nest] no longer intercepted after run end\n')
+    expect(stdoutWrites).not.toContain('[Nest] still intercepted before reporter finished\n')
+    expect(stdoutWrites).toContain('[Nest] no longer intercepted after reporter finished\n')
   })
 
-  it('allows standalone terminal control sequences after onTestRunEnd', async () => {
+  it('suppresses post-run stdout until onFinished in pure stdout mode', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      pureStdout: true,
+      environmentMetadata: { enabled: false }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    process.stdout.write('% Coverage report from v8\n')
+    reporter.onFinished([], [], undefined)
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites).not.toContain('% Coverage report from v8\n')
+  })
+
+  it('allows standalone terminal control sequences after onFinished', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -282,6 +328,7 @@ describe('LLMReporter stdio suppression', () => {
 
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
 
     process.stdout.write('\u001b[?25h')
     process.stdout.write = originalWrite
@@ -365,6 +412,7 @@ describe('LLMReporter stdio suppression', () => {
     // Provide mock test module to ensure output generation
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
 
     // Restore original
     process.stdout.write = originalWrite
@@ -411,6 +459,7 @@ describe('LLMReporter stdio suppression', () => {
 
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
 
     process.stdout.write = originalWrite
 
@@ -450,6 +499,7 @@ describe('LLMReporter stdio suppression', () => {
 
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
 
     process.stdout.write = originalWrite
 
@@ -496,6 +546,7 @@ describe('LLMReporter stdio suppression', () => {
 
       const mockModule = createMockTestModule()
       await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+      reporter.onFinished([], [], undefined)
 
       expect(stdoutWrites).not.toContain('info  - Auto detected\n')
       expect(stdoutWrites).toContain('Regular output\n')
@@ -524,6 +575,7 @@ describe('LLMReporter stdio suppression', () => {
     // Provide mock test module to ensure output generation
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
 
     stderrSpy.mockRestore()
 
