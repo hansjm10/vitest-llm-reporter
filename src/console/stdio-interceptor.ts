@@ -233,7 +233,7 @@ export class StdioInterceptor {
           const result = redirectTarget.call(process.stderr, lineWithNewline, encoding, undefined)
           ok = ok && result
         } else {
-          const result = this.writeTrailingPassthroughSuffix(stream, originalWrite, line, encoding)
+          const result = this.writePassthroughControlChunk(stream, originalWrite, line, encoding)
           ok = ok && result
         }
         // Otherwise, drop the line
@@ -252,10 +252,10 @@ export class StdioInterceptor {
 
   /**
    * Allow teardown terminal restoration sequences to bypass line buffering so
-   * they reach the terminal even when emitted as standalone chunks.
+   * they reach the terminal when emitted as standalone chunks.
    */
   private shouldPassthroughChunk(chunk: string): boolean {
-    return this.getTrailingPassthroughSuffix(chunk) === chunk
+    return this.getPassthroughControlChunk(chunk) === chunk
   }
 
   /**
@@ -275,18 +275,17 @@ export class StdioInterceptor {
   }
 
   /**
-   * Preserve terminal restoration sequences when a filtered chunk is dropped.
-   * Pure suppression mode still drops every byte.
+   * Keep standalone terminal restoration chunks, but never peel them off a
+   * mixed log line because that still pollutes machine-readable stdout.
    */
-  private getTrailingPassthroughSuffix(chunk: string): string {
+  private getPassthroughControlChunk(chunk: string): string {
     if (this.config.filterPattern === null) {
       return ''
     }
 
-    let suffix = ''
     let remainder = chunk
 
-    while (true) {
+    while (remainder.length > 0) {
       const trailingCarriageReturns = remainder.match(TRAILING_CARRIAGE_RETURNS)?.[0] ?? ''
       const controlCandidateRemainder = trailingCarriageReturns
         ? remainder.slice(0, -trailingCarriageReturns.length)
@@ -296,28 +295,29 @@ export class StdioInterceptor {
       )
 
       if (!controlChunk) {
-        return suffix
+        return ''
       }
 
-      suffix = controlChunk + trailingCarriageReturns + suffix
       remainder = controlCandidateRemainder.slice(0, -controlChunk.length)
     }
+
+    return chunk
   }
 
-  private writeTrailingPassthroughSuffix(
+  private writePassthroughControlChunk(
     stream: 'stdout' | 'stderr',
     originalWrite: WriteFunction,
     chunk: string,
     encoding?: BufferEncoding
   ): boolean {
-    const suffix = this.getTrailingPassthroughSuffix(chunk)
-    if (!suffix) {
+    const passthroughChunk = this.getPassthroughControlChunk(chunk)
+    if (!passthroughChunk) {
       return true
     }
 
     return originalWrite.call(
       stream === 'stdout' ? process.stdout : process.stderr,
-      suffix,
+      passthroughChunk,
       encoding,
       undefined
     )
@@ -364,13 +364,13 @@ export class StdioInterceptor {
     }
 
     if (bufferedOutput === 'discard') {
-      this.writeTrailingPassthroughSuffix(stream, originalWrite, chunk)
+      this.writePassthroughControlChunk(stream, originalWrite, chunk)
       return
     }
 
     const frameworkLine = this.normalizeLineForFrameworkPresets(chunk)
     if (this.isControlOnlyChunk(chunk)) {
-      this.writeTrailingPassthroughSuffix(stream, originalWrite, chunk)
+      this.writePassthroughControlChunk(stream, originalWrite, chunk)
       return
     }
 
@@ -384,7 +384,7 @@ export class StdioInterceptor {
       return
     }
 
-    this.writeTrailingPassthroughSuffix(stream, originalWrite, chunk)
+    this.writePassthroughControlChunk(stream, originalWrite, chunk)
   }
 
   /**

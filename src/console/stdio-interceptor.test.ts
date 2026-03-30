@@ -161,6 +161,21 @@ describe('StdioInterceptor', () => {
       interceptor.disable()
     })
 
+    it('passes through standalone terminal reset chunks immediately', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[0m')
+
+      expect(stdoutOutput).toContain('\u001b[0m')
+
+      interceptor.disable()
+    })
+
     it('keeps standalone line-clear and cursor-hide chunks buffered', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
@@ -309,7 +324,7 @@ describe('StdioInterceptor', () => {
       }
     )
 
-    it('preserves trailing cursor-show when suppressing buffered Next.js stdout', () => {
+    it('drops trailing cursor-show when suppressing buffered Next.js stdout', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
         frameworkPresets: ['next'],
@@ -322,10 +337,10 @@ describe('StdioInterceptor', () => {
 
       interceptor.disable()
 
-      expect(stdoutOutput.join('')).toBe('\u001b[?25h')
+      expect(stdoutOutput.join('')).toBe('')
     })
 
-    it('preserves trailing reset when suppressing buffered Next.js stdout', () => {
+    it('drops trailing reset when suppressing buffered Next.js stdout', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
         frameworkPresets: ['next'],
@@ -338,10 +353,10 @@ describe('StdioInterceptor', () => {
 
       interceptor.disable()
 
-      expect(stdoutOutput.join('')).toBe('\u001b[0m')
+      expect(stdoutOutput.join('')).toBe('')
     })
 
-    it('preserves chained terminal restore suffixes when suppressing buffered Next.js stdout', () => {
+    it('drops chained terminal restore suffixes when suppressing buffered Next.js stdout', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
         frameworkPresets: ['next'],
@@ -354,10 +369,10 @@ describe('StdioInterceptor', () => {
 
       interceptor.disable()
 
-      expect(stdoutOutput.join('')).toBe('\u001b[?25h\u001b[0m')
+      expect(stdoutOutput.join('')).toBe('')
     })
 
-    it('preserves trailing cursor-show when the buffered control suffix ends with carriage return', () => {
+    it('drops trailing cursor-show when the buffered control suffix ends with carriage return', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
         frameworkPresets: ['next'],
@@ -370,7 +385,22 @@ describe('StdioInterceptor', () => {
 
       interceptor.disable()
 
-      expect(stdoutOutput.join('')).toBe('\u001b[?25h\r')
+      expect(stdoutOutput.join('')).toBe('')
+    })
+
+    it('does not emit trailing reset bytes from suppressed complete lines', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[0m\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('')
     })
 
     it('drops buffered control-only stdout chunks during filtered flush', () => {

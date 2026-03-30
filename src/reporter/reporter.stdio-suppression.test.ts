@@ -802,7 +802,7 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).toContain('Regular log\n')
   })
 
-  it('preserves cursor restoration when filtering buffered next stdout at onTestRunEnd', async () => {
+  it('drops cursor restoration suffixes when filtering buffered next stdout at onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -836,10 +836,10 @@ describe('LLMReporter stdio suppression', () => {
 
     process.stdout.write = originalWrite
 
-    expect(stdoutWrites.join('')).toBe('\u001b[?25h')
+    expect(stdoutWrites.join('')).toBe('')
   })
 
-  it('preserves terminal reset when filtering buffered next stdout at onTestRunEnd', async () => {
+  it('drops terminal reset when filtering buffered next stdout at onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -873,10 +873,10 @@ describe('LLMReporter stdio suppression', () => {
 
     process.stdout.write = originalWrite
 
-    expect(stdoutWrites.join('')).toBe('\u001b[0m')
+    expect(stdoutWrites.join('')).toBe('')
   })
 
-  it('preserves chained terminal restoration when filtering buffered next stdout at onTestRunEnd', async () => {
+  it('drops chained terminal restoration when filtering buffered next stdout at onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -910,10 +910,10 @@ describe('LLMReporter stdio suppression', () => {
 
     process.stdout.write = originalWrite
 
-    expect(stdoutWrites.join('')).toBe('\u001b[?25h\u001b[0m')
+    expect(stdoutWrites.join('')).toBe('')
   })
 
-  it('preserves cursor restoration when the buffered next stdout suffix ends with carriage return', async () => {
+  it('drops cursor restoration when the buffered next stdout suffix ends with carriage return', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -947,7 +947,7 @@ describe('LLMReporter stdio suppression', () => {
 
     process.stdout.write = originalWrite
 
-    expect(stdoutWrites.join('')).toBe('\u001b[?25h\r')
+    expect(stdoutWrites.join('')).toBe('')
   })
 
   it('does not intercept control-only stdout emitted after onTestRunEnd', async () => {
