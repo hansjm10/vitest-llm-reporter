@@ -285,6 +285,7 @@ describe('LLMReporter stdio suppression', () => {
     reporter.onTestRunStart([])
 
     // stdout.write should be patched during the run
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const interceptedWrite = process.stdout.write
     expect(interceptedWrite).not.toBe(captureWrite)
 
@@ -292,6 +293,7 @@ describe('LLMReporter stdio suppression', () => {
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
 
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(process.stdout.write).not.toBe(interceptedWrite)
 
     process.stdout.write('[Nest] no longer intercepted after run end\n')

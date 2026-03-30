@@ -105,6 +105,34 @@ describe('StdioInterceptor', () => {
       process.stdout.write('[Nest] Should not be filtered after disable\n')
       expect(stdoutOutput).toContain('[Nest] Should not be filtered after disable\n')
     })
+
+    it('does not restore stderr if stderr was never intercepted', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      const stderrSpy = ((chunk: any, encoding?: any, callback?: any) => {
+        if (typeof encoding === 'function') {
+          callback = encoding
+          encoding = undefined
+        }
+        stderrOutput.push(`spy:${String(chunk)}`)
+        if (callback) process.nextTick(callback)
+        return true
+      }) as any
+
+      process.stderr.write = stderrSpy
+
+      interceptor.disable()
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(process.stderr.write).toBe(stderrSpy)
+      process.stderr.write('still wrapped\n')
+      expect(stderrOutput).toContain('spy:still wrapped\n')
+    })
   })
 
   describe('line buffering', () => {

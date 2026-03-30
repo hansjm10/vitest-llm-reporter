@@ -7,45 +7,25 @@
  * @module console/stdio-interceptor
  */
 
-import type { FrameworkPresetName, StdioConfig } from '../types/reporter.js'
-import { StdioFilterEvaluator } from './stdio-filter.js'
-
-/** Internal representation of normalized stdio configuration */
-interface NormalizedStdioConfig {
-  suppressStdout: boolean
-  suppressStderr: boolean
-  filterPattern?: StdioConfig['filterPattern']
-  frameworkPresets: FrameworkPresetName[]
-  redirectToStderr: boolean
-  flushWithFiltering: boolean
-}
-
-/**
- * Default configuration for stdio suppression
- */
-const DEFAULT_CONFIG: NormalizedStdioConfig = {
-  suppressStdout: false,
-  suppressStderr: false,
-  filterPattern: undefined,
-  frameworkPresets: ['nest'],
-  redirectToStderr: false,
-  flushWithFiltering: false
-}
+import type { StdioConfig } from '../types/reporter.js'
+import type { BufferedTailPolicy, ResolvedStdioPlan } from './stdio-plan.js'
+import {
+  getDefaultBufferedTailPolicy,
+  isResolvedStdioPlan,
+  resolveStdioPlan
+} from './stdio-plan.js'
+import { StdioSuppressionPolicy } from './stdio-filter.js'
 
 /**
  * Stdio write function type
  */
-type WriteFunction = typeof process.stdout.write
+export type WriteFunction = typeof process.stdout.write
 
 interface DisableOptions {
-  bufferedOutput?: 'write' | 'filter' | 'discard'
+  bufferedOutput?: BufferedTailPolicy
 }
 
 const PASSTHROUGH_CONTROL_CHUNKS: readonly string[] = ['\u001b[?25h', '\u001b[0m', '\u001b[m']
-const LEADING_FILTER_CONTROL_PREFIX = new RegExp(
-  String.raw`^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+`,
-  'u'
-)
 const CONTROL_ONLY_CHUNK = new RegExp(String.raw`^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+$`, 'u')
 const TRAILING_CARRIAGE_RETURNS = /\r+$/u
 
@@ -58,39 +38,19 @@ const TRAILING_CARRIAGE_RETURNS = /\r+$/u
  * and can optionally redirect filtered output.
  */
 export class StdioInterceptor {
-  private config: NormalizedStdioConfig
-  private readonly filter: StdioFilterEvaluator
+  private readonly plan: ResolvedStdioPlan
+  private readonly policy: StdioSuppressionPolicy
   private originalStdoutWrite?: WriteFunction
   private originalStderrWrite?: WriteFunction
+  private patchedStdout = false
+  private patchedStderr = false
   private stdoutLineBuffer = ''
   private stderrLineBuffer = ''
   private isEnabled = false
 
-  constructor(config: StdioConfig = {}) {
-    const hasFilterPatternProperty = Object.hasOwn(config, 'filterPattern')
-    const hasFrameworkPresets = Object.hasOwn(config, 'frameworkPresets')
-
-    const filterPatternValue = hasFilterPatternProperty
-      ? config.filterPattern
-      : DEFAULT_CONFIG.filterPattern
-    const filterPatternProvided = hasFilterPatternProperty && filterPatternValue !== undefined
-
-    const frameworkPresets = hasFrameworkPresets
-      ? [...(config.frameworkPresets ?? [])]
-      : filterPatternProvided
-        ? []
-        : [...DEFAULT_CONFIG.frameworkPresets]
-
-    this.config = {
-      suppressStdout: config.suppressStdout ?? DEFAULT_CONFIG.suppressStdout,
-      suppressStderr: config.suppressStderr ?? DEFAULT_CONFIG.suppressStderr,
-      filterPattern: filterPatternProvided ? filterPatternValue : DEFAULT_CONFIG.filterPattern,
-      frameworkPresets,
-      redirectToStderr: config.redirectToStderr ?? DEFAULT_CONFIG.redirectToStderr,
-      flushWithFiltering: config.flushWithFiltering ?? DEFAULT_CONFIG.flushWithFiltering
-    }
-
-    this.filter = new StdioFilterEvaluator(this.config.filterPattern, this.config.frameworkPresets)
+  constructor(config: StdioConfig | ResolvedStdioPlan = {}, policy?: StdioSuppressionPolicy) {
+    this.plan = isResolvedStdioPlan(config) ? config : resolveStdioPlan({ stdio: config })
+    this.policy = policy ?? new StdioSuppressionPolicy(this.plan)
   }
 
   /**
@@ -106,21 +66,23 @@ export class StdioInterceptor {
     this.originalStderrWrite = process.stderr.write.bind(process.stderr)
 
     // Patch stdout if configured
-    if (this.config.suppressStdout) {
+    if (this.plan.suppressStdout) {
       process.stdout.write = this.createInterceptor(
         'stdout',
         this.originalStdoutWrite,
         this.originalStderrWrite
       )
+      this.patchedStdout = true
     }
 
     // Patch stderr if configured
-    if (this.config.suppressStderr) {
+    if (this.plan.suppressStderr) {
       process.stderr.write = this.createInterceptor(
         'stderr',
         this.originalStderrWrite,
         this.originalStderrWrite
       )
+      this.patchedStderr = true
     }
 
     this.isEnabled = true
@@ -138,13 +100,15 @@ export class StdioInterceptor {
     this.flushBuffers(options)
 
     // Restore original write functions
-    if (this.originalStdoutWrite) {
+    if (this.patchedStdout && this.originalStdoutWrite) {
       process.stdout.write = this.originalStdoutWrite
     }
-    if (this.originalStderrWrite) {
+    if (this.patchedStderr && this.originalStderrWrite) {
       process.stderr.write = this.originalStderrWrite
     }
 
+    this.patchedStdout = false
+    this.patchedStderr = false
     this.isEnabled = false
   }
 
@@ -197,7 +161,7 @@ export class StdioInterceptor {
       if (
         this[lineBuffer].length === 0 &&
         this.shouldPassthroughChunk(str) &&
-        !this.filter.shouldSuppress(str)
+        !this.policy.shouldSuppress(str)
       ) {
         const target = stream === 'stdout' ? process.stdout : process.stderr
         return originalWrite.call(target, chunk, encoding, callback)
@@ -217,9 +181,8 @@ export class StdioInterceptor {
       // Filter and write lines
       for (const line of lines) {
         const lineWithNewline = line + '\n'
-        const frameworkLine = this.normalizeLineForFrameworkPresets(line)
 
-        if (!this.filter.shouldSuppress(line, frameworkLine)) {
+        if (!this.policy.shouldSuppress(line)) {
           // Pass through non-suppressed lines (bind to correct stream)
           const result = originalWrite.call(
             stream === 'stdout' ? process.stdout : process.stderr,
@@ -228,7 +191,7 @@ export class StdioInterceptor {
             undefined
           )
           ok = ok && result
-        } else if (this.config.redirectToStderr && stream === 'stdout' && redirectTarget) {
+        } else if (this.plan.redirectToStderr && stream === 'stdout' && redirectTarget) {
           // Redirect suppressed stdout to stderr if configured
           const result = redirectTarget.call(process.stderr, lineWithNewline, encoding, undefined)
           ok = ok && result
@@ -259,14 +222,6 @@ export class StdioInterceptor {
   }
 
   /**
-   * Remove cursor-control prefixes and trailing carriage returns before
-   * matching framework preset rules against buffered output.
-   */
-  private normalizeLineForFrameworkPresets(line: string): string {
-    return line.replace(/\r+$/, '').replace(LEADING_FILTER_CONTROL_PREFIX, '')
-  }
-
-  /**
    * Treat pure terminal-control buffers as non-user-visible content during the
    * filtered shutdown flush so they do not trail machine-readable stdout.
    */
@@ -279,7 +234,7 @@ export class StdioInterceptor {
    * mixed log line because that still pollutes machine-readable stdout.
    */
   private getPassthroughControlChunk(chunk: string): string {
-    if (this.config.filterPattern === null) {
+    if (this.plan.filterPattern === null) {
       return ''
     }
 
@@ -327,9 +282,7 @@ export class StdioInterceptor {
    * Flush any remaining buffered content
    */
   private flushBuffers(options: DisableOptions = {}): void {
-    const bufferedOutput =
-      options.bufferedOutput ??
-      (this.config.filterPattern === null || this.config.flushWithFiltering ? 'filter' : 'write')
+    const bufferedOutput = options.bufferedOutput ?? getDefaultBufferedTailPolicy(this.plan)
 
     if (this.stdoutLineBuffer && this.originalStdoutWrite) {
       this.flushBufferedChunk(
@@ -356,9 +309,9 @@ export class StdioInterceptor {
     stream: 'stdout' | 'stderr',
     chunk: string,
     originalWrite: WriteFunction,
-    bufferedOutput: 'write' | 'filter' | 'discard'
+    bufferedOutput: BufferedTailPolicy
   ): void {
-    if (bufferedOutput === 'write') {
+    if (bufferedOutput === 'emit') {
       originalWrite.call(stream === 'stdout' ? process.stdout : process.stderr, chunk)
       return
     }
@@ -368,18 +321,17 @@ export class StdioInterceptor {
       return
     }
 
-    const frameworkLine = this.normalizeLineForFrameworkPresets(chunk)
     if (this.isControlOnlyChunk(chunk)) {
       this.writePassthroughControlChunk(stream, originalWrite, chunk)
       return
     }
 
-    if (!this.filter.shouldSuppress(chunk, frameworkLine)) {
+    if (!this.policy.shouldSuppress(chunk)) {
       originalWrite.call(stream === 'stdout' ? process.stdout : process.stderr, chunk)
       return
     }
 
-    if (stream === 'stdout' && this.config.redirectToStderr && this.originalStderrWrite) {
+    if (stream === 'stdout' && this.plan.redirectToStderr && this.originalStderrWrite) {
       this.originalStderrWrite.call(process.stderr, chunk)
       return
     }
