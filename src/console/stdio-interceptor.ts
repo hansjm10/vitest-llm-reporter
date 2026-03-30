@@ -38,19 +38,16 @@ const DEFAULT_CONFIG: NormalizedStdioConfig = {
 type WriteFunction = typeof process.stdout.write
 
 interface DisableOptions {
-  flushWithFiltering?: boolean
+  bufferedOutput?: 'write' | 'filter' | 'discard'
 }
 
 const PASSTHROUGH_CONTROL_CHUNKS: readonly string[] = ['\u001b[?25h']
-const PASSTHROUGH_CONTROL_CHUNK_SET = new Set<string>(PASSTHROUGH_CONTROL_CHUNKS)
 const LEADING_FILTER_CONTROL_PREFIX = new RegExp(
   String.raw`^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+`,
   'u'
 )
-const CONTROL_ONLY_CHUNK = new RegExp(
-  String.raw`^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+$`,
-  'u'
-)
+const CONTROL_ONLY_CHUNK = new RegExp(String.raw`^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+$`, 'u')
+const TRAILING_CARRIAGE_RETURNS = /\r+$/u
 
 /**
  * Interceptor for process.stdout and process.stderr
@@ -258,7 +255,7 @@ export class StdioInterceptor {
    * reaches the terminal even when emitted as a standalone chunk.
    */
   private shouldPassthroughChunk(chunk: string): boolean {
-    return PASSTHROUGH_CONTROL_CHUNK_SET.has(chunk)
+    return this.getTrailingPassthroughSuffix(chunk) === chunk
   }
 
   /**
@@ -290,16 +287,20 @@ export class StdioInterceptor {
     let remainder = chunk
 
     while (true) {
+      const trailingCarriageReturns = remainder.match(TRAILING_CARRIAGE_RETURNS)?.[0] ?? ''
+      const controlCandidateRemainder = trailingCarriageReturns
+        ? remainder.slice(0, -trailingCarriageReturns.length)
+        : remainder
       const controlChunk = PASSTHROUGH_CONTROL_CHUNKS.find((candidate) =>
-        remainder.endsWith(candidate)
+        controlCandidateRemainder.endsWith(candidate)
       )
 
       if (!controlChunk) {
         return suffix
       }
 
-      suffix = controlChunk + suffix
-      remainder = remainder.slice(0, -controlChunk.length)
+      suffix = controlChunk + trailingCarriageReturns + suffix
+      remainder = controlCandidateRemainder.slice(0, -controlChunk.length)
     }
   }
 
@@ -326,64 +327,64 @@ export class StdioInterceptor {
    * Flush any remaining buffered content
    */
   private flushBuffers(options: DisableOptions = {}): void {
-    const flushWithFiltering = options.flushWithFiltering ?? this.config.flushWithFiltering
+    const bufferedOutput =
+      options.bufferedOutput ??
+      (this.config.filterPattern === null || this.config.flushWithFiltering ? 'filter' : 'write')
 
     if (this.stdoutLineBuffer && this.originalStdoutWrite) {
-      if (flushWithFiltering || this.config.filterPattern === null) {
-        // Apply filtering to the final partial line
-        const frameworkLine = this.normalizeLineForFrameworkPresets(this.stdoutLineBuffer)
-        if (this.isControlOnlyChunk(this.stdoutLineBuffer)) {
-          this.writeTrailingPassthroughSuffix(
-            'stdout',
-            this.originalStdoutWrite,
-            this.stdoutLineBuffer
-          )
-        } else if (!this.filter.shouldSuppress(this.stdoutLineBuffer, frameworkLine)) {
-          this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
-        } else if (this.config.redirectToStderr && this.originalStderrWrite) {
-          this.originalStderrWrite.call(process.stderr, this.stdoutLineBuffer)
-        } else {
-          this.writeTrailingPassthroughSuffix(
-            'stdout',
-            this.originalStdoutWrite,
-            this.stdoutLineBuffer
-          )
-        }
-      } else {
-        // Write remaining stdout buffer without filtering (default behavior)
-        this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
-      }
+      this.flushBufferedChunk(
+        'stdout',
+        this.stdoutLineBuffer,
+        this.originalStdoutWrite,
+        bufferedOutput
+      )
       this.stdoutLineBuffer = ''
     }
 
     if (this.stderrLineBuffer && this.originalStderrWrite) {
-      if (
-        (flushWithFiltering || this.config.filterPattern === null) &&
-        this.config.suppressStderr
-      ) {
-        // Apply filtering to the final partial line
-        const frameworkLine = this.normalizeLineForFrameworkPresets(this.stderrLineBuffer)
-        if (this.isControlOnlyChunk(this.stderrLineBuffer)) {
-          this.writeTrailingPassthroughSuffix(
-            'stderr',
-            this.originalStderrWrite,
-            this.stderrLineBuffer
-          )
-        } else if (!this.filter.shouldSuppress(this.stderrLineBuffer, frameworkLine)) {
-          this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
-        } else {
-          this.writeTrailingPassthroughSuffix(
-            'stderr',
-            this.originalStderrWrite,
-            this.stderrLineBuffer
-          )
-        }
-      } else {
-        // Write remaining stderr buffer without filtering (default behavior)
-        this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
-      }
+      this.flushBufferedChunk(
+        'stderr',
+        this.stderrLineBuffer,
+        this.originalStderrWrite,
+        bufferedOutput
+      )
       this.stderrLineBuffer = ''
     }
+  }
+
+  private flushBufferedChunk(
+    stream: 'stdout' | 'stderr',
+    chunk: string,
+    originalWrite: WriteFunction,
+    bufferedOutput: 'write' | 'filter' | 'discard'
+  ): void {
+    if (bufferedOutput === 'write') {
+      originalWrite.call(stream === 'stdout' ? process.stdout : process.stderr, chunk)
+      return
+    }
+
+    if (bufferedOutput === 'discard') {
+      this.writeTrailingPassthroughSuffix(stream, originalWrite, chunk)
+      return
+    }
+
+    const frameworkLine = this.normalizeLineForFrameworkPresets(chunk)
+    if (this.isControlOnlyChunk(chunk)) {
+      this.writeTrailingPassthroughSuffix(stream, originalWrite, chunk)
+      return
+    }
+
+    if (!this.filter.shouldSuppress(chunk, frameworkLine)) {
+      originalWrite.call(stream === 'stdout' ? process.stdout : process.stderr, chunk)
+      return
+    }
+
+    if (stream === 'stdout' && this.config.redirectToStderr && this.originalStderrWrite) {
+      this.originalStderrWrite.call(process.stderr, chunk)
+      return
+    }
+
+    this.writeTrailingPassthroughSuffix(stream, originalWrite, chunk)
   }
 
   /**

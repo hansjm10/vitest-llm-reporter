@@ -553,6 +553,63 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites.length).toBeGreaterThan(0)
   })
 
+  it('does not flush visible partial stdout before reporter JSON when ctx.onClose fires first', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+    let closeHandler: (() => void) | undefined
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      environmentMetadata: { enabled: false }
+    })
+
+    const mockVitest = {
+      config: { root: '/test-project' },
+      onClose: (handler: () => void) => {
+        closeHandler = handler
+      }
+    }
+
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('Compiling...')
+
+    closeHandler?.()
+
+    const mockModule = createMockTestModule()
+    const testCase = mockModule.tasks[0]
+    reporter.onTestCaseReady(testCase)
+    reporter.onTestCaseResult(testCase)
+
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    process.stdout.write = originalWrite
+
+    const firstJsonIndex = stdoutWrites.findIndex((write) => {
+      try {
+        JSON.parse(write.trim())
+        return true
+      } catch {
+        return false
+      }
+    })
+
+    expect(firstJsonIndex).toBeGreaterThanOrEqual(0)
+    expect(stdoutWrites.slice(0, firstJsonIndex).join('')).not.toContain('Compiling...')
+    expect(stdoutWrites.join('')).not.toContain('Compiling...')
+  })
+
   it('handles custom filter patterns', async () => {
     // Collect output
     const stdoutWrites: string[] = []
@@ -720,6 +777,43 @@ describe('LLMReporter stdio suppression', () => {
     process.stdout.write = originalWrite
 
     expect(stdoutWrites.join('')).toBe('\u001b[?25h')
+  })
+
+  it('preserves cursor restoration when the buffered next stdout suffix ends with carriage return', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[?25h\r')
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
+
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites.join('')).toBe('\u001b[?25h\r')
   })
 
   it('drops buffered control-only stdout on finish without appending raw bytes after JSON', async () => {

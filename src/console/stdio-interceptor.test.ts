@@ -325,6 +325,22 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput.join('')).toBe('\u001b[?25h')
     })
 
+    it('preserves trailing cursor-show when the buffered control suffix ends with carriage return', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next'],
+        flushWithFiltering: true
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[?25h\r')
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('\u001b[?25h\r')
+    })
+
     it('drops buffered control-only stdout chunks during filtered flush', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
@@ -392,7 +408,7 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput).toEqual([])
     })
 
-    it('can force filtering during disable without changing the base config', () => {
+    it('can force filtered shutdown during disable without changing the base config', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
         filterPattern: /^\[Nest\]/
@@ -402,7 +418,7 @@ describe('StdioInterceptor', () => {
 
       process.stdout.write('[Nest] Partial log')
 
-      interceptor.disable({ flushWithFiltering: true })
+      interceptor.disable({ bufferedOutput: 'filter' })
 
       expect(stdoutOutput.join('')).not.toContain('[Nest] Partial log')
 
@@ -417,7 +433,7 @@ describe('StdioInterceptor', () => {
 
       process.stdout.write('Visible partial log')
 
-      visibleInterceptor.disable({ flushWithFiltering: true })
+      visibleInterceptor.disable({ bufferedOutput: 'filter' })
 
       expect(stdoutOutput.join('')).toContain('Visible partial log')
     })

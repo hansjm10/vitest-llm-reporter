@@ -432,7 +432,7 @@ export class LLMReporter implements Reporter {
       this.performanceManager.stop()
     }
 
-    this.stopStdioInterception()
+    this.stopStdioInterception('discard')
   }
 
   /**
@@ -462,10 +462,9 @@ export class LLMReporter implements Reporter {
   /**
    * Disable stdio interception and restore original writers
    */
-  private stopStdioInterception(): void {
+  private stopStdioInterception(bufferedOutput: 'filter' | 'discard' = 'filter'): void {
     if (this.stdioInterceptor) {
-      // Keep reporter-owned shutdown from flushing suppressed partial lines back to stdout.
-      this.stdioInterceptor.disable({ flushWithFiltering: true })
+      this.stdioInterceptor.disable({ bufferedOutput })
       this.stdioInterceptor = undefined
     }
 
@@ -1442,7 +1441,7 @@ export class LLMReporter implements Reporter {
       this.flushOutput({ forceFile: Boolean(errors && errors.length > 0) })
     } finally {
       // Always restore original writers in case teardown completed after run end
-      this.stopStdioInterception()
+      this.stopStdioInterception('filter')
     }
   }
 
