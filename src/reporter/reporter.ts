@@ -1018,6 +1018,8 @@ export class LLMReporter implements Reporter {
     unhandledErrors: ReadonlyArray<SerializedError>,
     reason: TestRunEndReason
   ): Promise<void> {
+    let stdioStopped = false
+
     try {
       // Stop spinner before building output
       this.stopSpinner()
@@ -1156,11 +1158,18 @@ export class LLMReporter implements Reporter {
         }
       }
 
+      // End interception before emitting JSON so buffered run output cannot leak after it.
+      this.stopStdioInterception('filter')
+      stdioStopped = true
+
       // Flush output eagerly so CI runs produce artifacts even if onFinished is skipped
       this.flushOutput()
     } finally {
-      // Always cleanup, even if errors occurred. Keep stdio interception active
-      // until onFinished/onClose so Vitest post-run output is still filtered.
+      if (!stdioStopped) {
+        this.stopStdioInterception('filter')
+      }
+
+      // Always cleanup, even if errors occurred.
       this.cleanupAfterRun()
     }
   }
@@ -1440,7 +1449,7 @@ export class LLMReporter implements Reporter {
 
       this.flushOutput({ forceFile: Boolean(errors && errors.length > 0) })
     } finally {
-      // Always restore original writers in case teardown completed after run end
+      // Fallback for cases where onTestRunEnd did not complete and interception is still active
       this.stopStdioInterception('filter')
     }
   }

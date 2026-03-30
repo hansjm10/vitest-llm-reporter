@@ -261,10 +261,10 @@ describe('LLMReporter stdio suppression', () => {
     expect(nonJsonWrites.length).toBe(0)
   })
 
-  it('keeps stdout intercepted until onFinished, then restores original writers', async () => {
+  it('restores original writers at onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
-    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+    const captureWrite = ((chunk: any, encoding?: any, callback?: any) => {
       if (typeof encoding === 'function') {
         callback = encoding
         encoding = undefined
@@ -273,6 +273,7 @@ describe('LLMReporter stdio suppression', () => {
       if (callback) process.nextTick(callback)
       return true
     }) as any
+    process.stdout.write = captureWrite
 
     const reporter = new LLMReporter({
       framedOutput: false
@@ -284,22 +285,23 @@ describe('LLMReporter stdio suppression', () => {
     reporter.onTestRunStart([])
 
     // stdout.write should be patched during the run
-    expect(process.stdout.write === originalWrite).toBe(false)
+    const interceptedWrite = process.stdout.write
+    expect(interceptedWrite).not.toBe(captureWrite)
 
     // Provide mock test module to ensure output generation
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
 
-    process.stdout.write('[Nest] still intercepted before reporter finished\n')
+    expect(process.stdout.write).not.toBe(interceptedWrite)
+
+    process.stdout.write('[Nest] no longer intercepted after run end\n')
     reporter.onFinished([], [], undefined)
-    process.stdout.write('[Nest] no longer intercepted after reporter finished\n')
     process.stdout.write = originalWrite
 
-    expect(stdoutWrites).not.toContain('[Nest] still intercepted before reporter finished\n')
-    expect(stdoutWrites).toContain('[Nest] no longer intercepted after reporter finished\n')
+    expect(stdoutWrites).toContain('[Nest] no longer intercepted after run end\n')
   })
 
-  it('suppresses post-run stdout until onFinished in pure stdout mode', async () => {
+  it('allows post-run stdout after onTestRunEnd in pure stdout mode', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -330,7 +332,65 @@ describe('LLMReporter stdio suppression', () => {
     reporter.onFinished([], [], undefined)
     process.stdout.write = originalWrite
 
-    expect(stdoutWrites).not.toContain('% Coverage report from v8\n')
+    expect(stdoutWrites).toContain('% Coverage report from v8\n')
+  })
+
+  it('flushes visible buffered stdout before reporter JSON at onTestRunEnd', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      environmentMetadata: { enabled: false },
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: []
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    const mockModule = createMockTestModule()
+    reporter.onTestModuleCollected(mockModule)
+    reporter.onTestModuleStart(mockModule)
+
+    const testCase = mockModule.tasks[0]
+    reporter.onTestCaseReady(testCase)
+    reporter.onTestCaseResult(testCase)
+    reporter.onTestModuleEnd(mockModule)
+
+    process.stdout.write('Compiling...')
+
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
+
+    process.stdout.write = originalWrite
+
+    const partialIndex = stdoutWrites.findIndex((write) => write === 'Compiling...')
+    const jsonIndex = stdoutWrites.findIndex((write) => {
+      try {
+        JSON.parse(write.trim())
+        return true
+      } catch {
+        return false
+      }
+    })
+
+    expect(partialIndex).toBeGreaterThanOrEqual(0)
+    expect(jsonIndex).toBeGreaterThanOrEqual(0)
+    expect(partialIndex).toBeLessThan(jsonIndex)
   })
 
   it('allows standalone terminal control sequences after onFinished', async () => {
@@ -742,7 +802,7 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).toContain('Regular log\n')
   })
 
-  it('preserves cursor restoration when filtering buffered next stdout on finish', async () => {
+  it('preserves cursor restoration when filtering buffered next stdout at onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -779,7 +839,7 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites.join('')).toBe('\u001b[?25h')
   })
 
-  it('preserves terminal reset when filtering buffered next stdout on finish', async () => {
+  it('preserves terminal reset when filtering buffered next stdout at onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -816,7 +876,7 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites.join('')).toBe('\u001b[0m')
   })
 
-  it('preserves chained terminal restoration when filtering buffered next stdout on finish', async () => {
+  it('preserves chained terminal restoration when filtering buffered next stdout at onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -890,7 +950,7 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites.join('')).toBe('\u001b[?25h\r')
   })
 
-  it('drops buffered control-only stdout on finish without appending raw bytes after JSON', async () => {
+  it('does not intercept control-only stdout emitted after onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -924,7 +984,7 @@ describe('LLMReporter stdio suppression', () => {
 
     process.stdout.write = originalWrite
 
-    expect(stdoutWrites.join('')).not.toContain('\u001b[?25l')
+    expect(stdoutWrites.join('')).toContain('\u001b[?25l')
   })
 
   it('auto-detects framework presets from package.json', async () => {
