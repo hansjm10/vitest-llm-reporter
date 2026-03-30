@@ -42,6 +42,7 @@ interface DisableOptions {
 }
 
 const PASSTHROUGH_CONTROL_CHUNKS = new Set(['\u001b[?25h'])
+const LEADING_FILTER_CONTROL_PREFIX = /^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+/u
 
 /**
  * Interceptor for process.stdout and process.stderr
@@ -210,8 +211,7 @@ export class StdioInterceptor {
 
       // Filter and write lines
       for (const line of lines) {
-        // Remove trailing carriage return for consistent pattern matching on Windows
-        const lineToTest = line.replace(/\r$/, '')
+        const lineToTest = this.normalizeLineForFiltering(line)
         const lineWithNewline = line + '\n'
 
         if (!this.filter.shouldSuppress(lineToTest)) {
@@ -251,6 +251,14 @@ export class StdioInterceptor {
   }
 
   /**
+   * Remove cursor-control prefixes and trailing carriage returns before
+   * evaluating anchored suppression rules against buffered output.
+   */
+  private normalizeLineForFiltering(line: string): string {
+    return line.replace(/\r+$/, '').replace(LEADING_FILTER_CONTROL_PREFIX, '')
+  }
+
+  /**
    * Flush any remaining buffered content
    */
   private flushBuffers(options: DisableOptions = {}): void {
@@ -259,7 +267,7 @@ export class StdioInterceptor {
     if (this.stdoutLineBuffer && this.originalStdoutWrite) {
       if (flushWithFiltering || this.config.filterPattern === null) {
         // Apply filtering to the final partial line
-        const lineToTest = this.stdoutLineBuffer.replace(/\r$/, '')
+        const lineToTest = this.normalizeLineForFiltering(this.stdoutLineBuffer)
         if (!this.filter.shouldSuppress(lineToTest)) {
           this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
         } else if (this.config.redirectToStderr && this.originalStderrWrite) {
@@ -278,7 +286,7 @@ export class StdioInterceptor {
         this.config.suppressStderr
       ) {
         // Apply filtering to the final partial line
-        const lineToTest = this.stderrLineBuffer.replace(/\r$/, '')
+        const lineToTest = this.normalizeLineForFiltering(this.stderrLineBuffer)
         if (!this.filter.shouldSuppress(lineToTest)) {
           this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
         }

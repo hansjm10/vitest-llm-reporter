@@ -655,6 +655,43 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).toContain('Regular log\n')
   })
 
+  it('filters control-prefixed buffered next stdout before onFinished restores writers', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local')
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
+
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites.join('')).not.toContain('Loaded env from .env.local')
+  })
+
   it('auto-detects framework presets from package.json', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-reporter-'))
     const packageJsonPath = path.join(tempDir, 'package.json')

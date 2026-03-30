@@ -288,6 +288,42 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput.join('')).not.toContain('[Nest] Partial log')
     })
 
+    it.each(['\r', '\u001b[2K\r'])(
+      'suppresses Next.js partial stdout with %j control prefix during flush',
+      (prefix) => {
+        const interceptor = new StdioInterceptor({
+          suppressStdout: true,
+          frameworkPresets: ['next'],
+          flushWithFiltering: true
+        })
+
+        interceptor.enable()
+
+        process.stdout.write(`${prefix}info  - Loaded env from .env.local`)
+
+        interceptor.disable()
+
+        expect(stdoutOutput.join('')).not.toContain('Loaded env from .env.local')
+      }
+    )
+
+    it('suppresses control-prefixed partial stderr during flush', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStderr: true,
+        filterPattern: /^ERROR:/,
+        frameworkPresets: [],
+        flushWithFiltering: true
+      })
+
+      interceptor.enable()
+
+      process.stderr.write('\u001b[2K\rERROR: Something went wrong')
+
+      interceptor.disable()
+
+      expect(stderrOutput.join('')).not.toContain('ERROR: Something went wrong')
+    })
+
     it('can force filtering during disable without changing the base config', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
