@@ -477,6 +477,52 @@ describe('LLMReporter stdio suppression', () => {
     }
   })
 
+  it('preserves collected results when ctx.onClose fires before onTestRunEnd', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+    let closeHandler: (() => void) | undefined
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false
+    })
+
+    const mockVitest = {
+      config: { root: '/test-project' },
+      onClose: (handler: () => void) => {
+        closeHandler = handler
+      }
+    }
+
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    const mockModule = createMockTestModule()
+    const testCase = mockModule.tasks[0]
+    reporter.onTestCaseReady(testCase)
+    reporter.onTestCaseResult(testCase)
+
+    closeHandler?.()
+
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    process.stdout.write = originalWrite
+
+    const output = reporter.getOutput()
+    expect(output?.summary.total).toBe(1)
+    expect(output?.summary.passed).toBe(1)
+    expect(stdoutWrites.length).toBeGreaterThan(0)
+  })
+
   it('handles custom filter patterns', async () => {
     // Collect output
     const stdoutWrites: string[] = []

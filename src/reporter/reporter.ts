@@ -408,9 +408,9 @@ export class LLMReporter implements Reporter {
   }
 
   /**
-   * Cleanup resources (always called in finally blocks)
+   * Cleanup run state after test results have been consumed.
    */
-  private cleanup(): void {
+  private cleanupAfterRun(): void {
     this.stopSpinner()
     this.orchestrator.reset()
     this.isTestRunActive = false
@@ -420,6 +420,19 @@ export class LLMReporter implements Reporter {
     if (this.performanceManager) {
       this.performanceManager.stop()
     }
+  }
+
+  /**
+   * Release live resources on process close without discarding collected run state.
+   */
+  private cleanupOnClose(): void {
+    this.stopSpinner()
+
+    if (this.performanceManager) {
+      this.performanceManager.stop()
+    }
+
+    this.stopStdioInterception()
   }
 
   /**
@@ -716,8 +729,7 @@ export class LLMReporter implements Reporter {
 
     if (!this.closeCleanupRegistered && typeof ctx.onClose === 'function') {
       ctx.onClose(() => {
-        this.cleanup()
-        this.stopStdioInterception()
+        this.cleanupOnClose()
       })
       this.closeCleanupRegistered = true
     }
@@ -1146,7 +1158,7 @@ export class LLMReporter implements Reporter {
     } finally {
       // Always cleanup, even if errors occurred. Keep stdio interception active
       // until onFinished/onClose so Vitest post-run output is still filtered.
-      this.cleanup()
+      this.cleanupAfterRun()
     }
   }
 
