@@ -451,7 +451,8 @@ export class LLMReporter implements Reporter {
    */
   private stopStdioInterception(): void {
     if (this.stdioInterceptor) {
-      this.stdioInterceptor.disable()
+      // Keep reporter-owned shutdown from flushing suppressed partial lines back to stdout.
+      this.stdioInterceptor.disable({ flushWithFiltering: true })
       this.stdioInterceptor = undefined
     }
 

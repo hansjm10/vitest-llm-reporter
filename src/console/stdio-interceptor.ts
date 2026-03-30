@@ -37,6 +37,10 @@ const DEFAULT_CONFIG: NormalizedStdioConfig = {
  */
 type WriteFunction = typeof process.stdout.write
 
+interface DisableOptions {
+  flushWithFiltering?: boolean
+}
+
 /**
  * Interceptor for process.stdout and process.stderr
  *
@@ -117,13 +121,13 @@ export class StdioInterceptor {
   /**
    * Disable stdio interception and restore original writers
    */
-  disable(): void {
+  disable(options: DisableOptions = {}): void {
     if (!this.isEnabled) {
       return
     }
 
     // Flush any remaining buffered content
-    this.flushBuffers()
+    this.flushBuffers(options)
 
     // Restore original write functions
     if (this.originalStdoutWrite) {
@@ -261,9 +265,11 @@ export class StdioInterceptor {
   /**
    * Flush any remaining buffered content
    */
-  private flushBuffers(): void {
+  private flushBuffers(options: DisableOptions = {}): void {
+    const flushWithFiltering = options.flushWithFiltering ?? this.config.flushWithFiltering
+
     if (this.stdoutLineBuffer && this.originalStdoutWrite) {
-      if (this.config.flushWithFiltering || this.config.filterPattern === null) {
+      if (flushWithFiltering || this.config.filterPattern === null) {
         // Apply filtering to the final partial line
         const lineToTest = this.stdoutLineBuffer.replace(/\r$/, '')
         if (!this.filter.shouldSuppress(lineToTest)) {
@@ -280,7 +286,7 @@ export class StdioInterceptor {
 
     if (this.stderrLineBuffer && this.originalStderrWrite) {
       if (
-        (this.config.flushWithFiltering || this.config.filterPattern === null) &&
+        (flushWithFiltering || this.config.filterPattern === null) &&
         this.config.suppressStderr
       ) {
         // Apply filtering to the final partial line

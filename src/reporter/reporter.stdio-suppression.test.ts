@@ -375,6 +375,46 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).toContain('[Nest] restored on close\n')
   })
 
+  it('filters buffered suppressed stdout before restoring writers from ctx.onClose', () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+    let closeHandler: (() => void) | undefined
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false
+    })
+
+    const mockVitest = {
+      config: { root: '/test-project' },
+      onClose: (handler: () => void) => {
+        closeHandler = handler
+      }
+    }
+
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('[Nest] buffered spinner frame')
+
+    closeHandler?.()
+
+    process.stdout.write('[Nest] restored on close\n')
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites.join('')).not.toContain('[Nest] buffered spinner frame')
+    expect(stdoutWrites).toContain('[Nest] restored on close\n')
+  })
+
   it('stops the spinner from ctx.onClose when onTestRunEnd never fires', () => {
     vi.useFakeTimers()
 

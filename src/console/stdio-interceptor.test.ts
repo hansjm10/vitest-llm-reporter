@@ -271,6 +271,36 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput.join('')).not.toContain('[Nest] Partial log')
     })
 
+    it('can force filtering during disable without changing the base config', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('[Nest] Partial log')
+
+      interceptor.disable({ flushWithFiltering: true })
+
+      expect(stdoutOutput.join('')).not.toContain('[Nest] Partial log')
+
+      stdoutOutput = []
+
+      const visibleInterceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      visibleInterceptor.enable()
+
+      process.stdout.write('Visible partial log')
+
+      visibleInterceptor.disable({ flushWithFiltering: true })
+
+      expect(stdoutOutput.join('')).toContain('Visible partial log')
+    })
+
     it('does not apply filtering during flush by default', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
