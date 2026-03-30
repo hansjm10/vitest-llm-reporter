@@ -462,6 +462,7 @@ export class LLMReporter implements Reporter {
     const hasPartialTruncation = Object.hasOwn(partialConfig, 'truncation')
     const hasPartialPerformance = Object.hasOwn(partialConfig, 'performance')
     const hasPureStdoutUpdate = Object.hasOwn(partialConfig, 'pureStdout')
+    const previousPureStdout = this.config.pureStdout
 
     const shallowConfig: Partial<LLMReporterConfig> = { ...partialConfig }
     if (hasPartialStdio) {
@@ -492,7 +493,9 @@ export class LLMReporter implements Reporter {
 
     if (hasPartialStdio || hasPureStdoutUpdate) {
       this.config.stdio = mergeResolvedStdioPlan(this.config.stdio, partialConfig.stdio, {
-        pureStdout: this.config.pureStdout
+        pureStdout: this.config.pureStdout,
+        recomputeFromDefaults:
+          hasPureStdoutUpdate && previousPureStdout && !this.config.pureStdout
       })
     }
 
@@ -1346,6 +1349,8 @@ export class LLMReporter implements Reporter {
         }
       }
 
+      // If onTestRunEnd never completed, flush any buffered tail before emitting JSON.
+      this.stopStdioInterception('filter')
       this.flushOutput({ forceFile: Boolean(errors && errors.length > 0) })
     } finally {
       // Fallback for cases where onTestRunEnd did not complete and interception is still active

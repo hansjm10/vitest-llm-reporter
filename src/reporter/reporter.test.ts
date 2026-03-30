@@ -1147,6 +1147,24 @@ describe('LLMReporter', () => {
       expect(stdio.suppressStdout).toBe(false)
     })
 
+    it('recomputes standard stdio defaults when disabling pure stdout mode', () => {
+      const reporter = new LLMReporter({ pureStdout: true })
+
+      reporter.updateConfig({ pureStdout: false })
+
+      const config = reporter.getConfig()
+      expect(config.pureStdout).toBe(false)
+      expect(config.stdio).toMatchObject({
+        suppressStdout: true,
+        suppressStderr: false,
+        filterPattern: undefined,
+        frameworkPresets: ['nest'],
+        autoDetectFrameworks: false,
+        redirectToStderr: false,
+        flushWithFiltering: false
+      })
+    })
+
     it('merges truncation and performance updates without resetting defaults', () => {
       const reporter = new LLMReporter()
       const initialTruncation = { ...reporter.getConfig().truncation }

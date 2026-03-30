@@ -81,10 +81,14 @@ export function resolveStdioPlan(
 export function mergeResolvedStdioPlan(
   current: ResolvedStdioPlan,
   update?: StdioConfig,
-  options: { pureStdout?: boolean } = {}
+  options: { pureStdout?: boolean; recomputeFromDefaults?: boolean } = {}
 ): ResolvedStdioPlan {
   if (options.pureStdout) {
     return resolveStdioPlan({ pureStdout: true, stdio: update })
+  }
+
+  if (options.recomputeFromDefaults) {
+    return resolveStdioPlan({ pureStdout: false, stdio: update })
   }
 
   const merged = cloneResolvedStdioPlan(current)

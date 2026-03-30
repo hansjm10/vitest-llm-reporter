@@ -65,4 +65,23 @@ describe('stdio-plan', () => {
     expect(merged.autoDetectFrameworks).toBe(true)
     expect(shouldFilterSuccessLogs(true, merged)).toBe(true)
   })
+
+  it('recomputes the normal defaults when leaving pure stdout mode', () => {
+    const pureStdoutPlan = resolveStdioPlan({ pureStdout: true })
+    const merged = mergeResolvedStdioPlan(
+      pureStdoutPlan,
+      { suppressStdout: false },
+      { recomputeFromDefaults: true }
+    )
+
+    expect(merged).toMatchObject({
+      suppressStdout: false,
+      suppressStderr: false,
+      filterPattern: undefined,
+      frameworkPresets: ['nest'],
+      autoDetectFrameworks: false,
+      redirectToStderr: false,
+      flushWithFiltering: false
+    })
+  })
 })

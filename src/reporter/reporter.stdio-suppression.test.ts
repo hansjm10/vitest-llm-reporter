@@ -395,6 +395,53 @@ describe('LLMReporter stdio suppression', () => {
     expect(partialIndex).toBeLessThan(jsonIndex)
   })
 
+  it('flushes visible buffered stdout before reporter JSON from onFinished fallback', () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      environmentMetadata: { enabled: false },
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: []
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('Compiling...')
+    reporter.onFinished([], [new Error('afterAll failed')], undefined)
+
+    process.stdout.write = originalWrite
+
+    const partialIndex = stdoutWrites.findIndex((write) => write === 'Compiling...')
+    const jsonIndex = stdoutWrites.findIndex((write) => {
+      try {
+        JSON.parse(write.trim())
+        return true
+      } catch {
+        return false
+      }
+    })
+
+    expect(partialIndex).toBeGreaterThanOrEqual(0)
+    expect(jsonIndex).toBeGreaterThanOrEqual(0)
+    expect(partialIndex).toBeLessThan(jsonIndex)
+  })
+
   it('allows standalone terminal control sequences after onFinished', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
