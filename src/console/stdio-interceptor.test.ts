@@ -389,21 +389,21 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput).toEqual([])
     })
 
-    it('suppresses control-prefixed partial stderr during flush', () => {
+    it('does not normalize custom regex filters during flush', () => {
       const interceptor = new StdioInterceptor({
-        suppressStderr: true,
-        filterPattern: /^ERROR:/,
+        suppressStdout: true,
+        filterPattern: /^info/,
         frameworkPresets: [],
         flushWithFiltering: true
       })
 
       interceptor.enable()
 
-      process.stderr.write('\u001b[2K\rERROR: Something went wrong')
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local')
 
       interceptor.disable()
 
-      expect(stderrOutput.join('')).not.toContain('ERROR: Something went wrong')
+      expect(stdoutOutput.join('')).toContain('\u001b[2K\rinfo  - Loaded env from .env.local')
     })
 
     it('applies custom raw-prefix regex filters during flush', () => {
@@ -438,6 +438,30 @@ describe('StdioInterceptor', () => {
       interceptor.disable()
 
       expect(stdoutOutput).toEqual([])
+    })
+
+    it('invokes custom predicate filters once per buffered chunk during flush', () => {
+      const seen: string[] = []
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: [
+          (line) => {
+            seen.push(line)
+            return false
+          }
+        ],
+        frameworkPresets: [],
+        flushWithFiltering: true
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local')
+
+      interceptor.disable()
+
+      expect(seen).toEqual(['\u001b[2K\rinfo  - Loaded env from .env.local'])
+      expect(stdoutOutput.join('')).toContain('\u001b[2K\rinfo  - Loaded env from .env.local')
     })
 
     it('can force filtered shutdown during disable without changing the base config', () => {

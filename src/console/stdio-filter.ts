@@ -27,21 +27,23 @@ export class StdioFilterEvaluator {
     }
 
     return (
-      this.matchesPredicates(this.frameworkPredicates, line, normalizedLine) ||
-      this.matchesPredicates(this.userPredicates, line, normalizedLine)
+      this.matchesFrameworkPredicates(line, normalizedLine) ||
+      this.matchesPredicatesOnce(this.userPredicates, line)
     )
   }
 
-  private matchesPredicates(
-    predicates: readonly ((line: string) => boolean)[],
+  private matchesFrameworkPredicates(
     line: string,
     normalizedLine = line
   ): boolean {
-    if (this.matchesPredicatesOnce(predicates, line)) {
+    if (this.matchesPredicatesOnce(this.frameworkPredicates, line)) {
       return true
     }
 
-    return normalizedLine !== line && this.matchesPredicatesOnce(predicates, normalizedLine)
+    return (
+      normalizedLine !== line &&
+      this.matchesPredicatesOnce(this.frameworkPredicates, normalizedLine)
+    )
   }
 
   private matchesPredicatesOnce(
