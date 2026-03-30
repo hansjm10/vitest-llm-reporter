@@ -6,26 +6,49 @@ import { getFrameworkPresetPatterns } from './framework-log-presets.js'
  * based on configured framework presets and user supplied filters.
  */
 export class StdioFilterEvaluator {
-  private readonly predicates: ((line: string) => boolean)[] | null
+  private readonly suppressAll: boolean
+  private readonly frameworkPredicates: ((line: string) => boolean)[]
+  private readonly userPredicates: ((line: string) => boolean)[]
 
   constructor(
     filterPattern: StdioConfig['filterPattern'],
     frameworkPresets: FrameworkPresetName[]
   ) {
-    this.predicates = this.compileFilterPredicates(filterPattern, frameworkPresets)
+    const compiled = this.compileFilterPredicates(filterPattern, frameworkPresets)
+    this.suppressAll = compiled === null
+    this.frameworkPredicates = compiled?.frameworkPredicates ?? []
+    this.userPredicates = compiled?.userPredicates ?? []
   }
 
   /** Determine if a line should be suppressed */
-  shouldSuppress(line: string): boolean {
-    if (this.predicates === null) {
+  shouldSuppress(line: string, normalizedLine = line): boolean {
+    if (this.suppressAll) {
       return true
     }
 
-    if (this.predicates.length === 0) {
-      return false
+    return (
+      this.matchesPredicates(this.frameworkPredicates, line, normalizedLine) ||
+      this.matchesPredicates(this.userPredicates, line, normalizedLine)
+    )
+  }
+
+  private matchesPredicates(
+    predicates: readonly ((line: string) => boolean)[],
+    line: string,
+    normalizedLine = line
+  ): boolean {
+    if (this.matchesPredicatesOnce(predicates, line)) {
+      return true
     }
 
-    for (const predicate of this.predicates) {
+    return normalizedLine !== line && this.matchesPredicatesOnce(predicates, normalizedLine)
+  }
+
+  private matchesPredicatesOnce(
+    predicates: readonly ((line: string) => boolean)[],
+    line: string
+  ): boolean {
+    for (const predicate of predicates) {
       try {
         if (predicate(line)) {
           return true
@@ -41,34 +64,38 @@ export class StdioFilterEvaluator {
   private compileFilterPredicates(
     filterPattern: StdioConfig['filterPattern'],
     frameworkPresets: FrameworkPresetName[]
-  ): ((line: string) => boolean)[] | null {
+  ): {
+    frameworkPredicates: ((line: string) => boolean)[]
+    userPredicates: ((line: string) => boolean)[]
+  } | null {
     if (filterPattern === null) {
       return null
     }
 
-    const predicates: ((line: string) => boolean)[] = []
+    const frameworkPredicates: ((line: string) => boolean)[] = []
+    const userPredicates: ((line: string) => boolean)[] = []
     const seen = new Set<StdioFilter>()
 
-    const registerPattern = (pattern: StdioFilter): void => {
+    const registerPattern = (bucket: ((line: string) => boolean)[], pattern: StdioFilter): void => {
       if (seen.has(pattern)) {
         return
       }
       seen.add(pattern)
-      predicates.push(this.toPredicate(pattern))
+      bucket.push(this.toPredicate(pattern))
     }
 
     for (const presetPattern of getFrameworkPresetPatterns(frameworkPresets)) {
-      registerPattern(presetPattern)
+      registerPattern(frameworkPredicates, presetPattern)
     }
 
     if (filterPattern !== undefined) {
       const patterns = Array.isArray(filterPattern) ? filterPattern : [filterPattern]
       for (const pattern of patterns) {
-        registerPattern(pattern)
+        registerPattern(userPredicates, pattern)
       }
     }
 
-    return predicates
+    return { frameworkPredicates, userPredicates }
   }
 
   private toPredicate(pattern: StdioFilter): (line: string) => boolean {

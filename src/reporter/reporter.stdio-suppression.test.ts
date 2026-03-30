@@ -253,8 +253,7 @@ describe('LLMReporter stdio suppression', () => {
     reporter.onTestRunStart([])
 
     // stdout.write should be patched during the run
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(process.stdout.write).not.toBe(originalWrite)
+    expect(process.stdout.write === originalWrite).toBe(false)
 
     // Provide mock test module to ensure output generation
     const mockModule = createMockTestModule()
@@ -365,7 +364,7 @@ describe('LLMReporter stdio suppression', () => {
     reporter.onInit(mockVitest as any)
     reporter.onTestRunStart([])
 
-    expect(process.stdout.write).not.toBe(originalWrite)
+    expect(process.stdout.write === originalWrite).toBe(false)
 
     closeHandler?.()
 
@@ -655,7 +654,7 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).toContain('Regular log\n')
   })
 
-  it('filters control-prefixed buffered next stdout before onFinished restores writers', async () => {
+  it('preserves cursor restoration when filtering buffered next stdout on finish', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -681,7 +680,7 @@ describe('LLMReporter stdio suppression', () => {
     reporter.onInit(mockVitest as any)
     reporter.onTestRunStart([])
 
-    process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local')
+    process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[?25h')
 
     const mockModule = createMockTestModule()
     await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
@@ -689,7 +688,7 @@ describe('LLMReporter stdio suppression', () => {
 
     process.stdout.write = originalWrite
 
-    expect(stdoutWrites.join('')).not.toContain('Loaded env from .env.local')
+    expect(stdoutWrites.join('')).toBe('\u001b[?25h')
   })
 
   it('auto-detects framework presets from package.json', async () => {

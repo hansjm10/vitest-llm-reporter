@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { StdioInterceptor } from './stdio-interceptor.js'
 
+const RAW_CLEAR_LINE_PREFIX = new RegExp(String.raw`^\u001b\[2K\r`)
+
 describe('StdioInterceptor', () => {
   let originalStdoutWrite: typeof process.stdout.write
   let originalStderrWrite: typeof process.stderr.write
@@ -307,6 +309,22 @@ describe('StdioInterceptor', () => {
       }
     )
 
+    it('preserves trailing cursor-show when suppressing buffered Next.js stdout', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next'],
+        flushWithFiltering: true
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[?25h')
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('\u001b[?25h')
+    })
+
     it('suppresses control-prefixed partial stderr during flush', () => {
       const interceptor = new StdioInterceptor({
         suppressStderr: true,
@@ -322,6 +340,40 @@ describe('StdioInterceptor', () => {
       interceptor.disable()
 
       expect(stderrOutput.join('')).not.toContain('ERROR: Something went wrong')
+    })
+
+    it('applies custom raw-prefix regex filters during flush', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: [/^\r/, RAW_CLEAR_LINE_PREFIX],
+        frameworkPresets: [],
+        flushWithFiltering: true
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rspinner update')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).toEqual([])
+    })
+
+    it('passes raw control prefixes to custom predicate filters during flush', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: [(line) => line.startsWith('\u001b[2K\r')],
+        frameworkPresets: [],
+        flushWithFiltering: true
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rspinner update')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).toEqual([])
     })
 
     it('can force filtering during disable without changing the base config', () => {

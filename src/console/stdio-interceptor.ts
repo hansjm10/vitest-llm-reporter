@@ -41,8 +41,12 @@ interface DisableOptions {
   flushWithFiltering?: boolean
 }
 
-const PASSTHROUGH_CONTROL_CHUNKS = new Set(['\u001b[?25h'])
-const LEADING_FILTER_CONTROL_PREFIX = /^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+/u
+const PASSTHROUGH_CONTROL_CHUNKS: readonly string[] = ['\u001b[?25h']
+const PASSTHROUGH_CONTROL_CHUNK_SET = new Set<string>(PASSTHROUGH_CONTROL_CHUNKS)
+const LEADING_FILTER_CONTROL_PREFIX = new RegExp(
+  String.raw`^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+`,
+  'u'
+)
 
 /**
  * Interceptor for process.stdout and process.stderr
@@ -211,10 +215,10 @@ export class StdioInterceptor {
 
       // Filter and write lines
       for (const line of lines) {
-        const lineToTest = this.normalizeLineForFiltering(line)
         const lineWithNewline = line + '\n'
+        const frameworkLine = this.normalizeLineForFrameworkPresets(line)
 
-        if (!this.filter.shouldSuppress(lineToTest)) {
+        if (!this.filter.shouldSuppress(line, frameworkLine)) {
           // Pass through non-suppressed lines (bind to correct stream)
           const result = originalWrite.call(
             stream === 'stdout' ? process.stdout : process.stderr,
@@ -226,6 +230,9 @@ export class StdioInterceptor {
         } else if (this.config.redirectToStderr && stream === 'stdout' && redirectTarget) {
           // Redirect suppressed stdout to stderr if configured
           const result = redirectTarget.call(process.stderr, lineWithNewline, encoding, undefined)
+          ok = ok && result
+        } else {
+          const result = this.writeTrailingPassthroughSuffix(stream, originalWrite, line, encoding)
           ok = ok && result
         }
         // Otherwise, drop the line
@@ -247,15 +254,60 @@ export class StdioInterceptor {
    * reaches the terminal even when emitted as a standalone chunk.
    */
   private shouldPassthroughChunk(chunk: string): boolean {
-    return PASSTHROUGH_CONTROL_CHUNKS.has(chunk)
+    return PASSTHROUGH_CONTROL_CHUNK_SET.has(chunk)
   }
 
   /**
    * Remove cursor-control prefixes and trailing carriage returns before
-   * evaluating anchored suppression rules against buffered output.
+   * matching framework preset rules against buffered output.
    */
-  private normalizeLineForFiltering(line: string): string {
+  private normalizeLineForFrameworkPresets(line: string): string {
     return line.replace(/\r+$/, '').replace(LEADING_FILTER_CONTROL_PREFIX, '')
+  }
+
+  /**
+   * Preserve terminal restoration sequences when a filtered chunk is dropped.
+   * Pure suppression mode still drops every byte.
+   */
+  private getTrailingPassthroughSuffix(chunk: string): string {
+    if (this.config.filterPattern === null) {
+      return ''
+    }
+
+    let suffix = ''
+    let remainder = chunk
+
+    while (true) {
+      const controlChunk = PASSTHROUGH_CONTROL_CHUNKS.find((candidate) =>
+        remainder.endsWith(candidate)
+      )
+
+      if (!controlChunk) {
+        return suffix
+      }
+
+      suffix = controlChunk + suffix
+      remainder = remainder.slice(0, -controlChunk.length)
+    }
+  }
+
+  private writeTrailingPassthroughSuffix(
+    stream: 'stdout' | 'stderr',
+    originalWrite: WriteFunction,
+    chunk: string,
+    encoding?: BufferEncoding
+  ): boolean {
+    const suffix = this.getTrailingPassthroughSuffix(chunk)
+    if (!suffix) {
+      return true
+    }
+
+    return originalWrite.call(
+      stream === 'stdout' ? process.stdout : process.stderr,
+      suffix,
+      encoding,
+      undefined
+    )
   }
 
   /**
@@ -267,11 +319,17 @@ export class StdioInterceptor {
     if (this.stdoutLineBuffer && this.originalStdoutWrite) {
       if (flushWithFiltering || this.config.filterPattern === null) {
         // Apply filtering to the final partial line
-        const lineToTest = this.normalizeLineForFiltering(this.stdoutLineBuffer)
-        if (!this.filter.shouldSuppress(lineToTest)) {
+        const frameworkLine = this.normalizeLineForFrameworkPresets(this.stdoutLineBuffer)
+        if (!this.filter.shouldSuppress(this.stdoutLineBuffer, frameworkLine)) {
           this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
         } else if (this.config.redirectToStderr && this.originalStderrWrite) {
           this.originalStderrWrite.call(process.stderr, this.stdoutLineBuffer)
+        } else {
+          this.writeTrailingPassthroughSuffix(
+            'stdout',
+            this.originalStdoutWrite,
+            this.stdoutLineBuffer
+          )
         }
       } else {
         // Write remaining stdout buffer without filtering (default behavior)
@@ -286,9 +344,15 @@ export class StdioInterceptor {
         this.config.suppressStderr
       ) {
         // Apply filtering to the final partial line
-        const lineToTest = this.normalizeLineForFiltering(this.stderrLineBuffer)
-        if (!this.filter.shouldSuppress(lineToTest)) {
+        const frameworkLine = this.normalizeLineForFrameworkPresets(this.stderrLineBuffer)
+        if (!this.filter.shouldSuppress(this.stderrLineBuffer, frameworkLine)) {
           this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
+        } else {
+          this.writeTrailingPassthroughSuffix(
+            'stderr',
+            this.originalStderrWrite,
+            this.stderrLineBuffer
+          )
         }
       } else {
         // Write remaining stderr buffer without filtering (default behavior)
