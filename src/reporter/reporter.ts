@@ -1349,9 +1349,13 @@ export class LLMReporter implements Reporter {
         }
       }
 
-      // If onTestRunEnd never completed, flush any buffered tail before emitting JSON.
+      // If teardown changes the result after a run-end flush, rewrite the output sinks as needed.
       this.stopStdioInterception('filter')
-      this.flushOutput({ forceFile: Boolean(errors && errors.length > 0) })
+      const hasTeardownErrors = Boolean(errors && errors.length > 0)
+      this.flushOutput({
+        forceFile: hasTeardownErrors,
+        forceConsole: hasTeardownErrors
+      })
     } finally {
       // Fallback for cases where onTestRunEnd did not complete and interception is still active
       this.stopStdioInterception('filter')

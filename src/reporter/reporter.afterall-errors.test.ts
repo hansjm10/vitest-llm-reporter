@@ -5,6 +5,27 @@ describe('LLMReporter afterAll error handling', () => {
   let reporter: LLMReporter
   let stdoutSpy: any
 
+  const createMockTestModule = (): any => ({
+    id: 'test-1',
+    name: 'test.spec.ts',
+    type: 'suite',
+    mode: 'run',
+    filepath: '/test/test.spec.ts',
+    tasks: [
+      {
+        id: 'test-1-1',
+        name: 'mock test',
+        type: 'test',
+        mode: 'run',
+        suite: null,
+        result: {
+          state: 'passed',
+          duration: 10
+        }
+      }
+    ]
+  })
+
   beforeEach(() => {
     reporter = new LLMReporter({
       enableConsoleOutput: true,
@@ -101,6 +122,52 @@ describe('LLMReporter afterAll error handling', () => {
     expect(jsonOutput.failures).toBeDefined()
     expect(jsonOutput.failures.length).toBe(1)
     expect(jsonOutput.failures[0].test).toBe('Teardown Error')
+  })
+
+  it('re-emits console JSON when teardown errors arrive after onTestRunEnd flushed output', async () => {
+    reporter.onTestRunStart([])
+
+    const mockModule = createMockTestModule()
+    reporter.onTestModuleCollected(mockModule)
+    reporter.onTestModuleStart(mockModule)
+
+    const testCase = mockModule.tasks[0]
+    reporter.onTestCaseReady(testCase)
+    reporter.onTestCaseResult(testCase)
+    reporter.onTestModuleEnd(mockModule)
+
+    await reporter.onTestRunEnd([mockModule], [], 'passed')
+
+    const afterAllError = new Error('Database connection failed during cleanup')
+    afterAllError.stack =
+      'Error: Database connection failed\n    at afterAll (/test-project/test.spec.js:50:10)'
+
+    reporter.onFinished([], [afterAllError], undefined)
+
+    const jsonWrites = stdoutSpy.mock.calls
+      .map((call: any) => String(call[0]))
+      .filter((write: string) => {
+        try {
+          JSON.parse(write.trim())
+          return true
+        } catch {
+          return false
+        }
+      })
+
+    expect(jsonWrites).toHaveLength(2)
+
+    const initialOutput = JSON.parse(jsonWrites[0].trim())
+    const finalOutput = JSON.parse(jsonWrites[1].trim())
+
+    expect(initialOutput.summary.failed).toBe(0)
+    expect(initialOutput.failures).toBeUndefined()
+
+    expect(finalOutput.summary.failed).toBe(1)
+    expect(finalOutput.summary.total).toBe(initialOutput.summary.total + 1)
+    expect(finalOutput.failures).toHaveLength(1)
+    expect(finalOutput.failures[0].test).toBe('Teardown Error')
+    expect(finalOutput.failures[0].suite).toEqual(['AfterAll Hook'])
   })
 
   it('should work correctly when no teardown errors occur', async () => {
