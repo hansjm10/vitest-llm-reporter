@@ -779,6 +779,80 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites.join('')).toBe('\u001b[?25h')
   })
 
+  it('preserves terminal reset when filtering buffered next stdout on finish', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[0m')
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
+
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites.join('')).toBe('\u001b[0m')
+  })
+
+  it('preserves chained terminal restoration when filtering buffered next stdout on finish', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[?25h\u001b[0m')
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
+
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites.join('')).toBe('\u001b[?25h\u001b[0m')
+  })
+
   it('preserves cursor restoration when the buffered next stdout suffix ends with carriage return', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)

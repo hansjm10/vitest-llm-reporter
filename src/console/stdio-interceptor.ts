@@ -41,7 +41,7 @@ interface DisableOptions {
   bufferedOutput?: 'write' | 'filter' | 'discard'
 }
 
-const PASSTHROUGH_CONTROL_CHUNKS: readonly string[] = ['\u001b[?25h']
+const PASSTHROUGH_CONTROL_CHUNKS: readonly string[] = ['\u001b[?25h', '\u001b[0m', '\u001b[m']
 const LEADING_FILTER_CONTROL_PREFIX = new RegExp(
   String.raw`^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+`,
   'u'
@@ -251,8 +251,8 @@ export class StdioInterceptor {
   }
 
   /**
-   * Allow the teardown cursor-show sequence to bypass line buffering so it
-   * reaches the terminal even when emitted as a standalone chunk.
+   * Allow teardown terminal restoration sequences to bypass line buffering so
+   * they reach the terminal even when emitted as standalone chunks.
    */
   private shouldPassthroughChunk(chunk: string): boolean {
     return this.getTrailingPassthroughSuffix(chunk) === chunk

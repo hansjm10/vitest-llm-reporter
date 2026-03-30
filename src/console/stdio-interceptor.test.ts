@@ -325,6 +325,38 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput.join('')).toBe('\u001b[?25h')
     })
 
+    it('preserves trailing reset when suppressing buffered Next.js stdout', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next'],
+        flushWithFiltering: true
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[0m')
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('\u001b[0m')
+    })
+
+    it('preserves chained terminal restore suffixes when suppressing buffered Next.js stdout', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next'],
+        flushWithFiltering: true
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[?25h\u001b[0m')
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('\u001b[?25h\u001b[0m')
+    })
+
     it('preserves trailing cursor-show when the buffered control suffix ends with carriage return', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
