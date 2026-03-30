@@ -158,6 +158,24 @@ describe('StdioInterceptor', () => {
 
       interceptor.disable()
     })
+
+    it('keeps control chunks behind buffered text to preserve write order', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('Compiling...')
+      process.stdout.write('\r')
+
+      expect(stdoutOutput).toEqual([])
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('Compiling...\r')
+    })
   })
 
   describe('pure mode', () => {

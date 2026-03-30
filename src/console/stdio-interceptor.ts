@@ -182,7 +182,11 @@ export class StdioInterceptor {
         str = String(chunk)
       }
 
-      if (this.shouldPassthroughChunk(str) && !this.filter.shouldSuppress(str)) {
+      if (
+        this[lineBuffer].length === 0 &&
+        this.shouldPassthroughChunk(str) &&
+        !this.filter.shouldSuppress(str)
+      ) {
         const target = stream === 'stdout' ? process.stdout : process.stderr
         return originalWrite.call(target, chunk, encoding, callback)
       }

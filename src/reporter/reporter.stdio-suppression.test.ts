@@ -375,6 +375,68 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).toContain('[Nest] restored on close\n')
   })
 
+  it('stops the spinner from ctx.onClose when onTestRunEnd never fires', () => {
+    vi.useFakeTimers()
+
+    const stderrWrites: string[] = []
+    const originalWrite = process.stderr.write.bind(process.stderr)
+    const originalIsTTY = process.stderr.isTTY
+    let closeHandler: (() => void) | undefined
+
+    process.stderr.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stderrWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    Object.defineProperty(process.stderr, 'isTTY', {
+      value: true,
+      configurable: true
+    })
+
+    try {
+      const reporter = new LLMReporter({
+        framedOutput: false
+      })
+      const reporterInternals = reporter as any
+      reporterInternals.config.spinner.enabled = true
+
+      const mockVitest = {
+        config: { root: '/test-project' },
+        onClose: (handler: () => void) => {
+          closeHandler = handler
+        }
+      }
+
+      reporter.onInit(mockVitest as any)
+      reporter.onTestRunStart([])
+
+      expect(reporterInternals.spinnerActive).toBe(true)
+      expect(reporterInternals.spinnerTimer).toBeDefined()
+      expect(stderrWrites.some((write) => write.includes('Running tests'))).toBe(true)
+
+      closeHandler?.()
+
+      expect(reporterInternals.spinnerActive).toBe(false)
+      expect(reporterInternals.spinnerTimer).toBeUndefined()
+
+      const writeCountAfterClose = stderrWrites.length
+      vi.advanceTimersByTime(reporterInternals.config.spinner.intervalMs * 2)
+      expect(stderrWrites).toHaveLength(writeCountAfterClose)
+    } finally {
+      Object.defineProperty(process.stderr, 'isTTY', {
+        value: originalIsTTY,
+        configurable: true
+      })
+      process.stderr.write = originalWrite
+      vi.useRealTimers()
+    }
+  })
+
   it('handles custom filter patterns', async () => {
     // Collect output
     const stdoutWrites: string[] = []

@@ -715,6 +715,7 @@ export class LLMReporter implements Reporter {
 
     if (!this.closeCleanupRegistered && typeof ctx.onClose === 'function') {
       ctx.onClose(() => {
+        this.cleanup()
         this.stopStdioInterception()
       })
       this.closeCleanupRegistered = true
