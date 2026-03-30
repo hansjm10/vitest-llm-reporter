@@ -41,6 +41,8 @@ interface DisableOptions {
   flushWithFiltering?: boolean
 }
 
+const PASSTHROUGH_CONTROL_CHUNKS = new Set(['\u001b[?25h'])
+
 /**
  * Interceptor for process.stdout and process.stderr
  *
@@ -241,25 +243,11 @@ export class StdioInterceptor {
   }
 
   /**
-   * Terminal control sequences can bypass line buffering when the active filter
-   * would otherwise allow them through unchanged.
+   * Allow the teardown cursor-show sequence to bypass line buffering so it
+   * reaches the terminal even when emitted as a standalone chunk.
    */
   private shouldPassthroughChunk(chunk: string): boolean {
-    if (!chunk) {
-      return false
-    }
-
-    if (!chunk.includes('\u001b') && !chunk.includes('\r')) {
-      return false
-    }
-
-    const withoutAnsi = chunk
-      .replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/g, '')
-      .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
-      .replace(/\u001b[@-_]/g, '')
-      .replace(/\r/g, '')
-
-    return withoutAnsi.trim().length === 0
+    return PASSTHROUGH_CONTROL_CHUNKS.has(chunk)
   }
 
   /**

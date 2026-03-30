@@ -159,6 +159,23 @@ describe('StdioInterceptor', () => {
       interceptor.disable()
     })
 
+    it('keeps standalone line-clear and cursor-hide chunks buffered', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\r')
+      process.stdout.write('\u001b[2K\r')
+      process.stdout.write('\u001b[?25l')
+
+      expect(stdoutOutput).toEqual([])
+
+      interceptor.disable()
+    })
+
     it('keeps control chunks behind buffered text to preserve write order', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
