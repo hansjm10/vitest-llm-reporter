@@ -104,6 +104,37 @@ describe('LLMReporter stdio suppression', () => {
     // which is complex to mock. The core suppression behavior is verified above.
   })
 
+  it('starts stdout interception during onInit before run-start hooks fire', () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    process.stdout.write('[Nest] startup before onTestRunStart\n')
+    process.stdout.write('Visible startup log\n')
+
+    reporter.onFinished([], [], undefined)
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites).not.toContain('[Nest] startup before onTestRunStart\n')
+    expect(stdoutWrites).toContain('Visible startup log\n')
+  })
+
   it('retains default presets when optional filterPattern resolves to undefined', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
@@ -689,6 +720,43 @@ describe('LLMReporter stdio suppression', () => {
     process.stdout.write = originalWrite
 
     expect(stdoutWrites.join('')).toBe('\u001b[?25h')
+  })
+
+  it('drops buffered control-only stdout on finish without appending raw bytes after JSON', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    process.stdout.write('\u001b[?25l')
+    reporter.onFinished([], [], undefined)
+
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites.join('')).not.toContain('\u001b[?25l')
   })
 
   it('auto-detects framework presets from package.json', async () => {

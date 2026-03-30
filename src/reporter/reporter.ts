@@ -733,6 +733,10 @@ export class LLMReporter implements Reporter {
       })
       this.closeCleanupRegistered = true
     }
+
+    // Vitest dispatches reporter run-start hooks concurrently, so interception
+    // needs to be active before onTestRunStart begins.
+    this.startStdioInterception()
   }
 
   private applyAutoDetectedFrameworkPresets(rootDir?: string): void {

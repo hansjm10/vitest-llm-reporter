@@ -325,6 +325,22 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput.join('')).toBe('\u001b[?25h')
     })
 
+    it('drops buffered control-only stdout chunks during filtered flush', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/,
+        flushWithFiltering: true
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[?25l')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).toEqual([])
+    })
+
     it('suppresses control-prefixed partial stderr during flush', () => {
       const interceptor = new StdioInterceptor({
         suppressStderr: true,

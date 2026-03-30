@@ -47,6 +47,10 @@ const LEADING_FILTER_CONTROL_PREFIX = new RegExp(
   String.raw`^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+`,
   'u'
 )
+const CONTROL_ONLY_CHUNK = new RegExp(
+  String.raw`^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+$`,
+  'u'
+)
 
 /**
  * Interceptor for process.stdout and process.stderr
@@ -266,6 +270,14 @@ export class StdioInterceptor {
   }
 
   /**
+   * Treat pure terminal-control buffers as non-user-visible content during the
+   * filtered shutdown flush so they do not trail machine-readable stdout.
+   */
+  private isControlOnlyChunk(chunk: string): boolean {
+    return chunk.length > 0 && CONTROL_ONLY_CHUNK.test(chunk)
+  }
+
+  /**
    * Preserve terminal restoration sequences when a filtered chunk is dropped.
    * Pure suppression mode still drops every byte.
    */
@@ -320,7 +332,13 @@ export class StdioInterceptor {
       if (flushWithFiltering || this.config.filterPattern === null) {
         // Apply filtering to the final partial line
         const frameworkLine = this.normalizeLineForFrameworkPresets(this.stdoutLineBuffer)
-        if (!this.filter.shouldSuppress(this.stdoutLineBuffer, frameworkLine)) {
+        if (this.isControlOnlyChunk(this.stdoutLineBuffer)) {
+          this.writeTrailingPassthroughSuffix(
+            'stdout',
+            this.originalStdoutWrite,
+            this.stdoutLineBuffer
+          )
+        } else if (!this.filter.shouldSuppress(this.stdoutLineBuffer, frameworkLine)) {
           this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
         } else if (this.config.redirectToStderr && this.originalStderrWrite) {
           this.originalStderrWrite.call(process.stderr, this.stdoutLineBuffer)
@@ -345,7 +363,13 @@ export class StdioInterceptor {
       ) {
         // Apply filtering to the final partial line
         const frameworkLine = this.normalizeLineForFrameworkPresets(this.stderrLineBuffer)
-        if (!this.filter.shouldSuppress(this.stderrLineBuffer, frameworkLine)) {
+        if (this.isControlOnlyChunk(this.stderrLineBuffer)) {
+          this.writeTrailingPassthroughSuffix(
+            'stderr',
+            this.originalStderrWrite,
+            this.stderrLineBuffer
+          )
+        } else if (!this.filter.shouldSuppress(this.stderrLineBuffer, frameworkLine)) {
           this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
         } else {
           this.writeTrailingPassthroughSuffix(
