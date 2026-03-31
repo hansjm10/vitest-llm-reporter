@@ -15,7 +15,12 @@ export class StdioSessionController {
 
   armForRun(): void {
     if (this.session?.isActive()) {
-      return
+      if (this.session.isHoldingReport()) {
+        this.session.disable({ bufferedOutput: 'discard' })
+        this.session = undefined
+      } else {
+        return
+      }
     }
 
     if (!shouldInterceptStdio(this.plan)) {

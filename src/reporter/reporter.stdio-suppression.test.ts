@@ -345,6 +345,45 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).toContain('% Post-finish output\n')
   })
 
+  it('re-arms stdout interception for the next run when the previous run never reaches onFinished', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      environmentMetadata: { enabled: false },
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: []
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    const firstRunModule = createMockTestModule()
+    await reporter.onTestRunEnd([firstRunModule], [], 'passed' as TestRunEndReason)
+
+    reporter.onTestRunStart([])
+    process.stdout.write('visible during next run\n')
+
+    expect(stdoutWrites).toContain('visible during next run\n')
+
+    reporter.onFinished([], [], undefined)
+    process.stdout.write = originalWrite
+  })
+
   it('flushes visible buffered stdout before reporter JSON at onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
