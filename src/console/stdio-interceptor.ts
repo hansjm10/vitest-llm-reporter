@@ -146,17 +146,21 @@ export class StdioInterceptor {
    * Buffered partials are flushed first when a material suppression-policy
    * change would otherwise reclassify bytes that were written under the old plan.
    */
-  updatePlan(plan: ResolvedStdioPlan, policy?: StdioSuppressionPolicy): void {
+  updatePlan(
+    plan: ResolvedStdioPlan,
+    policy?: StdioSuppressionPolicy,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
+  ): void {
     const nextPlan = cloneResolvedStdioPlan(plan)
     const nextPolicy = policy ?? new StdioSuppressionPolicy(nextPlan)
 
     if (this.isEnabled) {
       if (this.shouldFlushBufferedStreamBeforePlanUpdate('stdout', nextPlan)) {
-        this.flushBufferedStream('stdout', 'filter')
+        this.flushBufferedStream('stdout', 'filter', options)
       }
 
       if (this.shouldFlushBufferedStreamBeforePlanUpdate('stderr', nextPlan)) {
-        this.flushBufferedStream('stderr', 'filter')
+        this.flushBufferedStream('stderr', 'filter', options)
       }
     }
 

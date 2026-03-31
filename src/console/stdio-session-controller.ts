@@ -76,12 +76,14 @@ export class StdioSessionController {
     }
 
     if (!shouldInterceptStdio(this.plan) && !this.session.isHoldingReport()) {
-      this.session.disable({ bufferedOutput: 'filter' })
+      // Reporter-level console fallback still owns blocked stdout; live plan
+      // refreshes must not abort the run when flushing buffered stdout.
+      this.session.disable({ bufferedOutput: 'filter', swallowStdoutWriteErrors: true })
       this.session = undefined
       return
     }
 
-    this.session.updatePlan(this.plan, this.policy)
+    this.session.updatePlan(this.plan, this.policy, { swallowStdoutWriteErrors: true })
   }
 
   getPolicy(): StdioSuppressionPolicy {
