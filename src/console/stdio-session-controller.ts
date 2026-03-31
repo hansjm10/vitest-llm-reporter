@@ -64,7 +64,16 @@ export class StdioSessionController {
 
     if (!this.session?.isActive()) {
       this.session = undefined
+      return
     }
+
+    if (!shouldInterceptStdio(this.plan)) {
+      this.session.disable({ bufferedOutput: 'emit' })
+      this.session = undefined
+      return
+    }
+
+    this.session.updatePlan(this.plan, this.policy)
   }
 
   getPolicy(): StdioSuppressionPolicy {

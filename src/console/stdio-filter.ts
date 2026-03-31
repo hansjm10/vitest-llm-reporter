@@ -54,10 +54,11 @@ export class StdioSuppressionPolicy {
       return true
     }
 
-    const normalizedLine = this.normalizeFrameworkLine(line)
+    const normalizedFrameworkLine = this.normalizeFrameworkLine(line)
+    const normalizedUserLine = this.normalizeUserLine(line)
     return (
-      this.matchesFrameworkPredicates(line, normalizedLine) ||
-      this.matchesPredicatesOnce(this.userPredicates, line)
+      this.matchesFrameworkPredicates(line, normalizedFrameworkLine) ||
+      this.matchesPredicatesOnce(this.userPredicates, normalizedUserLine || line)
     )
   }
 
@@ -107,10 +108,18 @@ export class StdioSuppressionPolicy {
 
   /**
    * Remove cursor-control prefixes and trailing carriage returns before
-   * applying framework preset rules. User filters always see raw input.
+   * applying framework preset rules.
    */
   normalizeFrameworkLine(line: string): string {
     return line.replace(/\r+$/, '').replace(LEADING_FILTER_CONTROL_PREFIX, '')
+  }
+
+  /**
+   * Trim line-ending carriage returns for user filters without stripping
+   * inline control prefixes that custom filters may intentionally inspect.
+   */
+  normalizeUserLine(line: string): string {
+    return line.replace(/\r+$/, '')
   }
 
   private matchesFrameworkPredicates(line: string, normalizedLine: string): boolean {

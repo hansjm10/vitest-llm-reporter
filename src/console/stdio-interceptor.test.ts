@@ -712,6 +712,24 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput).toContain('Let me through\n')
     })
 
+    it('suppresses CRLF-terminated lines that match an exact custom pattern', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^Secret$/,
+        frameworkPresets: []
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('Secret\r\n')
+      process.stdout.write('Visible\r\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).not.toContain('Secret\r\n')
+      expect(stdoutOutput).toContain('Visible\r\n')
+    })
+
     it('applies framework presets', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,

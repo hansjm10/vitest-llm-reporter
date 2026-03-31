@@ -220,6 +220,82 @@ describe('LLMReporter stdio suppression', () => {
     expect(hasNestLog).toBe(true)
   })
 
+  it('applies pure stdout updates to the active session immediately', () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      pureStdout: true
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    process.stdout.write('suppressed in pure mode\n')
+
+    reporter.updateConfig({
+      pureStdout: false,
+      stdio: {
+        frameworkPresets: [],
+        filterPattern: /^Filtered after update$/
+      }
+    })
+
+    process.stdout.write('Visible after update\n')
+    process.stdout.write('Filtered after update\n')
+
+    reporter.onFinished([], [], undefined)
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites).not.toContain('suppressed in pure mode\n')
+    expect(stdoutWrites).toContain('Visible after update\n')
+    expect(stdoutWrites).not.toContain('Filtered after update\n')
+  })
+
+  it('applies suppressStdout updates to the active session immediately', () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      pureStdout: true
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    process.stdout.write('hidden before update\n')
+    reporter.updateConfig({ pureStdout: false, stdio: { suppressStdout: false } })
+    process.stdout.write('visible after update\n')
+
+    reporter.onFinished([], [], undefined)
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites).not.toContain('hidden before update\n')
+    expect(stdoutWrites).toContain('visible after update\n')
+  })
+
   it('pure stdout mode suppresses all external stdout', async () => {
     const reporter = new LLMReporter({
       framedOutput: false,

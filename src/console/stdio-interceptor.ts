@@ -10,6 +10,7 @@
 import type { StdioConfig } from '../types/reporter.js'
 import type { BufferedTailPolicy, ResolvedStdioPlan } from './stdio-plan.js'
 import {
+  cloneResolvedStdioPlan,
   getDefaultBufferedTailPolicy,
   isResolvedStdioPlan,
   resolveStdioPlan
@@ -38,10 +39,12 @@ const TRAILING_CARRIAGE_RETURNS = /\r+$/u
  * and can optionally redirect filtered output.
  */
 export class StdioInterceptor {
-  private readonly plan: ResolvedStdioPlan
-  private readonly policy: StdioSuppressionPolicy
+  private plan: ResolvedStdioPlan
+  private policy: StdioSuppressionPolicy
   private originalStdoutWrite?: WriteFunction
   private originalStderrWrite?: WriteFunction
+  private stdoutInterceptor?: WriteFunction
+  private stderrInterceptor?: WriteFunction
   private patchedStdout = false
   private patchedStderr = false
   private stdoutLineBuffer = ''
@@ -50,7 +53,9 @@ export class StdioInterceptor {
   private holdWrites = false
 
   constructor(config: StdioConfig | ResolvedStdioPlan = {}, policy?: StdioSuppressionPolicy) {
-    this.plan = isResolvedStdioPlan(config) ? config : resolveStdioPlan({ stdio: config })
+    this.plan = cloneResolvedStdioPlan(
+      isResolvedStdioPlan(config) ? config : resolveStdioPlan({ stdio: config })
+    )
     this.policy = policy ?? new StdioSuppressionPolicy(this.plan)
   }
 
@@ -67,26 +72,9 @@ export class StdioInterceptor {
     // Save original write functions bound to their streams
     this.originalStdoutWrite = process.stdout.write.bind(process.stdout)
     this.originalStderrWrite = process.stderr.write.bind(process.stderr)
-
-    // Patch stdout if configured
-    if (this.plan.suppressStdout) {
-      process.stdout.write = this.createInterceptor(
-        'stdout',
-        this.originalStdoutWrite,
-        this.originalStderrWrite
-      )
-      this.patchedStdout = true
-    }
-
-    // Patch stderr if configured
-    if (this.plan.suppressStderr) {
-      process.stderr.write = this.createInterceptor(
-        'stderr',
-        this.originalStderrWrite,
-        this.originalStderrWrite
-      )
-      this.patchedStderr = true
-    }
+    this.stdoutInterceptor = undefined
+    this.stderrInterceptor = undefined
+    this.syncPatchedStreams()
 
     this.isEnabled = true
   }
@@ -114,6 +102,10 @@ export class StdioInterceptor {
     this.patchedStderr = false
     this.isEnabled = false
     this.holdWrites = false
+    this.stdoutInterceptor = undefined
+    this.stderrInterceptor = undefined
+    this.originalStdoutWrite = undefined
+    this.originalStderrWrite = undefined
   }
 
   /**
@@ -134,6 +126,24 @@ export class StdioInterceptor {
    */
   isHoldingReport(): boolean {
     return this.isEnabled && this.holdWrites
+  }
+
+  /**
+   * Update the active suppression plan without tearing down buffered state.
+   */
+  updatePlan(plan: ResolvedStdioPlan, policy?: StdioSuppressionPolicy): void {
+    this.plan = cloneResolvedStdioPlan(plan)
+    this.policy = policy ?? new StdioSuppressionPolicy(this.plan)
+
+    if (!this.isEnabled) {
+      return
+    }
+
+    if (this.holdWrites && !this.plan.suppressStdout) {
+      this.holdWrites = false
+    }
+
+    this.syncPatchedStreams()
   }
 
   /**
@@ -373,6 +383,101 @@ export class StdioInterceptor {
     }
 
     this.writePassthroughControlChunk(stream, originalWrite, chunk)
+  }
+
+  private syncPatchedStreams(): void {
+    this.syncPatchedStream('stdout')
+    this.syncPatchedStream('stderr')
+  }
+
+  private syncPatchedStream(stream: 'stdout' | 'stderr'): void {
+    const shouldPatch = stream === 'stdout' ? this.plan.suppressStdout : this.plan.suppressStderr
+    const originalWrite = stream === 'stdout' ? this.originalStdoutWrite : this.originalStderrWrite
+
+    if (!originalWrite) {
+      return
+    }
+
+    if (shouldPatch) {
+      this.patchStream(stream, originalWrite)
+      return
+    }
+
+    this.restorePatchedStream(stream, originalWrite, { flushBufferedOutput: true })
+  }
+
+  private patchStream(stream: 'stdout' | 'stderr', originalWrite: WriteFunction): void {
+    if (stream === 'stdout') {
+      if (this.patchedStdout) {
+        return
+      }
+
+      this.stdoutInterceptor ??= this.createInterceptor(
+        'stdout',
+        originalWrite,
+        this.originalStderrWrite
+      )
+      process.stdout.write = this.stdoutInterceptor
+      this.patchedStdout = true
+      return
+    }
+
+    if (this.patchedStderr) {
+      return
+    }
+
+    this.stderrInterceptor ??= this.createInterceptor('stderr', originalWrite, originalWrite)
+    process.stderr.write = this.stderrInterceptor
+    this.patchedStderr = true
+  }
+
+  private restorePatchedStream(
+    stream: 'stdout' | 'stderr',
+    originalWrite: WriteFunction,
+    options: { flushBufferedOutput?: boolean } = {}
+  ): void {
+    const shouldFlush = options.flushBufferedOutput ?? false
+
+    if (stream === 'stdout') {
+      if (!this.patchedStdout) {
+        return
+      }
+
+      if (shouldFlush) {
+        this.flushBufferedStream('stdout', 'emit')
+      }
+
+      process.stdout.write = originalWrite
+      this.patchedStdout = false
+      return
+    }
+
+    if (!this.patchedStderr) {
+      return
+    }
+
+    if (shouldFlush) {
+      this.flushBufferedStream('stderr', 'emit')
+    }
+
+    process.stderr.write = originalWrite
+    this.patchedStderr = false
+  }
+
+  private flushBufferedStream(
+    stream: 'stdout' | 'stderr',
+    bufferedOutput: BufferedTailPolicy
+  ): void {
+    const bufferKey = stream === 'stdout' ? 'stdoutLineBuffer' : 'stderrLineBuffer'
+    const originalWrite = stream === 'stdout' ? this.originalStdoutWrite : this.originalStderrWrite
+    const chunk = this[bufferKey]
+
+    if (!chunk || !originalWrite) {
+      return
+    }
+
+    this.flushBufferedChunk(stream, chunk, originalWrite, bufferedOutput)
+    this[bufferKey] = ''
   }
 
   /**
