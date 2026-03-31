@@ -238,6 +238,22 @@ describe('StdioInterceptor', () => {
 
       expect(stdoutOutput.join('')).toBe('Compiling...\r')
     })
+
+    it('drops held terminal restore chunks when disabling with discard', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+      interceptor.prepareForReportHold()
+
+      process.stdout.write('\u001b[?25h')
+
+      interceptor.disable({ bufferedOutput: 'discard' })
+
+      expect(stdoutOutput).toEqual([])
+    })
   })
 
   describe('pure mode', () => {

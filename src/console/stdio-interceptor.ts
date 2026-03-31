@@ -351,7 +351,9 @@ export class StdioInterceptor {
     }
 
     if (bufferedOutput === 'discard') {
-      this.writePassthroughControlChunk(stream, originalWrite, chunk)
+      // Discard abandons buffered output entirely, including standalone
+      // terminal restore chunks, so held teardown bytes cannot pollute a later
+      // machine-readable report or leak from an abandoned session.
       return
     }
 
