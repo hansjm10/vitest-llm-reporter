@@ -296,6 +296,82 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).toContain('visible after update\n')
   })
 
+  it('does not flush buffered stdout partials when updateConfig disables only stdout suppression', () => {
+    const stdoutWrites: string[] = []
+    const originalStdoutWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: true,
+        suppressStderr: true,
+        filterPattern: null,
+        frameworkPresets: []
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    process.stdout.write('hidden partial before update')
+    reporter.updateConfig({ stdio: { suppressStdout: false } })
+    process.stdout.write('visible after update\n')
+
+    reporter.onFinished([], [], undefined)
+    process.stdout.write = originalStdoutWrite
+
+    expect(stdoutWrites.join('')).not.toContain('hidden partial before update')
+    expect(stdoutWrites).toContain('visible after update\n')
+  })
+
+  it('does not flush buffered stderr partials when updateConfig disables the last active suppression stream', () => {
+    const stderrWrites: string[] = []
+    const originalStderrWrite = process.stderr.write.bind(process.stderr)
+
+    process.stderr.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stderrWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: false,
+        suppressStderr: true,
+        filterPattern: null,
+        frameworkPresets: []
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    process.stderr.write('hidden stderr partial before update')
+    reporter.updateConfig({ stdio: { suppressStderr: false } })
+    process.stderr.write('visible stderr after update\n')
+
+    reporter.onFinished([], [], undefined)
+    process.stderr.write = originalStderrWrite
+
+    expect(stderrWrites.join('')).not.toContain('hidden stderr partial before update')
+    expect(stderrWrites).toContain('visible stderr after update\n')
+  })
+
   it('arms stdout interception when suppressStdout is enabled mid-run', () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)

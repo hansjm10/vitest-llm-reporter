@@ -74,7 +74,7 @@ export class StdioSessionController {
     }
 
     if (!shouldInterceptStdio(this.plan) && !this.session.isHoldingReport()) {
-      this.session.disable({ bufferedOutput: 'emit' })
+      this.session.disable({ bufferedOutput: 'filter' })
       this.session = undefined
       return
     }

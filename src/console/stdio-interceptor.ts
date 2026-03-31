@@ -144,8 +144,21 @@ export class StdioInterceptor {
    * Update the active suppression plan without tearing down buffered state.
    */
   updatePlan(plan: ResolvedStdioPlan, policy?: StdioSuppressionPolicy): void {
-    this.plan = cloneResolvedStdioPlan(plan)
-    this.policy = policy ?? new StdioSuppressionPolicy(this.plan)
+    const nextPlan = cloneResolvedStdioPlan(plan)
+    const nextPolicy = policy ?? new StdioSuppressionPolicy(nextPlan)
+
+    if (this.isEnabled) {
+      if (this.patchedStdout && !this.shouldPatchStream('stdout', nextPlan)) {
+        this.flushBufferedStream('stdout', 'filter')
+      }
+
+      if (this.patchedStderr && !this.shouldPatchStream('stderr', nextPlan)) {
+        this.flushBufferedStream('stderr', 'filter')
+      }
+    }
+
+    this.plan = nextPlan
+    this.policy = nextPolicy
 
     if (!this.isEnabled) {
       return
@@ -413,11 +426,12 @@ export class StdioInterceptor {
     this.syncPatchedStream('stderr')
   }
 
+  private shouldPatchStream(stream: 'stdout' | 'stderr', plan = this.plan): boolean {
+    return stream === 'stdout' ? plan.suppressStdout || this.holdWrites : plan.suppressStderr
+  }
+
   private syncPatchedStream(stream: 'stdout' | 'stderr'): void {
-    const shouldPatch =
-      stream === 'stdout'
-        ? this.plan.suppressStdout || this.holdWrites
-        : this.plan.suppressStderr
+    const shouldPatch = this.shouldPatchStream(stream)
     const originalWrite = stream === 'stdout' ? this.originalStdoutWrite : this.originalStderrWrite
 
     if (!originalWrite) {
