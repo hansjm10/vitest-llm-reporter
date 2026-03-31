@@ -757,6 +757,82 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).not.toContain('teardown noise that should stay held\n')
   })
 
+  it('keeps teardown stderr visible while stdout is held for report rewrite', async () => {
+    const stdoutWrites: string[] = []
+    const stderrWrites: string[] = []
+    const originalStdoutWrite = process.stdout.write.bind(process.stdout)
+    const originalStderrWrite = process.stderr.write.bind(process.stderr)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    process.stderr.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stderrWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      environmentMetadata: { enabled: false },
+      stdio: {
+        suppressStdout: true,
+        suppressStderr: true,
+        frameworkPresets: [],
+        filterPattern: /^hidden teardown stderr$/
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    const mockModule = createMockTestModule()
+    reporter.onTestModuleCollected(mockModule)
+    reporter.onTestModuleStart(mockModule)
+
+    const testCase = mockModule.tasks[0]
+    reporter.onTestCaseReady(testCase)
+    reporter.onTestCaseResult(testCase)
+    reporter.onTestModuleEnd(mockModule)
+
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    process.stderr.write('hidden teardown stderr\n')
+    process.stderr.write('visible teardown stderr\n')
+
+    expect(stderrWrites).not.toContain('hidden teardown stderr\n')
+    expect(stderrWrites).toContain('visible teardown stderr\n')
+
+    reporter.onFinished([], [], undefined)
+
+    process.stdout.write = originalStdoutWrite
+    process.stderr.write = originalStderrWrite
+
+    const jsonWrites = stdoutWrites.filter((write) => {
+      try {
+        JSON.parse(write.trim())
+        return true
+      } catch {
+        return false
+      }
+    })
+
+    expect(jsonWrites).toHaveLength(1)
+    expect(stderrWrites).toContain('visible teardown stderr\n')
+  })
+
   it('keeps stdout suppression active after onTestRunEnd for file-only output', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-reporter-'))
     const outputFile = path.join(tempDir, 'results.json')

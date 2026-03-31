@@ -282,6 +282,31 @@ describe('StdioInterceptor', () => {
 
       expect(stdoutOutput.join('')).toBe('Visible\n')
     })
+
+    it('holds only stdout during report hold while stderr keeps filtering live', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        suppressStderr: true,
+        frameworkPresets: [],
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+      interceptor.prepareForReportHold()
+
+      process.stdout.write('held stdout\n')
+      process.stderr.write('[Nest] hidden stderr\n')
+      process.stderr.write('Visible stderr\n')
+
+      expect(stdoutOutput).toEqual([])
+      expect(stderrOutput).not.toContain('[Nest] hidden stderr\n')
+      expect(stderrOutput).toContain('Visible stderr\n')
+
+      interceptor.disable({ bufferedOutput: 'discard' })
+
+      expect(stdoutOutput).toEqual([])
+      expect(stderrOutput).toContain('Visible stderr\n')
+    })
   })
 
   describe('pure mode', () => {

@@ -50,7 +50,7 @@ export class StdioInterceptor {
   private stdoutLineBuffer = ''
   private stderrLineBuffer = ''
   private isEnabled = false
-  private holdWrites = false
+  private holdStdoutWrites = false
 
   constructor(config: StdioConfig | ResolvedStdioPlan = {}, policy?: StdioSuppressionPolicy) {
     this.plan = cloneResolvedStdioPlan(
@@ -67,7 +67,7 @@ export class StdioInterceptor {
       return
     }
 
-    this.holdWrites = false
+    this.holdStdoutWrites = false
 
     // Save original write functions bound to their streams
     this.originalStdoutWrite = process.stdout.write.bind(process.stdout)
@@ -101,7 +101,7 @@ export class StdioInterceptor {
     this.patchedStdout = false
     this.patchedStderr = false
     this.isEnabled = false
-    this.holdWrites = false
+    this.holdStdoutWrites = false
     this.stdoutInterceptor = undefined
     this.stderrInterceptor = undefined
     this.originalStdoutWrite = undefined
@@ -110,7 +110,7 @@ export class StdioInterceptor {
 
   /**
    * Flush buffered run output before the reporter writes JSON, then hold any
-   * subsequent teardown writes until the final output state is known.
+   * subsequent teardown stdout until the final output state is known.
    */
   prepareForReportHold(): void {
     if (!this.isEnabled) {
@@ -118,7 +118,7 @@ export class StdioInterceptor {
     }
 
     this.flushBuffers({ bufferedOutput: 'filter' })
-    this.holdWrites = true
+    this.holdStdoutWrites = true
   }
 
   /**
@@ -134,10 +134,10 @@ export class StdioInterceptor {
   }
 
   /**
-   * Check whether interception is currently holding post-run writes.
+   * Check whether interception is currently holding post-run stdout.
    */
   isHoldingReport(): boolean {
-    return this.isEnabled && this.holdWrites
+    return this.isEnabled && this.holdStdoutWrites
   }
 
   /**
@@ -213,7 +213,7 @@ export class StdioInterceptor {
         str = String(chunk)
       }
 
-      if (this.holdWrites) {
+      if (this.shouldHoldStream(stream)) {
         this[lineBuffer] += str
 
         if (callback) {
@@ -427,7 +427,13 @@ export class StdioInterceptor {
   }
 
   private shouldPatchStream(stream: 'stdout' | 'stderr', plan = this.plan): boolean {
-    return stream === 'stdout' ? plan.suppressStdout || this.holdWrites : plan.suppressStderr
+    return stream === 'stdout'
+      ? plan.suppressStdout || this.holdStdoutWrites
+      : plan.suppressStderr
+  }
+
+  private shouldHoldStream(stream: 'stdout' | 'stderr'): boolean {
+    return stream === 'stdout' && this.holdStdoutWrites
   }
 
   private syncPatchedStream(stream: 'stdout' | 'stderr'): void {
