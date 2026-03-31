@@ -88,6 +88,7 @@ describe('LLMReporter blocked console warning and fallback', () => {
     const writes = stderrSpy.mock.calls.map((c) => String(c[0]))
     stderrSpy.mockRestore()
 
+    expect(writes.length).toBeGreaterThan(0)
     expectBlockedFallback(writes)
   })
 

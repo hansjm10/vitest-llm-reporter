@@ -474,9 +474,7 @@ export class StdioInterceptor {
   }
 
   private shouldPatchStream(stream: 'stdout' | 'stderr', plan = this.plan): boolean {
-    return stream === 'stdout'
-      ? plan.suppressStdout || this.holdStdoutWrites
-      : plan.suppressStderr
+    return stream === 'stdout' ? plan.suppressStdout || this.holdStdoutWrites : plan.suppressStderr
   }
 
   private shouldHoldStream(stream: 'stdout' | 'stderr'): boolean {
@@ -518,10 +516,7 @@ export class StdioInterceptor {
     return stream === 'stdout' && this.plan.redirectToStderr !== nextPlan.redirectToStderr
   }
 
-  private sameFrameworkPresets(
-    current: readonly string[],
-    next: readonly string[]
-  ): boolean {
+  private sameFrameworkPresets(current: readonly string[], next: readonly string[]): boolean {
     if (current.length !== next.length) {
       return false
     }

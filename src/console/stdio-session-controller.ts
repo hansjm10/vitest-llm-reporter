@@ -1,56 +1,71 @@
 import { StdioInterceptor, type WriteFunction } from './stdio-interceptor.js'
-import type { ResolvedStdioPlan } from './stdio-plan.js'
+import type { BufferedTailPolicy, ResolvedStdioPlan } from './stdio-plan.js'
 import { cloneResolvedStdioPlan, shouldInterceptStdio } from './stdio-plan.js'
 import { StdioSuppressionPolicy } from './stdio-filter.js'
 
+export type SessionState = 'idle' | 'prepared' | 'running' | 'holding-report'
+
 export class StdioSessionController {
-  private plan: ResolvedStdioPlan
-  private policy: StdioSuppressionPolicy
+  private plannedPlan: ResolvedStdioPlan
+  private plannedPolicy: StdioSuppressionPolicy
+  private activePlan: ResolvedStdioPlan
+  private activePolicy: StdioSuppressionPolicy
   private session?: StdioInterceptor
+  private state: SessionState = 'idle'
 
   constructor(plan: ResolvedStdioPlan) {
-    this.plan = cloneResolvedStdioPlan(plan)
-    this.policy = new StdioSuppressionPolicy(this.plan)
+    this.plannedPlan = cloneResolvedStdioPlan(plan)
+    this.plannedPolicy = new StdioSuppressionPolicy(this.plannedPlan)
+    this.activePlan = cloneResolvedStdioPlan(plan)
+    this.activePolicy = new StdioSuppressionPolicy(this.activePlan)
   }
 
-  armForRun(options: { resetActiveSession?: boolean } = {}): void {
-    const { resetActiveSession = false } = options
+  stagePlan(plan: ResolvedStdioPlan): void {
+    this.plannedPlan = cloneResolvedStdioPlan(plan)
+    this.plannedPolicy = new StdioSuppressionPolicy(this.plannedPlan)
 
-    if (this.session?.isActive()) {
-      if (resetActiveSession || this.session.isHoldingReport()) {
-        this.session.disable({ bufferedOutput: 'discard' })
-        this.session = undefined
-      } else {
-        return
-      }
-    }
-
-    if (!shouldInterceptStdio(this.plan)) {
-      this.session = undefined
+    if (this.state === 'idle') {
+      this.activePlan = cloneResolvedStdioPlan(this.plannedPlan)
+      this.activePolicy = new StdioSuppressionPolicy(this.activePlan)
       return
     }
 
-    this.session = new StdioInterceptor(this.plan, this.policy)
-    this.session.enable()
+    if (this.state === 'prepared') {
+      this.armPreparedSession()
+    }
+  }
+
+  prepareForRun(): void {
+    if (this.state === 'prepared') {
+      return
+    }
+
+    if (this.state === 'running' || this.state === 'holding-report') {
+      this.stopSession('discard')
+    }
+
+    this.armPreparedSession()
   }
 
   beginRun(): void {
-    this.armForRun()
+    this.prepareForRun()
+    this.state = 'running'
   }
 
   endRunBeforeReport(): void {
-    if (!this.session) {
-      return
-    }
+    this.stopSession('filter')
+  }
 
-    // Reporter shutdown owns the blocked-stdout fallback; the pre-report flush
-    // must not throw before the reporter can warn or redirect JSON.
-    this.session.disable({ bufferedOutput: 'filter', swallowStdoutWriteErrors: true })
-    this.session = undefined
+  finishAfterTeardown(bufferedOutput: BufferedTailPolicy = 'filter'): void {
+    this.stopSession(bufferedOutput)
   }
 
   prepareForReportHold(): void {
     this.session?.prepareForReportHold()
+
+    if (this.session?.isHoldingReport()) {
+      this.state = 'holding-report'
+    }
   }
 
   flushBufferedOutput(): void {
@@ -58,40 +73,23 @@ export class StdioSessionController {
   }
 
   abortOnClose(): void {
-    if (!this.session) {
-      return
-    }
-
-    this.session.disable({ bufferedOutput: 'discard' })
-    this.session = undefined
+    this.stopSession('discard')
   }
 
-  updatePlan(plan: ResolvedStdioPlan): void {
-    this.plan = cloneResolvedStdioPlan(plan)
-    this.policy = new StdioSuppressionPolicy(this.plan)
-
-    if (!this.session?.isActive()) {
-      this.session = undefined
-      return
-    }
-
-    if (!shouldInterceptStdio(this.plan) && !this.session.isHoldingReport()) {
-      // Reporter-level console fallback still owns blocked stdout; live plan
-      // refreshes must not abort the run when flushing buffered stdout.
-      this.session.disable({ bufferedOutput: 'filter', swallowStdoutWriteErrors: true })
-      this.session = undefined
-      return
-    }
-
-    this.session.updatePlan(this.plan, this.policy, { swallowStdoutWriteErrors: true })
+  getPlan(): ResolvedStdioPlan {
+    return cloneResolvedStdioPlan(this.activePlan)
   }
 
   getPolicy(): StdioSuppressionPolicy {
-    return this.policy
+    return this.activePolicy
   }
 
   getWriters(): { stdout: WriteFunction; stderr: WriteFunction } {
     return this.session?.getOriginalWriters() ?? this.getFallbackWriters()
+  }
+
+  getState(): SessionState {
+    return this.state
   }
 
   isActive(): boolean {
@@ -100,6 +98,36 @@ export class StdioSessionController {
 
   isHoldingReport(): boolean {
     return this.session?.isHoldingReport() ?? false
+  }
+
+  private armPreparedSession(): void {
+    this.activePlan = cloneResolvedStdioPlan(this.plannedPlan)
+    this.activePolicy = new StdioSuppressionPolicy(this.activePlan)
+
+    if (!shouldInterceptStdio(this.activePlan)) {
+      this.session = undefined
+      this.state = 'prepared'
+      return
+    }
+
+    this.stopSession('discard')
+    this.session = new StdioInterceptor(this.activePlan, this.activePolicy)
+    this.session.enable()
+    this.state = 'prepared'
+  }
+
+  private stopSession(bufferedOutput: BufferedTailPolicy): void {
+    if (this.session) {
+      this.session.disable({
+        bufferedOutput,
+        swallowStdoutWriteErrors: bufferedOutput === 'filter'
+      })
+      this.session = undefined
+    }
+
+    this.activePlan = cloneResolvedStdioPlan(this.plannedPlan)
+    this.activePolicy = new StdioSuppressionPolicy(this.activePlan)
+    this.state = 'idle'
   }
 
   private getFallbackWriters(): { stdout: WriteFunction; stderr: WriteFunction } {

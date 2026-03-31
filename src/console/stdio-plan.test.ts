@@ -16,8 +16,7 @@ describe('stdio-plan', () => {
       filterPattern: undefined,
       frameworkPresets: ['nest'],
       autoDetectFrameworks: false,
-      redirectToStderr: false,
-      flushWithFiltering: false
+      redirectToStderr: false
     })
     expect(getDefaultBufferedTailPolicy(plan)).toBe('emit')
   })
@@ -80,8 +79,7 @@ describe('stdio-plan', () => {
       filterPattern: undefined,
       frameworkPresets: ['nest'],
       autoDetectFrameworks: false,
-      redirectToStderr: false,
-      flushWithFiltering: false
+      redirectToStderr: false
     })
   })
 })

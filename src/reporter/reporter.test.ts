@@ -1160,8 +1160,7 @@ describe('LLMReporter', () => {
         filterPattern: undefined,
         frameworkPresets: ['nest'],
         autoDetectFrameworks: false,
-        redirectToStderr: false,
-        flushWithFiltering: false
+        redirectToStderr: false
       })
     })
 

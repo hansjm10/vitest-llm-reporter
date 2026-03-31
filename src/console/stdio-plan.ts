@@ -7,7 +7,6 @@ export interface ResolvedStdioPlan {
   frameworkPresets: FrameworkPresetName[]
   autoDetectFrameworks: boolean
   redirectToStderr: boolean
-  flushWithFiltering: boolean
 }
 
 export type BufferedTailPolicy = 'emit' | 'filter' | 'discard'
@@ -36,8 +35,7 @@ export function isResolvedStdioPlan(value: unknown): value is ResolvedStdioPlan 
     typeof candidate.suppressStderr === 'boolean' &&
     Array.isArray(candidate.frameworkPresets) &&
     typeof candidate.autoDetectFrameworks === 'boolean' &&
-    typeof candidate.redirectToStderr === 'boolean' &&
-    typeof candidate.flushWithFiltering === 'boolean'
+    typeof candidate.redirectToStderr === 'boolean'
   )
 }
 
@@ -51,8 +49,7 @@ export function resolveStdioPlan(
       filterPattern: null,
       frameworkPresets: [],
       autoDetectFrameworks: false,
-      redirectToStderr: false,
-      flushWithFiltering: false
+      redirectToStderr: false
     }
   }
 
@@ -73,8 +70,7 @@ export function resolveStdioPlan(
     filterPattern: filterPatternProvided ? filterPatternValue : undefined,
     frameworkPresets,
     autoDetectFrameworks: stdioOptions.autoDetectFrameworks ?? false,
-    redirectToStderr: stdioOptions.redirectToStderr ?? false,
-    flushWithFiltering: stdioOptions.flushWithFiltering ?? false
+    redirectToStderr: stdioOptions.redirectToStderr ?? false
   }
 }
 
@@ -114,9 +110,6 @@ export function mergeResolvedStdioPlan(
   if (Object.hasOwn(update, 'redirectToStderr')) {
     merged.redirectToStderr = update.redirectToStderr ?? merged.redirectToStderr
   }
-  if (Object.hasOwn(update, 'flushWithFiltering')) {
-    merged.flushWithFiltering = update.flushWithFiltering ?? merged.flushWithFiltering
-  }
 
   return merged
 }
@@ -148,5 +141,5 @@ export function shouldFilterSuccessLogs(
 export function getDefaultBufferedTailPolicy(
   plan: ResolvedStdioPlan
 ): Exclude<BufferedTailPolicy, 'discard'> {
-  return plan.filterPattern === null || plan.flushWithFiltering ? 'filter' : 'emit'
+  return plan.filterPattern === null ? 'filter' : 'emit'
 }

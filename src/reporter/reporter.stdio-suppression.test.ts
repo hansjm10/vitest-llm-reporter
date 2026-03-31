@@ -220,7 +220,7 @@ describe('LLMReporter stdio suppression', () => {
     expect(hasNestLog).toBe(true)
   })
 
-  it('applies pure stdout updates to the active session immediately', () => {
+  it('stages pure stdout updates for the next run', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -235,35 +235,42 @@ describe('LLMReporter stdio suppression', () => {
     }) as any
 
     const reporter = new LLMReporter({
+      environmentMetadata: { enabled: false },
       framedOutput: false,
       pureStdout: true
     })
 
     const mockVitest = { config: { root: '/test-project' } }
     reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
 
     process.stdout.write('suppressed in pure mode\n')
-
     reporter.updateConfig({
       pureStdout: false,
       stdio: {
         frameworkPresets: [],
-        filterPattern: /^Filtered after update$/
+        filterPattern: /^Filtered next run$/
       }
     })
+    process.stdout.write('still suppressed this run\n')
 
-    process.stdout.write('Visible after update\n')
-    process.stdout.write('Filtered after update\n')
+    const firstRunModule = createMockTestModule()
+    await reporter.onTestRunEnd([firstRunModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
 
+    reporter.onTestRunStart([])
+    process.stdout.write('Visible next run\n')
+    process.stdout.write('Filtered next run\n')
     reporter.onFinished([], [], undefined)
     process.stdout.write = originalWrite
 
     expect(stdoutWrites).not.toContain('suppressed in pure mode\n')
-    expect(stdoutWrites).toContain('Visible after update\n')
-    expect(stdoutWrites).not.toContain('Filtered after update\n')
+    expect(stdoutWrites).not.toContain('still suppressed this run\n')
+    expect(stdoutWrites).toContain('Visible next run\n')
+    expect(stdoutWrites).not.toContain('Filtered next run\n')
   })
 
-  it('does not retroactively unhide buffered stdout partials when pure stdout is relaxed mid-run', () => {
+  it('keeps current-run filtering when tighter suppression is staged mid-run', () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -278,45 +285,7 @@ describe('LLMReporter stdio suppression', () => {
     }) as any
 
     const reporter = new LLMReporter({
-      framedOutput: false,
-      pureStdout: true
-    })
-
-    const mockVitest = { config: { root: '/test-project' } }
-    reporter.onInit(mockVitest as any)
-
-    process.stdout.write('hidden partial')
-    reporter.updateConfig({
-      pureStdout: false,
-      stdio: {
-        frameworkPresets: [],
-        filterPattern: /^Bar$/
-      }
-    })
-    process.stdout.write('visible after update\n')
-
-    reporter.onFinished([], [], undefined)
-    process.stdout.write = originalWrite
-
-    expect(stdoutWrites.join('')).not.toContain('hidden partial')
-    expect(stdoutWrites).toContain('visible after update\n')
-  })
-
-  it('does not retroactively hide buffered stdout partials when filtering is tightened mid-run', () => {
-    const stdoutWrites: string[] = []
-    const originalWrite = process.stdout.write.bind(process.stdout)
-
-    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
-      if (typeof encoding === 'function') {
-        callback = encoding
-        encoding = undefined
-      }
-      stdoutWrites.push(String(chunk))
-      if (callback) process.nextTick(callback)
-      return true
-    }) as any
-
-    const reporter = new LLMReporter({
+      environmentMetadata: { enabled: false },
       framedOutput: false,
       stdio: {
         suppressStdout: true,
@@ -327,6 +296,7 @@ describe('LLMReporter stdio suppression', () => {
 
     const mockVitest = { config: { root: '/test-project' } }
     reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
 
     process.stdout.write('visible partial')
     reporter.updateConfig({ pureStdout: true })
@@ -335,10 +305,10 @@ describe('LLMReporter stdio suppression', () => {
     reporter.onFinished([], [], undefined)
     process.stdout.write = originalWrite
 
-    expect(stdoutWrites.join('')).toBe('visible partial')
+    expect(stdoutWrites.join('')).toBe('visible partial\n')
   })
 
-  it('applies suppressStdout updates to the active session immediately', () => {
+  it('stages stdout suppression disable for the next run', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -353,63 +323,34 @@ describe('LLMReporter stdio suppression', () => {
     }) as any
 
     const reporter = new LLMReporter({
+      environmentMetadata: { enabled: false },
       framedOutput: false,
       pureStdout: true
     })
 
     const mockVitest = { config: { root: '/test-project' } }
     reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
 
     process.stdout.write('hidden before update\n')
     reporter.updateConfig({ pureStdout: false, stdio: { suppressStdout: false } })
-    process.stdout.write('visible after update\n')
+    process.stdout.write('still hidden this run\n')
 
+    const firstRunModule = createMockTestModule()
+    await reporter.onTestRunEnd([firstRunModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
+
+    reporter.onTestRunStart([])
+    process.stdout.write('visible next run\n')
     reporter.onFinished([], [], undefined)
     process.stdout.write = originalWrite
 
     expect(stdoutWrites).not.toContain('hidden before update\n')
-    expect(stdoutWrites).toContain('visible after update\n')
+    expect(stdoutWrites).not.toContain('still hidden this run\n')
+    expect(stdoutWrites).toContain('visible next run\n')
   })
 
-  it('does not flush buffered stdout partials when updateConfig disables only stdout suppression', () => {
-    const stdoutWrites: string[] = []
-    const originalStdoutWrite = process.stdout.write.bind(process.stdout)
-
-    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
-      if (typeof encoding === 'function') {
-        callback = encoding
-        encoding = undefined
-      }
-      stdoutWrites.push(String(chunk))
-      if (callback) process.nextTick(callback)
-      return true
-    }) as any
-
-    const reporter = new LLMReporter({
-      framedOutput: false,
-      stdio: {
-        suppressStdout: true,
-        suppressStderr: true,
-        filterPattern: null,
-        frameworkPresets: []
-      }
-    })
-
-    const mockVitest = { config: { root: '/test-project' } }
-    reporter.onInit(mockVitest as any)
-
-    process.stdout.write('hidden partial before update')
-    reporter.updateConfig({ stdio: { suppressStdout: false } })
-    process.stdout.write('visible after update\n')
-
-    reporter.onFinished([], [], undefined)
-    process.stdout.write = originalStdoutWrite
-
-    expect(stdoutWrites.join('')).not.toContain('hidden partial before update')
-    expect(stdoutWrites).toContain('visible after update\n')
-  })
-
-  it('does not flush buffered stderr partials when updateConfig disables the last active suppression stream', () => {
+  it('stages stderr suppression disable for the next run', async () => {
     const stderrWrites: string[] = []
     const originalStderrWrite = process.stderr.write.bind(process.stderr)
 
@@ -424,6 +365,7 @@ describe('LLMReporter stdio suppression', () => {
     }) as any
 
     const reporter = new LLMReporter({
+      environmentMetadata: { enabled: false },
       framedOutput: false,
       stdio: {
         suppressStdout: false,
@@ -435,19 +377,27 @@ describe('LLMReporter stdio suppression', () => {
 
     const mockVitest = { config: { root: '/test-project' } }
     reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
 
-    process.stderr.write('hidden stderr partial before update')
+    process.stderr.write('hidden stderr before update\n')
     reporter.updateConfig({ stdio: { suppressStderr: false } })
-    process.stderr.write('visible stderr after update\n')
+    process.stderr.write('still hidden stderr this run\n')
 
+    const firstRunModule = createMockTestModule()
+    await reporter.onTestRunEnd([firstRunModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
+
+    reporter.onTestRunStart([])
+    process.stderr.write('visible stderr next run\n')
     reporter.onFinished([], [], undefined)
     process.stderr.write = originalStderrWrite
 
-    expect(stderrWrites.join('')).not.toContain('hidden stderr partial before update')
-    expect(stderrWrites).toContain('visible stderr after update\n')
+    expect(stderrWrites).not.toContain('hidden stderr before update\n')
+    expect(stderrWrites).not.toContain('still hidden stderr this run\n')
+    expect(stderrWrites).toContain('visible stderr next run\n')
   })
 
-  it('arms stdout interception when suppressStdout is enabled mid-run', () => {
+  it('stages stdout suppression enable for the next run', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
 
@@ -462,6 +412,7 @@ describe('LLMReporter stdio suppression', () => {
     }) as any
 
     const reporter = new LLMReporter({
+      environmentMetadata: { enabled: false },
       framedOutput: false,
       stdio: {
         suppressStdout: false,
@@ -478,18 +429,27 @@ describe('LLMReporter stdio suppression', () => {
       stdio: {
         suppressStdout: true,
         frameworkPresets: [],
-        filterPattern: /^Hidden after update$/
+        filterPattern: /^Hidden next run$/
       }
     })
-    process.stdout.write('Hidden after update\n')
-    process.stdout.write('Visible after update\n')
+    process.stdout.write('Hidden this run\n')
+    process.stdout.write('Visible this run\n')
 
+    const firstRunModule = createMockTestModule()
+    await reporter.onTestRunEnd([firstRunModule], [], 'passed' as TestRunEndReason)
+    reporter.onFinished([], [], undefined)
+
+    reporter.onTestRunStart([])
+    process.stdout.write('Hidden next run\n')
+    process.stdout.write('Visible next run\n')
     reporter.onFinished([], [], undefined)
     process.stdout.write = originalWrite
 
     expect(stdoutWrites).toContain('visible before update\n')
-    expect(stdoutWrites).not.toContain('Hidden after update\n')
-    expect(stdoutWrites).toContain('Visible after update\n')
+    expect(stdoutWrites).toContain('Hidden this run\n')
+    expect(stdoutWrites).toContain('Visible this run\n')
+    expect(stdoutWrites).not.toContain('Hidden next run\n')
+    expect(stdoutWrites).toContain('Visible next run\n')
   })
 
   it('pure stdout mode suppresses all external stdout', async () => {

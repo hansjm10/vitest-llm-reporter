@@ -457,6 +457,8 @@ export default defineConfig({
 
 **Note:** The test progress spinner writes to stderr and continues to work unless stderr suppression is enabled.
 
+**Runtime config note:** `updateConfig()` still updates general reporter options immediately, but `pureStdout` and `stdio.*` changes are staged and applied on the next test run. The active run keeps the stdio plan it started with.
+
 #### Framework Presets
 
 Suppress startup banners from known frameworks without crafting custom regexes:

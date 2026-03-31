@@ -169,8 +169,6 @@ export interface StdioConfig {
   autoDetectFrameworks?: boolean
   /** Redirect suppressed stdout to stderr (default: false) */
   redirectToStderr?: boolean
-  /** Apply filtering when flushing buffered content (default: false) */
-  flushWithFiltering?: boolean
 }
 
 /**
