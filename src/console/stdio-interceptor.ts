@@ -24,6 +24,7 @@ export type WriteFunction = typeof process.stdout.write
 
 interface DisableOptions {
   bufferedOutput?: BufferedTailPolicy
+  swallowStdoutWriteErrors?: boolean
 }
 
 const PASSTHROUGH_CONTROL_CHUNKS: readonly string[] = ['\u001b[?25h', '\u001b[0m', '\u001b[m']
@@ -117,7 +118,7 @@ export class StdioInterceptor {
       return
     }
 
-    this.flushBuffers({ bufferedOutput: 'filter' })
+    this.flushBuffers({ bufferedOutput: 'filter', swallowStdoutWriteErrors: true })
     this.holdStdoutWrites = true
   }
 
@@ -130,7 +131,7 @@ export class StdioInterceptor {
       return
     }
 
-    this.flushBuffers({ bufferedOutput: 'filter' })
+    this.flushBuffers({ bufferedOutput: 'filter', swallowStdoutWriteErrors: true })
   }
 
   /**
@@ -312,19 +313,28 @@ export class StdioInterceptor {
     stream: 'stdout' | 'stderr',
     originalWrite: WriteFunction,
     chunk: string,
-    encoding?: BufferEncoding
+    encoding?: BufferEncoding,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
   ): boolean {
     const passthroughChunk = this.getPassthroughControlChunk(chunk)
     if (!passthroughChunk) {
       return true
     }
 
-    return originalWrite.call(
-      stream === 'stdout' ? process.stdout : process.stderr,
-      passthroughChunk,
-      encoding,
-      undefined
-    )
+    try {
+      return originalWrite.call(
+        stream === 'stdout' ? process.stdout : process.stderr,
+        passthroughChunk,
+        encoding,
+        undefined
+      )
+    } catch (error) {
+      if (options.swallowStdoutWriteErrors && stream === 'stdout') {
+        return false
+      }
+
+      throw error
+    }
   }
 
   private writeFilteredLine(
@@ -333,40 +343,66 @@ export class StdioInterceptor {
     line: string,
     suffix: string,
     encoding?: BufferEncoding,
-    redirectTarget?: WriteFunction
+    redirectTarget?: WriteFunction,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
   ): boolean {
     const chunk = line + suffix
 
     if (!this.policy.shouldSuppress(line)) {
-      return originalWrite.call(
-        stream === 'stdout' ? process.stdout : process.stderr,
-        chunk,
-        encoding,
-        undefined
-      )
+      try {
+        return originalWrite.call(
+          stream === 'stdout' ? process.stdout : process.stderr,
+          chunk,
+          encoding,
+          undefined
+        )
+      } catch (error) {
+        if (options.swallowStdoutWriteErrors && stream === 'stdout') {
+          return false
+        }
+
+        throw error
+      }
     }
 
     if (this.plan.redirectToStderr && stream === 'stdout' && redirectTarget) {
       return redirectTarget.call(process.stderr, chunk, encoding, undefined)
     }
 
-    return this.writePassthroughControlChunk(stream, originalWrite, line, encoding)
+    return this.writePassthroughControlChunk(stream, originalWrite, line, encoding, options)
   }
 
   private flushBufferedChunkWithFiltering(
     stream: 'stdout' | 'stderr',
     chunk: string,
-    originalWrite: WriteFunction
+    originalWrite: WriteFunction,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
   ): void {
     const lines = chunk.split('\n')
     const incomplete = lines.pop() ?? ''
 
     for (const line of lines) {
-      this.writeFilteredLine(stream, originalWrite, line, '\n', undefined, this.originalStderrWrite)
+      this.writeFilteredLine(
+        stream,
+        originalWrite,
+        line,
+        '\n',
+        undefined,
+        this.originalStderrWrite,
+        options
+      )
     }
 
     if (incomplete.length > 0) {
-      this.writeFilteredLine(stream, originalWrite, incomplete, '', undefined, this.originalStderrWrite)
+      this.writeFilteredLine(
+        stream,
+        originalWrite,
+        incomplete,
+        '',
+        undefined,
+        this.originalStderrWrite,
+        options
+      )
     }
   }
 
@@ -381,7 +417,8 @@ export class StdioInterceptor {
         'stdout',
         this.stdoutLineBuffer,
         this.originalStdoutWrite,
-        bufferedOutput
+        bufferedOutput,
+        options
       )
       this.stdoutLineBuffer = ''
     }
@@ -391,7 +428,8 @@ export class StdioInterceptor {
         'stderr',
         this.stderrLineBuffer,
         this.originalStderrWrite,
-        bufferedOutput
+        bufferedOutput,
+        options
       )
       this.stderrLineBuffer = ''
     }
@@ -401,7 +439,8 @@ export class StdioInterceptor {
     stream: 'stdout' | 'stderr',
     chunk: string,
     originalWrite: WriteFunction,
-    bufferedOutput: BufferedTailPolicy
+    bufferedOutput: BufferedTailPolicy,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
   ): void {
     if (bufferedOutput === 'emit') {
       originalWrite.call(stream === 'stdout' ? process.stdout : process.stderr, chunk)
@@ -416,11 +455,13 @@ export class StdioInterceptor {
     }
 
     if (this.isControlOnlyChunk(chunk)) {
-      this.writePassthroughControlChunk(stream, originalWrite, chunk)
+      this.writePassthroughControlChunk(stream, originalWrite, chunk, undefined, {
+        swallowStdoutWriteErrors: options.swallowStdoutWriteErrors
+      })
       return
     }
 
-    this.flushBufferedChunkWithFiltering(stream, chunk, originalWrite)
+    this.flushBufferedChunkWithFiltering(stream, chunk, originalWrite, options)
   }
 
   private syncPatchedStreams(): void {
@@ -595,7 +636,8 @@ export class StdioInterceptor {
 
   private flushBufferedStream(
     stream: 'stdout' | 'stderr',
-    bufferedOutput: BufferedTailPolicy
+    bufferedOutput: BufferedTailPolicy,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
   ): void {
     const bufferKey = stream === 'stdout' ? 'stdoutLineBuffer' : 'stderrLineBuffer'
     const originalWrite = stream === 'stdout' ? this.originalStdoutWrite : this.originalStderrWrite
@@ -605,7 +647,7 @@ export class StdioInterceptor {
       return
     }
 
-    this.flushBufferedChunk(stream, chunk, originalWrite, bufferedOutput)
+    this.flushBufferedChunk(stream, chunk, originalWrite, bufferedOutput, options)
     this[bufferKey] = ''
   }
 

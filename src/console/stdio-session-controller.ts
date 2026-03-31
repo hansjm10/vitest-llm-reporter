@@ -43,7 +43,9 @@ export class StdioSessionController {
       return
     }
 
-    this.session.disable({ bufferedOutput: 'filter' })
+    // Reporter shutdown owns the blocked-stdout fallback; the pre-report flush
+    // must not throw before the reporter can warn or redirect JSON.
+    this.session.disable({ bufferedOutput: 'filter', swallowStdoutWriteErrors: true })
     this.session = undefined
   }
 
