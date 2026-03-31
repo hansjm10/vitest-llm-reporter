@@ -28,7 +28,7 @@ import type {
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import { consoleCapture } from '../console/index.js'
 import { consoleMerger } from '../console/merge.js'
-import { StdioFilterEvaluator } from '../console/stdio-filter.js'
+import { StdioSuppressionPolicy } from '../console/stdio-filter.js'
 import { LogDeduplicator } from '../console/LogDeduplicator.js'
 import type { ILogDeduplicator } from '../types/deduplication.js'
 // Truncation handled by LateTruncator in OutputBuilder
@@ -101,7 +101,7 @@ export class EventOrchestrator {
   private deduplicator?: ILogDeduplicator
   private debug = coreLogger()
   private debugError = errorLogger()
-  private stdioFilter?: StdioFilterEvaluator
+  private stdioPolicy?: StdioSuppressionPolicy
   private filterSuccessLogs = false
   // Truncator removed - simplified truncation in OutputBuilder
   // Retry tracking: Map of testId -> array of retry attempts
@@ -114,7 +114,7 @@ export class EventOrchestrator {
     resultBuilder: TestResultBuilder,
     contextBuilder: ErrorContextBuilder,
     config: OrchestratorConfig = {},
-    stdioFilter?: StdioFilterEvaluator,
+    stdioPolicy?: StdioSuppressionPolicy,
     filterSuccessLogs = false
   ) {
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config }
@@ -123,7 +123,7 @@ export class EventOrchestrator {
     this.errorExtractor = errorExtractor
     this.resultBuilder = resultBuilder
     this.contextBuilder = contextBuilder
-    this.stdioFilter = stdioFilter
+    this.stdioPolicy = stdioPolicy
     this.filterSuccessLogs = filterSuccessLogs
 
     // Initialize deduplicator if config is provided
@@ -622,11 +622,11 @@ export class EventOrchestrator {
   /**
    * Updates the stdio filter used for success console suppression
    */
-  public updateStdioFilter(
-    filter: StdioFilterEvaluator | undefined,
+  public updateStdioPolicy(
+    policy: StdioSuppressionPolicy | undefined,
     filterSuccessLogs: boolean
   ): void {
-    this.stdioFilter = filter
+    this.stdioPolicy = policy
     this.filterSuccessLogs = filterSuccessLogs
   }
 
@@ -639,7 +639,7 @@ export class EventOrchestrator {
       return { events: consoleEvents, totalLines: 0, suppressedLines: 0 }
     }
 
-    if (!this.filterSuccessLogs || !this.stdioFilter) {
+    if (!this.filterSuccessLogs || !this.stdioPolicy) {
       return { events: consoleEvents, totalLines: 0, suppressedLines: 0 }
     }
 
@@ -649,38 +649,17 @@ export class EventOrchestrator {
 
     for (const event of consoleEvents) {
       const originalMessage = event.message ?? ''
-      const hadTrailingNewline = originalMessage.endsWith('\n')
-      const segments = originalMessage.split('\n')
-      if (hadTrailingNewline && segments[segments.length - 1] === '') {
-        segments.pop()
-      }
+      const filteredMessage = this.stdioPolicy.filterCapturedConsoleMessage(originalMessage)
+      totalLines += filteredMessage.totalLines
+      suppressedLines += filteredMessage.suppressedLines
 
-      const kept: string[] = []
-      for (const segment of segments) {
-        const normalized = segment.replace(/\r$/, '')
-        if (!normalized) {
-          continue
-        }
-        totalLines += 1
-        if (!this.stdioFilter.shouldSuppress(normalized)) {
-          kept.push(normalized)
-        } else {
-          suppressedLines += 1
-        }
-      }
-
-      if (kept.length === 0) {
+      if (!filteredMessage.message) {
         continue
-      }
-
-      let message = kept.join('\n')
-      if (hadTrailingNewline) {
-        message += '\n'
       }
 
       const filteredEvent: ConsoleEvent = {
         ...event,
-        message
+        message: filteredMessage.message
       }
 
       filtered.push(filteredEvent)

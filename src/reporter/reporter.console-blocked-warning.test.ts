@@ -43,6 +43,25 @@ describe('LLMReporter blocked console warning and fallback', () => {
     process.stderr.write = origStderrWrite
   })
 
+  const expectBlockedFallback = (writes: string[]): void => {
+    const hasWarning = writes.some((w) =>
+      w.includes('vitest-llm-reporter: Console output appears blocked')
+    )
+    expect(hasWarning).toBe(true)
+
+    const hasJson = writes.some((w) => {
+      const trimmed = w.trim()
+      if (!trimmed) return false
+      try {
+        const parsed = JSON.parse(trimmed)
+        return typeof parsed === 'object' && parsed !== null && 'summary' in parsed
+      } catch {
+        return false
+      }
+    })
+    expect(hasJson).toBe(true)
+  }
+
   it('writes a warning to stderr and falls back with JSON when stdout write throws', async () => {
     // Make the writer throw BEFORE creating the reporter so it gets captured as original
     process.stdout.write = ((..._args: unknown[]) => {
@@ -69,23 +88,110 @@ describe('LLMReporter blocked console warning and fallback', () => {
     const writes = stderrSpy.mock.calls.map((c) => String(c[0]))
     stderrSpy.mockRestore()
 
-    // Expect a clear warning line
-    const hasWarning = writes.some((w) =>
-      w.includes('vitest-llm-reporter: Console output appears blocked')
-    )
-    expect(hasWarning).toBe(true)
+    expect(writes.length).toBeGreaterThan(0)
+    expectBlockedFallback(writes)
+  })
 
-    // And the fallback JSON payload
-    const hasJson = writes.some((w) => {
-      const trimmed = w.trim()
-      if (!trimmed) return false
-      try {
-        const parsed = JSON.parse(trimmed)
-        return typeof parsed === 'object' && parsed !== null && 'summary' in parsed
-      } catch {
-        return false
+  it('does not throw when buffered stdout flush before onTestRunEnd hits blocked stdout', async () => {
+    process.stdout.write = ((..._args: unknown[]) => {
+      throw new Error('stdout blocked')
+    }) as unknown as typeof process.stdout.write
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      warnWhenConsoleBlocked: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: []
       }
     })
-    expect(hasJson).toBe(true)
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    reporter.onTestRunStart([])
+    process.stdout.write('Compiling...')
+
+    const mockModule = createMockTestModule()
+    await expect(
+      reporter.onTestRunEnd([mockModule], [], 'failed' as TestRunEndReason)
+    ).resolves.toBeUndefined()
+
+    reporter.onFinished?.([mockModule], [])
+  })
+
+  it('does not throw when held teardown stdout flush during onFinished hits blocked stdout', async () => {
+    process.stdout.write = ((..._args: unknown[]) => {
+      throw new Error('stdout blocked')
+    }) as unknown as typeof process.stdout.write
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      warnWhenConsoleBlocked: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: []
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    reporter.onTestRunStart([])
+
+    const mockModule = createMockTestModule()
+    await reporter.onTestRunEnd([mockModule], [], 'failed' as TestRunEndReason)
+
+    process.stdout.write('teardown visible')
+
+    expect(() => reporter.onFinished([], [], undefined)).not.toThrow()
+  })
+
+  it('does not throw when updateConfig disables stdout suppression with buffered stdout', () => {
+    process.stdout.write = ((..._args: unknown[]) => {
+      throw new Error('stdout blocked')
+    }) as unknown as typeof process.stdout.write
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      warnWhenConsoleBlocked: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: [],
+        filterPattern: /^Bar$/
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    process.stdout.write('visible partial')
+
+    expect(() => reporter.updateConfig({ stdio: { suppressStdout: false } })).not.toThrow()
+    expect(() => reporter.onFinished([], [], undefined)).not.toThrow()
+  })
+
+  it('does not throw when updateConfig flushes buffered stdout during a live policy change', () => {
+    process.stdout.write = ((..._args: unknown[]) => {
+      throw new Error('stdout blocked')
+    }) as unknown as typeof process.stdout.write
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      warnWhenConsoleBlocked: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: [],
+        filterPattern: /^Bar$/
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    process.stdout.write('visible partial')
+
+    expect(() => reporter.updateConfig({ pureStdout: true })).not.toThrow()
+    expect(() => reporter.onFinished([], [], undefined)).not.toThrow()
   })
 })

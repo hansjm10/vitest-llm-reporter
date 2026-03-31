@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { SerializedError } from 'vitest'
 import type { Vitest } from 'vitest/node'
 
@@ -14,8 +14,12 @@ import { prepareForSnapshot } from '../test-utils/snapshot-helpers.js'
 describe('LLMReporter', () => {
   let reporter: LLMReporter
   let mockVitest: Partial<Vitest>
+  let originalStdoutWrite: typeof process.stdout.write
+  let originalStderrWrite: typeof process.stderr.write
 
   beforeEach(() => {
+    originalStdoutWrite = process.stdout.write.bind(process.stdout)
+    originalStderrWrite = process.stderr.write.bind(process.stderr)
     reporter = new LLMReporter()
     mockVitest = {
       config: {
@@ -25,6 +29,11 @@ describe('LLMReporter', () => {
         getFiles: vi.fn(() => [])
       } as any
     }
+  })
+
+  afterEach(() => {
+    process.stdout.write = originalStdoutWrite
+    process.stderr.write = originalStderrWrite
   })
 
   describe('Initialization', () => {
@@ -1136,6 +1145,23 @@ describe('LLMReporter', () => {
       expect(stdio.filterPattern).toBe(filterPattern)
       expect(stdio.frameworkPresets).toEqual(['next'])
       expect(stdio.suppressStdout).toBe(false)
+    })
+
+    it('recomputes standard stdio defaults when disabling pure stdout mode', () => {
+      const reporter = new LLMReporter({ pureStdout: true })
+
+      reporter.updateConfig({ pureStdout: false })
+
+      const config = reporter.getConfig()
+      expect(config.pureStdout).toBe(false)
+      expect(config.stdio).toMatchObject({
+        suppressStdout: true,
+        suppressStderr: false,
+        filterPattern: undefined,
+        frameworkPresets: ['nest'],
+        autoDetectFrameworks: false,
+        redirectToStderr: false
+      })
     })
 
     it('merges truncation and performance updates without resetting defaults', () => {

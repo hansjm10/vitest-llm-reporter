@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { StdioInterceptor } from './stdio-interceptor.js'
+import { resolveStdioPlan } from './stdio-plan.js'
+
+const RAW_CLEAR_LINE_PREFIX = new RegExp(String.raw`^\u001b\[2K\r`)
 
 describe('StdioInterceptor', () => {
   let originalStdoutWrite: typeof process.stdout.write
@@ -103,6 +106,34 @@ describe('StdioInterceptor', () => {
       process.stdout.write('[Nest] Should not be filtered after disable\n')
       expect(stdoutOutput).toContain('[Nest] Should not be filtered after disable\n')
     })
+
+    it('does not restore stderr if stderr was never intercepted', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      const stderrSpy = ((chunk: any, encoding?: any, callback?: any) => {
+        if (typeof encoding === 'function') {
+          callback = encoding
+          encoding = undefined
+        }
+        stderrOutput.push(`spy:${String(chunk)}`)
+        if (callback) process.nextTick(callback)
+        return true
+      }) as any
+
+      process.stderr.write = stderrSpy
+
+      interceptor.disable()
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(process.stderr.write).toBe(stderrSpy)
+      process.stderr.write('still wrapped\n')
+      expect(stderrOutput).toContain('spy:still wrapped\n')
+    })
   })
 
   describe('line buffering', () => {
@@ -142,6 +173,140 @@ describe('StdioInterceptor', () => {
 
       // Buffer should be flushed
       expect(stdoutOutput.join('')).toContain('Incomplete line without newline')
+    })
+
+    it('passes through standalone terminal control sequences immediately', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[?25h')
+
+      expect(stdoutOutput).toContain('\u001b[?25h')
+
+      interceptor.disable()
+    })
+
+    it('passes through standalone terminal reset chunks immediately', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[0m')
+
+      expect(stdoutOutput).toContain('\u001b[0m')
+
+      interceptor.disable()
+    })
+
+    it('keeps standalone line-clear and cursor-hide chunks buffered', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\r')
+      process.stdout.write('\u001b[2K\r')
+      process.stdout.write('\u001b[?25l')
+
+      expect(stdoutOutput).toEqual([])
+
+      interceptor.disable()
+    })
+
+    it('keeps control chunks behind buffered text to preserve write order', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('Compiling...')
+      process.stdout.write('\r')
+
+      expect(stdoutOutput).toEqual([])
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('Compiling...\r')
+    })
+
+    it('drops held terminal restore chunks when disabling with discard', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+      interceptor.prepareForReportHold()
+
+      process.stdout.write('\u001b[?25h')
+
+      interceptor.disable({ bufferedOutput: 'discard' })
+
+      expect(stdoutOutput).toEqual([])
+    })
+
+    it('filters held mixed stdout line by line when disabling with filter', () => {
+      const firstInterceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      firstInterceptor.enable()
+      firstInterceptor.prepareForReportHold()
+      process.stdout.write('[Nest] hidden\nVisible\n')
+      firstInterceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput.join('')).toBe('Visible\n')
+
+      stdoutOutput = []
+
+      const secondInterceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      secondInterceptor.enable()
+      secondInterceptor.prepareForReportHold()
+      process.stdout.write('Visible\n[Nest] hidden\n')
+      secondInterceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput.join('')).toBe('Visible\n')
+    })
+
+    it('holds only stdout during report hold while stderr keeps filtering live', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        suppressStderr: true,
+        frameworkPresets: [],
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+      interceptor.prepareForReportHold()
+
+      process.stdout.write('held stdout\n')
+      process.stderr.write('[Nest] hidden stderr\n')
+      process.stderr.write('Visible stderr\n')
+
+      expect(stdoutOutput).toEqual([])
+      expect(stderrOutput).not.toContain('[Nest] hidden stderr\n')
+      expect(stderrOutput).toContain('Visible stderr\n')
+
+      interceptor.disable({ bufferedOutput: 'discard' })
+
+      expect(stdoutOutput).toEqual([])
+      expect(stderrOutput).toContain('Visible stderr\n')
     })
   })
 
@@ -202,14 +367,80 @@ describe('StdioInterceptor', () => {
       expect(stdoutOutput).not.toContain('[Nest] Log\n')
       expect(stdoutOutput).toContain('Regular log\n')
     })
+
+    it('suppresses standalone terminal control sequences when pattern is null', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: null
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[?25h')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).toHaveLength(0)
+    })
   })
 
   describe('flush filtering', () => {
-    it('applies filtering during flush when flushWithFiltering is true', () => {
+    it('flushes suppressed stdout partials before relaxing the active filter policy', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
-        filterPattern: /^\[Nest\]/,
-        flushWithFiltering: true
+        filterPattern: null,
+        frameworkPresets: []
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('hidden partial')
+
+      interceptor.updatePlan(
+        resolveStdioPlan({
+          pureStdout: false,
+          stdio: {
+            suppressStdout: true,
+            frameworkPresets: [],
+            filterPattern: /^Bar$/
+          }
+        })
+      )
+      process.stdout.write('visible after update\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('visible after update\n')
+    })
+
+    it('flushes visible stdout partials before tightening the active filter policy', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: [],
+        filterPattern: /^Bar$/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('visible partial')
+
+      interceptor.updatePlan(
+        resolveStdioPlan({
+          pureStdout: true,
+          stdio: {}
+        })
+      )
+      process.stdout.write('\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('visible partial')
+    })
+
+    it('applies filtering during forced filtered flush', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
       })
 
       interceptor.enable()
@@ -217,17 +448,225 @@ describe('StdioInterceptor', () => {
       // Write partial lines that should be filtered
       process.stdout.write('[Nest] Partial log') // Should be filtered
 
+      interceptor.disable({ bufferedOutput: 'filter' })
+
+      // With an explicit filtered shutdown, the partial line should be suppressed
+      expect(stdoutOutput.join('')).not.toContain('[Nest] Partial log')
+    })
+
+    it.each(['\r', '\u001b[2K\r'])(
+      'suppresses Next.js partial stdout with %j control prefix during flush',
+      (prefix) => {
+        const interceptor = new StdioInterceptor({
+          suppressStdout: true,
+          frameworkPresets: ['next']
+        })
+
+        interceptor.enable()
+
+        process.stdout.write(`${prefix}info  - Loaded env from .env.local`)
+
+        interceptor.disable({ bufferedOutput: 'filter' })
+
+        expect(stdoutOutput.join('')).not.toContain('Loaded env from .env.local')
+      }
+    )
+
+    it('drops trailing cursor-show when suppressing buffered Next.js stdout', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[?25h')
+
+      interceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput.join('')).toBe('')
+    })
+
+    it('drops trailing reset when suppressing buffered Next.js stdout', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[0m')
+
+      interceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput.join('')).toBe('')
+    })
+
+    it('drops chained terminal restore suffixes when suppressing buffered Next.js stdout', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[?25h\u001b[0m')
+
+      interceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput.join('')).toBe('')
+    })
+
+    it('drops trailing cursor-show when the buffered control suffix ends with carriage return', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[?25h\r')
+
+      interceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput.join('')).toBe('')
+    })
+
+    it('does not emit trailing reset bytes from suppressed complete lines', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: ['next']
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local\u001b[0m\n')
+
       interceptor.disable()
 
-      // With flushWithFiltering, the partial line should be suppressed
+      expect(stdoutOutput.join('')).toBe('')
+    })
+
+    it('drops buffered control-only stdout chunks during filtered flush', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[?25l')
+
+      interceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput).toEqual([])
+    })
+
+    it('does not normalize custom regex filters during flush', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^info/,
+        frameworkPresets: []
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local')
+
+      interceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput.join('')).toContain('\u001b[2K\rinfo  - Loaded env from .env.local')
+    })
+
+    it('applies custom raw-prefix regex filters during flush', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: [/^\r/, RAW_CLEAR_LINE_PREFIX],
+        frameworkPresets: []
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rspinner update')
+
+      interceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput).toEqual([])
+    })
+
+    it('passes raw control prefixes to custom predicate filters during flush', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: [(line) => line.startsWith('\u001b[2K\r')],
+        frameworkPresets: []
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rspinner update')
+
+      interceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput).toEqual([])
+    })
+
+    it('invokes custom predicate filters once per buffered chunk during flush', () => {
+      const seen: string[] = []
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: [
+          (line) => {
+            seen.push(line)
+            return false
+          }
+        ],
+        frameworkPresets: []
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('\u001b[2K\rinfo  - Loaded env from .env.local')
+
+      interceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(seen).toEqual(['\u001b[2K\rinfo  - Loaded env from .env.local'])
+      expect(stdoutOutput.join('')).toContain('\u001b[2K\rinfo  - Loaded env from .env.local')
+    })
+
+    it('can force filtered shutdown during disable without changing the base config', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('[Nest] Partial log')
+
+      interceptor.disable({ bufferedOutput: 'filter' })
+
       expect(stdoutOutput.join('')).not.toContain('[Nest] Partial log')
+
+      stdoutOutput = []
+
+      const visibleInterceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      visibleInterceptor.enable()
+
+      process.stdout.write('Visible partial log')
+
+      visibleInterceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput.join('')).toContain('Visible partial log')
     })
 
     it('does not apply filtering during flush by default', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
         filterPattern: /^\[Nest\]/
-        // flushWithFiltering defaults to false
       })
 
       interceptor.enable()
@@ -237,7 +676,7 @@ describe('StdioInterceptor', () => {
 
       interceptor.disable()
 
-      // Without flushWithFiltering, the partial line is not filtered
+      // Without an explicit filtered shutdown, the partial line is not filtered
       expect(stdoutOutput.join('')).toContain('[Nest] Partial log')
     })
   })
@@ -365,6 +804,24 @@ describe('StdioInterceptor', () => {
 
       expect(stdoutOutput).not.toContain('Please suppress-me\n')
       expect(stdoutOutput).toContain('Let me through\n')
+    })
+
+    it('suppresses CRLF-terminated lines that match an exact custom pattern', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^Secret$/,
+        frameworkPresets: []
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('Secret\r\n')
+      process.stdout.write('Visible\r\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput).not.toContain('Secret\r\n')
+      expect(stdoutOutput).toContain('Visible\r\n')
     })
 
     it('applies framework presets', () => {

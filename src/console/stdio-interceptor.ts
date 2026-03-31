@@ -7,35 +7,29 @@
  * @module console/stdio-interceptor
  */
 
-import type { FrameworkPresetName, StdioConfig } from '../types/reporter.js'
-import { StdioFilterEvaluator } from './stdio-filter.js'
-
-/** Internal representation of normalized stdio configuration */
-interface NormalizedStdioConfig {
-  suppressStdout: boolean
-  suppressStderr: boolean
-  filterPattern?: StdioConfig['filterPattern']
-  frameworkPresets: FrameworkPresetName[]
-  redirectToStderr: boolean
-  flushWithFiltering: boolean
-}
-
-/**
- * Default configuration for stdio suppression
- */
-const DEFAULT_CONFIG: NormalizedStdioConfig = {
-  suppressStdout: false,
-  suppressStderr: false,
-  filterPattern: undefined,
-  frameworkPresets: ['nest'],
-  redirectToStderr: false,
-  flushWithFiltering: false
-}
+import type { StdioConfig, StdioFilter } from '../types/reporter.js'
+import type { BufferedTailPolicy, ResolvedStdioPlan } from './stdio-plan.js'
+import {
+  cloneResolvedStdioPlan,
+  getDefaultBufferedTailPolicy,
+  isResolvedStdioPlan,
+  resolveStdioPlan
+} from './stdio-plan.js'
+import { StdioSuppressionPolicy } from './stdio-filter.js'
 
 /**
  * Stdio write function type
  */
-type WriteFunction = typeof process.stdout.write
+export type WriteFunction = typeof process.stdout.write
+
+interface DisableOptions {
+  bufferedOutput?: BufferedTailPolicy
+  swallowStdoutWriteErrors?: boolean
+}
+
+const PASSTHROUGH_CONTROL_CHUNKS: readonly string[] = ['\u001b[?25h', '\u001b[0m', '\u001b[m']
+const CONTROL_ONLY_CHUNK = new RegExp(String.raw`^(?:(?:\u001b\[[0-?]*[ -/]*[@-~])|\r)+$`, 'u')
+const TRAILING_CARRIAGE_RETURNS = /\r+$/u
 
 /**
  * Interceptor for process.stdout and process.stderr
@@ -46,39 +40,24 @@ type WriteFunction = typeof process.stdout.write
  * and can optionally redirect filtered output.
  */
 export class StdioInterceptor {
-  private config: NormalizedStdioConfig
-  private readonly filter: StdioFilterEvaluator
+  private plan: ResolvedStdioPlan
+  private policy: StdioSuppressionPolicy
   private originalStdoutWrite?: WriteFunction
   private originalStderrWrite?: WriteFunction
+  private stdoutInterceptor?: WriteFunction
+  private stderrInterceptor?: WriteFunction
+  private patchedStdout = false
+  private patchedStderr = false
   private stdoutLineBuffer = ''
   private stderrLineBuffer = ''
   private isEnabled = false
+  private holdStdoutWrites = false
 
-  constructor(config: StdioConfig = {}) {
-    const hasFilterPatternProperty = Object.hasOwn(config, 'filterPattern')
-    const hasFrameworkPresets = Object.hasOwn(config, 'frameworkPresets')
-
-    const filterPatternValue = hasFilterPatternProperty
-      ? config.filterPattern
-      : DEFAULT_CONFIG.filterPattern
-    const filterPatternProvided = hasFilterPatternProperty && filterPatternValue !== undefined
-
-    const frameworkPresets = hasFrameworkPresets
-      ? [...(config.frameworkPresets ?? [])]
-      : filterPatternProvided
-        ? []
-        : [...DEFAULT_CONFIG.frameworkPresets]
-
-    this.config = {
-      suppressStdout: config.suppressStdout ?? DEFAULT_CONFIG.suppressStdout,
-      suppressStderr: config.suppressStderr ?? DEFAULT_CONFIG.suppressStderr,
-      filterPattern: filterPatternProvided ? filterPatternValue : DEFAULT_CONFIG.filterPattern,
-      frameworkPresets,
-      redirectToStderr: config.redirectToStderr ?? DEFAULT_CONFIG.redirectToStderr,
-      flushWithFiltering: config.flushWithFiltering ?? DEFAULT_CONFIG.flushWithFiltering
-    }
-
-    this.filter = new StdioFilterEvaluator(this.config.filterPattern, this.config.frameworkPresets)
+  constructor(config: StdioConfig | ResolvedStdioPlan = {}, policy?: StdioSuppressionPolicy) {
+    this.plan = cloneResolvedStdioPlan(
+      isResolvedStdioPlan(config) ? config : resolveStdioPlan({ stdio: config })
+    )
+    this.policy = policy ?? new StdioSuppressionPolicy(this.plan)
   }
 
   /**
@@ -89,27 +68,14 @@ export class StdioInterceptor {
       return
     }
 
+    this.holdStdoutWrites = false
+
     // Save original write functions bound to their streams
     this.originalStdoutWrite = process.stdout.write.bind(process.stdout)
     this.originalStderrWrite = process.stderr.write.bind(process.stderr)
-
-    // Patch stdout if configured
-    if (this.config.suppressStdout) {
-      process.stdout.write = this.createInterceptor(
-        'stdout',
-        this.originalStdoutWrite,
-        this.originalStderrWrite
-      )
-    }
-
-    // Patch stderr if configured
-    if (this.config.suppressStderr) {
-      process.stderr.write = this.createInterceptor(
-        'stderr',
-        this.originalStderrWrite,
-        this.originalStderrWrite
-      )
-    }
+    this.stdoutInterceptor = undefined
+    this.stderrInterceptor = undefined
+    this.syncPatchedStreams()
 
     this.isEnabled = true
   }
@@ -117,23 +83,95 @@ export class StdioInterceptor {
   /**
    * Disable stdio interception and restore original writers
    */
-  disable(): void {
+  disable(options: DisableOptions = {}): void {
     if (!this.isEnabled) {
       return
     }
 
     // Flush any remaining buffered content
-    this.flushBuffers()
+    this.flushBuffers(options)
 
     // Restore original write functions
-    if (this.originalStdoutWrite) {
+    if (this.patchedStdout && this.originalStdoutWrite) {
       process.stdout.write = this.originalStdoutWrite
     }
-    if (this.originalStderrWrite) {
+    if (this.patchedStderr && this.originalStderrWrite) {
       process.stderr.write = this.originalStderrWrite
     }
 
+    this.patchedStdout = false
+    this.patchedStderr = false
     this.isEnabled = false
+    this.holdStdoutWrites = false
+    this.stdoutInterceptor = undefined
+    this.stderrInterceptor = undefined
+    this.originalStdoutWrite = undefined
+    this.originalStderrWrite = undefined
+  }
+
+  /**
+   * Flush buffered run output before the reporter writes JSON, then hold any
+   * subsequent teardown stdout until the final output state is known.
+   */
+  prepareForReportHold(): void {
+    if (!this.isEnabled) {
+      return
+    }
+
+    this.flushBuffers({ bufferedOutput: 'filter', swallowStdoutWriteErrors: true })
+    this.holdStdoutWrites = true
+  }
+
+  /**
+   * Flush buffered run output without disabling interception so teardown writes
+   * continue to flow through the active suppression policy.
+   */
+  flushBufferedOutput(): void {
+    if (!this.isEnabled) {
+      return
+    }
+
+    this.flushBuffers({ bufferedOutput: 'filter', swallowStdoutWriteErrors: true })
+  }
+
+  /**
+   * Check whether interception is currently holding post-run stdout.
+   */
+  isHoldingReport(): boolean {
+    return this.isEnabled && this.holdStdoutWrites
+  }
+
+  /**
+   * Update the active suppression plan without tearing down interception.
+   * Buffered partials are flushed first when a material suppression-policy
+   * change would otherwise reclassify bytes that were written under the old plan.
+   */
+  updatePlan(
+    plan: ResolvedStdioPlan,
+    policy?: StdioSuppressionPolicy,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
+  ): void {
+    const nextPlan = cloneResolvedStdioPlan(plan)
+    const nextPolicy = policy ?? new StdioSuppressionPolicy(nextPlan)
+
+    if (this.isEnabled) {
+      if (this.shouldFlushBufferedStreamBeforePlanUpdate('stdout', nextPlan)) {
+        this.flushBufferedStream('stdout', 'filter', options)
+      }
+
+      if (this.shouldFlushBufferedStreamBeforePlanUpdate('stderr', nextPlan)) {
+        this.flushBufferedStream('stderr', 'filter', options)
+      }
+    }
+
+    this.plan = nextPlan
+    this.policy = nextPolicy
+
+    if (!this.isEnabled) {
+      return
+    }
+
+    this.syncPatchedStreams()
   }
 
   /**
@@ -182,6 +220,25 @@ export class StdioInterceptor {
         str = String(chunk)
       }
 
+      if (this.shouldHoldStream(stream)) {
+        this[lineBuffer] += str
+
+        if (callback) {
+          process.nextTick(callback)
+        }
+
+        return true
+      }
+
+      if (
+        this[lineBuffer].length === 0 &&
+        this.shouldPassthroughChunk(str) &&
+        !this.policy.shouldSuppress(str)
+      ) {
+        const target = stream === 'stdout' ? process.stdout : process.stderr
+        return originalWrite.call(target, chunk, encoding, callback)
+      }
+
       // Add to line buffer
       this[lineBuffer] += str
 
@@ -195,25 +252,8 @@ export class StdioInterceptor {
 
       // Filter and write lines
       for (const line of lines) {
-        // Remove trailing carriage return for consistent pattern matching on Windows
-        const lineToTest = line.replace(/\r$/, '')
-        const lineWithNewline = line + '\n'
-
-        if (!this.filter.shouldSuppress(lineToTest)) {
-          // Pass through non-suppressed lines (bind to correct stream)
-          const result = originalWrite.call(
-            stream === 'stdout' ? process.stdout : process.stderr,
-            lineWithNewline,
-            encoding,
-            undefined
-          )
-          ok = ok && result
-        } else if (this.config.redirectToStderr && stream === 'stdout' && redirectTarget) {
-          // Redirect suppressed stdout to stderr if configured
-          const result = redirectTarget.call(process.stderr, lineWithNewline, encoding, undefined)
-          ok = ok && result
-        }
-        // Otherwise, drop the line
+        ok =
+          this.writeFilteredLine(stream, originalWrite, line, '\n', encoding, redirectTarget) && ok
       }
 
       // Pass callback to the last write operation or call immediately if no writes occurred
@@ -228,38 +268,386 @@ export class StdioInterceptor {
   }
 
   /**
+   * Allow teardown terminal restoration sequences to bypass line buffering so
+   * they reach the terminal when emitted as standalone chunks.
+   */
+  private shouldPassthroughChunk(chunk: string): boolean {
+    return this.getPassthroughControlChunk(chunk) === chunk
+  }
+
+  /**
+   * Treat pure terminal-control buffers as non-user-visible content during the
+   * filtered shutdown flush so they do not trail machine-readable stdout.
+   */
+  private isControlOnlyChunk(chunk: string): boolean {
+    return chunk.length > 0 && CONTROL_ONLY_CHUNK.test(chunk)
+  }
+
+  /**
+   * Keep standalone terminal restoration chunks, but never peel them off a
+   * mixed log line because that still pollutes machine-readable stdout.
+   */
+  private getPassthroughControlChunk(chunk: string): string {
+    if (this.plan.filterPattern === null) {
+      return ''
+    }
+
+    let remainder = chunk
+
+    while (remainder.length > 0) {
+      const trailingCarriageReturns = remainder.match(TRAILING_CARRIAGE_RETURNS)?.[0] ?? ''
+      const controlCandidateRemainder = trailingCarriageReturns
+        ? remainder.slice(0, -trailingCarriageReturns.length)
+        : remainder
+      const controlChunk = PASSTHROUGH_CONTROL_CHUNKS.find((candidate) =>
+        controlCandidateRemainder.endsWith(candidate)
+      )
+
+      if (!controlChunk) {
+        return ''
+      }
+
+      remainder = controlCandidateRemainder.slice(0, -controlChunk.length)
+    }
+
+    return chunk
+  }
+
+  private writePassthroughControlChunk(
+    stream: 'stdout' | 'stderr',
+    originalWrite: WriteFunction,
+    chunk: string,
+    encoding?: BufferEncoding,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
+  ): boolean {
+    const passthroughChunk = this.getPassthroughControlChunk(chunk)
+    if (!passthroughChunk) {
+      return true
+    }
+
+    try {
+      return originalWrite.call(
+        stream === 'stdout' ? process.stdout : process.stderr,
+        passthroughChunk,
+        encoding,
+        undefined
+      )
+    } catch (error) {
+      if (options.swallowStdoutWriteErrors && stream === 'stdout') {
+        return false
+      }
+
+      throw error
+    }
+  }
+
+  private writeFilteredLine(
+    stream: 'stdout' | 'stderr',
+    originalWrite: WriteFunction,
+    line: string,
+    suffix: string,
+    encoding?: BufferEncoding,
+    redirectTarget?: WriteFunction,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
+  ): boolean {
+    const chunk = line + suffix
+
+    if (!this.policy.shouldSuppress(line)) {
+      try {
+        return originalWrite.call(
+          stream === 'stdout' ? process.stdout : process.stderr,
+          chunk,
+          encoding,
+          undefined
+        )
+      } catch (error) {
+        if (options.swallowStdoutWriteErrors && stream === 'stdout') {
+          return false
+        }
+
+        throw error
+      }
+    }
+
+    if (this.plan.redirectToStderr && stream === 'stdout' && redirectTarget) {
+      return redirectTarget.call(process.stderr, chunk, encoding, undefined)
+    }
+
+    return this.writePassthroughControlChunk(stream, originalWrite, line, encoding, options)
+  }
+
+  private flushBufferedChunkWithFiltering(
+    stream: 'stdout' | 'stderr',
+    chunk: string,
+    originalWrite: WriteFunction,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
+  ): void {
+    const lines = chunk.split('\n')
+    const incomplete = lines.pop() ?? ''
+
+    for (const line of lines) {
+      this.writeFilteredLine(
+        stream,
+        originalWrite,
+        line,
+        '\n',
+        undefined,
+        this.originalStderrWrite,
+        options
+      )
+    }
+
+    if (incomplete.length > 0) {
+      this.writeFilteredLine(
+        stream,
+        originalWrite,
+        incomplete,
+        '',
+        undefined,
+        this.originalStderrWrite,
+        options
+      )
+    }
+  }
+
+  /**
    * Flush any remaining buffered content
    */
-  private flushBuffers(): void {
+  private flushBuffers(options: DisableOptions = {}): void {
+    const bufferedOutput = options.bufferedOutput ?? getDefaultBufferedTailPolicy(this.plan)
+
     if (this.stdoutLineBuffer && this.originalStdoutWrite) {
-      if (this.config.flushWithFiltering) {
-        // Apply filtering to the final partial line
-        const lineToTest = this.stdoutLineBuffer.replace(/\r$/, '')
-        if (!this.filter.shouldSuppress(lineToTest)) {
-          this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
-        } else if (this.config.redirectToStderr && this.originalStderrWrite) {
-          this.originalStderrWrite.call(process.stderr, this.stdoutLineBuffer)
-        }
-      } else {
-        // Write remaining stdout buffer without filtering (default behavior)
-        this.originalStdoutWrite.call(process.stdout, this.stdoutLineBuffer)
-      }
+      this.flushBufferedChunk(
+        'stdout',
+        this.stdoutLineBuffer,
+        this.originalStdoutWrite,
+        bufferedOutput,
+        options
+      )
       this.stdoutLineBuffer = ''
     }
 
     if (this.stderrLineBuffer && this.originalStderrWrite) {
-      if (this.config.flushWithFiltering && this.config.suppressStderr) {
-        // Apply filtering to the final partial line
-        const lineToTest = this.stderrLineBuffer.replace(/\r$/, '')
-        if (!this.filter.shouldSuppress(lineToTest)) {
-          this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
-        }
-      } else {
-        // Write remaining stderr buffer without filtering (default behavior)
-        this.originalStderrWrite.call(process.stderr, this.stderrLineBuffer)
-      }
+      this.flushBufferedChunk(
+        'stderr',
+        this.stderrLineBuffer,
+        this.originalStderrWrite,
+        bufferedOutput,
+        options
+      )
       this.stderrLineBuffer = ''
     }
+  }
+
+  private flushBufferedChunk(
+    stream: 'stdout' | 'stderr',
+    chunk: string,
+    originalWrite: WriteFunction,
+    bufferedOutput: BufferedTailPolicy,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
+  ): void {
+    if (bufferedOutput === 'emit') {
+      originalWrite.call(stream === 'stdout' ? process.stdout : process.stderr, chunk)
+      return
+    }
+
+    if (bufferedOutput === 'discard') {
+      // Discard abandons buffered output entirely, including standalone
+      // terminal restore chunks, so held teardown bytes cannot pollute a later
+      // machine-readable report or leak from an abandoned session.
+      return
+    }
+
+    if (this.isControlOnlyChunk(chunk)) {
+      this.writePassthroughControlChunk(stream, originalWrite, chunk, undefined, {
+        swallowStdoutWriteErrors: options.swallowStdoutWriteErrors
+      })
+      return
+    }
+
+    this.flushBufferedChunkWithFiltering(stream, chunk, originalWrite, options)
+  }
+
+  private syncPatchedStreams(): void {
+    this.syncPatchedStream('stdout')
+    this.syncPatchedStream('stderr')
+  }
+
+  private shouldPatchStream(stream: 'stdout' | 'stderr', plan = this.plan): boolean {
+    return stream === 'stdout' ? plan.suppressStdout || this.holdStdoutWrites : plan.suppressStderr
+  }
+
+  private shouldHoldStream(stream: 'stdout' | 'stderr'): boolean {
+    return stream === 'stdout' && this.holdStdoutWrites
+  }
+
+  private shouldFlushBufferedStreamBeforePlanUpdate(
+    stream: 'stdout' | 'stderr',
+    nextPlan: ResolvedStdioPlan
+  ): boolean {
+    const isPatched = stream === 'stdout' ? this.patchedStdout : this.patchedStderr
+    if (!isPatched) {
+      return false
+    }
+
+    if (this.shouldHoldStream(stream)) {
+      return false
+    }
+
+    if (!this.shouldPatchStream(stream, nextPlan)) {
+      return true
+    }
+
+    return this.hasMaterialStreamPolicyChange(stream, nextPlan)
+  }
+
+  private hasMaterialStreamPolicyChange(
+    stream: 'stdout' | 'stderr',
+    nextPlan: ResolvedStdioPlan
+  ): boolean {
+    if (!this.sameFilterPattern(this.plan.filterPattern, nextPlan.filterPattern)) {
+      return true
+    }
+
+    if (!this.sameFrameworkPresets(this.plan.frameworkPresets, nextPlan.frameworkPresets)) {
+      return true
+    }
+
+    return stream === 'stdout' && this.plan.redirectToStderr !== nextPlan.redirectToStderr
+  }
+
+  private sameFrameworkPresets(current: readonly string[], next: readonly string[]): boolean {
+    if (current.length !== next.length) {
+      return false
+    }
+
+    return current.every((preset, index) => preset === next[index])
+  }
+
+  private sameFilterPattern(
+    current: StdioConfig['filterPattern'],
+    next: StdioConfig['filterPattern']
+  ): boolean {
+    if (current === next) {
+      return true
+    }
+
+    if (Array.isArray(current) || Array.isArray(next)) {
+      return (
+        Array.isArray(current) &&
+        Array.isArray(next) &&
+        current.length === next.length &&
+        current.every((pattern, index) => this.sameSingleFilterPattern(pattern, next[index]))
+      )
+    }
+
+    return this.sameSingleFilterPattern(current, next)
+  }
+
+  private sameSingleFilterPattern(
+    current: StdioFilter | null | undefined,
+    next: StdioFilter | null | undefined
+  ): boolean {
+    if (current === next) {
+      return true
+    }
+
+    if (current instanceof RegExp && next instanceof RegExp) {
+      return current.source === next.source && current.flags === next.flags
+    }
+
+    return false
+  }
+
+  private syncPatchedStream(stream: 'stdout' | 'stderr'): void {
+    const shouldPatch = this.shouldPatchStream(stream)
+    const originalWrite = stream === 'stdout' ? this.originalStdoutWrite : this.originalStderrWrite
+
+    if (!originalWrite) {
+      return
+    }
+
+    if (shouldPatch) {
+      this.patchStream(stream, originalWrite)
+      return
+    }
+
+    this.restorePatchedStream(stream, originalWrite, { flushBufferedOutput: true })
+  }
+
+  private patchStream(stream: 'stdout' | 'stderr', originalWrite: WriteFunction): void {
+    if (stream === 'stdout') {
+      if (this.patchedStdout) {
+        return
+      }
+
+      this.stdoutInterceptor ??= this.createInterceptor(
+        'stdout',
+        originalWrite,
+        this.originalStderrWrite
+      )
+      process.stdout.write = this.stdoutInterceptor
+      this.patchedStdout = true
+      return
+    }
+
+    if (this.patchedStderr) {
+      return
+    }
+
+    this.stderrInterceptor ??= this.createInterceptor('stderr', originalWrite, originalWrite)
+    process.stderr.write = this.stderrInterceptor
+    this.patchedStderr = true
+  }
+
+  private restorePatchedStream(
+    stream: 'stdout' | 'stderr',
+    originalWrite: WriteFunction,
+    options: { flushBufferedOutput?: boolean } = {}
+  ): void {
+    const shouldFlush = options.flushBufferedOutput ?? false
+
+    if (stream === 'stdout') {
+      if (!this.patchedStdout) {
+        return
+      }
+
+      if (shouldFlush) {
+        this.flushBufferedStream('stdout', 'emit')
+      }
+
+      process.stdout.write = originalWrite
+      this.patchedStdout = false
+      return
+    }
+
+    if (!this.patchedStderr) {
+      return
+    }
+
+    if (shouldFlush) {
+      this.flushBufferedStream('stderr', 'emit')
+    }
+
+    process.stderr.write = originalWrite
+    this.patchedStderr = false
+  }
+
+  private flushBufferedStream(
+    stream: 'stdout' | 'stderr',
+    bufferedOutput: BufferedTailPolicy,
+    options: { swallowStdoutWriteErrors?: boolean } = {}
+  ): void {
+    const bufferKey = stream === 'stdout' ? 'stdoutLineBuffer' : 'stderrLineBuffer'
+    const originalWrite = stream === 'stdout' ? this.originalStdoutWrite : this.originalStderrWrite
+    const chunk = this[bufferKey]
+
+    if (!chunk || !originalWrite) {
+      return
+    }
+
+    this.flushBufferedChunk(stream, chunk, originalWrite, bufferedOutput, options)
+    this[bufferKey] = ''
   }
 
   /**

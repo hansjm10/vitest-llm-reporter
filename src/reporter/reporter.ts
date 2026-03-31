@@ -14,25 +14,20 @@ import type { TestModule, TestCase, TestSpecification, TestRunEndReason } from '
 import type {
   FrameworkPresetName,
   LLMReporterConfig,
-  StdioConfig,
   TruncationConfig,
   EnvironmentMetadataConfig,
   OutputViewConfig
 } from '../types/reporter.js'
 import type { OrchestratorConfig } from '../events/types.js'
 import type { LLMReporterOutput, TestError } from '../types/schema.js'
-import { StdioFilterEvaluator } from '../console/stdio-filter.js'
 import { hasProperty } from '../utils/type-guards.js'
-
-interface ResolvedStdioConfig {
-  suppressStdout: boolean
-  suppressStderr: boolean
-  filterPattern: StdioConfig['filterPattern']
-  frameworkPresets: FrameworkPresetName[]
-  autoDetectFrameworks: boolean
-  redirectToStderr: boolean
-  flushWithFiltering: boolean
-}
+import type { ResolvedStdioPlan } from '../console/stdio-plan.js'
+import {
+  mergeResolvedStdioPlan,
+  resolveStdioPlan,
+  shouldFilterSuccessLogs,
+  withFrameworkPresets
+} from '../console/stdio-plan.js'
 
 // Type for resolved configuration with explicit undefined handling
 interface ResolvedLLMReporterConfig extends Omit<
@@ -71,7 +66,7 @@ interface ResolvedLLMReporterConfig extends Omit<
     prefix: string
   }
   pureStdout: boolean
-  stdio: ResolvedStdioConfig
+  stdio: ResolvedStdioPlan
   warnWhenConsoleBlocked: boolean
   fallbackToStderrOnBlocked: boolean
   deduplicateLogs:
@@ -105,8 +100,9 @@ import { OutputBuilder } from '../output/OutputBuilder.js'
 import type { OutputBuilderConfig } from '../output/types.js'
 import { OutputWriter } from '../output/OutputWriter.js'
 import { EventOrchestrator } from '../events/EventOrchestrator.js'
-import { StdioInterceptor } from '../console/stdio-interceptor.js'
 import { detectFrameworkPresets } from '../console/framework-log-presets.js'
+import { StdioSessionController } from '../console/stdio-session-controller.js'
+import { ReporterConsoleSink } from './ReporterConsoleSink.js'
 import { coreLogger, errorLogger } from '../utils/logger.js'
 import {
   normalizeDeduplicationConfig,
@@ -144,11 +140,8 @@ export class LLMReporter implements Reporter {
   private outputWriter: OutputWriter
   private orchestrator: EventOrchestrator
   private performanceManager?: PerformanceManager
-  // Stdio interceptor
-  private stdioInterceptor?: StdioInterceptor
-  private stdioFilter: StdioFilterEvaluator
-  private originalStdoutWrite?: typeof process.stdout.write
-  private originalStderrWrite?: typeof process.stderr.write
+  private stdioController: StdioSessionController
+  private closeCleanupRegistered = false
   // Spinner state
   private spinnerTimer?: NodeJS.Timeout
   private spinnerActive = false
@@ -157,6 +150,7 @@ export class LLMReporter implements Reporter {
   private spinnerLastLength = 0
   private readonly spinnerFrames = ['|', '/', '-', '\\']
   private outputWriteState = { file: false, console: false }
+  private consoleSink: ReporterConsoleSink
 
   /**
    * Creates a new instance of the LLM Reporter
@@ -181,43 +175,10 @@ export class LLMReporter implements Reporter {
     // Check for spinner environment override
     const spinnerEnvOverride = process.env.LLM_REPORTER_SPINNER === '0'
 
-    // Resolve stdio configuration
-    let stdioConfig: ResolvedStdioConfig
-    if (config.pureStdout) {
-      // Pure stdout mode: suppress all stdout, no pattern filtering
-      stdioConfig = {
-        suppressStdout: true,
-        suppressStderr: false,
-        filterPattern: null, // Null means suppress all output
-        frameworkPresets: [],
-        autoDetectFrameworks: false,
-        redirectToStderr: false,
-        flushWithFiltering: false
-      }
-    } else {
-      const stdioOptions = config.stdio ?? {}
-      const hasFilterPatternProperty = Object.hasOwn(stdioOptions, 'filterPattern')
-      const hasFrameworkPresets = Object.hasOwn(stdioOptions, 'frameworkPresets')
-      const filterPatternValue = hasFilterPatternProperty ? stdioOptions.filterPattern : undefined
-      const filterPatternProvided = hasFilterPatternProperty && filterPatternValue !== undefined
-      const filterPattern = filterPatternProvided ? filterPatternValue : undefined
-      const defaultFrameworkPresets: FrameworkPresetName[] = ['nest']
-      const frameworkPresets = hasFrameworkPresets
-        ? [...(stdioOptions.frameworkPresets ?? [])]
-        : filterPatternProvided
-          ? []
-          : [...defaultFrameworkPresets]
-
-      stdioConfig = {
-        suppressStdout: stdioOptions.suppressStdout ?? true, // Default to true for clean output
-        suppressStderr: stdioOptions.suppressStderr ?? false,
-        filterPattern,
-        frameworkPresets,
-        autoDetectFrameworks: stdioOptions.autoDetectFrameworks ?? false,
-        redirectToStderr: stdioOptions.redirectToStderr ?? false,
-        flushWithFiltering: stdioOptions.flushWithFiltering ?? false
-      }
-    }
+    const stdioConfig = resolveStdioPlan({
+      pureStdout: config.pureStdout,
+      stdio: config.stdio
+    })
 
     // Properly resolve config without unsafe casting
     this.config = {
@@ -270,11 +231,7 @@ export class LLMReporter implements Reporter {
       reportFlakyAsWarnings: config.reportFlakyAsWarnings ?? false,
       validateOutput: config.validateOutput ?? false
     }
-
-    this.stdioFilter = new StdioFilterEvaluator(
-      stdioConfig.filterPattern,
-      stdioConfig.frameworkPresets ?? []
-    )
+    this.stdioController = new StdioSessionController(stdioConfig)
 
     // Initialize components
     this.stateManager = new StateManager()
@@ -301,6 +258,15 @@ export class LLMReporter implements Reporter {
       view: this.config.outputView
     })
     this.outputWriter = new OutputWriter()
+    this.consoleSink = new ReporterConsoleSink(
+      {
+        consoleJsonSpacing: this.config.consoleJsonSpacing,
+        fallbackToStderrOnBlocked: this.config.fallbackToStderrOnBlocked,
+        framedOutput: this.config.framedOutput,
+        warnWhenConsoleBlocked: this.config.warnWhenConsoleBlocked
+      },
+      this.debugError
+    )
 
     // Initialize orchestrator with all dependencies and console config
     this.orchestrator = new EventOrchestrator(
@@ -318,7 +284,7 @@ export class LLMReporter implements Reporter {
         truncationConfig: this.config.truncation,
         deduplicationConfig: this.getDeduplicationConfig()
       },
-      this.stdioFilter,
+      this.stdioController.getPolicy(),
       this.shouldFilterSuccessLogs()
     )
 
@@ -407,16 +373,13 @@ export class LLMReporter implements Reporter {
   }
 
   /**
-   * Cleanup resources (always called in finally blocks)
+   * Cleanup run state after test results have been consumed.
    */
-  private cleanup(): void {
+  private cleanupAfterRun(): void {
     this.stopSpinner()
     this.orchestrator.reset()
     this.isTestRunActive = false
     this.watcherErrors = []
-
-    // Note: stdio interception is NOT stopped here since it was initialized in onInit()
-    // and should remain active for the entire Vitest session (including watch mode)
 
     // Stop performance monitoring
     if (this.performanceManager) {
@@ -425,16 +388,102 @@ export class LLMReporter implements Reporter {
   }
 
   /**
-   * Final cleanup when reporter is completely done
+   * Release live resources on process close without discarding collected run state.
    */
-  private finalCleanup(): void {
-    // Stop stdio interception
-    if (this.stdioInterceptor) {
-      this.stdioInterceptor.disable()
-      this.stdioInterceptor = undefined
-      this.originalStdoutWrite = undefined
-      this.originalStderrWrite = undefined
+  private cleanupOnClose(): void {
+    this.stopSpinner()
+
+    if (this.performanceManager) {
+      this.performanceManager.stop()
     }
+
+    this.stdioController.abortOnClose()
+  }
+
+  /**
+   * Refresh the console sink after output-related config changes.
+   */
+  private refreshConsoleSink(): void {
+    this.consoleSink = new ReporterConsoleSink(
+      {
+        consoleJsonSpacing: this.config.consoleJsonSpacing,
+        fallbackToStderrOnBlocked: this.config.fallbackToStderrOnBlocked,
+        framedOutput: this.config.framedOutput,
+        warnWhenConsoleBlocked: this.config.warnWhenConsoleBlocked
+      },
+      this.debugError
+    )
+  }
+
+  /**
+   * Get the stdio plan that applies to the current run.
+   */
+  private getEffectiveStdioPlan(): ResolvedStdioPlan {
+    return this.stdioController.getPlan()
+  }
+
+  /**
+   * Sync the current stdio policy into captured console filtering.
+   */
+  private syncStdioPolicy(): void {
+    this.orchestrator?.updateStdioPolicy(
+      this.stdioController.getPolicy(),
+      shouldFilterSuccessLogs(this.config.captureConsoleOnSuccess, this.getEffectiveStdioPlan())
+    )
+  }
+
+  private shouldFilterSuccessLogs(): boolean {
+    return shouldFilterSuccessLogs(
+      this.config.captureConsoleOnSuccess,
+      this.getEffectiveStdioPlan()
+    )
+  }
+
+  /**
+   * Prepare stdio interception for the next run.
+   */
+  private prepareStdioForRun(): void {
+    this.stdioController.prepareForRun()
+    this.syncStdioPolicy()
+  }
+
+  /**
+   * Begin the active run with the prepared stdio plan.
+   */
+  private beginStdioRun(): void {
+    this.stdioController.beginRun()
+    this.syncStdioPolicy()
+  }
+
+  /**
+   * Disable stdio interception and restore original writers.
+   */
+  private finishStdioSession(bufferedOutput: 'filter' | 'discard' = 'filter'): void {
+    this.stdioController.finishAfterTeardown(bufferedOutput)
+    this.syncStdioPolicy()
+  }
+
+  /**
+   * Keep the active stdio session alive until onFinished when either stream is
+   * still being filtered or suppressed during teardown.
+   */
+  private shouldKeepStdioInterceptionUntilFinished(): boolean {
+    const plan = this.getEffectiveStdioPlan()
+    return Boolean(this.stdioController.isActive() && (plan.suppressStdout || plan.suppressStderr))
+  }
+
+  /**
+   * Keep stdout interception in report-hold mode until onFinished when console
+   * JSON may still be rewritten by teardown errors.
+   */
+  private shouldHoldStdoutUntilFinished(): boolean {
+    const plan = this.getEffectiveStdioPlan()
+    return Boolean(
+      this.shouldKeepStdioInterceptionUntilFinished() &&
+      plan.suppressStdout &&
+      (!this.config.outputFile || this.config.enableConsoleOutput) &&
+      this.context
+    )
   }
 
   /**
@@ -490,6 +539,8 @@ export class LLMReporter implements Reporter {
     const hasPartialStdio = Object.hasOwn(partialConfig, 'stdio')
     const hasPartialTruncation = Object.hasOwn(partialConfig, 'truncation')
     const hasPartialPerformance = Object.hasOwn(partialConfig, 'performance')
+    const hasPureStdoutUpdate = Object.hasOwn(partialConfig, 'pureStdout')
+    const previousPureStdout = this.config.pureStdout
 
     const shallowConfig: Partial<LLMReporterConfig> = { ...partialConfig }
     if (hasPartialStdio) {
@@ -518,8 +569,11 @@ export class LLMReporter implements Reporter {
       )
     }
 
-    if (hasPartialStdio) {
-      this.config.stdio = this.mergeResolvedStdioConfig(this.config.stdio, partialConfig.stdio)
+    if (hasPartialStdio || hasPureStdoutUpdate) {
+      this.config.stdio = mergeResolvedStdioPlan(this.config.stdio, partialConfig.stdio, {
+        pureStdout: this.config.pureStdout,
+        recomputeFromDefaults: hasPureStdoutUpdate && previousPureStdout && !this.config.pureStdout
+      })
     }
 
     let shouldUpdateOrchestrator = false
@@ -597,8 +651,25 @@ export class LLMReporter implements Reporter {
       this.outputBuilder.updateConfig(outputBuilderConfig)
     }
 
-    if (hasPartialStdio || Object.hasOwn(partialConfig, 'captureConsoleOnSuccess')) {
-      this.refreshStdioFilter()
+    if (
+      Object.hasOwn(partialConfig, 'consoleJsonSpacing') ||
+      Object.hasOwn(partialConfig, 'framedOutput') ||
+      Object.hasOwn(partialConfig, 'warnWhenConsoleBlocked') ||
+      Object.hasOwn(partialConfig, 'fallbackToStderrOnBlocked')
+    ) {
+      this.refreshConsoleSink()
+    }
+
+    if (hasPartialStdio || hasPureStdoutUpdate) {
+      this.stdioController.stagePlan(this.config.stdio)
+    }
+
+    if (
+      hasPartialStdio ||
+      hasPureStdoutUpdate ||
+      Object.hasOwn(partialConfig, 'captureConsoleOnSuccess')
+    ) {
+      this.syncStdioPolicy()
     }
   }
 
@@ -691,20 +762,16 @@ export class LLMReporter implements Reporter {
       this.debug('stdio framework presets active: %o', this.config.stdio.frameworkPresets)
     }
 
-    // Start stdio interception early if configured to catch test setup logs
-    if (this.config.stdio.suppressStdout || this.config.stdio.suppressStderr) {
-      this.stdioInterceptor = new StdioInterceptor(this.config.stdio)
-      this.stdioInterceptor.enable()
-
-      // Save original writers for later use
-      const originalWriters = this.stdioInterceptor.getOriginalWriters()
-      this.originalStdoutWrite = originalWriters.stdout
-      this.originalStderrWrite = originalWriters.stderr
-    } else {
-      this.stdioInterceptor = undefined
-      this.originalStdoutWrite = undefined
-      this.originalStderrWrite = undefined
+    if (!this.closeCleanupRegistered && typeof ctx.onClose === 'function') {
+      ctx.onClose(() => {
+        this.cleanupOnClose()
+      })
+      this.closeCleanupRegistered = true
     }
+
+    // Vitest dispatches reporter run-start hooks concurrently, so interception
+    // needs to be active before onTestRunStart begins.
+    this.prepareStdioForRun()
   }
 
   private applyAutoDetectedFrameworkPresets(rootDir?: string): void {
@@ -733,67 +800,12 @@ export class LLMReporter implements Reporter {
     }
 
     if (changed) {
-      this.config.stdio.frameworkPresets = Array.from(combined)
-      this.refreshStdioFilter()
+      this.config.stdio = withFrameworkPresets(this.config.stdio, combined)
+      this.stdioController.stagePlan(this.config.stdio)
+      this.syncStdioPolicy()
     }
 
     this.debug('auto-detected stdio framework presets: %o', detected)
-  }
-
-  private refreshStdioFilter(): void {
-    const stdio = this.config.stdio
-    const presets = stdio.frameworkPresets ?? []
-    this.stdioFilter = new StdioFilterEvaluator(stdio.filterPattern, presets)
-    this.orchestrator?.updateStdioFilter(this.stdioFilter, this.shouldFilterSuccessLogs())
-  }
-
-  private shouldFilterSuccessLogs(): boolean {
-    const stdio = this.config.stdio
-    return (
-      this.config.captureConsoleOnSuccess &&
-      (stdio.suppressStdout ||
-        stdio.filterPattern !== undefined ||
-        (stdio.frameworkPresets?.length ?? 0) > 0)
-    )
-  }
-
-  private mergeResolvedStdioConfig(
-    current: ResolvedStdioConfig,
-    update?: StdioConfig
-  ): ResolvedStdioConfig {
-    const merged: ResolvedStdioConfig = {
-      ...current,
-      frameworkPresets: [...current.frameworkPresets]
-    }
-
-    if (!update) {
-      return merged
-    }
-
-    if (Object.hasOwn(update, 'suppressStdout')) {
-      merged.suppressStdout = update.suppressStdout ?? merged.suppressStdout
-    }
-    if (Object.hasOwn(update, 'suppressStderr')) {
-      merged.suppressStderr = update.suppressStderr ?? merged.suppressStderr
-    }
-    if (Object.hasOwn(update, 'filterPattern')) {
-      merged.filterPattern = update.filterPattern
-    }
-    if (Object.hasOwn(update, 'frameworkPresets')) {
-      const presets = update.frameworkPresets
-      merged.frameworkPresets = presets ? [...presets] : []
-    }
-    if (Object.hasOwn(update, 'autoDetectFrameworks')) {
-      merged.autoDetectFrameworks = update.autoDetectFrameworks ?? merged.autoDetectFrameworks
-    }
-    if (Object.hasOwn(update, 'redirectToStderr')) {
-      merged.redirectToStderr = update.redirectToStderr ?? merged.redirectToStderr
-    }
-    if (Object.hasOwn(update, 'flushWithFiltering')) {
-      merged.flushWithFiltering = update.flushWithFiltering ?? merged.flushWithFiltering
-    }
-
-    return merged
   }
 
   private mergeTruncationConfig(
@@ -890,8 +902,11 @@ export class LLMReporter implements Reporter {
     this.isTestRunActive = true
 
     try {
+      this.beginStdioRun()
+      const activeStdioPlan = this.getEffectiveStdioPlan()
+
       // Start spinner if enabled (but not if stderr is suppressed)
-      if (this.config.spinner.enabled && !this.config.stdio.suppressStderr) {
+      if (this.config.spinner.enabled && !activeStdioPlan.suppressStderr) {
         this.startSpinner()
       }
 
@@ -985,6 +1000,10 @@ export class LLMReporter implements Reporter {
     unhandledErrors: ReadonlyArray<SerializedError>,
     reason: TestRunEndReason
   ): Promise<void> {
+    let stdioStopped = false
+    let keepStdioUntilFinished = false
+    let holdStdoutUntilFinished = false
+
     try {
       // Stop spinner before building output
       this.stopSpinner()
@@ -1123,11 +1142,32 @@ export class LLMReporter implements Reporter {
         }
       }
 
+      keepStdioUntilFinished = this.shouldKeepStdioInterceptionUntilFinished()
+
+      if (this.shouldHoldStdoutUntilFinished()) {
+        // Flush buffered run output before the first JSON, then keep intercepting
+        // teardown stdout until onFinished decides whether console JSON must be rewritten.
+        this.stdioController.prepareForReportHold()
+        holdStdoutUntilFinished = this.stdioController.isHoldingReport()
+      } else if (keepStdioUntilFinished) {
+        // Flush buffered run output before the reporter finalizes artifacts, but
+        // keep interception active so teardown writes are still filtered.
+        this.stdioController.flushBufferedOutput()
+      } else {
+        // End interception before emitting JSON so buffered run output cannot leak after it.
+        this.finishStdioSession('filter')
+        stdioStopped = true
+      }
+
       // Flush output eagerly so CI runs produce artifacts even if onFinished is skipped
       this.flushOutput()
     } finally {
-      // Always cleanup, even if errors occurred
-      this.cleanup()
+      if (!stdioStopped && !keepStdioUntilFinished && !holdStdoutUntilFinished) {
+        this.finishStdioSession('filter')
+      }
+
+      // Always cleanup, even if errors occurred.
+      this.cleanupAfterRun()
     }
   }
 
@@ -1404,11 +1444,31 @@ export class LLMReporter implements Reporter {
         }
       }
 
-      this.flushOutput({ forceFile: Boolean(errors && errors.length > 0) })
+      const hasTeardownErrors = Boolean(errors && errors.length > 0)
+      const discardHeldStdoutBeforeFinalCleanup =
+        this.outputWriteState.console && this.stdioController.isHoldingReport()
+
+      // Once console JSON has already been written from a held session, never
+      // flush buffered teardown stdout back through the current suppression
+      // policy. That would let relaxed mid-teardown config changes append held
+      // bytes after the machine-readable report.
+      this.finishStdioSession(discardHeldStdoutBeforeFinalCleanup ? 'discard' : 'filter')
+      this.flushOutput({
+        forceFile: hasTeardownErrors,
+        forceConsole: hasTeardownErrors
+      })
     } finally {
-      // Always perform final cleanup
-      this.finalCleanup()
+      // Fallback for cases where onTestRunEnd did not complete and interception is still active
+      this.finishStdioSession('filter')
     }
+  }
+
+  private getStdoutWriter(): typeof process.stdout.write {
+    return this.stdioController.getWriters().stdout
+  }
+
+  private getStderrWriter(): typeof process.stderr.write {
+    return this.stdioController.getWriters().stderr
   }
 
   private flushOutput(options: { forceFile?: boolean; forceConsole?: boolean } = {}): void {
@@ -1437,171 +1497,26 @@ export class LLMReporter implements Reporter {
     const shouldAttemptConsole = canWriteConsole && (!this.outputWriteState.console || forceConsole)
 
     if (shouldAttemptConsole && hasMeaningfulResults) {
-      try {
-        const writeToStdout = this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
-        const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
-
-        if (this.config.framedOutput) {
-          writeToStdout('\n' + '='.repeat(80) + '\n')
-          writeToStdout('LLM Reporter Output:\n')
-          writeToStdout('='.repeat(80) + '\n')
-        }
-
-        writeToStdout(jsonOutput + '\n')
-
-        if (this.config.framedOutput) {
-          writeToStdout('='.repeat(80) + '\n')
-        }
-
-        this.outputWriteState.console = true
+      this.outputWriteState.console = this.consoleSink.write(this.output, {
+        stdout: this.getStdoutWriter(),
+        stderr: this.getStderrWriter()
+      })
+      if (this.outputWriteState.console) {
         this.debug('Output written to console')
-      } catch (consoleError) {
-        this.debugError('Failed to write to console: %O', consoleError)
-
-        if (this.config.warnWhenConsoleBlocked) {
-          try {
-            const currentStderrWrite: typeof process.stderr.write = process.stderr.write.bind(
-              process.stderr
-            )
-            const hint =
-              'vitest-llm-reporter: Console output appears blocked. ' +
-              "If you do not see the JSON output, configure `outputFile` or adjust your project's log/silent settings.\n"
-            try {
-              currentStderrWrite(hint)
-            } catch {
-              try {
-                ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(hint)
-              } catch {
-                try {
-                  fs.writeSync(2, hint)
-                } catch (e) {
-                  this.debugError('fs.writeSync stderr hint failed: %O', e)
-                }
-              }
-            }
-
-            if (this.config.fallbackToStderrOnBlocked && this.output) {
-              const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
-              try {
-                currentStderrWrite(jsonOutput + '\n')
-              } catch {
-                try {
-                  ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(
-                    jsonOutput + '\n'
-                  )
-                } catch {
-                  try {
-                    fs.writeSync(2, jsonOutput + '\n')
-                  } catch (e) {
-                    this.debugError('fs.writeSync stderr JSON failed: %O', e)
-                  }
-                }
-              }
-            }
-          } catch (stderrError) {
-            this.debugError('Failed to write fallback warning to stderr: %O', stderrError)
-          }
-        }
       }
     } else if (
       shouldAttemptConsole &&
       !hasMeaningfulResults &&
       this.config.warnWhenConsoleBlocked
     ) {
-      try {
-        const writeToStdout = this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
-        try {
-          writeToStdout('')
-        } catch (probeError) {
-          this.debugError('Stdout appears blocked during probe: %O', probeError)
-          const currentStderrWrite: typeof process.stderr.write = process.stderr.write.bind(
-            process.stderr
-          )
-          const hint =
-            'vitest-llm-reporter: Console output appears blocked. ' +
-            "If you do not see the JSON output, configure `outputFile` or adjust your project's log/silent settings.\n"
-          try {
-            currentStderrWrite(hint)
-          } catch {
-            try {
-              ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(hint)
-            } catch {
-              try {
-                fs.writeSync(2, hint)
-              } catch (e) {
-                this.debugError('fs.writeSync stderr hint failed: %O', e)
-              }
-            }
-          }
-          if (this.config.fallbackToStderrOnBlocked && this.output) {
-            const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
-            try {
-              currentStderrWrite(jsonOutput + '\n')
-            } catch {
-              try {
-                ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(
-                  jsonOutput + '\n'
-                )
-              } catch {
-                try {
-                  fs.writeSync(2, jsonOutput + '\n')
-                } catch (e) {
-                  this.debugError('fs.writeSync stderr JSON failed: %O', e)
-                }
-              }
-            }
-          }
-        }
-      } catch (stderrError) {
-        this.debugError('Failed during blocked-stdout probe/warn: %O', stderrError)
-      }
-    }
-
-    if (
-      canWriteConsole &&
-      hasMeaningfulResults &&
-      this.config.warnWhenConsoleBlocked &&
-      this.config.fallbackToStderrOnBlocked &&
-      (!this.outputWriteState.console || forceConsole)
-    ) {
-      try {
-        const currentStdoutWrite =
-          this.originalStdoutWrite || process.stdout.write.bind(process.stdout)
-        const probeMessage = '\n'
-        const writeResult = currentStdoutWrite(probeMessage)
-
-        if (!writeResult) {
-          const stderrWrite = this.originalStderrWrite || process.stderr.write.bind(process.stderr)
-          const warning =
-            'vitest-llm-reporter: stdout appears to be blocked. JSON results may not be visible.\n' +
-            "If you do not see the JSON output, configure `outputFile` or adjust your project's log/silent settings.\n"
-          try {
-            stderrWrite(warning)
-          } catch (stderrWriteError) {
-            this.debugError('fs.writeSync stderr hint failed: %O', stderrWriteError)
-          }
-          if (this.config.fallbackToStderrOnBlocked && this.output) {
-            const jsonOutput = JSON.stringify(this.output, null, this.config.consoleJsonSpacing)
-            try {
-              stderrWrite(jsonOutput + '\n')
-            } catch {
-              try {
-                ;(this.originalStderrWrite || process.stderr.write.bind(process.stderr))(
-                  jsonOutput + '\n'
-                )
-              } catch {
-                try {
-                  fs.writeSync(2, jsonOutput + '\n')
-                } catch (e) {
-                  this.debugError('fs.writeSync stderr JSON failed: %O', e)
-                }
-              }
-            }
-          }
-        }
-      } catch (stderrError) {
-        this.debugError('Failed during blocked-stdout probe/warn: %O', stderrError)
-      }
+      this.consoleSink.write(
+        this.output,
+        {
+          stdout: this.getStdoutWriter(),
+          stderr: this.getStderrWriter()
+        },
+        { probeWhenEmpty: true }
+      )
     }
   }
 }
