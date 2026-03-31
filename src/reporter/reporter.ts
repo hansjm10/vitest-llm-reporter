@@ -1409,11 +1409,14 @@ export class LLMReporter implements Reporter {
       }
 
       const hasTeardownErrors = Boolean(errors && errors.length > 0)
-      const discardHeldStdoutBeforeRewrite =
-        hasTeardownErrors && this.outputWriteState.console && this.stdioController.isHoldingReport()
+      const discardHeldStdoutBeforeFinalCleanup =
+        this.outputWriteState.console && this.stdioController.isHoldingReport()
 
-      // If teardown changes the result after a run-end flush, rewrite the output sinks as needed.
-      this.stopStdioInterception(discardHeldStdoutBeforeRewrite ? 'discard' : 'filter')
+      // Once console JSON has already been written from a held session, never
+      // flush buffered teardown stdout back through the current suppression
+      // policy. That would let relaxed mid-teardown config changes append held
+      // bytes after the machine-readable report.
+      this.stopStdioInterception(discardHeldStdoutBeforeFinalCleanup ? 'discard' : 'filter')
       this.flushOutput({
         forceFile: hasTeardownErrors,
         forceConsole: hasTeardownErrors

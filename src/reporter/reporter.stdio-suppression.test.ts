@@ -694,6 +694,69 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).not.toContain('teardown noise that should stay held\n')
   })
 
+  it('discards held teardown stdout on clean finish after stdout suppression is relaxed mid-hold', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+    const captureWrite = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    process.stdout.write = captureWrite
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      environmentMetadata: { enabled: false }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    const mockModule = createMockTestModule()
+    reporter.onTestModuleCollected(mockModule)
+    reporter.onTestModuleStart(mockModule)
+
+    const testCase = mockModule.tasks[0]
+    reporter.onTestCaseReady(testCase)
+    reporter.onTestCaseResult(testCase)
+    reporter.onTestModuleEnd(mockModule)
+
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const heldWrite = process.stdout.write
+    expect(heldWrite).not.toBe(captureWrite)
+
+    process.stdout.write('teardown noise that should stay held\n')
+    reporter.updateConfig({ stdio: { suppressStdout: false } })
+
+    expect(stdoutWrites).not.toContain('teardown noise that should stay held\n')
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(process.stdout.write).toBe(heldWrite)
+
+    reporter.onFinished([], [], undefined)
+
+    process.stdout.write = originalWrite
+
+    const jsonWrites = stdoutWrites.filter((write) => {
+      try {
+        JSON.parse(write.trim())
+        return true
+      } catch {
+        return false
+      }
+    })
+
+    expect(jsonWrites).toHaveLength(1)
+    expect(stdoutWrites).not.toContain('teardown noise that should stay held\n')
+  })
+
   it('keeps stdout suppression active after onTestRunEnd for file-only output', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-reporter-'))
     const outputFile = path.join(tempDir, 'results.json')
