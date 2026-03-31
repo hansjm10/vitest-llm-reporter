@@ -460,6 +460,69 @@ describe('LLMReporter stdio suppression', () => {
     process.stdout.write = originalWrite
   })
 
+  it('keeps report-hold armed when updateConfig disables stdout suppression mid-teardown', async () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+    const captureWrite = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    process.stdout.write = captureWrite
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      environmentMetadata: { enabled: false }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    const mockModule = createMockTestModule()
+    reporter.onTestModuleCollected(mockModule)
+    reporter.onTestModuleStart(mockModule)
+
+    const testCase = mockModule.tasks[0]
+    reporter.onTestCaseReady(testCase)
+    reporter.onTestCaseResult(testCase)
+    reporter.onTestModuleEnd(mockModule)
+
+    await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const heldWrite = process.stdout.write
+    expect(heldWrite).not.toBe(captureWrite)
+
+    process.stdout.write('teardown noise that should stay held\n')
+    reporter.updateConfig({ stdio: { suppressStdout: false } })
+
+    expect(stdoutWrites).not.toContain('teardown noise that should stay held\n')
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(process.stdout.write).toBe(heldWrite)
+
+    reporter.onFinished([], [new Error('afterAll failed')], undefined)
+
+    process.stdout.write = originalWrite
+
+    const jsonWrites = stdoutWrites.filter((write) => {
+      try {
+        JSON.parse(write.trim())
+        return true
+      } catch {
+        return false
+      }
+    })
+
+    expect(jsonWrites).toHaveLength(2)
+    expect(stdoutWrites).not.toContain('teardown noise that should stay held\n')
+  })
+
   it('flushes visible buffered stdout before reporter JSON at onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)

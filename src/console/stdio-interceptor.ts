@@ -139,10 +139,6 @@ export class StdioInterceptor {
       return
     }
 
-    if (this.holdWrites && !this.plan.suppressStdout) {
-      this.holdWrites = false
-    }
-
     this.syncPatchedStreams()
   }
 
@@ -224,26 +220,8 @@ export class StdioInterceptor {
 
       // Filter and write lines
       for (const line of lines) {
-        const lineWithNewline = line + '\n'
-
-        if (!this.policy.shouldSuppress(line)) {
-          // Pass through non-suppressed lines (bind to correct stream)
-          const result = originalWrite.call(
-            stream === 'stdout' ? process.stdout : process.stderr,
-            lineWithNewline,
-            encoding,
-            undefined
-          )
-          ok = ok && result
-        } else if (this.plan.redirectToStderr && stream === 'stdout' && redirectTarget) {
-          // Redirect suppressed stdout to stderr if configured
-          const result = redirectTarget.call(process.stderr, lineWithNewline, encoding, undefined)
-          ok = ok && result
-        } else {
-          const result = this.writePassthroughControlChunk(stream, originalWrite, line, encoding)
-          ok = ok && result
-        }
-        // Otherwise, drop the line
+        ok =
+          this.writeFilteredLine(stream, originalWrite, line, '\n', encoding, redirectTarget) && ok
       }
 
       // Pass callback to the last write operation or call immediately if no writes occurred
@@ -322,6 +300,49 @@ export class StdioInterceptor {
     )
   }
 
+  private writeFilteredLine(
+    stream: 'stdout' | 'stderr',
+    originalWrite: WriteFunction,
+    line: string,
+    suffix: string,
+    encoding?: BufferEncoding,
+    redirectTarget?: WriteFunction
+  ): boolean {
+    const chunk = line + suffix
+
+    if (!this.policy.shouldSuppress(line)) {
+      return originalWrite.call(
+        stream === 'stdout' ? process.stdout : process.stderr,
+        chunk,
+        encoding,
+        undefined
+      )
+    }
+
+    if (this.plan.redirectToStderr && stream === 'stdout' && redirectTarget) {
+      return redirectTarget.call(process.stderr, chunk, encoding, undefined)
+    }
+
+    return this.writePassthroughControlChunk(stream, originalWrite, line, encoding)
+  }
+
+  private flushBufferedChunkWithFiltering(
+    stream: 'stdout' | 'stderr',
+    chunk: string,
+    originalWrite: WriteFunction
+  ): void {
+    const lines = chunk.split('\n')
+    const incomplete = lines.pop() ?? ''
+
+    for (const line of lines) {
+      this.writeFilteredLine(stream, originalWrite, line, '\n', undefined, this.originalStderrWrite)
+    }
+
+    if (incomplete.length > 0) {
+      this.writeFilteredLine(stream, originalWrite, incomplete, '', undefined, this.originalStderrWrite)
+    }
+  }
+
   /**
    * Flush any remaining buffered content
    */
@@ -372,17 +393,7 @@ export class StdioInterceptor {
       return
     }
 
-    if (!this.policy.shouldSuppress(chunk)) {
-      originalWrite.call(stream === 'stdout' ? process.stdout : process.stderr, chunk)
-      return
-    }
-
-    if (stream === 'stdout' && this.plan.redirectToStderr && this.originalStderrWrite) {
-      this.originalStderrWrite.call(process.stderr, chunk)
-      return
-    }
-
-    this.writePassthroughControlChunk(stream, originalWrite, chunk)
+    this.flushBufferedChunkWithFiltering(stream, chunk, originalWrite)
   }
 
   private syncPatchedStreams(): void {
@@ -391,7 +402,10 @@ export class StdioInterceptor {
   }
 
   private syncPatchedStream(stream: 'stdout' | 'stderr'): void {
-    const shouldPatch = stream === 'stdout' ? this.plan.suppressStdout : this.plan.suppressStderr
+    const shouldPatch =
+      stream === 'stdout'
+        ? this.plan.suppressStdout || this.holdWrites
+        : this.plan.suppressStderr
     const originalWrite = stream === 'stdout' ? this.originalStdoutWrite : this.originalStderrWrite
 
     if (!originalWrite) {

@@ -254,6 +254,34 @@ describe('StdioInterceptor', () => {
 
       expect(stdoutOutput).toEqual([])
     })
+
+    it('filters held mixed stdout line by line when disabling with filter', () => {
+      const firstInterceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      firstInterceptor.enable()
+      firstInterceptor.prepareForReportHold()
+      process.stdout.write('[Nest] hidden\nVisible\n')
+      firstInterceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput.join('')).toBe('Visible\n')
+
+      stdoutOutput = []
+
+      const secondInterceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: /^\[Nest\]/
+      })
+
+      secondInterceptor.enable()
+      secondInterceptor.prepareForReportHold()
+      process.stdout.write('Visible\n[Nest] hidden\n')
+      secondInterceptor.disable({ bufferedOutput: 'filter' })
+
+      expect(stdoutOutput.join('')).toBe('Visible\n')
+    })
   })
 
   describe('pure mode', () => {
