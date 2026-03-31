@@ -47,6 +47,7 @@ export class StdioInterceptor {
   private stdoutLineBuffer = ''
   private stderrLineBuffer = ''
   private isEnabled = false
+  private holdWrites = false
 
   constructor(config: StdioConfig | ResolvedStdioPlan = {}, policy?: StdioSuppressionPolicy) {
     this.plan = isResolvedStdioPlan(config) ? config : resolveStdioPlan({ stdio: config })
@@ -60,6 +61,8 @@ export class StdioInterceptor {
     if (this.isEnabled) {
       return
     }
+
+    this.holdWrites = false
 
     // Save original write functions bound to their streams
     this.originalStdoutWrite = process.stdout.write.bind(process.stdout)
@@ -110,6 +113,27 @@ export class StdioInterceptor {
     this.patchedStdout = false
     this.patchedStderr = false
     this.isEnabled = false
+    this.holdWrites = false
+  }
+
+  /**
+   * Flush buffered run output before the reporter writes JSON, then hold any
+   * subsequent teardown writes until the final output state is known.
+   */
+  prepareForReportHold(): void {
+    if (!this.isEnabled) {
+      return
+    }
+
+    this.flushBuffers({ bufferedOutput: 'filter' })
+    this.holdWrites = true
+  }
+
+  /**
+   * Check whether interception is currently holding post-run writes.
+   */
+  isHoldingReport(): boolean {
+    return this.isEnabled && this.holdWrites
   }
 
   /**
@@ -156,6 +180,16 @@ export class StdioInterceptor {
         str = chunk.toString(encoding || 'utf8')
       } else {
         str = String(chunk)
+      }
+
+      if (this.holdWrites) {
+        this[lineBuffer] += str
+
+        if (callback) {
+          process.nextTick(callback)
+        }
+
+        return true
       }
 
       if (

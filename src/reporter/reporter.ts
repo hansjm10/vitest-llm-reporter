@@ -409,6 +409,19 @@ export class LLMReporter implements Reporter {
   }
 
   /**
+   * Keep stdout interception alive until onFinished when console JSON may still
+   * be rewritten by teardown errors.
+   */
+  private shouldHoldStdoutUntilFinished(): boolean {
+    return Boolean(
+      this.stdioController.isActive() &&
+        this.config.stdio.suppressStdout &&
+        (!this.config.outputFile || this.config.enableConsoleOutput) &&
+        this.context
+    )
+  }
+
+  /**
    * Reset state for watch mode reuse
    */
   private reset(): void {
@@ -921,6 +934,7 @@ export class LLMReporter implements Reporter {
     reason: TestRunEndReason
   ): Promise<void> {
     let stdioStopped = false
+    let holdStdoutUntilFinished = false
 
     try {
       // Stop spinner before building output
@@ -1060,14 +1074,21 @@ export class LLMReporter implements Reporter {
         }
       }
 
-      // End interception before emitting JSON so buffered run output cannot leak after it.
-      this.stopStdioInterception('filter')
-      stdioStopped = true
+      if (this.shouldHoldStdoutUntilFinished()) {
+        // Flush buffered run output before the first JSON, then keep intercepting
+        // teardown stdout until onFinished decides whether console JSON must be rewritten.
+        this.stdioController.prepareForReportHold()
+        holdStdoutUntilFinished = this.stdioController.isHoldingReport()
+      } else {
+        // End interception before emitting JSON so buffered run output cannot leak after it.
+        this.stopStdioInterception('filter')
+        stdioStopped = true
+      }
 
       // Flush output eagerly so CI runs produce artifacts even if onFinished is skipped
       this.flushOutput()
     } finally {
-      if (!stdioStopped) {
+      if (!stdioStopped && !holdStdoutUntilFinished) {
         this.stopStdioInterception('filter')
       }
 
@@ -1349,9 +1370,12 @@ export class LLMReporter implements Reporter {
         }
       }
 
-      // If teardown changes the result after a run-end flush, rewrite the output sinks as needed.
-      this.stopStdioInterception('filter')
       const hasTeardownErrors = Boolean(errors && errors.length > 0)
+      const discardHeldStdoutBeforeRewrite =
+        hasTeardownErrors && this.outputWriteState.console && this.stdioController.isHoldingReport()
+
+      // If teardown changes the result after a run-end flush, rewrite the output sinks as needed.
+      this.stopStdioInterception(discardHeldStdoutBeforeRewrite ? 'discard' : 'filter')
       this.flushOutput({
         forceFile: hasTeardownErrors,
         forceConsole: hasTeardownErrors

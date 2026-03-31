@@ -40,6 +40,10 @@ export class StdioSessionController {
     this.session = undefined
   }
 
+  prepareForReportHold(): void {
+    this.session?.prepareForReportHold()
+  }
+
   abortOnClose(): void {
     if (!this.session) {
       return
@@ -68,6 +72,10 @@ export class StdioSessionController {
 
   isActive(): boolean {
     return this.session?.isActive() ?? false
+  }
+
+  isHoldingReport(): boolean {
+    return this.session?.isHoldingReport() ?? false
   }
 
   private getFallbackWriters(): { stdout: WriteFunction; stderr: WriteFunction } {
