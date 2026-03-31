@@ -25,6 +25,7 @@ import type { ResolvedStdioPlan } from '../console/stdio-plan.js'
 import {
   mergeResolvedStdioPlan,
   resolveStdioPlan,
+  shouldInterceptStdio,
   shouldFilterSuccessLogs,
   withFrameworkPresets
 } from '../console/stdio-plan.js'
@@ -141,6 +142,8 @@ export class LLMReporter implements Reporter {
   private performanceManager?: PerformanceManager
   private stdioController: StdioSessionController
   private closeCleanupRegistered = false
+  private stdioLifecycleActive = false
+  private rearmStdioOnNextRun = false
   // Spinner state
   private spinnerTimer?: NodeJS.Timeout
   private spinnerActive = false
@@ -386,14 +389,16 @@ export class LLMReporter implements Reporter {
       this.performanceManager.stop()
     }
 
+    this.stdioLifecycleActive = false
+    this.rearmStdioOnNextRun = false
     this.stdioController.abortOnClose()
   }
 
   /**
    * Enable stdio interception for the active test run
    */
-  private startStdioInterception(): void {
-    this.stdioController.armForRun()
+  private startStdioInterception(options: { resetActiveSession?: boolean } = {}): void {
+    this.stdioController.armForRun(options)
   }
 
   /**
@@ -670,6 +675,7 @@ export class LLMReporter implements Reporter {
   onInit(ctx: Vitest): void {
     this.context = ctx
     this.rootDir = ctx.config.root
+    this.stdioLifecycleActive = true
 
     // Update components with root directory and config
     this.resultBuilder.updateConfig({
@@ -743,6 +749,15 @@ export class LLMReporter implements Reporter {
 
   private refreshStdioPolicy(): void {
     this.stdioController.updatePlan(this.config.stdio)
+
+    if (
+      this.stdioLifecycleActive &&
+      shouldInterceptStdio(this.config.stdio) &&
+      !this.stdioController.isActive()
+    ) {
+      this.startStdioInterception()
+    }
+
     this.orchestrator?.updateStdioPolicy(
       this.stdioController.getPolicy(),
       this.shouldFilterSuccessLogs()
@@ -845,9 +860,11 @@ export class LLMReporter implements Reporter {
       this.reset()
     }
     this.isTestRunActive = true
+    this.stdioLifecycleActive = true
 
     try {
-      this.startStdioInterception()
+      this.startStdioInterception({ resetActiveSession: this.rearmStdioOnNextRun })
+      this.rearmStdioOnNextRun = false
 
       // Start spinner if enabled (but not if stderr is suppressed)
       if (this.config.spinner.enabled && !this.config.stdio.suppressStderr) {
@@ -1106,8 +1123,11 @@ export class LLMReporter implements Reporter {
       // Flush output eagerly so CI runs produce artifacts even if onFinished is skipped
       this.flushOutput()
     } finally {
+      this.rearmStdioOnNextRun = this.stdioController.isActive()
+
       if (!stdioStopped && !keepStdioUntilFinished && !holdStdoutUntilFinished) {
         this.stopStdioInterception('filter')
+        this.rearmStdioOnNextRun = false
       }
 
       // Always cleanup, even if errors occurred.
@@ -1401,6 +1421,8 @@ export class LLMReporter implements Reporter {
     } finally {
       // Fallback for cases where onTestRunEnd did not complete and interception is still active
       this.stopStdioInterception('filter')
+      this.rearmStdioOnNextRun = false
+      this.stdioLifecycleActive = false
     }
   }
 

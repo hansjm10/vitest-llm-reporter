@@ -296,6 +296,51 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).toContain('visible after update\n')
   })
 
+  it('arms stdout interception when suppressStdout is enabled mid-run', () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: false,
+        frameworkPresets: []
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+    reporter.onTestRunStart([])
+
+    process.stdout.write('visible before update\n')
+    reporter.updateConfig({
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: [],
+        filterPattern: /^Hidden after update$/
+      }
+    })
+    process.stdout.write('Hidden after update\n')
+    process.stdout.write('Visible after update\n')
+
+    reporter.onFinished([], [], undefined)
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites).toContain('visible before update\n')
+    expect(stdoutWrites).not.toContain('Hidden after update\n')
+    expect(stdoutWrites).toContain('Visible after update\n')
+  })
+
   it('pure stdout mode suppresses all external stdout', async () => {
     const reporter = new LLMReporter({
       framedOutput: false,
@@ -458,6 +503,56 @@ describe('LLMReporter stdio suppression', () => {
 
     reporter.onFinished([], [], undefined)
     process.stdout.write = originalWrite
+  })
+
+  it('discards stale teardown stdout fragments before the next non-hold run starts', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-reporter-'))
+    const outputFile = path.join(tempDir, 'results.json')
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    try {
+      const reporter = new LLMReporter({
+        framedOutput: false,
+        environmentMetadata: { enabled: false },
+        outputFile,
+        enableConsoleOutput: false,
+        stdio: {
+          suppressStdout: true,
+          frameworkPresets: [],
+          filterPattern: /^Suppressed during run$/
+        }
+      })
+
+      const mockVitest = { config: { root: '/test-project' } }
+      reporter.onInit(mockVitest as any)
+      reporter.onTestRunStart([])
+
+      const mockModule = createMockTestModule()
+      await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+      process.stdout.write('Compiling...')
+
+      reporter.onTestRunStart([])
+      process.stdout.write('Visible second run\n')
+      reporter.onFinished([], [], undefined)
+
+      expect(stdoutWrites.join('')).not.toContain('Compiling...')
+      expect(stdoutWrites).toContain('Visible second run\n')
+    } finally {
+      process.stdout.write = originalWrite
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
   })
 
   it('keeps report-hold armed when updateConfig disables stdout suppression mid-teardown', async () => {

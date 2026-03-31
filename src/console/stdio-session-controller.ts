@@ -13,9 +13,11 @@ export class StdioSessionController {
     this.policy = new StdioSuppressionPolicy(this.plan)
   }
 
-  armForRun(): void {
+  armForRun(options: { resetActiveSession?: boolean } = {}): void {
+    const { resetActiveSession = false } = options
+
     if (this.session?.isActive()) {
-      if (this.session.isHoldingReport()) {
+      if (resetActiveSession || this.session.isHoldingReport()) {
         this.session.disable({ bufferedOutput: 'discard' })
         this.session = undefined
       } else {
