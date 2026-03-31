@@ -7,7 +7,7 @@
  * @module console/stdio-interceptor
  */
 
-import type { StdioConfig } from '../types/reporter.js'
+import type { StdioConfig, StdioFilter } from '../types/reporter.js'
 import type { BufferedTailPolicy, ResolvedStdioPlan } from './stdio-plan.js'
 import {
   cloneResolvedStdioPlan,
@@ -141,18 +141,20 @@ export class StdioInterceptor {
   }
 
   /**
-   * Update the active suppression plan without tearing down buffered state.
+   * Update the active suppression plan without tearing down interception.
+   * Buffered partials are flushed first when a material suppression-policy
+   * change would otherwise reclassify bytes that were written under the old plan.
    */
   updatePlan(plan: ResolvedStdioPlan, policy?: StdioSuppressionPolicy): void {
     const nextPlan = cloneResolvedStdioPlan(plan)
     const nextPolicy = policy ?? new StdioSuppressionPolicy(nextPlan)
 
     if (this.isEnabled) {
-      if (this.patchedStdout && !this.shouldPatchStream('stdout', nextPlan)) {
+      if (this.shouldFlushBufferedStreamBeforePlanUpdate('stdout', nextPlan)) {
         this.flushBufferedStream('stdout', 'filter')
       }
 
-      if (this.patchedStderr && !this.shouldPatchStream('stderr', nextPlan)) {
+      if (this.shouldFlushBufferedStreamBeforePlanUpdate('stderr', nextPlan)) {
         this.flushBufferedStream('stderr', 'filter')
       }
     }
@@ -434,6 +436,87 @@ export class StdioInterceptor {
 
   private shouldHoldStream(stream: 'stdout' | 'stderr'): boolean {
     return stream === 'stdout' && this.holdStdoutWrites
+  }
+
+  private shouldFlushBufferedStreamBeforePlanUpdate(
+    stream: 'stdout' | 'stderr',
+    nextPlan: ResolvedStdioPlan
+  ): boolean {
+    const isPatched = stream === 'stdout' ? this.patchedStdout : this.patchedStderr
+    if (!isPatched) {
+      return false
+    }
+
+    if (this.shouldHoldStream(stream)) {
+      return false
+    }
+
+    if (!this.shouldPatchStream(stream, nextPlan)) {
+      return true
+    }
+
+    return this.hasMaterialStreamPolicyChange(stream, nextPlan)
+  }
+
+  private hasMaterialStreamPolicyChange(
+    stream: 'stdout' | 'stderr',
+    nextPlan: ResolvedStdioPlan
+  ): boolean {
+    if (!this.sameFilterPattern(this.plan.filterPattern, nextPlan.filterPattern)) {
+      return true
+    }
+
+    if (!this.sameFrameworkPresets(this.plan.frameworkPresets, nextPlan.frameworkPresets)) {
+      return true
+    }
+
+    return stream === 'stdout' && this.plan.redirectToStderr !== nextPlan.redirectToStderr
+  }
+
+  private sameFrameworkPresets(
+    current: readonly string[],
+    next: readonly string[]
+  ): boolean {
+    if (current.length !== next.length) {
+      return false
+    }
+
+    return current.every((preset, index) => preset === next[index])
+  }
+
+  private sameFilterPattern(
+    current: StdioConfig['filterPattern'],
+    next: StdioConfig['filterPattern']
+  ): boolean {
+    if (current === next) {
+      return true
+    }
+
+    if (Array.isArray(current) || Array.isArray(next)) {
+      return (
+        Array.isArray(current) &&
+        Array.isArray(next) &&
+        current.length === next.length &&
+        current.every((pattern, index) => this.sameSingleFilterPattern(pattern, next[index]))
+      )
+    }
+
+    return this.sameSingleFilterPattern(current, next)
+  }
+
+  private sameSingleFilterPattern(
+    current: StdioFilter | null | undefined,
+    next: StdioFilter | null | undefined
+  ): boolean {
+    if (current === next) {
+      return true
+    }
+
+    if (current instanceof RegExp && next instanceof RegExp) {
+      return current.source === next.source && current.flags === next.flags
+    }
+
+    return false
   }
 
   private syncPatchedStream(stream: 'stdout' | 'stderr'): void {

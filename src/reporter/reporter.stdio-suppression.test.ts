@@ -263,6 +263,81 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).not.toContain('Filtered after update\n')
   })
 
+  it('does not retroactively unhide buffered stdout partials when pure stdout is relaxed mid-run', () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      pureStdout: true
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    process.stdout.write('hidden partial')
+    reporter.updateConfig({
+      pureStdout: false,
+      stdio: {
+        frameworkPresets: [],
+        filterPattern: /^Bar$/
+      }
+    })
+    process.stdout.write('visible after update\n')
+
+    reporter.onFinished([], [], undefined)
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites.join('')).not.toContain('hidden partial')
+    expect(stdoutWrites).toContain('visible after update\n')
+  })
+
+  it('does not retroactively hide buffered stdout partials when filtering is tightened mid-run', () => {
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    const reporter = new LLMReporter({
+      framedOutput: false,
+      stdio: {
+        suppressStdout: true,
+        frameworkPresets: [],
+        filterPattern: /^Bar$/
+      }
+    })
+
+    const mockVitest = { config: { root: '/test-project' } }
+    reporter.onInit(mockVitest as any)
+
+    process.stdout.write('visible partial')
+    reporter.updateConfig({ pureStdout: true })
+    process.stdout.write('\n')
+
+    reporter.onFinished([], [], undefined)
+    process.stdout.write = originalWrite
+
+    expect(stdoutWrites.join('')).toBe('visible partial')
+  })
+
   it('applies suppressStdout updates to the active session immediately', () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)

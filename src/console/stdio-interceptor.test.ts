@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { StdioInterceptor } from './stdio-interceptor.js'
+import { resolveStdioPlan } from './stdio-plan.js'
 
 const RAW_CLEAR_LINE_PREFIX = new RegExp(String.raw`^\u001b\[2K\r`)
 
@@ -384,6 +385,58 @@ describe('StdioInterceptor', () => {
   })
 
   describe('flush filtering', () => {
+    it('flushes suppressed stdout partials before relaxing the active filter policy', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        filterPattern: null,
+        frameworkPresets: []
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('hidden partial')
+
+      interceptor.updatePlan(
+        resolveStdioPlan({
+          pureStdout: false,
+          stdio: {
+            suppressStdout: true,
+            frameworkPresets: [],
+            filterPattern: /^Bar$/
+          }
+        })
+      )
+      process.stdout.write('visible after update\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('visible after update\n')
+    })
+
+    it('flushes visible stdout partials before tightening the active filter policy', () => {
+      const interceptor = new StdioInterceptor({
+        suppressStdout: true,
+        frameworkPresets: [],
+        filterPattern: /^Bar$/
+      })
+
+      interceptor.enable()
+
+      process.stdout.write('visible partial')
+
+      interceptor.updatePlan(
+        resolveStdioPlan({
+          pureStdout: true,
+          stdio: {}
+        })
+      )
+      process.stdout.write('\n')
+
+      interceptor.disable()
+
+      expect(stdoutOutput.join('')).toBe('visible partial')
+    })
+
     it('applies filtering during flush when flushWithFiltering is true', () => {
       const interceptor = new StdioInterceptor({
         suppressStdout: true,
