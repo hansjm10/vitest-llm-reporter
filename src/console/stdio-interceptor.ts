@@ -122,6 +122,18 @@ export class StdioInterceptor {
   }
 
   /**
+   * Flush buffered run output without disabling interception so teardown writes
+   * continue to flow through the active suppression policy.
+   */
+  flushBufferedOutput(): void {
+    if (!this.isEnabled) {
+      return
+    }
+
+    this.flushBuffers({ bufferedOutput: 'filter' })
+  }
+
+  /**
    * Check whether interception is currently holding post-run writes.
    */
   isHoldingReport(): boolean {

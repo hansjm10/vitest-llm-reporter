@@ -409,12 +409,23 @@ export class LLMReporter implements Reporter {
   }
 
   /**
-   * Keep stdout interception alive until onFinished when console JSON may still
-   * be rewritten by teardown errors.
+   * Keep the active stdio session alive until onFinished when either stream is
+   * still being filtered or suppressed during teardown.
+   */
+  private shouldKeepStdioInterceptionUntilFinished(): boolean {
+    return Boolean(
+      this.stdioController.isActive() &&
+        (this.config.stdio.suppressStdout || this.config.stdio.suppressStderr)
+    )
+  }
+
+  /**
+   * Keep stdout interception in report-hold mode until onFinished when console
+   * JSON may still be rewritten by teardown errors.
    */
   private shouldHoldStdoutUntilFinished(): boolean {
     return Boolean(
-      this.stdioController.isActive() &&
+      this.shouldKeepStdioInterceptionUntilFinished() &&
         this.config.stdio.suppressStdout &&
         (!this.config.outputFile || this.config.enableConsoleOutput) &&
         this.context
@@ -934,6 +945,7 @@ export class LLMReporter implements Reporter {
     reason: TestRunEndReason
   ): Promise<void> {
     let stdioStopped = false
+    let keepStdioUntilFinished = false
     let holdStdoutUntilFinished = false
 
     try {
@@ -1074,11 +1086,17 @@ export class LLMReporter implements Reporter {
         }
       }
 
+      keepStdioUntilFinished = this.shouldKeepStdioInterceptionUntilFinished()
+
       if (this.shouldHoldStdoutUntilFinished()) {
         // Flush buffered run output before the first JSON, then keep intercepting
         // teardown stdout until onFinished decides whether console JSON must be rewritten.
         this.stdioController.prepareForReportHold()
         holdStdoutUntilFinished = this.stdioController.isHoldingReport()
+      } else if (keepStdioUntilFinished) {
+        // Flush buffered run output before the reporter finalizes artifacts, but
+        // keep interception active so teardown writes are still filtered.
+        this.stdioController.flushBufferedOutput()
       } else {
         // End interception before emitting JSON so buffered run output cannot leak after it.
         this.stopStdioInterception('filter')
@@ -1088,7 +1106,7 @@ export class LLMReporter implements Reporter {
       // Flush output eagerly so CI runs produce artifacts even if onFinished is skipped
       this.flushOutput()
     } finally {
-      if (!stdioStopped && !holdStdoutUntilFinished) {
+      if (!stdioStopped && !keepStdioUntilFinished && !holdStdoutUntilFinished) {
         this.stopStdioInterception('filter')
       }
 

@@ -49,6 +49,10 @@ export class StdioSessionController {
     this.session?.prepareForReportHold()
   }
 
+  flushBufferedOutput(): void {
+    this.session?.flushBufferedOutput()
+  }
+
   abortOnClose(): void {
     if (!this.session) {
       return

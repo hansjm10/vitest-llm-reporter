@@ -523,6 +523,97 @@ describe('LLMReporter stdio suppression', () => {
     expect(stdoutWrites).not.toContain('teardown noise that should stay held\n')
   })
 
+  it('keeps stdout suppression active after onTestRunEnd for file-only output', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-reporter-'))
+    const outputFile = path.join(tempDir, 'results.json')
+    const stdoutWrites: string[] = []
+    const originalWrite = process.stdout.write.bind(process.stdout)
+
+    process.stdout.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stdoutWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    try {
+      const reporter = new LLMReporter({
+        framedOutput: false,
+        environmentMetadata: { enabled: false },
+        outputFile,
+        enableConsoleOutput: false,
+        stdio: {
+          suppressStdout: true,
+          filterPattern: null
+        }
+      })
+
+      const mockVitest = { config: { root: '/test-project' } }
+      reporter.onInit(mockVitest as any)
+      reporter.onTestRunStart([])
+
+      const mockModule = createMockTestModule()
+      await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+      process.stdout.write('teardown noise after run end\n')
+      reporter.onFinished([], [], undefined)
+
+      expect(stdoutWrites).not.toContain('teardown noise after run end\n')
+    } finally {
+      process.stdout.write = originalWrite
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps stderr suppression active after onTestRunEnd until onFinished', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-reporter-'))
+    const outputFile = path.join(tempDir, 'results.json')
+    const stderrWrites: string[] = []
+    const originalWrite = process.stderr.write.bind(process.stderr)
+
+    process.stderr.write = ((chunk: any, encoding?: any, callback?: any) => {
+      if (typeof encoding === 'function') {
+        callback = encoding
+        encoding = undefined
+      }
+      stderrWrites.push(String(chunk))
+      if (callback) process.nextTick(callback)
+      return true
+    }) as any
+
+    try {
+      const reporter = new LLMReporter({
+        framedOutput: false,
+        environmentMetadata: { enabled: false },
+        outputFile,
+        enableConsoleOutput: false,
+        stdio: {
+          suppressStdout: false,
+          suppressStderr: true,
+          filterPattern: null
+        }
+      })
+
+      const mockVitest = { config: { root: '/test-project' } }
+      reporter.onInit(mockVitest as any)
+      reporter.onTestRunStart([])
+
+      const mockModule = createMockTestModule()
+      await reporter.onTestRunEnd([mockModule], [], 'passed' as TestRunEndReason)
+
+      process.stderr.write('teardown stderr after run end\n')
+      reporter.onFinished([], [], undefined)
+
+      expect(stderrWrites).not.toContain('teardown stderr after run end\n')
+    } finally {
+      process.stderr.write = originalWrite
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
   it('flushes visible buffered stdout before reporter JSON at onTestRunEnd', async () => {
     const stdoutWrites: string[] = []
     const originalWrite = process.stdout.write.bind(process.stdout)
